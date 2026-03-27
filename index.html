@@ -2867,9 +2867,10 @@
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
             <button class="btn btn-secondary" onclick="document.getElementById('inputSiniestralidad').click()">📥 Importar Siniestralidad (.xlsx)</button>
             <input type="file" id="inputSiniestralidad" accept=".xlsx,.xls" style="display:none;" onchange="importarSiniestralidad(event)">
+            <button class="btn btn-secondary" style="background:var(--teal);color:#fff;border-color:var(--teal);" onclick="document.getElementById('inputImportEmpresas').click()">📋 Importar BD Empresas (.xlsx)</button>
+            <input type="file" id="inputImportEmpresas" accept=".xlsx,.xls" style="display:none;" onchange="importarBDEmpresas(event)">
             <button class="btn btn-primary" onclick="openModalEmpresa()">+ Nueva Empresa</button>
           </div>
-        </div>
 
         <!-- KPIs -->
         <div class="grid-4" style="margin-bottom:20px;">
@@ -10215,6 +10216,107 @@ function renderBuscador() {
       </div>
     </div>`;
   }).join('');
+}
+
+// =============================================
+// IMPORTAR BD EMPRESAS DESDE EXCEL
+// =============================================
+async function importarBDEmpresas(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined') {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+      if (rows.length < 2) { showToast('El archivo no tiene datos'); return; }
+
+      const headers = rows[0].map(h => String(h).toLowerCase().trim());
+
+      const findCol = (...keys) => {
+        for (const k of keys) {
+          const i = headers.findIndex(h => h.includes(k));
+          if (i >= 0) return i;
+        }
+        return -1;
+      };
+
+      const colNIT      = findCol('nit', 'identificacion', 'documento');
+      const colNombre   = findCol('empresa', 'nombre', 'razon', 'compania');
+      const colContacto = findCol('contacto', 'responsable', 'persona');
+      const colTel      = findCol('telefono', 'tel', 'celular', 'movil');
+      const colCorreo   = findCol('correo', 'email', 'mail');
+      const colSin      = findCol('siniestralidad', 'siniestr', '%sin', 'porcentaje');
+
+      const empresas = getEmpresas();
+      let nuevas = 0, omitidas = 0;
+
+      rows.slice(1).forEach(row => {
+        const nit    = colNIT >= 0 ? String(row[colNIT] || '').trim().replace(/\D/g,'') : '';
+        const nombre = colNombre >= 0 ? String(row[colNombre] || '').trim() : '';
+        if (!nombre && !nit) return;
+
+        const existe = empresas.find(e => {
+          if (nit && e.nit && e.nit.replace(/\D/g,'') === nit) return true;
+          if (nombre && e.nombre.toLowerCase().trim() === nombre.toLowerCase()) return true;
+          return false;
+        });
+
+        if (existe) { omitidas++; return; }
+
+        let sinPct = '';
+        let sinCat = '';
+        if (colSin >= 0 && row[colSin] !== '') {
+          const rawSin = String(row[colSin]).replace('%','').replace(',','.').trim();
+          const n = parseFloat(rawSin);
+          if (!isNaN(n)) {
+            sinPct = (n > 0 && n <= 1 && !String(row[colSin]).includes('%')) ? Math.round(n * 10000) / 100 : Math.round(n * 100) / 100;
+            if (sinPct <= 75) sinCat = '<=75%';
+            else if (sinPct <= 90) sinCat = '76% - 90%';
+            else sinCat = '>=91% EXCEPCIONADA';
+          }
+        }
+
+        empresas.push({
+          id: Date.now().toString(36) + Math.random().toString(36).substr(2) + nuevas,
+          nombre,
+          nit: colNIT >= 0 ? String(row[colNIT] || '').trim() : '',
+          ciudad: '',
+          sector: '',
+          contacto: colContacto >= 0 ? String(row[colContacto] || '').trim() : '',
+          telContacto: colTel >= 0 ? String(row[colTel] || '').trim() : '',
+          correo: colCorreo >= 0 ? String(row[colCorreo] || '').trim() : '',
+          siniestralidad: sinCat,
+          sinPct,
+          trimRef: '',
+          notas: '',
+          fechaRegistro: new Date().toISOString().split('T')[0],
+          origenAuto: false,
+        });
+        nuevas++;
+      });
+
+      setEmpresas(empresas);
+      renderEmpresas();
+      showToast('Importacion completada: ' + nuevas + ' empresa(s) nuevas, ' + omitidas + ' ya existian (omitidas)');
+    } catch(err) {
+      showToast('Error al leer el archivo: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 // =============================================
