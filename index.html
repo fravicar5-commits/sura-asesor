@@ -2932,6 +2932,17 @@
           El agente responde basándose <strong>solo en lo que dice el documento</strong>.
         </div>
 
+        <!-- API Key config -->
+        <div class="card" style="margin-bottom:16px;border:1px solid rgba(245,158,11,0.3);">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:13px;font-weight:600;color:var(--amber);">🔑 API Key Anthropic</span>
+            <input type="password" id="agenteApiKey" class="form-control" placeholder="sk-ant-..." style="flex:1;min-width:200px;font-family:var(--mono);font-size:12px;" oninput="guardarAgenteApiKey()">
+            <button class="btn btn-sm btn-secondary" onclick="toggleVerApiKey()" id="btnVerKey" style="min-width:60px;">Ver</button>
+            <span id="agenteApiKeyStatus" style="font-size:11.5px;color:var(--text-muted);">Sin key guardada</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:8px;">💡 La key se guarda solo en tu navegador (localStorage). Nunca se envía a ningún servidor excepto api.anthropic.com.</div>
+        </div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
 
           <!-- Columna izquierda: carga de PDFs -->
@@ -12868,6 +12879,41 @@ let agenteHistorialData = [];
 function renderAgente() {
   renderAgentePlanes();
   renderAgenteHistorial();
+  // Load saved API key
+  const saved = localStorage.getItem('sura_agente_apikey') || '';
+  const inp = document.getElementById('agenteApiKey');
+  if (inp) {
+    inp.value = saved;
+    actualizarEstadoApiKey(saved);
+  }
+}
+
+function guardarAgenteApiKey() {
+  const val = document.getElementById('agenteApiKey').value.trim();
+  localStorage.setItem('sura_agente_apikey', val);
+  actualizarEstadoApiKey(val);
+}
+
+function actualizarEstadoApiKey(val) {
+  const el = document.getElementById('agenteApiKeyStatus');
+  if (!el) return;
+  if (val && val.startsWith('sk-ant-')) {
+    el.textContent = '✅ Key guardada';
+    el.style.color = 'var(--green)';
+  } else if (val) {
+    el.textContent = '⚠️ Formato inválido';
+    el.style.color = 'var(--amber)';
+  } else {
+    el.textContent = 'Sin key guardada';
+    el.style.color = 'var(--text-muted)';
+  }
+}
+
+function toggleVerApiKey() {
+  const inp = document.getElementById('agenteApiKey');
+  const btn = document.getElementById('btnVerKey');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Ocultar'; }
+  else { inp.type = 'password'; btn.textContent = 'Ver'; }
 }
 
 function renderAgentePlanes() {
@@ -13043,11 +13089,22 @@ REGLAS IMPORTANTES:
 CLAUSULADOS DISPONIBLES:
 ${contexto}`;
 
+    const apiKey = localStorage.getItem('sura_agente_apikey') || '';
+    if (!apiKey) {
+      document.getElementById(msgId).querySelector('div:last-child').innerHTML =
+        '<span style="color:var(--amber);">⚠️ Ingresa tu API Key de Anthropic en el campo de arriba para usar el asistente.</span>';
+      return;
+    }
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1500,
         system: systemPrompt,
         messages: [{ role: 'user', content: pregunta }],
