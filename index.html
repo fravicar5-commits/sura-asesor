@@ -11172,7 +11172,7 @@ async function importarSiniestralidad(event) {
             if (!isNaN(n)) {
               // Excel almacena % como decimal (0.95 = 95%). Si el valor es < 1 y no tiene % explícito, multiplicar x100
               const tieneSignoPct = String(sinRaw).includes('%');
-              sinPct = (!tieneSignoPct && n > 0 && n < 1) ? Math.round(n * 10000) / 100 : Math.round(n * 100) / 100;
+              sinPct = (!tieneSignoPct && n >= 0 && n <= 1) ? Math.round(n * 10000) / 100 : Math.round(n * 100) / 100;
             }
           }
 
