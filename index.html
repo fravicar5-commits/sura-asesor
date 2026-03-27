@@ -11120,7 +11120,7 @@ async function importarSiniestralidad(event) {
       const workbook = XLSX.read(e.target.result, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
 
       if (data.length < 2) {
         showToast('⚠️ El archivo parece estar vacío');
@@ -11170,9 +11170,9 @@ async function importarSiniestralidad(event) {
             const rawStr = String(sinRaw).replace(',', '.').replace('%', '').trim();
             const n = parseFloat(rawStr);
             if (!isNaN(n)) {
-              // Excel almacena % como decimal (0.95 = 95%). Si el valor es < 1 y no tiene % explícito, multiplicar x100
-              const tieneSignoPct = String(sinRaw).includes('%');
-              sinPct = (!tieneSignoPct && n >= 0 && n <= 1) ? Math.round(n * 10000) / 100 : Math.round(n * 100) / 100;
+              // Con raw:false SheetJS entrega "95%" como string; parseFloat da 95 directamente
+              // Si por algún motivo llega como decimal (0.95), convertir a porcentaje
+              sinPct = (n > 0 && n <= 1 && !String(sinRaw).includes('%')) ? Math.round(n * 10000) / 100 : Math.round(n * 100) / 100;
             }
           }
 
