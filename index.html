@@ -2472,6 +2472,7 @@
           <button id="ctTab-activa" class="tab-pill active" onclick="switchCarteraTab('activa')" style="border-radius:8px 8px 0 0;border-bottom:2px solid var(--sura-blue);">📋 Cartera Activa</button>
           <button id="ctTab-pagos" class="tab-pill" onclick="switchCarteraTab('pagos')" style="border-radius:8px 8px 0 0;">💳 Historial de Pagos</button>
           <button id="ctTab-cancelados" class="tab-pill" onclick="switchCarteraTab('cancelados')" style="border-radius:8px 8px 0 0;">⛔ Cancelados</button>
+          <button id="ctTab-sura" class="tab-pill" onclick="switchCarteraTab('sura')" style="border-radius:8px 8px 0 0;background:rgba(26,76,232,0.1);border-color:rgba(26,76,232,0.3);color:var(--sura-blue);">📥 Cartera SURA</button>
         </div>
 
         <!-- Panel: Cartera Activa -->
@@ -2698,6 +2699,89 @@
           </div>
           <div style="margin-top:10px;font-size:12px;color:var(--text-muted);" id="canceladosCount"></div>
         </div><!-- /ctPanel-cancelados -->
+
+
+        <!-- Panel: Cartera SURA Import -->
+        <div id="ctPanel-sura" style="display:none;">
+
+          <!-- Header con botón importar -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div style="font-size:13px;color:var(--text-muted);">Importa el archivo de cartera descargado del aplicativo SURA · análisis y contacto directo</div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="document.getElementById('inputCarteraSura').click()">📥 Importar Cartera SURA (.xlsx)</button>
+              <input type="file" id="inputCarteraSura" accept=".xlsx,.xls" style="display:none;" onchange="importarCarteraSura(event)">
+              <button class="btn btn-secondary" onclick="limpiarCarteraSura()" id="btnLimpiarCarteraSura" style="display:none;">🗑 Limpiar</button>
+            </div>
+          </div>
+
+          <!-- KPIs cartera SURA -->
+          <div id="carteraSuraKpis" style="display:none;margin-bottom:20px;">
+            <div class="grid-4" style="margin-bottom:12px;">
+              <div class="stat-card" style="border-top:3px solid var(--red);">
+                <div class="stat-label">🔴 Crítico (≤3 días)</div>
+                <div class="stat-value" id="kpiSuraCritico" style="color:var(--red);">0</div>
+                <div class="stat-sub">Cancelación inminente</div>
+              </div>
+              <div class="stat-card" style="border-top:3px solid var(--amber);">
+                <div class="stat-label">🟡 Urgente (4-7 días)</div>
+                <div class="stat-value" id="kpiSuraUrgente" style="color:var(--amber);">0</div>
+                <div class="stat-sub">Contactar hoy</div>
+              </div>
+              <div class="stat-card" style="border-top:3px solid var(--teal);">
+                <div class="stat-label">🟠 Seguimiento (8-15 días)</div>
+                <div class="stat-value" id="kpiSuraSeguimiento" style="color:var(--teal);">0</div>
+                <div class="stat-sub">En gestión</div>
+              </div>
+              <div class="stat-card blue">
+                <div class="stat-label">💰 Saldo total en riesgo</div>
+                <div class="stat-value" id="kpiSuraSaldo" style="color:var(--sura-lime);font-size:16px;">$0</div>
+                <div class="stat-sub">COP</div>
+              </div>
+            </div>
+            <!-- Filtro urgencia -->
+            <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+              <span style="font-size:12px;color:var(--text-muted);">Filtrar:</span>
+              <button class="btn btn-sm btn-secondary" id="btnFiltroTodos" onclick="filtrarCarteraSura('todos')" style="background:rgba(26,76,232,0.15);border-color:var(--sura-blue);color:var(--sura-blue);">Todos</button>
+              <button class="btn btn-sm btn-secondary" id="btnFiltroCritico" onclick="filtrarCarteraSura('critico')">🔴 Crítico</button>
+              <button class="btn btn-sm btn-secondary" id="btnFiltroUrgente" onclick="filtrarCarteraSura('urgente')">🟡 Urgente</button>
+              <button class="btn btn-sm btn-secondary" id="btnFiltroSeguimiento" onclick="filtrarCarteraSura('seguimiento')">🟠 Seguimiento</button>
+              <button class="btn btn-sm btn-secondary" id="btnFiltroNoEncontrado" onclick="filtrarCarteraSura('no_encontrado')">⚪ No en mi BD</button>
+            </div>
+          </div>
+
+          <!-- Tabla cartera SURA -->
+          <div id="carteraSuraTablaWrap" style="display:none;overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);">
+            <table style="font-size:12px;min-width:1100px;width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:var(--surface2);">
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Urgencia</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Cliente</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Póliza</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Plan</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Saldo</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Días Cartera</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Días p/ Cancelación</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Pago Max</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Medio Pago</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">En mi BD</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Contacto</th>
+                </tr>
+              </thead>
+              <tbody id="carteraSuraTabla"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--text-muted);" id="carteraSuraCount"></div>
+
+          <!-- Empty state -->
+          <div id="carteraSuraEmpty" style="text-align:center;padding:48px 20px;color:var(--text-dim);">
+            <div style="font-size:40px;margin-bottom:12px;">📥</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Importa tu archivo de cartera SURA</div>
+            <div style="font-size:12.5px;line-height:1.7;">Descarga el reporte de cartera del aplicativo SURA (31-45 días, 46-60 días, etc.)<br>y cárgalo aquí para analizar y gestionar tus clientes en mora.</div>
+          </div>
+
+        </div><!-- /ctPanel-sura -->
 
       </div><!-- /page-cartera -->
 
@@ -8176,7 +8260,7 @@ function enviarWACartera(tel, nombre, estado) {
 // TABS DE CARTERA
 // =============================================
 function switchCarteraTab(tab) {
-  ['activa','pagos','cancelados'].forEach(t => {
+  ['activa','pagos','cancelados','sura'].forEach(t => {
     document.getElementById(`ctPanel-${t}`).style.display = t === tab ? '' : 'none';
     const btn = document.getElementById(`ctTab-${t}`);
     if (btn) {
@@ -10329,6 +10413,244 @@ async function importarBDEmpresas(event) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// =============================================
+// IMPORTAR CARTERA SURA
+// =============================================
+let _carteraSuraData = [];
+let _carteraSuraFiltro = 'todos';
+
+async function importarCarteraSura(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined') {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+      if (rows.length < 2) { showToast('El archivo no tiene datos'); return; }
+
+      const headers = rows[0].map(h => String(h).toLowerCase().trim());
+      const col = (...keys) => { for (const k of keys) { const i = headers.findIndex(h => h.includes(k)); if (i >= 0) return i; } return -1; };
+
+      const cPoliza    = col('póliza','poliza');
+      const cSolucion  = col('solución','solucion','plan');
+      const cNombre    = col('nombre tomador','nombre');
+      const cDoc       = col('identificación','identificacion','cedula','documento');
+      const cDiasCart  = col('días cartera','dias cartera');
+      const cFePagoMax = col('fe. pago max','pago max','fecha pago');
+      const cSaldo     = col('saldo a pagar','saldo');
+      const cDiasCanc  = col('días para cancelación','dias para cancelacion','cancelac');
+      const cMedioPago = col('medio pago');
+      const cTelefono  = col('tel. cliente','telefono','tel ');
+      const cBanco     = col('banco');
+      const cRespCobro = col('resp. cobro','responsable cobro');
+
+      // Get ventas and state for cross-reference
+      const state = getState();
+      const todasVentas = state.ventas || [];
+
+      _carteraSuraData = rows.slice(1).filter(r => r.some(c => c !== '')).map(row => {
+        const nombre    = String(row[cNombre] || '').trim();
+        const cedula    = String(row[cDoc] || '').trim().replace(/\D/g,'');
+        const poliza    = String(row[cPoliza] || '').trim();
+        const solucion  = String(row[cSolucion] || '').trim();
+        const diasCart  = parseInt(row[cDiasCart]) || 0;
+        const diasCanc  = parseInt(row[cDiasCanc]) || 0;
+        const saldo     = parseFloat(String(row[cSaldo] || '0').replace(/[^0-9.-]/g,'')) || 0;
+        const pagoMax   = cFePagoMax >= 0 ? String(row[cFePagoMax] || '').trim() : '';
+        const medioPago = cMedioPago >= 0 ? String(row[cMedioPago] || '').trim() : '';
+        const telSura   = cTelefono >= 0 ? String(row[cTelefono] || '').trim() : '';
+        const banco     = cBanco >= 0 ? String(row[cBanco] || '').trim() : '';
+        const respCobro = cRespCobro >= 0 ? String(row[cRespCobro] || '').trim() : '';
+
+        // Urgencia
+        let urgencia = 'seguimiento';
+        if (diasCanc <= 3) urgencia = 'critico';
+        else if (diasCanc <= 7) urgencia = 'urgente';
+
+        // Primer nombre
+        const primerNombre = nombre.split(' ')[0];
+
+        // Cross-reference with app ventas by cedula or name
+        const matchVenta = todasVentas.find(v => {
+          const vCed = String(v.cedula || v.documento || '').replace(/\D/g,'');
+          const vNom = String(v.tomadorNombre || v.nombre || '').toLowerCase().trim();
+          if (cedula && vCed && vCed === cedula) return true;
+          if (nombre && vNom && vNom.includes(nombre.toLowerCase().split(' ')[0])) return true;
+          return false;
+        });
+
+        // Get phone: priority = app phone, fallback = sura file
+        let telefono = telSura;
+        if (matchVenta) {
+          const telApp = matchVenta.telefono || matchVenta.tel || matchVenta.celular || '';
+          if (telApp) telefono = String(telApp).trim();
+        }
+
+        return {
+          nombre, primerNombre, cedula, poliza, solucion,
+          diasCart, diasCanc, saldo, pagoMax, medioPago,
+          banco, respCobro, telefono, telSura,
+          urgencia,
+          enBD: !!matchVenta,
+          ventaId: matchVenta?.id || null,
+        };
+      });
+
+      // Sort by diasCanc ASC (most urgent first)
+      _carteraSuraData.sort((a, b) => a.diasCanc - b.diasCanc);
+
+      renderCarteraSura();
+      showToast(`Cartera importada: ${_carteraSuraData.length} registros`);
+      document.getElementById('btnLimpiarCarteraSura').style.display = '';
+    } catch(err) {
+      showToast('Error al leer el archivo: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function filtrarCarteraSura(filtro) {
+  _carteraSuraFiltro = filtro;
+  // Update filter buttons
+  ['todos','critico','urgente','seguimiento','no_encontrado'].forEach(f => {
+    const btn = document.getElementById('btnFiltro' + f.charAt(0).toUpperCase() + f.slice(1).replace('_e','E').replace('_n','N'));
+    if (btn) {
+      btn.style.background = f === filtro ? 'rgba(26,76,232,0.2)' : '';
+      btn.style.borderColor = f === filtro ? 'var(--sura-blue)' : '';
+      btn.style.color = f === filtro ? 'var(--sura-blue)' : '';
+    }
+  });
+  renderCarteraSuraTabla();
+}
+
+function renderCarteraSura() {
+  if (!_carteraSuraData.length) return;
+
+  // KPIs
+  const criticos    = _carteraSuraData.filter(r => r.urgencia === 'critico');
+  const urgentes    = _carteraSuraData.filter(r => r.urgencia === 'urgente');
+  const seguimiento = _carteraSuraData.filter(r => r.urgencia === 'seguimiento');
+  const saldoTotal  = _carteraSuraData.reduce((s, r) => s + r.saldo, 0);
+
+  document.getElementById('kpiSuraCritico').textContent    = criticos.length;
+  document.getElementById('kpiSuraUrgente').textContent    = urgentes.length;
+  document.getElementById('kpiSuraSeguimiento').textContent = seguimiento.length;
+  document.getElementById('kpiSuraSaldo').textContent      = '$' + saldoTotal.toLocaleString('es-CO');
+
+  document.getElementById('carteraSuraKpis').style.display      = '';
+  document.getElementById('carteraSuraTablaWrap').style.display  = '';
+  document.getElementById('carteraSuraEmpty').style.display      = 'none';
+
+  renderCarteraSuraTabla();
+}
+
+function renderCarteraSuraTabla() {
+  let data = _carteraSuraData;
+  if (_carteraSuraFiltro === 'critico')       data = data.filter(r => r.urgencia === 'critico');
+  else if (_carteraSuraFiltro === 'urgente')  data = data.filter(r => r.urgencia === 'urgente');
+  else if (_carteraSuraFiltro === 'seguimiento') data = data.filter(r => r.urgencia === 'seguimiento');
+  else if (_carteraSuraFiltro === 'no_encontrado') data = data.filter(r => !r.enBD);
+
+  const urgConfig = {
+    critico:     { color: 'var(--red)',   label: '🔴 Crítico',     bg: 'rgba(239,68,68,0.1)' },
+    urgente:     { color: 'var(--amber)', label: '🟡 Urgente',     bg: 'rgba(245,158,11,0.1)' },
+    seguimiento: { color: 'var(--teal)',  label: '🟠 Seguimiento', bg: 'rgba(6,182,212,0.08)' },
+  };
+
+  const tbody = document.getElementById('carteraSuraTabla');
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text-dim);">Sin registros para este filtro</td></tr>`;
+    document.getElementById('carteraSuraCount').textContent = '';
+    return;
+  }
+
+  tbody.innerHTML = data.map(r => {
+    const urg = urgConfig[r.urgencia];
+    const telLimpio = r.telefono.replace(/\D/g,'');
+    const mensaje = encodeURIComponent(
+`Recordatorio❗
+Hola ${r.primerNombre} 👋🏼
+Espero que tú y tu familia se encuentren muy bien.
+
+Queremos recordarte que tienes un saldo pendiente de $${r.saldo.toLocaleString('es-CO')} en tu ${r.solucion} con fecha límite de pago el ${r.pagoMax}. Para tu comodidad puedes realizar el pago en línea ingresando al siguiente link 👇🏼 con tu número de documento:
+
+🔗 https://www.segurossura.com.co/paginas/pago-express.aspx/
+
+Tu pago oportuno asegura la continuidad de tu cobertura y beneficios. ✅
+Si ya realizaste el pago puedes omitir este mensaje. ☺`
+    );
+    const waLink   = telLimpio ? `https://wa.me/57${telLimpio}?text=${mensaje}` : '';
+    const telLink  = telLimpio ? `tel:${telLimpio}` : '';
+
+    return `<tr style="border-top:1px solid var(--border);background:${urg.bg};">
+      <td style="padding:8px 12px;white-space:nowrap;">
+        <span style="font-size:11px;font-weight:700;color:${urg.color};">${urg.label}</span>
+      </td>
+      <td style="padding:8px 12px;">
+        <div style="font-weight:600;font-size:12px;">${r.nombre}</div>
+        <div style="font-size:10.5px;color:var(--text-muted);font-family:var(--mono);">${r.cedula}</div>
+      </td>
+      <td style="padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--text-muted);">${r.poliza}</td>
+      <td style="padding:8px 12px;font-size:11.5px;">${r.solucion}</td>
+      <td style="padding:8px 12px;text-align:right;font-weight:700;font-family:var(--mono);color:var(--amber);">$${r.saldo.toLocaleString('es-CO')}</td>
+      <td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:12px;">${r.diasCart}</td>
+      <td style="padding:8px 12px;text-align:center;">
+        <span style="font-weight:700;color:${urg.color};font-family:var(--mono);">${r.diasCanc}</span>
+      </td>
+      <td style="padding:8px 12px;font-size:11.5px;white-space:nowrap;">${r.pagoMax}</td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--text-muted);">
+        <div>${r.medioPago}</div>
+        ${r.banco ? `<div style="font-size:10px;">${r.banco}</div>` : ''}
+        ${r.respCobro ? `<div style="font-size:10px;color:var(--amber);">${r.respCobro.substring(0,30)}</div>` : ''}
+      </td>
+      <td style="padding:8px 12px;text-align:center;">
+        ${r.enBD
+          ? '<span style="color:var(--green);font-size:11px;font-weight:600;">✅ Sí</span>'
+          : '<span style="color:var(--text-dim);font-size:11px;">⚪ No</span>'}
+      </td>
+      <td style="padding:8px 12px;white-space:nowrap;">
+        <div style="display:flex;gap:6px;">
+          ${waLink
+            ? `<a href="${waLink}" target="_blank" class="btn btn-sm" style="background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.3);color:#25d366;font-size:11px;text-decoration:none;padding:4px 8px;border-radius:6px;">💬 WA</a>`
+            : '<span style="font-size:10.5px;color:var(--text-dim);">Sin tel.</span>'}
+          ${telLink
+            ? `<a href="${telLink}" class="btn btn-sm" style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.25);color:var(--sura-blue);font-size:11px;text-decoration:none;padding:4px 8px;border-radius:6px;">📞 Llamar</a>`
+            : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('carteraSuraCount').textContent = `${data.length} registro${data.length !== 1 ? 's' : ''} mostrados`;
+}
+
+function limpiarCarteraSura() {
+  if (!confirm('¿Limpiar los datos de cartera SURA importados?')) return;
+  _carteraSuraData = [];
+  _carteraSuraFiltro = 'todos';
+  document.getElementById('carteraSuraKpis').style.display     = 'none';
+  document.getElementById('carteraSuraTablaWrap').style.display = 'none';
+  document.getElementById('carteraSuraEmpty').style.display     = '';
+  document.getElementById('carteraSuraTabla').innerHTML         = '';
+  document.getElementById('carteraSuraCount').textContent       = '';
+  document.getElementById('btnLimpiarCarteraSura').style.display = 'none';
+  showToast('Cartera SURA limpiada');
 }
 
 // =============================================
