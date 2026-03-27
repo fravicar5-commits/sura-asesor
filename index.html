@@ -118,6 +118,25 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   }
 
+  /* Tooltip touch (mobile) */
+  .nav-tooltip-touch {
+    position: fixed;
+    background: var(--surface3);
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .nav-tooltip-touch.visible { opacity: 1; }
+
   .main { transition: margin-left 0.25s cubic-bezier(0.4,0,0.2,1); }
   .main.sidebar-collapsed { margin-left: 56px; }
 
@@ -13576,6 +13595,45 @@ checkMenuPulse();
 actualizarSidebarSync();
 // Check backup alert on every app open (with 3 second delay to not block UX)
 setTimeout(checkAlertaBackup, 3000);
+</script>
+</body>
+
+<script>
+// Touch tooltip for collapsed sidebar icons
+(function() {
+  let tooltipEl = null;
+  let hideTimer = null;
+
+  function getTooltip() {
+    if (!tooltipEl) {
+      tooltipEl = document.createElement('div');
+      tooltipEl.className = 'nav-tooltip-touch';
+      document.body.appendChild(tooltipEl);
+    }
+    return tooltipEl;
+  }
+
+  function showTooltip(label, targetEl) {
+    clearTimeout(hideTimer);
+    const tip = getTooltip();
+    tip.textContent = label;
+    tip.classList.add('visible');
+    const rect = targetEl.getBoundingClientRect();
+    tip.style.left = (rect.right + 10) + 'px';
+    tip.style.top  = (rect.top + rect.height / 2) + 'px';
+    tip.style.transform = 'translateY(-50%)';
+    hideTimer = setTimeout(() => tip.classList.remove('visible'), 1800);
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar || !sidebar.classList.contains('collapsed')) return;
+    const navItem = e.target.closest('.nav-item[data-label]');
+    if (!navItem) return;
+    const label = navItem.getAttribute('data-label');
+    if (label) showTooltip(label, navItem);
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>
