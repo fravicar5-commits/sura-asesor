@@ -11167,8 +11167,13 @@ async function importarSiniestralidad(event) {
           // Parse sin value
           let sinPct = '';
           if (sinRaw !== '' && sinRaw !== null) {
-            const n = parseFloat(String(sinRaw).replace(',', '.').replace('%', ''));
-            if (!isNaN(n)) sinPct = n;
+            const rawStr = String(sinRaw).replace(',', '.').replace('%', '').trim();
+            const n = parseFloat(rawStr);
+            if (!isNaN(n)) {
+              // Excel almacena % como decimal (0.95 = 95%). Si el valor es < 1 y no tiene % explícito, multiplicar x100
+              const tieneSignoPct = String(sinRaw).includes('%');
+              sinPct = (!tieneSignoPct && n > 0 && n < 1) ? Math.round(n * 10000) / 100 : Math.round(n * 100) / 100;
+            }
           }
 
           // Map to category
