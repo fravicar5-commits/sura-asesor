@@ -12682,55 +12682,105 @@ function cotizadorImprimir() {
   const numero  = getNextCotNumero();
   const vigencia = new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
 
-  // Coberturas por producto
+  // Coberturas por producto — basadas en clausulados oficiales SURA 2026
   const COBERTURAS = {
-    SPTI: [
-      ['Habitación individual sencilla','Evento','ILIMITADO EN DÍAS AL 100%'],
-      ['Honorarios quirúrgicos del parto','Evento','SÍ'],
-      ['Ayudas diagnósticas hospitalarias no PBS','Evento','ILIMITADO EN DÍAS AL 100%'],
-      ['Enfermedades congénitas al recién nacido','Evento','SÍ'],
-      ['No cobro de copagos del PBS','Consulta','ILIMITADOS AL 100%'],
-      ['Ayudas diagnósticas ambulatorias no PBS','Consulta','ILIMITADOS AL 100%'],
-      ['Consulta especialistas directos (Pediatría, Internista, Ginecología, Oftalmología, Urología, Dermatología, ORL, Ortopedia, Nutricionista)','Consulta','ILIMITADAS AL 100%'],
-      ['Atención médica domiciliaria 24h','Consulta','SÍ'],
-      ['Urgencias odontológicas a domicilio','Consulta','SÍ'],
-      ['No cobro de cuotas moderadoras PBS','Consulta','SÍ'],
-    ],
+    SPTI: {
+      CLASICO: [
+        ['Habitación individual (hospitalización médica o quirúrgica)','Evento','SÍ — carencia 150 días (urgencias sin carencia)'],
+        ['Continuidad atención del parto','Evento','SÍ — carencia 300 días'],
+        ['Coberturas congénitas recién nacido','Evento','SÍ — madre con 300 días afiliación'],
+        ['No cobro de copagos PBS EPS SURA','Consulta','ILIMITADO'],
+        ['No cobro de cuotas moderadoras PBS','Consulta','SÍ (no aplica en medicamentos)'],
+        ['Consulta externa directa: Internista, Pediatra, Ginecólogo, Ginecobstetra, Oftalmólogo, Urólogo','Consulta','ILIMITADA con copago'],
+        ['Atención médica domiciliaria 24h','Consulta','SÍ con copago'],
+        ['Urgencias odontológicas a domicilio','Consulta','SÍ con copago'],
+        ['Ayudas diagnósticas imagenología no PBS','Consulta','SÍ con copago — carencia 60 días'],
+        ['Honorarios quirúrgicos del parto','Evento','SÍ'],
+        ['⚠️ NO incluye: honorarios quirúrgicos otros, insumos, medicamentos, hospitalización programada sin carencia cumplida','—','EXCLUIDO'],
+      ],
+      PREFERENCIAL: [
+        ['Habitación individual (hospitalización médica o quirúrgica)','Evento','SÍ — carencia 150 días (urgencias sin carencia)'],
+        ['Continuidad atención del parto','Evento','SÍ — carencia 300 días'],
+        ['Coberturas congénitas recién nacido','Evento','SÍ — madre con 300 días afiliación'],
+        ['No cobro de copagos PBS EPS SURA','Consulta','ILIMITADO'],
+        ['No cobro de cuotas moderadoras PBS','Consulta','SÍ (no aplica en medicamentos)'],
+        ['Consulta externa directa: Internista, Pediatra, Ginecólogo, Ginecobstetra, Oftalmólogo, Urólogo, Dermatólogo, ORL, Ortopedista, Nutricionista','Consulta','ILIMITADA con copago'],
+        ['Bioenergético','Consulta','Máx. 12 consultas/año con copago'],
+        ['Atención médica domiciliaria 24h','Consulta','SÍ con copago'],
+        ['Urgencias odontológicas a domicilio','Consulta','SÍ con copago'],
+        ['Ayudas diagnósticas imagenología no PBS','Consulta','SÍ con copago — carencia 60 días'],
+        ['Honorarios quirúrgicos del parto','Evento','SÍ'],
+        ['⚠️ NO incluye: honorarios quirúrgicos otros, insumos, medicamentos hospitalarios, gastos quirúrgicos','—','EXCLUIDO'],
+      ],
+    },
     SPD: [
-      ['Tomador + 1 asegurado (grupo familiar)','—','SÍ'],
-      ['Consulta externa especialistas','Consulta','ILIMITADAS'],
-      ['Urgencias 24/7','Evento','SÍ'],
-      ['Hospitalización','Evento','SÍ'],
-      ['Ayudas diagnósticas','Consulta','SÍ'],
+      ['Atención virtual prioritaria médico general y pediatra','—','ILIMITADA (dom a dom, sujeta a horarios)'],
+      ['Atención médica domiciliaria / virtual','—','SÍ con pertinencia médica'],
+      ['Consulta directa: Internista, Urólogo, Ginecólogo, Nutricionista, Oftalmólogo, Dermatólogo, ORL, Ortopedista, Médico General','Consulta','ILIMITADA por vigencia'],
+      ['Consultas psicología (Plan Familiar)','Vigencia','4 consultas/año'],
+      ['Consultas psiquiatría (Plan Familiar)','Vigencia','2 consultas/año'],
+      ['Urgencias odontológicas domicilio','—','ILIMITADA'],
+      ['Limpieza dental','Vigencia','1 por persona/año'],
+      ['Ayudas diagnósticas y laboratorio','—','Bolsa limitada en carátula — listado cerrado'],
+      ['Medicamentos post-atención virtual','—','Solo los de la atención prioritaria — máx. 14 días'],
+      ['⚠️ NO incluye: hospitalización, cirugías, terapias, reembolsos','—','EXCLUIDO'],
     ],
     PSM: [
-      ['Consulta especialistas directos','Consulta','SÍ'],
-      ['Urgencias','Evento','SÍ'],
-      ['Laboratorio clínico','Consulta','SÍ'],
-      ['Terapias físicas y de rehabilitación','Consulta','SÍ'],
-      ['Copago por consulta','—','$30.000'],
-      ['Periodos de carencia','—','No aplica'],
+      ['Atención médica urgencias (red hospitalaria SURA)','—','ILIMITADA'],
+      ['Atención virtual prioritaria médico general y pediatra','—','ILIMITADA (L-V 6am-8pm / Sáb 7am-1pm)'],
+      ['Atención prioritaria en sede médico general y pediatra','—','ILIMITADA'],
+      ['Medicamentos post-atención prioritaria','—','ILIMITADA (listado definido, máx. 14 días)'],
+      ['Consulta externa directa: Internista, Pediatra, Ginecología, Nutrición, Dermatología, Oftalmología, Urología, Ortopedia, ORL, Cirugía Gral, Psiquiatría, Gastro, Endocrino, Cardiología, Neurología, Psicología (máx. 20/año)','Consulta','ILIMITADA (Psicología: 20/año)'],
+      ['Laboratorio clínico y ayudas diagnósticas','—','ILIMITADO — carencia 4 meses para TAC, RM, endoscopias, arteriografías'],
+      ['Terapias físicas, ocupacionales, respiratorias, lenguaje','—','70 sesiones totales/año'],
+      ['Atención hospitalaria médica y quirúrgica (habitación, UCI, gastos intrahospitalarios, prótesis)','Evento','SÍ — carencia 4 meses cirugía programada (12 meses prótesis articulares)'],
+      ['Hospitalización psiquiátrica','Vigencia','45 días/año — carencia 12 meses'],
+      ['Hospitalización domiciliaria','—','ILIMITADA'],
+      ['Traslado en ambulancia terrestre','—','ILIMITADO'],
+      ['Plataforma Longevo (bienestar y prevención)','—','ILIMITADO'],
+      ['Anexos opcionales: Emergencia médica domiciliaria, Alto Costo (cáncer, VIH, diálisis, trasplantes), Cirugía ambulatoria, Maternidad','—','Prima adicional'],
+      ['Edad de ingreso','—','0 meses a 64 años'],
     ],
     PAC60: [
-      ['Prevención y bienestar','Consulta','SÍ'],
-      ['Consulta especialistas directos','Consulta','SÍ'],
-      ['Atención médica domiciliaria','Consulta','SÍ'],
-      ['Odontología preventiva','Consulta','SÍ'],
-      ['Dimensión social y física','—','SÍ'],
+      ['Edad de ingreso al plan','—','60 años o más — afiliado EPS SURA régimen contributivo'],
+      ['Periodos de carencia','—','Sin carencia — acceso inmediato desde inicio de vigencia'],
+      ['DIMENSIÓN FÍSICA — Acceso directo a especialistas: Medicina Interna, Geriatría, Nutrición y Dietética, Psicología','Consulta','DIRECTA sin remisión médico general'],
+      ['Ayudas diagnósticas PBS (lab. clínico, imagenología, pruebas diagnósticas)','—','SÍ — ordenadas por red del plan'],
+      ['Exoneración copagos y cuotas moderadoras PBS (consultas, lab., imagenología, terapias)','—','SÍ — sin costo en red del plan'],
+      ['Atención médica domiciliaria (medicina general programada)','—','SÍ — según zona cobertura y disponibilidad'],
+      ['DIMENSIÓN PREVENCIÓN Y BIENESTAR — Medicina bioenergética y acupuntura','—','SÍ — red adscrita (con pago moderador)'],
+      ['Chequeo ejecutivo anual (perfil preventivo)','Vigencia','1 vez por año'],
+      ['Programas envejecimiento activo (nutrición, manejo emociones, actividad física)','—','SÍ — previa programación'],
+      ['DIMENSIÓN SOCIAL — Orientación familiar y acompañamiento cuidadores','—','SÍ'],
+      ['Actividades integración y convenios recreativos','—','SÍ — según oferta local'],
+      ['⚠️ NO incluye: cirugías, medicamentos/insumos/prótesis, odontología, tratamientos fuera de Colombia, enfermería privada','—','EXCLUIDO'],
     ],
   };
 
+  // Helper para obtener coberturas según plan y subtipo
+  function getCoberturasPlan(p) {
+    if (p.producto === 'SPTI') {
+      const subtipo = (p.plan || '').toLowerCase().includes('prefer') ? 'PREFERENCIAL' : 'CLASICO';
+      return COBERTURAS.SPTI[subtipo];
+    }
+    return COBERTURAS[p.producto] || [];
+  }
+
   // Build coverage tables per product
   const productosEnCot = [...new Set(cotPersonas.map(p => p.producto).filter(Boolean))];
-  let coberturasTables = productosEnCot.map(prod => {
-    const rows = (COBERTURAS[prod] || []).map(([cob, aplica, val]) =>
+  let coberturasTables = cotPersonas.filter(p => cotizadorCalcPrima(p) > 0).map(p => {
+    const prod = p.producto;
+    const subtipo = prod === 'SPTI' ? ((p.plan||'').toLowerCase().includes('prefer') ? 'Preferencial' : 'Clásico') : '';
+    const planLabel = subtipo ? `${COT_LABELS[prod]||prod} — ${subtipo}` : (COT_LABELS[prod]||prod);
+    const cobList = getCoberturasPlan(p);
+    const rows = (cobList || []).map(([cob, aplica, val]) =>
       `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${cob}</td>
        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;">${aplica}</td>
        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;color:#1A4CE8;">${val}</td></tr>`
     ).join('');
     return `
       <div style="margin-bottom:24px;">
-        <div style="background:#1A4CE8;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${COT_LABELS[prod]||prod} — Coberturas Principales</div>
+        <div style="background:#1A4CE8;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${planLabel} — Coberturas Principales</div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #e5e7eb;border-top:none;">
           <thead style="background:#EEF2FF;">
             <tr>
