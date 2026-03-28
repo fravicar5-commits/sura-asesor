@@ -636,8 +636,114 @@
   .input-group { display: flex; gap: 8px; }
   .input-group .form-control { flex: 1; }
 </style>
+
+<!-- ===== FIREBASE SDK ===== -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDQEMeKa8yGsdvyW3qoC9w1ITMCzNN0TTI",
+    authDomain: "sura-asesor.firebaseapp.com",
+    projectId: "sura-asesor",
+    storageBucket: "sura-asesor.firebasestorage.app",
+    messagingSenderId: "910746092866",
+    appId: "1:910746092866:web:ae7bd2b56615b2779d74db"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // ── ID de usuario fijo (app monousuario) ──────────────────────────────────
+  const UID = 'fran';
+
+  // ── Helper genérico: leer un documento ───────────────────────────────────
+  async function fbGet(coleccion, defVal) {
+    try {
+      const snap = await getDoc(doc(db, coleccion, UID));
+      return snap.exists() ? snap.data().payload : defVal;
+    } catch(e) { console.warn('fbGet error', coleccion, e); return defVal; }
+  }
+
+  // ── Helper genérico: escribir un documento ────────────────────────────────
+  async function fbSet(coleccion, valor) {
+    try {
+      await setDoc(doc(db, coleccion, UID), { payload: valor });
+    } catch(e) { console.warn('fbSet error', coleccion, e); }
+  }
+
+  // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
+  window.FB = { get: fbGet, set: fbSet, db, UID };
+
+  // ── Cargar todos los datos y arrancar la app ──────────────────────────────
+  async function arrancarApp() {
+    // Mostrar splash de carga
+    const splash = document.getElementById('fb-splash');
+    if (splash) splash.style.display = 'flex';
+
+    try {
+      // Cargar datos en paralelo
+      const [
+        stateData, pagosData, pipelineData, actividadesData,
+        cierresData, configAniosData, productosExtraData,
+        empresasData, cotizacionesData, syncConfigData, plantillasData
+      ] = await Promise.all([
+        fbGet('estado',        {}),
+        fbGet('pagos',         {}),
+        fbGet('pipeline',      []),
+        fbGet('actividades',   []),
+        fbGet('cierres',       {}),
+        fbGet('configAnios',   {}),
+        fbGet('productosExtra',[]),
+        fbGet('empresas',      []),
+        fbGet('cotizaciones',  []),
+        fbGet('syncConfig',    {}),
+        fbGet('plantillas',    {}),
+      ]);
+
+      // Inyectar en cache global
+      window.__FB_CACHE__ = {
+        estado: stateData,
+        pagos: pagosData,
+        pipeline: pipelineData,
+        actividades: actividadesData,
+        cierres: cierresData,
+        configAnios: configAniosData,
+        productosExtra: productosExtraData,
+        empresas: empresasData,
+        cotizaciones: cotizacionesData,
+        syncConfig: syncConfigData,
+        plantillas: plantillasData,
+      };
+    } catch(e) {
+      console.error('Error cargando Firebase:', e);
+      // Fallback a localStorage si Firebase falla
+      window.__FB_CACHE__ = null;
+    }
+
+    if (splash) splash.style.display = 'none';
+
+    // Señal para que el script principal sepa que puede arrancar
+    window.__FB_READY__ = true;
+    document.dispatchEvent(new Event('fb-ready'));
+  }
+
+  arrancarApp();
+</script>
+<!-- ===== FIN FIREBASE SDK ===== -->
+
 </head>
 <body>
+
+<!-- ===== SPLASH FIREBASE ===== -->
+<div id="fb-splash" style="display:none;position:fixed;inset:0;z-index:99999;background:#0A0F1E;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
+  <div style="font-size:48px;">🔥</div>
+  <div style="color:#F0F4FF;font-family:'DM Sans',sans-serif;font-size:18px;font-weight:600;">Conectando con Firebase...</div>
+  <div style="width:200px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+    <div style="height:100%;background:#1A4CE8;border-radius:2px;animation:fbload 1.5s ease-in-out infinite;" id="fbLoadBar"></div>
+  </div>
+  <style>@keyframes fbload{0%{width:0%}50%{width:70%}100%{width:100%}}</style>
+</div>
 
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
@@ -3133,6 +3239,24 @@
 
       <!-- ===== SINCRONIZACIÓN GITHUB ===== -->
       <div class="page" id="page-sync">
+
+        <!-- 🔥 CARD MIGRACIÓN FIREBASE -->
+        <div class="card" style="margin-bottom:16px;border-left:3px solid #FF6B35;background:linear-gradient(135deg,rgba(255,107,53,0.08),transparent);">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <div style="font-size:28px;">🔥</div>
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">Firebase activo — Nube en tiempo real</div>
+              <div style="font-size:12px;color:var(--text-muted);">Tus datos ahora se guardan automáticamente en Firebase Firestore. Funciona en cualquier dispositivo.</div>
+            </div>
+            <div id="fb-status-badge" style="display:none;margin-left:auto;font-size:11px;padding:4px 12px;border-radius:20px;background:rgba(34,197,94,0.15);color:var(--green);font-weight:600;white-space:nowrap;">✅ Conectado</div>
+          </div>
+          <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">Si tenías datos en localStorage (antes de la migración), usa el botón de abajo para subirlos a Firebase por única vez.</div>
+          <button class="btn btn-primary" onclick="migrarLocalStorageAFirebase()" style="background:#FF6B35;border-color:#FF6B35;">
+            🚀 Migrar datos locales → Firebase
+          </button>
+          <div id="fbMigMsg" style="margin-top:10px;font-size:12.5px;display:none;"></div>
+        </div>
+
         <div class="alert alert-info" style="margin-bottom:20px;">
           🔄 La app vive en tu navegador. Para sincronizar entre celular, PC u otro dispositivo, usa GitHub como repositorio gratuito del archivo HTML. No necesitas saber programar — sigue los pasos de abajo.
         </div>
@@ -4845,9 +4969,14 @@ function calcComision(tipo, criterio, cotizantes) {
 }
 
 function getState() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.estado || {};
   try { return JSON.parse(localStorage.getItem('sura_asesor_v2') || '{}'); } catch { return {}; }
 }
-function setState(s) { localStorage.setItem('sura_asesor_v2', JSON.stringify(s)); }
+function setState(s) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
+  if (window.FB) window.FB.set('estado', s);
+  try { localStorage.setItem('sura_asesor_v2', JSON.stringify(s)); } catch(e) {}
+}
 
 function initState() {
   const s = getState();
@@ -6370,7 +6499,9 @@ function guardarConfig() {
 }
 
 function resetAll() {
-  localStorage.removeItem('sura_asesor_v2');
+  if (window.__FB_CACHE__) window.__FB_CACHE__.estado = {};
+  if (window.FB) window.FB.set('estado', {});
+  try { localStorage.removeItem('sura_asesor_v2'); } catch(e) {}
   state = initState();
   navigate('dashboard');
   showToast('🔄 Datos reiniciados');
@@ -7977,9 +8108,14 @@ function toggleIVA() {
 // Estructura: { [ventaId]: [ { fecha, periodoDesde, periodoHasta, prima, comision }, ... ] }
 // =============================================
 function getPagos() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.pagos || {};
   try { return JSON.parse(localStorage.getItem('sura_pagos_v2') || '{}'); } catch { return {}; }
 }
-function setPagos(p) { localStorage.setItem('sura_pagos_v2', JSON.stringify(p)); }
+function setPagos(p) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.pagos = p;
+  if (window.FB) window.FB.set('pagos', p);
+  try { localStorage.setItem('sura_pagos_v2', JSON.stringify(p)); } catch(e) {}
+}
 
 // Migración desde formato v1 (flag booleano) → v2 (array de pagos)
 function migrarPagosV1() {
@@ -8561,7 +8697,7 @@ function renderCobertura() {
 }
 
 function getPlantilla(tipo) {
-  const pl = JSON.parse(localStorage.getItem('sura_plantillas_v1') || '{}');
+  const pl = (window.__FB_CACHE__ ? window.__FB_CACHE__.plantillas : null) || JSON.parse(localStorage.getItem('sura_plantillas_v1') || '{}');
   const defaults = {
     bienvenida: `Hola {nombre}, te damos la bienvenida a EPS SURA 🏥. Tu cobertura inicia el {fecha_cobertura}. Puedes activar tu credencial digital en la app SURA o en sura.com.co. ¡Estamos para servirte! — Tu asesor SURA`,
     beneficiarios: `Hola {nombre}, ahora que estás afiliado(a) a SURA, recuerda que puedes incluir a tu familia (cónyuge, hijos) en tu grupo familiar. Si lo haces por SAT en los primeros 5 días del mes, inician cobertura el 1° del mes siguiente. ¿Te gustaría hacerlo? Con gusto te ayudo. — Tu asesor SURA`,
@@ -8623,8 +8759,15 @@ function agregarProspectoDesdeVenta(id) {
 // =============================================
 // PIPELINE VOLUNTARIOS
 // =============================================
-function getPipeline() { try { return JSON.parse(localStorage.getItem('sura_pipeline_v1')||'[]'); } catch { return []; } }
-function setPipeline(p) { localStorage.setItem('sura_pipeline_v1', JSON.stringify(p)); }
+function getPipeline() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.pipeline || [];
+  try { return JSON.parse(localStorage.getItem('sura_pipeline_v1')||'[]'); } catch { return []; }
+}
+function setPipeline(p) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.pipeline = p;
+  if (window.FB) window.FB.set('pipeline', p);
+  try { localStorage.setItem('sura_pipeline_v1', JSON.stringify(p)); } catch(e) {}
+}
 
 const ESTADOS_PIP = ['Contactado','Interesado','En proceso','Vendido'];
 const CHIPS_PIP = ['chip-blue','chip-amber','chip-teal','chip-green'];
@@ -8690,8 +8833,15 @@ function eliminarProspecto(id) {
 // =============================================
 // ACTIVIDAD DIARIA
 // =============================================
-function getActividades() { try { return JSON.parse(localStorage.getItem('sura_actividad_v1')||'[]'); } catch { return []; } }
-function setActividades(a) { localStorage.setItem('sura_actividad_v1', JSON.stringify(a)); }
+function getActividades() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.actividades || [];
+  try { return JSON.parse(localStorage.getItem('sura_actividad_v1')||'[]'); } catch { return []; }
+}
+function setActividades(a) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.actividades = a;
+  if (window.FB) window.FB.set('actividades', a);
+  try { localStorage.setItem('sura_actividad_v1', JSON.stringify(a)); } catch(e) {}
+}
 
 function renderActividad() {
   const acts = getActividades().sort((a,b) => b.fecha.localeCompare(a.fecha));
@@ -8761,7 +8911,7 @@ const PLANTILLAS_DEF = [
 ];
 
 function renderPlantillas() {
-  const guardadas = JSON.parse(localStorage.getItem('sura_plantillas_v1')||'{}');
+  const guardadas = (window.__FB_CACHE__ ? window.__FB_CACHE__.plantillas : null) || JSON.parse(localStorage.getItem('sura_plantillas_v1')||'{}');
   const el = document.getElementById('plantillasContainer');
   el.innerHTML = PLANTILLAS_DEF.map(p => `
     <div class="card" style="border-left:3px solid ${p.color};">
@@ -8783,7 +8933,9 @@ function renderPlantillas() {
 function guardarPlantillas() {
   const obj = {};
   PLANTILLAS_DEF.forEach(p => { obj[p.key] = document.getElementById(`pl_${p.key}`).value; });
-  localStorage.setItem('sura_plantillas_v1', JSON.stringify(obj));
+  if (window.__FB_CACHE__) window.__FB_CACHE__.plantillas = obj;
+  if (window.FB) window.FB.set('plantillas', obj);
+  try { localStorage.setItem('sura_plantillas_v1', JSON.stringify(obj)); } catch(e) {}
   showToast('✅ Plantillas guardadas');
 }
 
@@ -8807,9 +8959,14 @@ const _origOpenModal = openModal;
 let cierresMesSeleccionado = new Date().getMonth();
 
 function getCierres() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.cierres || {};
   try { return JSON.parse(localStorage.getItem('sura_cierres_v1') || '{}'); } catch { return {}; }
 }
-function setCierres(c) { localStorage.setItem('sura_cierres_v1', JSON.stringify(c)); }
+function setCierres(c) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.cierres = c;
+  if (window.FB) window.FB.set('cierres', c);
+  try { localStorage.setItem('sura_cierres_v1', JSON.stringify(c)); } catch(e) {}
+}
 
 function renderCierres() {
   // Month selector
@@ -10705,7 +10862,7 @@ function renderBackup() {
   const pipeline = getPipeline();
   const actividades = getActividades();
   const cierres = getCierres();
-  const plantillas = JSON.parse(localStorage.getItem('sura_plantillas_v1')||'{}');
+  const plantillas = (window.__FB_CACHE__ ? window.__FB_CACHE__.plantillas : null) || JSON.parse(localStorage.getItem('sura_plantillas_v1')||'{}');
 
   const statsEl = document.getElementById('backupStats');
   statsEl.innerHTML = `<div style="font-size:12.5px;color:var(--text-muted);">
@@ -10773,10 +10930,10 @@ function importarBackup(event) {
       if (!confirm(`¿Restaurar backup del ${new Date(backup.fecha).toLocaleDateString('es-CO')}? Esto reemplazará todos los datos actuales.`)) return;
       setState(backup.datos);
       if (backup.pagos) setPagos(backup.pagos);
-      if (backup.pipeline) localStorage.setItem('sura_pipeline_v1', JSON.stringify(backup.pipeline));
-      if (backup.actividades) localStorage.setItem('sura_actividad_v1', JSON.stringify(backup.actividades));
-      if (backup.cierres) localStorage.setItem('sura_cierres_v1', JSON.stringify(backup.cierres));
-      if (backup.plantillas) localStorage.setItem('sura_plantillas_v1', JSON.stringify(backup.plantillas));
+      if (backup.pipeline) setPipeline(backup.pipeline);
+      if (backup.actividades) setActividades(backup.actividades);
+      if (backup.cierres) setCierres(backup.cierres);
+      if (backup.plantillas) { if (window.__FB_CACHE__) window.__FB_CACHE__.plantillas = backup.plantillas; if (window.FB) window.FB.set('plantillas', backup.plantillas); try { localStorage.setItem('sura_plantillas_v1', JSON.stringify(backup.plantillas)); } catch(e) {} }
       state = getState();
       document.getElementById('backupImportMsg').innerHTML = `<span style="color:var(--green);">✅ Backup restaurado exitosamente. ${backup.datos.ventas.length} ventas cargadas.</span>`;
       renderBackup();
@@ -10850,9 +11007,14 @@ function getDefaultConfigAnio(anio) {
 
 // Config storage per year
 function getAllConfigAnios() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.configAnios || {};
   try { return JSON.parse(localStorage.getItem('sura_config_anios_v1') || '{}'); } catch { return {}; }
 }
-function setAllConfigAnios(c) { localStorage.setItem('sura_config_anios_v1', JSON.stringify(c)); }
+function setAllConfigAnios(c) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.configAnios = c;
+  if (window.FB) window.FB.set('configAnios', c);
+  try { localStorage.setItem('sura_config_anios_v1', JSON.stringify(c)); } catch(e) {}
+}
 
 function getConfigAnio(anio) {
   const all = getAllConfigAnios();
@@ -11266,9 +11428,14 @@ function toggleHistoricoAnio(anio) {
 // MÓDULO: PRODUCTOS EXTRA (DINÁMICOS)
 // =============================================
 function getProductosExtra() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.productosExtra || [];
   try { return JSON.parse(localStorage.getItem('sura_productos_extra') || '[]'); } catch { return []; }
 }
-function setProductosExtra(arr) { localStorage.setItem('sura_productos_extra', JSON.stringify(arr)); }
+function setProductosExtra(arr) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.productosExtra = arr;
+  if (window.FB) window.FB.set('productosExtra', arr);
+  try { localStorage.setItem('sura_productos_extra', JSON.stringify(arr)); } catch(e) {}
+}
 
 function cargarSelectProductosExtra() {
   const sel = document.getElementById('vExtraProductoSelect');
@@ -11353,9 +11520,14 @@ function abrirNuevoProducto() {
 // MÓDULO: EMPRESAS
 // =============================================
 function getEmpresas() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.empresas || [];
   try { return JSON.parse(localStorage.getItem('sura_empresas_v1') || '[]'); } catch { return []; }
 }
-function setEmpresas(arr) { localStorage.setItem('sura_empresas_v1', JSON.stringify(arr)); }
+function setEmpresas(arr) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.empresas = arr;
+  if (window.FB) window.FB.set('empresas', arr);
+  try { localStorage.setItem('sura_empresas_v1', JSON.stringify(arr)); } catch(e) {}
+}
 
 function autoRegistrarEmpresaDesdeVenta(nombre, nit, ciudad) {
   if (!nombre || nombre === '—') return;
@@ -11937,10 +12109,10 @@ function construirObjetoBackup() {
     pipeline: getPipeline(),
     actividades: getActividades(),
     cierres: getCierres(),
-    plantillas: JSON.parse(localStorage.getItem('sura_plantillas_v1')||'{}'),
+    plantillas: (window.__FB_CACHE__ ? window.__FB_CACHE__.plantillas : null) || JSON.parse(localStorage.getItem('sura_plantillas_v1')||'{}'),
     empresas: getEmpresas(),
     productosExtra: getProductosExtra(),
-    configAnios: JSON.parse(localStorage.getItem('sura_config_anios_v1')||'{}'),
+    configAnios: getAllConfigAnios(),
   };
 }
 
@@ -12037,9 +12209,14 @@ let cotPersonas = [];
 let cotIdCounter = 0;
 
 function getCotizaciones() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.cotizaciones || [];
   try { return JSON.parse(localStorage.getItem('sura_cotizaciones_v1') || '[]'); } catch { return []; }
 }
-function setCotizaciones(arr) { localStorage.setItem('sura_cotizaciones_v1', JSON.stringify(arr)); }
+function setCotizaciones(arr) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.cotizaciones = arr;
+  if (window.FB) window.FB.set('cotizaciones', arr);
+  try { localStorage.setItem('sura_cotizaciones_v1', JSON.stringify(arr)); } catch(e) {}
+}
 function getNextCotNumero() {
   const cots = getCotizaciones();
   const anio = new Date().getFullYear();
@@ -13043,9 +13220,14 @@ function cotizacionConvertirVenta(id) {
 // =============================================
 
 function getSyncConfig() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.syncConfig || {};
   try { return JSON.parse(localStorage.getItem('sura_sync_config') || '{}'); } catch { return {}; }
 }
-function setSyncConfig(c) { localStorage.setItem('sura_sync_config', JSON.stringify(c)); }
+function setSyncConfig(c) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.syncConfig = c;
+  if (window.FB) window.FB.set('syncConfig', c);
+  try { localStorage.setItem('sura_sync_config', JSON.stringify(c)); } catch(e) {}
+}
 
 function renderSync() {
   const cfg = getSyncConfig();
@@ -13120,10 +13302,10 @@ function syncExportarDatos() {
     pipeline: getPipeline(),
     actividades: getActividades(),
     cierres: getCierres(),
-    plantillas: JSON.parse(localStorage.getItem('sura_plantillas_v1') || '{}'),
+    plantillas: (window.__FB_CACHE__ ? window.__FB_CACHE__.plantillas : null) || JSON.parse(localStorage.getItem('sura_plantillas_v1') || '{}'),
     empresas: getEmpresas(),
     productosExtra: getProductosExtra(),
-    configAnios: JSON.parse(localStorage.getItem('sura_config_anios_v1') || '{}'),
+    configAnios: getAllConfigAnios(),
     cotizaciones: getCotizaciones(),
   };
   const json = JSON.stringify(backup, null, 2);
@@ -13195,10 +13377,10 @@ function syncAplicarBackup(backup) {
     if (backup.pipeline) setPipeline(backup.pipeline);
     if (backup.actividades) setActividades(backup.actividades);
     if (backup.cierres) setCierres(backup.cierres);
-    if (backup.plantillas) localStorage.setItem('sura_plantillas_v1', JSON.stringify(backup.plantillas));
+    if (backup.plantillas) { if (window.__FB_CACHE__) window.__FB_CACHE__.plantillas = backup.plantillas; if (window.FB) window.FB.set('plantillas', backup.plantillas); try { localStorage.setItem('sura_plantillas_v1', JSON.stringify(backup.plantillas)); } catch(e) {} }
     if (backup.empresas) setEmpresas(backup.empresas);
     if (backup.productosExtra) setProductosExtra(backup.productosExtra);
-    if (backup.configAnios) localStorage.setItem('sura_config_anios_v1', JSON.stringify(backup.configAnios));
+    if (backup.configAnios) setAllConfigAnios(backup.configAnios);
     if (backup.cotizaciones) setCotizaciones(backup.cotizaciones);
 
     // Registrar importación
@@ -13865,14 +14047,85 @@ document.getElementById('modalActividad').addEventListener('click', function(e) 
   if (e.target === this) closeModal('modalActividad');
 });
 
-// Init
-initMultiAnio();
-migrarPagosV1(); // migrar formato v1 → v2 de pagos
-navigate('dashboard');
-checkMenuPulse();
-actualizarSidebarSync();
-// Check backup alert on every app open (with 3 second delay to not block UX)
-setTimeout(checkAlertaBackup, 3000);
+// =============================================
+// 🚀 MIGRACIÓN: localStorage → Firebase
+// =============================================
+async function migrarLocalStorageAFirebase() {
+  if (!window.FB) { showToast('❌ Firebase no está conectado'); return; }
+  const msg = document.getElementById('fbMigMsg');
+  if (msg) { msg.style.display=''; msg.style.color='var(--amber)'; msg.textContent='⏳ Migrando datos...'; }
+
+  try {
+    const estado       = JSON.parse(localStorage.getItem('sura_asesor_v2')    || '{}');
+    const pagos        = JSON.parse(localStorage.getItem('sura_pagos_v2')     || '{}');
+    const pipeline     = JSON.parse(localStorage.getItem('sura_pipeline_v1')  || '[]');
+    const actividades  = JSON.parse(localStorage.getItem('sura_actividad_v1') || '[]');
+    const cierres      = JSON.parse(localStorage.getItem('sura_cierres_v1')   || '{}');
+    const configAnios  = JSON.parse(localStorage.getItem('sura_config_anios_v1') || '{}');
+    const productosExtra = JSON.parse(localStorage.getItem('sura_productos_extra') || '[]');
+    const empresas     = JSON.parse(localStorage.getItem('sura_empresas_v1')  || '[]');
+    const cotizaciones = JSON.parse(localStorage.getItem('sura_cotizaciones_v1') || '[]');
+    const plantillas   = JSON.parse(localStorage.getItem('sura_plantillas_v1') || '{}');
+    const syncConfig   = JSON.parse(localStorage.getItem('sura_sync_config')  || '{}');
+
+    await Promise.all([
+      window.FB.set('estado',        estado),
+      window.FB.set('pagos',         pagos),
+      window.FB.set('pipeline',      pipeline),
+      window.FB.set('actividades',   actividades),
+      window.FB.set('cierres',       cierres),
+      window.FB.set('configAnios',   configAnios),
+      window.FB.set('productosExtra',productosExtra),
+      window.FB.set('empresas',      empresas),
+      window.FB.set('cotizaciones',  cotizaciones),
+      window.FB.set('plantillas',    plantillas),
+      window.FB.set('syncConfig',    syncConfig),
+    ]);
+
+    // Actualizar cache
+    if (window.__FB_CACHE__) {
+      Object.assign(window.__FB_CACHE__, { estado, pagos, pipeline, actividades, cierres, configAnios, productosExtra, empresas, cotizaciones, plantillas, syncConfig });
+    }
+
+    const ventas = (estado.ventas || []).length;
+    if (msg) { msg.style.color='var(--green)'; msg.textContent=`✅ Migración completada — ${ventas} ventas, ${pipeline.length} prospectos, ${empresas.length} empresas subidos a Firebase.`; }
+    showToast('✅ Datos migrados a Firebase correctamente');
+  } catch(e) {
+    if (msg) { msg.style.color='var(--red)'; msg.textContent='❌ Error en migración: ' + e.message; }
+    showToast('❌ Error migrando datos');
+    console.error(e);
+  }
+}
+
+// =============================================
+// 🔥 ARRANQUE — esperar Firebase antes de init
+// =============================================
+function bootApp() {
+  state = initState();
+  initMultiAnio();
+  migrarPagosV1();
+  navigate('dashboard');
+  checkMenuPulse();
+  actualizarSidebarSync();
+  setTimeout(checkAlertaBackup, 3000);
+  // Mostrar badge Firebase en sidebar
+  const badge = document.getElementById('fb-status-badge');
+  if (badge) badge.style.display = '';
+}
+
+if (window.__FB_READY__) {
+  bootApp();
+} else {
+  document.addEventListener('fb-ready', bootApp, { once: true });
+  // Fallback: si Firebase tarda más de 8 segundos, arrancar con localStorage
+  setTimeout(function() {
+    if (!window.__FB_READY__) {
+      console.warn('Firebase timeout — arrancando con localStorage');
+      window.__FB_CACHE__ = null;
+      bootApp();
+    }
+  }, 8000);
+}
 </script>
 </body>
 
