@@ -3331,6 +3331,14 @@
                 <label class="form-label">📧 Correo</label>
                 <input type="email" class="form-control" id="cCorreo" placeholder="correo@ejemplo.com">
               </div>
+              <div class="form-group">
+                <label class="form-label">🪪 Cédula</label>
+                <input type="text" class="form-control" id="cCedula" placeholder="Número de documento">
+              </div>
+              <div class="form-group">
+                <label class="form-label">🏙️ Ciudad</label>
+                <input type="text" class="form-control" id="cCiudad" placeholder="Ciudad">
+              </div>
             </div>
           </div>
 
@@ -12032,6 +12040,15 @@ function getCotizaciones() {
   try { return JSON.parse(localStorage.getItem('sura_cotizaciones_v1') || '[]'); } catch { return []; }
 }
 function setCotizaciones(arr) { localStorage.setItem('sura_cotizaciones_v1', JSON.stringify(arr)); }
+function getNextCotNumero() {
+  const cots = getCotizaciones();
+  const anio = new Date().getFullYear();
+  const anioShort = String(anio).slice(-2);
+  const delAnio = cots.filter(c => c.numero && c.numero.startsWith('COT-' + anioShort));
+  const nums = delAnio.map(c => parseInt((c.numero || '').split('-')[2] || '0')).filter(n => !isNaN(n));
+  const next = nums.length ? Math.max(...nums) + 1 : 1;
+  return `COT-${anioShort}-${String(next).padStart(4,'0')}`;
+}
 
 const COT_LABELS = { SPTI:'SPTI — Salud Para Todos', SPD:'SPD — Salud Para Dos', PSM:'Plan Salud Modular', PAC60:'Plan Complementario 60+' };
 const COT_COLORS = { SPTI:'var(--teal)', SPD:'var(--purple)', PSM:'#0891B2', PAC60:'var(--green)' };
@@ -12395,10 +12412,12 @@ function cotizadorGuardar() {
   if (!nombre) { alert('Ingresa el nombre del cliente para guardar'); return; }
   if (!cotPersonas.length) { alert('Agrega al menos una persona'); return; }
   const total = cotPersonas.reduce((s, p) => s + cotizadorCalcPrima(p) * (p.cantidad||1), 0);
+  const numero = getNextCotNumero();
   cots.unshift({
     id: Date.now().toString(36),
+    numero,
     fecha: new Date().toISOString().split('T')[0],
-    cliente: { nombre, tel: document.getElementById('cTel')?.value, correo: document.getElementById('cCorreo')?.value },
+    cliente: { nombre, tel: document.getElementById('cTel')?.value, correo: document.getElementById('cCorreo')?.value, cedula: document.getElementById('cCedula')?.value||'', ciudad: document.getElementById('cCiudad')?.value||'' },
     personas: cotPersonas.map(p => ({ ...p, primaCalc: cotizadorCalcPrima(p) })),
     total,
   });
@@ -12408,7 +12427,7 @@ function cotizadorGuardar() {
 
 function cotizadorLimpiar() {
   cotPersonas = []; cotIdCounter = 0;
-  ['cNombre','cTel','cCorreo'].forEach(fid => { const el=document.getElementById(fid); if(el) el.value=''; });
+  ['cNombre','cTel','cCorreo','cCedula','cCiudad'].forEach(fid => { const el=document.getElementById(fid); if(el) el.value=''; });
   const cp = document.getElementById('cotizadorPersonas'); if(cp) cp.innerHTML='';
   const ce = document.getElementById('cotizadorEmpty'); if(ce) ce.style.display='';
   const cr = document.getElementById('cotizadorResumen'); if(cr) cr.style.display='none';
@@ -12653,21 +12672,208 @@ function cotizadorImprimir() {
   const nombre = document.getElementById('cNombre')?.value || 'Cliente';
   const total = cotPersonas.reduce((s, p) => s + cotizadorCalcPrima(p), 0);
   if (!cotPersonas.length || !total) { alert('Agrega personas con datos completos primero'); return; }
-  const fecha = new Date().toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
-  const filas = cotPersonas.map((p, i) => {
-    const prima = cotizadorCalcPrima(p);
-    if (!prima) return '';
-    const label = p.nombre || `Persona ${i+1}`;
-    const detPlan = p.producto==='SPTI'?`${p.plan} · ${p.periodicidad}`:p.producto==='SPD'?`${p.periodicidad}`:p.producto==='PSM'?`Básico${p.modulosExtra?.length?' + '+p.modulosExtra.join(', '):''}`:p.conAnexo?'Con anexo':'Sin anexo';
-    const beneficios = {
-      SPTI:'Cons. externa · Urgencias · Lab. · Terapias · Períodos de carencia aplican',
-      SPD:'Tomador + Asegurado · Tarifa única · 24/7',
-      PSM:'Cons. especialistas · Urgencias · Lab · Terapias · Longevo',
-      PAC60:'Dims. Prevención · Social · Física · Consulta directa especialistas · Domicilio · Odonto'
-    }[p.producto] || '';
-    return `<tr><td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-weight:600;">${label}</td><td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">${p.edad||'—'}</td><td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#1A4CE8;">${COT_LABELS[p.producto]||p.producto}</td><td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;">${detPlan}</td><td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;">${beneficios}</td><td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;color:#059669;font-family:monospace;">${fmt(prima)}/mes</td></tr>`;
+
+  const tel     = document.getElementById('cTel')?.value || '—';
+  const correo  = document.getElementById('cCorreo')?.value || '—';
+  const cedula  = document.getElementById('cCedula')?.value || '—';
+  const ciudad  = document.getElementById('cCiudad')?.value || '—';
+  const asesor  = (getState().config?.nombreAsesor || 'Asesor SURA').trim();
+  const fecha   = new Date().toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
+  const numero  = getNextCotNumero();
+  const vigencia = new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
+
+  // Coberturas por producto
+  const COBERTURAS = {
+    SPTI: [
+      ['Habitación individual sencilla','Evento','ILIMITADO EN DÍAS AL 100%'],
+      ['Honorarios quirúrgicos del parto','Evento','SÍ'],
+      ['Ayudas diagnósticas hospitalarias no PBS','Evento','ILIMITADO EN DÍAS AL 100%'],
+      ['Enfermedades congénitas al recién nacido','Evento','SÍ'],
+      ['No cobro de copagos del PBS','Consulta','ILIMITADOS AL 100%'],
+      ['Ayudas diagnósticas ambulatorias no PBS','Consulta','ILIMITADOS AL 100%'],
+      ['Consulta especialistas directos (Pediatría, Internista, Ginecología, Oftalmología, Urología, Dermatología, ORL, Ortopedia, Nutricionista)','Consulta','ILIMITADAS AL 100%'],
+      ['Atención médica domiciliaria 24h','Consulta','SÍ'],
+      ['Urgencias odontológicas a domicilio','Consulta','SÍ'],
+      ['No cobro de cuotas moderadoras PBS','Consulta','SÍ'],
+    ],
+    SPD: [
+      ['Tomador + 1 asegurado (grupo familiar)','—','SÍ'],
+      ['Consulta externa especialistas','Consulta','ILIMITADAS'],
+      ['Urgencias 24/7','Evento','SÍ'],
+      ['Hospitalización','Evento','SÍ'],
+      ['Ayudas diagnósticas','Consulta','SÍ'],
+    ],
+    PSM: [
+      ['Consulta especialistas directos','Consulta','SÍ'],
+      ['Urgencias','Evento','SÍ'],
+      ['Laboratorio clínico','Consulta','SÍ'],
+      ['Terapias físicas y de rehabilitación','Consulta','SÍ'],
+      ['Copago por consulta','—','$30.000'],
+      ['Periodos de carencia','—','No aplica'],
+    ],
+    PAC60: [
+      ['Prevención y bienestar','Consulta','SÍ'],
+      ['Consulta especialistas directos','Consulta','SÍ'],
+      ['Atención médica domiciliaria','Consulta','SÍ'],
+      ['Odontología preventiva','Consulta','SÍ'],
+      ['Dimensión social y física','—','SÍ'],
+    ],
+  };
+
+  // Build coverage tables per product
+  const productosEnCot = [...new Set(cotPersonas.map(p => p.producto).filter(Boolean))];
+  let coberturasTables = productosEnCot.map(prod => {
+    const rows = (COBERTURAS[prod] || []).map(([cob, aplica, val]) =>
+      `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${cob}</td>
+       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#6b7280;">${aplica}</td>
+       <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;color:#1A4CE8;">${val}</td></tr>`
+    ).join('');
+    return `
+      <div style="margin-bottom:24px;">
+        <div style="background:#1A4CE8;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${COT_LABELS[prod]||prod} — Coberturas Principales</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #e5e7eb;border-top:none;">
+          <thead style="background:#EEF2FF;">
+            <tr>
+              <th style="padding:7px 12px;text-align:left;font-size:10px;color:#6b7280;text-transform:uppercase;">Cobertura</th>
+              <th style="padding:7px 12px;text-align:center;font-size:10px;color:#6b7280;text-transform:uppercase;">Aplica por</th>
+              <th style="padding:7px 12px;text-align:right;font-size:10px;color:#6b7280;text-transform:uppercase;">Cobertura red SURA</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }).join('');
-  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Cotización SURA — ${nombre}</title><style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;}div.page{max-width:900px;margin:0 auto;padding:40px 32px;}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #1A4CE8;}.brand{font-size:26px;font-weight:900;color:#1A4CE8;}.badge{display:inline-block;background:#1A4CE8;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.06em;margin-bottom:6px;}.header-right{text-align:right;font-size:12px;color:#6b7280;}.client-card{background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:14px 18px;margin-bottom:24px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}.client-field label{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;}.client-field p{font-size:13px;font-weight:600;color:#1f2937;margin-top:2px;}h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}table{width:100%;border-collapse:collapse;font-size:12.5px;}thead{background:#1A4CE8;color:#fff;}th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}th:last-child{text-align:right;}.total-row td{padding:12px;font-size:14px;font-weight:700;background:#f0fdf4;border-top:2px solid #059669;}.total-row td:last-child{color:#059669;font-family:monospace;text-align:right;}.note-box{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px;margin-top:18px;font-size:11px;color:#92400e;}.footer{margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center;}.valid{display:inline-block;background:#dcfce7;color:#166534;font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;}@media print{@page{margin:15mm;}}</style></head><body><div class="page"><div class="header"><div><div class="badge">COTIZACIÓN DE PLANES</div><div class="brand">🏥 SURA · Canal Salud</div><div style="font-size:12px;color:#6b7280;margin-top:4px;">Asesor Especializado · EPS & Seguros SURA</div></div><div class="header-right"><strong>Fecha:</strong> ${fecha}<br><br><span class="valid">Válida 30 días</span></div></div><div class="client-card"><div class="client-field"><label>Cliente / Empresa</label><p>${nombre}</p></div><div class="client-field"><label>Teléfono</label><p>${document.getElementById('cTel')?.value||'—'}</p></div><div class="client-field"><label>Correo</label><p>${document.getElementById('cCorreo')?.value||'—'}</p></div></div><h2>Detalle de Planes Cotizados</h2><table><thead><tr><th>Persona</th><th>Edad</th><th>Producto</th><th>Plan / Periodicidad</th><th>Coberturas principales</th><th>Prima mensual</th></tr></thead><tbody>${filas}</tbody><tr class="total-row"><td colspan="5">Total mensual estimado · ${cotPersonas.filter(p=>cotizadorCalcPrima(p)>0).length} persona(s)</td><td>${fmt(total)}/mes</td></tr></table><div class="note-box">⚠️ <strong>Nota:</strong> Cotización informativa sujeta a confirmación de tarifas vigentes. Aplican períodos de carencia y condiciones médicas. Primas SPTI incluyen IVA 19% · SPD y PAC60 incluyen IVA · PSM incluye IVA 19%.</div><div class="footer">Generado por Panel de Gestión SURA Asesor · ${new Date().toLocaleString('es-CO')}</div></div><script>window.onload=function(){window.print();}<\/script></body></html>`;
+
+  // Build formas de pago table per person
+  const FACTORES = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+  const IVA_RATE = 0.19;
+  let pagosRows = cotPersonas.filter(p => cotizadorCalcPrima(p) > 0).map((p, i) => {
+    const prima = cotizadorCalcPrima(p);
+    const label = p.nombre || `Persona ${i+1}`;
+    return ['MENSUAL','TRIMESTRAL','SEMESTRAL','ANUAL'].map(per => {
+      const base = prima * (FACTORES[per]||1);
+      const iva = Math.round(base * IVA_RATE);
+      const total = base + iva;
+      return `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">${label} — ${COT_LABELS[p.producto]||p.producto}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:600;">${per}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;">$${base.toLocaleString('es-CO')}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;color:#6b7280;">$${iva.toLocaleString('es-CO')}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;color:#059669;">$${total.toLocaleString('es-CO')}</td>
+      </tr>`;
+    }).join('');
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<title>Cotización ${numero} — ${nombre}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
+.page{max-width:900px;margin:0 auto;padding:32px;}
+.header-top{background:#1A4CE8;color:#fff;padding:18px 28px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;}
+.header-brand{font-size:28px;font-weight:900;letter-spacing:-1px;}
+.header-brand span{color:#C8E52B;}
+.header-sub{font-size:11px;opacity:.85;margin-top:3px;}
+.header-right{text-align:right;font-size:11.5px;}
+.header-right strong{font-size:13px;}
+.header-bottom{background:#EEF2FF;border:1px solid #DBEAFE;border-top:none;padding:12px 28px;border-radius:0 0 8px 8px;display:flex;gap:32px;margin-bottom:24px;}
+.hb-item label{font-size:9px;font-weight:700;text-transform:uppercase;color:#6b7280;letter-spacing:.06em;}
+.hb-item p{font-size:12px;font-weight:600;color:#1f2937;margin-top:1px;}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;margin:20px 0 10px;border-bottom:2px solid #1A4CE8;padding-bottom:6px;}
+.client-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:#F8FAFF;border:1px solid #DBEAFE;border-radius:8px;padding:14px 18px;margin-bottom:20px;}
+.cf label{font-size:9px;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.05em;}
+.cf p{font-size:12.5px;font-weight:600;color:#1f2937;margin-top:2px;}
+.valid-badge{display:inline-block;background:#DCFCE7;color:#166534;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:6px;}
+.footer{margin-top:28px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center;line-height:1.8;}
+.note-box{background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:12px 14px;font-size:11px;color:#92400e;margin-top:16px;line-height:1.7;}
+@media print{@page{margin:12mm;}body{font-size:12px;}.page{padding:0;}}
+</style></head><body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header-top">
+    <div>
+      <div class="header-brand">sura<span>≫</span></div>
+      <div class="header-sub">Seguros de Vida Suramericana S.A. · Canal Salud</div>
+    </div>
+    <div class="header-right">
+      <strong>Cotización N°: ${numero}</strong><br>
+      Fecha cotización: ${fecha}<br>
+      <span class="valid-badge">Válida 30 días · hasta ${vigencia}</span>
+    </div>
+  </div>
+  <div class="header-bottom">
+    <div class="hb-item"><label>Plan cotizado</label><p>${productosEnCot.map(p => COT_LABELS[p]||p).join(' · ')}</p></div>
+    <div class="hb-item"><label>Presentado por</label><p>${asesor}</p></div>
+    <div class="hb-item"><label>Personas cotizadas</label><p>${cotPersonas.filter(p=>cotizadorCalcPrima(p)>0).length} persona(s)</p></div>
+  </div>
+
+  <!-- TOMADOR -->
+  <div class="section-title">Información del Tomador</div>
+  <div class="client-grid">
+    <div class="cf"><label>Tomador</label><p>${nombre}</p></div>
+    <div class="cf"><label>Tipo y número de identificación</label><p>Cédula ${cedula}</p></div>
+    <div class="cf"><label>Ciudad</label><p>${ciudad}</p></div>
+    <div class="cf"><label>Correo electrónico</label><p>${correo}</p></div>
+    <div class="cf"><label>Celular / Teléfono</label><p>${tel}</p></div>
+  </div>
+
+  <!-- ASEGURADOS -->
+  <div class="section-title">Asegurados</div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #e5e7eb;margin-bottom:20px;">
+    <thead style="background:#1A4CE8;color:#fff;">
+      <tr>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;">Nombres y apellidos</th>
+        <th style="padding:8px 12px;text-align:center;font-size:10px;text-transform:uppercase;">Edad</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;">Producto</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;">Plan / Detalle</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${cotPersonas.filter(p=>cotizadorCalcPrima(p)>0).map((p,i) => `
+      <tr style="border-bottom:1px solid #e5e7eb;">
+        <td style="padding:9px 12px;font-weight:600;">${p.nombre || (i===0?nombre:`Asegurado ${i+1}`)}</td>
+        <td style="padding:9px 12px;text-align:center;">${p.edad||'—'} años</td>
+        <td style="padding:9px 12px;color:#1A4CE8;font-weight:600;">${COT_LABELS[p.producto]||p.producto}</td>
+        <td style="padding:9px 12px;font-size:11px;color:#6b7280;">${p.producto==='SPTI'?`${p.plan||''} · ${p.periodicidad||''}`:p.producto==='SPD'?p.periodicidad||'':p.producto==='PSM'?`Básico${p.modulosExtra?.length?' + '+p.modulosExtra.join(', '):''}`:p.conAnexo?'Con anexo':'Sin anexo'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+
+  <!-- COBERTURAS -->
+  <div class="section-title">Coberturas del Plan</div>
+  ${coberturasTables}
+
+  <!-- FORMAS DE PAGO -->
+  <div class="section-title">Formas de Pago</div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #e5e7eb;margin-bottom:16px;">
+    <thead style="background:#1A4CE8;color:#fff;">
+      <tr>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;">Asegurado / Plan</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;">Periodicidad</th>
+        <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase;">Valor sin IVA</th>
+        <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase;">Valor IVA (19%)</th>
+        <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase;">Total a pagar</th>
+      </tr>
+    </thead>
+    <tbody>${pagosRows}</tbody>
+  </table>
+
+  <div class="note-box">
+    La cotización tiene una vigencia de 30 días siempre y cuando no se presente cambio de edad en este período y estando sujeta a las condiciones generales y particulares del seguro que se cotiza, a cambios en la medida en que se modifique la legislación tributaria. El descuento se otorga al momento de la suscripción de la póliza, siempre y cuando se demuestre la afiliación a la EPS SURA Régimen Contributivo. La presente cotización no constituye aceptación del riesgo por parte de SEGUROS DE VIDA SURAMERICANA S.A hasta tanto la Compañía se manifieste de manera expresa y en documento escrito.<br><br>
+    En caso de alguna inquietud, comuníquese con la línea de atención nacional: 01 800 051 8888 · 601 437 8888 en Bogotá · 602 437 8888 en Cali · 604 437 8888 en Medellín. Visítenos en www.segurossura.com.co
+  </div>
+
+  <div class="footer">
+    Presentado por: ${asesor} · SEGUROS DE VIDA SURAMERICANA S.A. NIT 890.903.790-5<br>
+    E-mail: contactenos@suramericana.com.co · Dirección: Carrera 64 B # 49 A-30<br>
+    Generado por Panel de Gestión SURA Asesor · ${new Date().toLocaleString('es-CO')}
+  </div>
+
+</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
   const w = window.open('', '_blank'); w.document.write(html); w.document.close();
 }
 
@@ -12688,7 +12894,11 @@ function renderCotizaciones() {
     const personas = c.personas||[];
     return `<div class="card" style="border-left:3px solid var(--amber);">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-        <div><div style="font-size:15px;font-weight:700;">${c.cliente?.nombre||'Sin nombre'}</div><div style="font-size:12px;color:var(--text-muted);">${fecha} · ${personas.length} persona(s)${c.cliente?.tel?' · 📱 '+c.cliente.tel:''}</div></div>
+        <div>
+          ${c.numero ? `<div style="font-size:10px;font-family:var(--mono);color:var(--sura-blue);font-weight:700;margin-bottom:2px;">${c.numero}</div>` : ''}
+          <div style="font-size:15px;font-weight:700;">${c.cliente?.nombre||'Sin nombre'}</div>
+          <div style="font-size:12px;color:var(--text-muted);">${fecha} · ${personas.length} persona(s)${c.cliente?.tel?' · 📱 '+c.cliente.tel:''}</div>
+        </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--sura-lime);">${fmt(c.total||0)}<span style="font-size:11px;color:var(--text-muted);font-weight:400;">/mes</span></div>
           <button class="btn btn-sm" style="background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);" onclick="cotizacionConvertirVenta('${c.id}')" title="Convertir en venta">⚡ Registrar venta</button>
@@ -12715,6 +12925,8 @@ function cotizacionReimprimir(id) {
   if (document.getElementById('cNombre')) document.getElementById('cNombre').value = c.cliente?.nombre||'';
   if (document.getElementById('cTel')) document.getElementById('cTel').value = c.cliente?.tel||'';
   if (document.getElementById('cCorreo')) document.getElementById('cCorreo').value = c.cliente?.correo||'';
+  if (document.getElementById('cCedula')) document.getElementById('cCedula').value = c.cliente?.cedula||'';
+  if (document.getElementById('cCiudad')) document.getElementById('cCiudad').value = c.cliente?.ciudad||'';
   cotizadorImprimir();
 }
 
