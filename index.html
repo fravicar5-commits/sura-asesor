@@ -12746,7 +12746,7 @@ function cotizadorImprimir() {
 
   // Build formas de pago table per person
   const FACTORES = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
-  const IVA_RATE = 0.19;
+  const IVA_RATE = 0.05;
   let pagosRows = cotPersonas.filter(p => cotizadorCalcPrima(p) > 0).map((p, i) => {
     const prima = cotizadorCalcPrima(p);
     const label = p.nombre || `Persona ${i+1}`;
@@ -12787,7 +12787,7 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
 .valid-badge{display:inline-block;background:#DCFCE7;color:#166534;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:6px;}
 .footer{margin-top:28px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center;line-height:1.8;}
 .note-box{background:#FFFBEB;border:1px solid #FCD34D;border-radius:6px;padding:12px 14px;font-size:11px;color:#92400e;margin-top:16px;line-height:1.7;}
-@media print{@page{margin:12mm;}body{font-size:12px;}.page{padding:0;}}
+@media print{@page{margin:12mm;}body{font-size:12px;}.page{padding:0;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}}
 </style></head><body>
 <div class="page">
 
@@ -12853,7 +12853,7 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
         <th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;">Asegurado / Plan</th>
         <th style="padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;">Periodicidad</th>
         <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase;">Valor sin IVA</th>
-        <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase;">Valor IVA (19%)</th>
+        <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase;">Valor IVA (5%)</th>
         <th style="padding:8px 12px;text-align:right;font-size:10px;text-transform:uppercase;">Total a pagar</th>
       </tr>
     </thead>
