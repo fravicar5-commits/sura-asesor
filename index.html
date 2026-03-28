@@ -6703,7 +6703,7 @@ const PSM_TARIFAS = {
   maternidad:  { '0-14':0,'15-20':73462,'21-25':73462,'26-30':73462,'31-40':73462,'41-45':73462,'46-50':0,'51-55':0,'56-59':0,'60-65':0,'66-70':0,'71+':0 },
   altoCosto:   { '0-14':17477,'15-20':17477,'21-25':17477,'26-30':30726,'31-40':47346,'41-45':76533,'46-50':126374,'51-55':201996,'56-59':201996,'60-65':350150,'66-70':577547,'71+':602205 },
 };
-const PSM_IVA = 1.19; // IVA 19%
+const PSM_IVA = 1.05; // IVA 5%
 
 function getRangoPSM(edad) {
   return PSM_RANGOS.find(r => edad >= r.min && edad <= r.max) || null;
@@ -7139,7 +7139,7 @@ function guardarVenta() {
       empresa: empNombrePSM,
       prima: primaMensual,
       primaTotal: primaMensual,
-      primaTotalSinIVA: Math.round(primaMensual / PSM_IVA),
+      primaTotalSinIVA: Math.round(primaMensual / PSM_IVA), // PSM IVA 5%
       notas: document.getElementById('vNotasPSM').value,
       comision,
       ramo: 'FAMILIAR',
