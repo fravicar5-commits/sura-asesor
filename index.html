@@ -4805,6 +4805,12 @@
         </div>
       </div>
       <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted);">💡 Los valores de siniestralidad también se actualizan automáticamente al importar el archivo Excel de SURA.</div>
+
+      <!-- Historial de siniestralidad por trimestre -->
+      <div id="empHistorialSinWrap" style="display:none;margin-top:14px;">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">📊 Historial de Siniestralidad</div>
+        <div id="empHistorialSinLista" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;"></div>
+      </div>
     </div>
 
     <div class="form-group" style="margin-bottom:4px;">
@@ -11707,7 +11713,7 @@ function bdAplicarEmpresa(id) {
       const fuente = document.getElementById('bdSinFuente');
       if (fuente) {
         fuente.style.display = '';
-        fuente.innerHTML = `✅ Siniestralidad cargada desde BD · ${e.ciudad || ''} · ${e.sinPct ? e.sinPct + '%' : e.siniestralidad}`;
+        fuente.innerHTML = `✅ Siniestralidad cargada desde BD · ${e.ciudad || ''} · ${e.sinPct ? e.sinPct + '%' : e.siniestralidad}${e.trimRef ? ` · Trim: ${e.trimRef}` : ''}${(e.historialSin||[]).length > 1 ? ` · <span style="color:var(--amber);">📋 ${e.historialSin.length} trimestres en historial</span>` : ''}`;
       }
     }
   }
@@ -11754,6 +11760,9 @@ function autoRegistrarEmpresaDesdeVenta(nombre, nit, ciudad) {
 
 function openModalEmpresa(id) {
   document.getElementById('empModalId').value = id || '';
+  const histWrap = document.getElementById('empHistorialSinWrap');
+  const histLista = document.getElementById('empHistorialSinLista');
+
   if (id) {
     const empresas = getEmpresas();
     const e = empresas.find(x => x.id === id);
@@ -11768,12 +11777,32 @@ function openModalEmpresa(id) {
     document.getElementById('empTrimRef').value = e.trimRef || '';
     document.getElementById('empSinPct').value = e.sinPct || '';
     document.getElementById('empNotas').value = e.notas || '';
+
+    // Mostrar historial de siniestralidad
+    const hist = e.historialSin || [];
+    if (hist.length > 0) {
+      const sinColors = { '<=75%':'var(--green)', '76% - 90%':'var(--amber)', '>=91% EXCEPCIONADA':'var(--red)', '>=91% NO AGIL':'var(--red)' };
+      histWrap.style.display = '';
+      histLista.innerHTML = hist.map((h, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--surface2);border-radius:6px;border-left:3px solid ${sinColors[h.sinCat]||'var(--sura-blue)'};">
+          <div style="flex:1;">
+            <span style="font-size:12px;font-weight:600;color:var(--text);">${h.trim || 'Sin trimestre'}</span>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">Importado: ${h.fechaImport || '—'}</span>
+          </div>
+          <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:${sinColors[h.sinCat]||'var(--text)'};">${h.sinPct !== '' && h.sinPct !== undefined ? h.sinPct + '%' : ''}</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:12px;background:${sinColors[h.sinCat]||'var(--surface3)'}22;color:${sinColors[h.sinCat]||'var(--text-muted)'};">${h.sinCat || '—'}</span>
+          ${i === 0 ? '<span style="font-size:10px;padding:2px 6px;background:rgba(34,197,94,0.15);color:var(--green);border-radius:10px;">Vigente</span>' : ''}
+        </div>`).join('');
+    } else {
+      histWrap.style.display = 'none';
+    }
   } else {
     ['empNombre','empNIT','empCiudad','empSector','empContacto','empTelContacto','empTrimRef','empSinPct','empNotas'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
     document.getElementById('empSiniestralidad').value = '';
+    if (histWrap) histWrap.style.display = 'none';
   }
   document.getElementById('modalEmpresa').classList.add('open');
 }
@@ -11921,7 +11950,9 @@ function renderEmpresas() {
       <td style="font-size:12px;color:var(--text-muted);">${e.sector||'—'}</td>
       <td>
         ${e.siniestralidad
-          ? `<span class="chip ${sinClass}" style="font-size:10px;">${sinLabel}${pctLabel}</span>`
+          ? `<span class="chip ${sinClass}" style="font-size:10px;cursor:${(e.historialSin||[]).length>1?'help':'default'};"
+              title="${(e.historialSin||[]).map(h=>h.trim+': '+(h.sinPct||'')+'% ('+h.sinCat+')').join(' | ')}"
+             >${sinLabel}${pctLabel}${(e.historialSin||[]).length>1?' 📋':''}</span>`
           : '<span style="color:var(--text-dim);font-size:12px;">Sin dato</span>'}
       </td>
       <td style="font-size:11.5px;color:var(--text-muted);">${e.trimRef||'—'}</td>
@@ -12124,20 +12155,46 @@ function confirmarImportSin() {
   if (!_sinImportData) return;
   const empresas = getEmpresas();
   let actualizadas = 0;
+  const trimVigente = _sinImportData.find(r => r.trim)?.trim || '';
+  const fechaHoy = new Date().toISOString().split('T')[0];
+
   _sinImportData.filter(r => r.encontrada && r.empresaId).forEach(r => {
     const idx = empresas.findIndex(e => e.id === r.empresaId);
     if (idx >= 0) {
-      if (r.sinCat) empresas[idx].siniestralidad = r.sinCat;
-      if (r.sinPct !== '') empresas[idx].sinPct = r.sinPct;
-      if (r.trim) empresas[idx].trimRef = r.trim;
+      const emp = empresas[idx];
+
+      // Inicializar historial si no existe
+      if (!emp.historialSin) emp.historialSin = [];
+
+      // Solo agregar al historial si hay datos de siniestralidad
+      if (r.sinCat) {
+        const trimKey = r.trim || trimVigente || fechaHoy;
+        // Verificar si ya existe este trimestre en el historial
+        const existeTrim = emp.historialSin.findIndex(h => h.trim === trimKey);
+        const entrada = { trim: trimKey, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
+        if (existeTrim >= 0) {
+          // Actualizar entrada existente del mismo trimestre
+          emp.historialSin[existeTrim] = entrada;
+        } else {
+          // Agregar nueva entrada al historial
+          emp.historialSin.push(entrada);
+          // Ordenar por fecha de import (más reciente primero)
+          emp.historialSin.sort((a, b) => (b.fechaImport || '').localeCompare(a.fechaImport || ''));
+        }
+        // Actualizar vigente (siempre el más reciente)
+        emp.siniestralidad = r.sinCat;
+        emp.sinPct = r.sinPct;
+      }
+      if (r.trim) emp.trimRef = r.trim;
       actualizadas++;
     }
   });
   setEmpresas(empresas);
   _sinImportData = null;
   closeModal('modalImportSin');
-  showToast(`✅ ${actualizadas} empresa${actualizadas!==1?'s':''} actualizadas`);
+  showToast(`✅ ${actualizadas} empresa${actualizadas!==1?'s':''} actualizadas · historial conservado`);
   renderEmpresas();
+}
 }
 
 // =============================================
