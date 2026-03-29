@@ -11623,44 +11623,98 @@ function bdBuscarEmpresa(modo) {
   const empresas = getEmpresas();
   const ciudad = bdNormalizarCiudad(document.getElementById('vCiudad').value || '');
 
-  // Filtrar candidatos
-  const candidatos = empresas.filter(e => {
-    if (modo === 'nit') {
-      return e.nit && bdNormalizar(e.nit).startsWith(query);
-    } else {
-      return bdNormalizar(e.nombre).includes(query);
-    }
-  }).slice(0, 30);
+  // ── 1. Buscar en panel del asesor ──────────────────────────────────────
+  const delPanel = empresas.filter(e => {
+    if (modo === 'nit') return e.nit && bdNormalizar(e.nit).startsWith(query);
+    return bdNormalizar(e.nombre).includes(query);
+  }).slice(0, 15);
 
-  if (candidatos.length === 0) { bdOcultarSugerencias(); return; }
-
-  // Para cada empresa única (por nombre+NIT), ver si tiene múltiples ciudades en BD
-  // Aquí las empresas ya importadas tienen 1 ciudad cada una (se importaron con ciudad)
-  // Ordenar: primero las que coinciden con la ciudad del formulario
-  candidatos.sort((a, b) => {
-    const aMatch = bdNormalizarCiudad(a.ciudad) === ciudad ? 0 : 1;
-    const bMatch = bdNormalizarCiudad(b.ciudad) === ciudad ? 0 : 1;
-    return aMatch - bMatch;
+  // Ordenar: ciudad coincidente primero
+  delPanel.sort((a, b) => {
+    const aM = bdNormalizarCiudad(a.ciudad) === ciudad ? 0 : 1;
+    const bM = bdNormalizarCiudad(b.ciudad) === ciudad ? 0 : 1;
+    return aM - bM;
   });
 
-  // Mostrar sugerencias
+  // ── 2. Buscar en BD completa (si está cargada) ─────────────────────────
+  let deBD = [];
+  if (window._BD_FULL_LIST && window._BD_FULL_LIST.length > 0) {
+    const panelNITs = new Set(empresas.map(e => (e.nit || '').replace(/\D/g,'')).filter(Boolean));
+    // Filtrar: no mostrar lo que ya está en panel, limitar a 20
+    const filtrados = window._BD_FULL_LIST.filter(r => {
+      // Excluir si ya está en el panel
+      if (r.nit && panelNITs.has(r.nit.replace(/\D/g,''))) return false;
+      if (modo === 'nit') return r.nit && bdNormalizar(r.nit).startsWith(query);
+      return r.nombre && bdNormalizar(r.nombre).includes(query);
+    });
+
+    // Deduplicar por nombre+ciudad para no mostrar repetidos
+    const seen = new Set();
+    for (const r of filtrados) {
+      const k = bdNormalizar(r.nombre) + '|' + bdNormalizarCiudad(r.ciudad);
+      if (!seen.has(k)) { seen.add(k); deBD.push(r); }
+      if (deBD.length >= 20) break;
+    }
+
+    // Ordenar: ciudad coincidente primero
+    deBD.sort((a, b) => {
+      const aM = bdNormalizarCiudad(a.ciudad) === ciudad ? 0 : 1;
+      const bM = bdNormalizarCiudad(b.ciudad) === ciudad ? 0 : 1;
+      return aM - bM;
+    });
+  }
+
+  if (delPanel.length === 0 && deBD.length === 0) { bdOcultarSugerencias(); return; }
+
+  // ── 3. Renderizar dropdown ─────────────────────────────────────────────
+  const sinColor = s => s?.includes('91') ? 'var(--red)' : s?.includes('76') ? 'var(--amber)' : 'var(--green)';
   const div = document.getElementById('bdSugerencias');
   div.style.display = '';
-  div.innerHTML = candidatos.map(e => {
-    const ciudadMatch = ciudad && bdNormalizarCiudad(e.ciudad) === ciudad;
-    return `<div onclick="bdSeleccionarEmpresa(${JSON.stringify(e.id)})"
-      style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;
-      background:${ciudadMatch ? 'rgba(34,197,94,0.08)' : 'transparent'};"
-      onmouseover="this.style.background='var(--surface3)'"
-      onmouseout="this.style.background='${ciudadMatch ? 'rgba(34,197,94,0.08)' : 'transparent'}'">
-      <div style="font-weight:600;">${e.nombre}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
-        NIT: ${e.nit || '—'} · ${e.ciudad || 'Sin ciudad'} 
-        ${e.siniestralidad ? `· <span style="color:${e.siniestralidad.includes('91')?'var(--red)':e.siniestralidad.includes('76')?'var(--amber)':'var(--green)'};">${e.siniestralidad}</span>` : ''}
-        ${ciudadMatch ? ' <span style="color:var(--green);">✓ ciudad</span>' : ''}
-      </div>
-    </div>`;
-  }).join('');
+
+  let html = '';
+
+  if (delPanel.length > 0) {
+    html += `<div style="padding:5px 12px;font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;background:var(--surface3);letter-spacing:.06em;">📋 Tu panel</div>`;
+    html += delPanel.map(e => {
+      const ciudadMatch = ciudad && bdNormalizarCiudad(e.ciudad) === ciudad;
+      return `<div onclick="bdSeleccionarEmpresa(${JSON.stringify(e.id)})"
+        style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;background:${ciudadMatch?'rgba(34,197,94,0.08)':'transparent'};"
+        onmouseover="this.style.background='var(--surface3)'"
+        onmouseout="this.style.background='${ciudadMatch?'rgba(34,197,94,0.08)':'transparent'}'">
+        <div style="font-weight:600;">${e.nombre}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+          NIT: ${e.nit||'—'} · ${e.ciudad||'Sin ciudad'}
+          ${e.siniestralidad ? `· <span style="color:${sinColor(e.siniestralidad)};">${e.siniestralidad}${e.sinPct?' ('+e.sinPct+'%)':''}</span>` : ''}
+          ${ciudadMatch ? ' <span style="color:var(--green);">✓</span>' : ''}
+          ${(e.historialSin||[]).length>1 ? ' 📋' : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  if (deBD.length > 0) {
+    html += `<div style="padding:5px 12px;font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;background:var(--surface3);letter-spacing:.06em;">🗄️ BD Siniestralidad</div>`;
+    html += deBD.map((r, i) => {
+      const ciudadMatch = ciudad && bdNormalizarCiudad(r.ciudad) === ciudad;
+      const uid = 'bd_' + i + '_' + Date.now();
+      // Store temp data in a data attribute to retrieve on click
+      const dataStr = JSON.stringify({ nombre: r.nombre, nit: r.nit, ciudad: r.ciudad, sinCat: r.sinCat, sinPct: r.sinPct, trim: r.trim }).replace(/'/g, '&#39;');
+      return `<div onclick="bdAplicarDesdeBDCompleta(this)"
+        data-bd='${dataStr}'
+        style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;background:${ciudadMatch?'rgba(34,197,94,0.06)':'transparent'};"
+        onmouseover="this.style.background='var(--surface3)'"
+        onmouseout="this.style.background='${ciudadMatch?'rgba(34,197,94,0.06)':'transparent'}'">
+        <div style="font-weight:600;">${r.nombre} <span style="font-size:10px;color:var(--text-dim);font-weight:400;">· BD</span></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+          NIT: ${r.nit||'—'} · ${r.ciudad||'Sin ciudad'}
+          ${r.sinCat ? `· <span style="color:${sinColor(r.sinCat)};">${r.sinCat}${r.sinPct?' ('+r.sinPct+'%)':''}</span>` : ''}
+          ${ciudadMatch ? ' <span style="color:var(--green);">✓ ciudad</span>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  div.innerHTML = html;
 }
 
 function bdSeleccionarEmpresa(id) {
@@ -11722,6 +11776,62 @@ function bdAplicarEmpresa(id) {
   const panel = document.getElementById('bdCiudadPanel');
   if (panel) panel.style.display = 'none';
   bdOcultarSugerencias();
+}
+
+function bdAplicarDesdeBDCompleta(el) {
+  try {
+    const data = JSON.parse(el.getAttribute('data-bd').replace(/&#39;/g, "'"));
+    // Verificar si hay múltiples ciudades para este NIT en la BD completa
+    let opcionesCiudad = [];
+    if (window._BD_FULL_LIST && data.nit) {
+      const nitLimpio = data.nit.replace(/\D/g,'');
+      const seen = new Set();
+      opcionesCiudad = window._BD_FULL_LIST.filter(r => {
+        if (!r.nit || r.nit.replace(/\D/g,'') !== nitLimpio) return false;
+        const k = bdNormalizarCiudad(r.ciudad);
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+    }
+
+    document.getElementById('vEmpresa').value = data.nombre;
+    document.getElementById('vNIT').value = data.nit || '';
+    bdOcultarSugerencias();
+
+    if (opcionesCiudad.length > 1) {
+      // Mostrar panel de ciudades
+      const panel = document.getElementById('bdCiudadPanel');
+      const opts  = document.getElementById('bdCiudadOpciones');
+      panel.style.display = '';
+      const sinColor = s => s?.includes('91')?'var(--red)':s?.includes('76')?'var(--amber)':'var(--green)';
+      opts.innerHTML = opcionesCiudad.map(r => {
+        const dataStr = JSON.stringify({ nombre:r.nombre, nit:r.nit, ciudad:r.ciudad, sinCat:r.sinCat, sinPct:r.sinPct, trim:r.trim }).replace(/'/g,"&#39;");
+        return `<button class="btn btn-secondary btn-sm" onclick="bdAplicarDatosBD(this)" data-bd='${dataStr}' style="font-size:12px;">
+          🏙️ ${r.ciudad||'Sin ciudad'}
+          ${r.sinCat?`<span style="color:${sinColor(r.sinCat)};margin-left:4px;">${r.sinCat}${r.sinPct?' ('+r.sinPct+'%)':''}</span>`:''}
+        </button>`;
+      }).join('');
+    } else {
+      // Aplicar directo
+      bdAplicarDatosBD(null, data);
+    }
+  } catch(e) { console.error('bdAplicarDesdeBDCompleta:', e); }
+}
+
+function bdAplicarDatosBD(el, dataIn) {
+  const data = dataIn || JSON.parse((el?.getAttribute('data-bd') || '{}').replace(/&#39;/g,"'"));
+  if (data.sinCat) {
+    const sel = document.getElementById('vSiniestralidad');
+    const opt = Array.from(sel.options).find(o => o.value === data.sinCat);
+    if (opt) { sel.value = data.sinCat; sel.dispatchEvent(new Event('change')); }
+    const fuente = document.getElementById('bdSinFuente');
+    if (fuente) {
+      fuente.style.display = '';
+      fuente.innerHTML = `✅ Siniestralidad desde BD · ${data.ciudad||''} · ${data.sinPct?data.sinPct+'%':data.sinCat}${data.trim?' · Trim: '+data.trim:''}`;
+    }
+  }
+  const panel = document.getElementById('bdCiudadPanel');
+  if (panel) panel.style.display = 'none';
 }
 
 function bdOcultarSugerencias() {
@@ -12021,6 +12131,7 @@ async function importarSiniestralidad(event) {
       const colNIT    = findCol('nit', 'identificacion', 'documento', 'rut');
       const colSin    = findCol('siniestralidad', 'siniestr', 'porcentaje', '%sin');
       const colTrim   = findCol('trimestre', 'periodo', 'trim', 'referencia', 'fecha');
+      const colCiudadSin = findCol('ciudad', 'municipio', 'city', 'localidad');
 
       const filas = data.slice(1).filter(row => row.some(c => c !== ''));
       const empresas = getEmpresas();
@@ -12037,6 +12148,7 @@ async function importarSiniestralidad(event) {
           const nit    = colNIT >= 0 ? String(row[colNIT] || '').trim() : '';
           const sinRaw = colSin >= 0 ? row[colSin] : '';
           const trim   = colTrim >= 0 ? String(row[colTrim] || '').trim() : '';
+          const ciudad = colCiudadSin >= 0 ? String(row[colCiudadSin] || '').trim() : '';
 
           if (!nombre && !nit) return;
 
@@ -12070,7 +12182,7 @@ async function importarSiniestralidad(event) {
           });
 
           resultados.push({
-            nombre, nit, sinPct, sinCat, trim,
+            nombre, nit, sinPct, sinCat, trim, ciudad,
             encontrada: !!match,
             empresaId: match?.id || null,
             empresaNombreActual: match?.nombre || '',
@@ -12082,13 +12194,24 @@ async function importarSiniestralidad(event) {
         await new Promise(r => setTimeout(r, 0));
       }
 
-      // Deduplicar por NIT (quedarse con el último registro por empresa)
+      // Deduplicar por NIT+ciudad para el resumen de actualización del panel
       const dedup = new Map();
       resultados.forEach(r => {
-        const key = r.nit || r.nombre;
+        const key = (r.nit || r.nombre) + '|' + bdNormalizarCiudad(r.ciudad);
         if (key) dedup.set(key, r);
       });
       const resultadosFinales = Array.from(dedup.values());
+
+      // Guardar BD completa en cache para autocompletado (NIT → array de {nombre, nit, ciudad, sinCat, sinPct})
+      const bdFullMap = new Map();
+      resultados.forEach(r => {
+        if (!r.nit && !r.nombre) return;
+        const key = r.nit ? r.nit.replace(/\D/g,'') : bdNormalizar(r.nombre);
+        if (!bdFullMap.has(key)) bdFullMap.set(key, []);
+        bdFullMap.get(key).push({ nombre: r.nombre, nit: r.nit, ciudad: r.ciudad, sinCat: r.sinCat, sinPct: r.sinPct, trim: r.trim });
+      });
+      window._BD_FULL_CACHE = bdFullMap;
+      window._BD_FULL_LIST = resultados; // lista completa para búsqueda por nombre
 
       _sinImportData = resultadosFinales;
       mostrarResumenImportSin(resultadosFinales, rawHeaders, colNombre, colNIT, colSin, colTrim);
