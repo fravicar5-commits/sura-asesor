@@ -1689,71 +1689,9 @@
               <button class="btn btn-secondary" onclick="resetTarifasAnio()">↩ Restaurar defaults 2026</button>
             </div>
           </div>
-
-          <!-- Tarifas PSM Modular -->
-          <div class="card" style="margin-bottom:16px;">
-            <div class="card-title">🧩 Tarifas Plan Modular (PSM) — Antes de IVA · Ramo Familiar</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Edita los valores sin IVA. La app aplica automáticamente el 5% de IVA al mostrar el total al cliente.</div>
-            <div style="overflow-x:auto;">
-              <table style="width:100%;font-size:12px;border-collapse:collapse;min-width:800px;" id="caTablasPSM">
-                <thead>
-                  <tr style="background:var(--surface2);">
-                    <th style="padding:8px 10px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Rango Edad</th>
-                    <th style="padding:8px 10px;text-align:right;color:var(--teal);font-size:10.5px;">Básico s/IVA</th>
-                    <th style="padding:8px 10px;text-align:right;color:var(--teal);font-size:10.5px;">EMD s/IVA</th>
-                    <th style="padding:8px 10px;text-align:right;color:var(--green);font-size:10.5px;">Cirugía s/IVA</th>
-                    <th style="padding:8px 10px;text-align:right;color:var(--amber);font-size:10.5px;">Maternidad s/IVA</th>
-                    <th style="padding:8px 10px;text-align:right;color:var(--red);font-size:10.5px;">Alto Costo s/IVA</th>
-                    <th style="padding:8px 10px;text-align:right;color:var(--purple);font-size:10.5px;">Básico+EMD c/IVA</th>
-                  </tr>
-                </thead>
-                <tbody id="caTablaPSMBody"></tbody>
-              </table>
-            </div>
-            <div style="margin-top:12px;display:flex;gap:10px;">
-              <button class="btn btn-primary" onclick="guardarConfigAnio('tarifasPSM')">💾 Guardar Tarifas PSM</button>
-              <button class="btn btn-secondary" onclick="resetTarifasPSMAnio()">↩ Restaurar defaults 2026</button>
-            </div>
-          </div>
-          <!-- Tarifas SPD -->
-          <div class="card" style="margin-bottom:16px;">
-            <div class="card-title">💜 Tarifas SPD — Salud Para Dos · Con IVA incluido</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Tarifa única sin importar la edad. IVA ya incluido en los valores.</div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;" id="caTablaSPD">
-              ${['MENSUAL','TRIMESTRAL','SEMESTRAL','ANUAL'].map(k => `
-              <div>
-                <label class="form-label" style="font-size:11px;">${k}</label>
-                <input type="number" class="form-control" id="spd_tar_${k}" value="0" style="font-family:var(--mono);font-size:13px;">
-              </div>`).join('')}
-            </div>
-            <div style="margin-top:12px;display:flex;gap:10px;">
-              <button class="btn btn-primary" onclick="guardarConfigAnio('tarifasSPD')">💾 Guardar Tarifas SPD</button>
-              <button class="btn btn-secondary" onclick="resetTarifasSPDAnio()">↩ Restaurar defaults 2026</button>
-            </div>
-          </div>
-
-          <!-- Tarifas PAC60 -->
-          <div class="card" style="margin-bottom:16px;">
-            <div class="card-title">👴 Tarifas PAC60 — Plan Complementario 60+ · Con IVA incluido</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Tarifas mensuales por rango de edad. IVA 5% ya incluido. 80-89 y 90+ solo aplican para renovaciones.</div>
-            <div style="overflow-x:auto;">
-              <table style="width:100%;font-size:12px;border-collapse:collapse;" id="caTablaPAC60">
-                <thead>
-                  <tr style="background:var(--surface2);">
-                    <th style="padding:8px 10px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Rango Edad</th>
-                    <th style="padding:8px 10px;text-align:right;color:var(--green);font-size:10.5px;">Sin Anexo (c/IVA)</th>
-                    <th style="padding:8px 10px;text-align:right;color:var(--teal);font-size:10.5px;">Con Anexo (c/IVA)</th>
-                  </tr>
-                </thead>
-                <tbody id="caTablaPAC60Body"></tbody>
-              </table>
-            </div>
-            <div style="margin-top:12px;display:flex;gap:10px;">
-              <button class="btn btn-primary" onclick="guardarConfigAnio('tarifasPAC60')">💾 Guardar Tarifas PAC60</button>
-              <button class="btn btn-secondary" onclick="resetTarifasPAC60Anio()">↩ Restaurar defaults 2026</button>
-            </div>
-          </div>
         </div>
+
+        <!-- Comisiones -->
         <div id="configAnioComisiones" style="display:none;">
           <div class="card" style="margin-bottom:16px;">
             <div class="card-title">Porcentajes de Comisión — Voluntarios</div>
@@ -3736,20 +3674,6 @@
       <!-- Alerta de mes compensado -->
       <div id="alertaMesComp" class="alert alert-info" style="margin-bottom:14px;display:none;"></div>
 
-      <!-- ── LECTOR SAT ── -->
-      <div style="background:linear-gradient(135deg,rgba(26,76,232,0.12),rgba(200,229,43,0.06));border:1px solid rgba(26,76,232,0.3);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-        <div style="font-size:22px;">📄</div>
-        <div style="flex:1;min-width:180px;">
-          <div style="font-size:13px;font-weight:700;margin-bottom:2px;">Cargar Radicado SAT</div>
-          <div style="font-size:11.5px;color:var(--text-muted);">Sube la imagen o PDF del radicado y la app pre-llena el formulario automáticamente</div>
-        </div>
-        <label style="cursor:pointer;display:inline-block;">
-          <input type="file" id="satFileInput" accept="image/*,.pdf" style="display:none;" onchange="procesarRadicadoSAT(this)">
-          <span class="btn btn-primary" style="font-size:13px;padding:8px 18px;pointer-events:none;">📄 Cargar radicado SAT</span>
-        </label>
-        <div id="satStatus" style="font-size:12px;color:var(--text-muted);width:100%;display:none;"></div>
-      </div>
-
       <div class="form-grid" style="margin-bottom:16px;">
         <div class="form-group">
           <label class="form-label">Fecha de Venta</label>
@@ -3811,13 +3735,23 @@
           <label class="form-label">Estado (Ágil/No Ágil)</label>
           <input type="text" class="form-control" id="vEstado" readonly placeholder="Auto según edad" style="background:var(--surface3);font-weight:600;">
         </div>
-        <div class="form-group">
+        <div class="form-group" style="position:relative;">
           <label class="form-label">Empresa</label>
-          <input type="text" class="form-control" id="vEmpresa" placeholder="Nombre empresa">
+          <input type="text" class="form-control" id="vEmpresa" placeholder="Nombre empresa" autocomplete="off"
+            oninput="bdBuscarEmpresa('nombre')" onblur="setTimeout(()=>bdOcultarSugerencias(),200)">
+          <div id="bdSugerencias" style="display:none;position:absolute;z-index:9999;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);width:100%;max-height:220px;overflow-y:auto;box-shadow:var(--shadow);top:100%;left:0;"></div>
         </div>
         <div class="form-group">
           <label class="form-label">NIT Empresa</label>
-          <input type="text" class="form-control" id="vNIT" placeholder="NIT">
+          <input type="text" class="form-control" id="vNIT" placeholder="NIT" autocomplete="off"
+            oninput="bdBuscarEmpresa('nit')" onblur="setTimeout(()=>bdOcultarSugerencias(),200)">
+        </div>
+        <!-- Panel multi-ciudad: aparece cuando el mismo NIT tiene varias ciudades en la BD -->
+        <div id="bdCiudadPanel" style="display:none;grid-column:1/-1;">
+          <div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:var(--radius-sm);padding:12px 14px;">
+            <div style="font-size:12.5px;font-weight:700;color:var(--amber);margin-bottom:8px;">⚠️ Esta empresa aparece en varias ciudades — elige la que corresponde a esta venta:</div>
+            <div id="bdCiudadOpciones" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Cotizantes Compensados Empresa</label>
@@ -3836,6 +3770,10 @@
             <option value="BD.PAC">BD PAC</option>
             <option value="BENEFICIARIO">Beneficiario</option>
           </select>
+        </div>
+        <!-- Indicador de fuente de siniestralidad -->
+        <div id="bdSinFuente" style="display:none;grid-column:1/-1;font-size:11.5px;color:var(--green);padding:6px 10px;background:rgba(34,197,94,0.08);border-radius:6px;border:1px solid rgba(34,197,94,0.2);">
+          ✅ Siniestralidad cargada desde BD
         </div>
         <div class="form-group">
           <label class="form-label">BD / Fuera BD</label>
@@ -6603,6 +6541,18 @@ function openModal(id) {
     document.getElementById('vCorreo').value = '';
     document.getElementById('vInicioCobertura').value = '';
     document.getElementById('vNotasPBS').value = '';
+    // Limpiar campos empresa + paneles BD
+    document.getElementById('vEmpresa').value = '';
+    document.getElementById('vNIT').value = '';
+    const bdPanel = document.getElementById('bdCiudadPanel');
+    if (bdPanel) bdPanel.style.display = 'none';
+    const bdFuente = document.getElementById('bdSinFuente');
+    if (bdFuente) bdFuente.style.display = 'none';
+    const bdSug = document.getElementById('bdSugerencias');
+    if (bdSug) bdSug.style.display = 'none';
+    // Reset SAT status
+    const satStatus = document.getElementById('satStatus');
+    if (satStatus) { satStatus.style.display = 'none'; satStatus.textContent = ''; }
     onFechaChange();
     calcPreviewCom();
     resetBeneficiarios();
@@ -6941,22 +6891,17 @@ function calcDatosPSM() {
   if (!rango) return;
   document.getElementById('vRangoPSM').value = rango.key + ' años';
 
-  // 2. Get module prices for this range — sin IVA para mostrar, IVA solo en total
+  // 2. Get module prices for this range
   const k = rango.key;
-  const pBasicoSinIVA     = PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k];
-  const pCirugiaSinIVA    = PSM_TARIFAS.cirugia[k];
-  const pMaternidadSinIVA = PSM_TARIFAS.maternidad[k];
-  const pAltoCostoSinIVA  = PSM_TARIFAS.altoCosto[k];
-  // Con IVA para el total final
-  const pBasico     = pBasicoSinIVA     * PSM_IVA;
-  const pCirugia    = pCirugiaSinIVA    * PSM_IVA;
-  const pMaternidad = pMaternidadSinIVA * PSM_IVA;
-  const pAltoCosto  = pAltoCostoSinIVA  * PSM_IVA;
+  const pBasico     = (PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k]) * PSM_IVA;
+  const pCirugia    = PSM_TARIFAS.cirugia[k] * PSM_IVA;
+  const pMaternidad = PSM_TARIFAS.maternidad[k] * PSM_IVA;
+  const pAltoCosto  = PSM_TARIFAS.altoCosto[k] * PSM_IVA;
 
-  // Mostrar precios SIN IVA en cada módulo
-  document.getElementById('psmPrecioBasico').textContent = fmt(pBasicoSinIVA) + ' s/IVA';
-  document.getElementById('psmPrecioCirugia').textContent = pCirugiaSinIVA > 0 ? fmt(pCirugiaSinIVA) + ' s/IVA' : '—';
-  document.getElementById('psmPrecioAltoCosto').textContent = pAltoCostoSinIVA > 0 ? fmt(pAltoCostoSinIVA) + ' s/IVA' : '—';
+  // Show individual prices on module rows
+  document.getElementById('psmPrecioBasico').textContent = fmt(Math.round(pBasico));
+  document.getElementById('psmPrecioCirugia').textContent = pCirugia > 0 ? fmt(Math.round(pCirugia)) : '—';
+  document.getElementById('psmPrecioAltoCosto').textContent = pAltoCosto > 0 ? fmt(Math.round(pAltoCosto)) : '—';
 
   // Maternidad: only available 15–45 years
   const matDisponible = edadNum >= 15 && edadNum <= 45;
@@ -6970,67 +6915,50 @@ function calcDatosPSM() {
   } else {
     rowMat.style.opacity = '';
     rowMat.style.pointerEvents = '';
-    document.getElementById('psmPrecioMaternidad').textContent = fmt(pMaternidadSinIVA) + ' s/IVA';
+    document.getElementById('psmPrecioMaternidad').textContent = fmt(Math.round(pMaternidad));
   }
   document.getElementById('psmPrecioDomiciliaria').textContent = 'Incluido en Básico';
 
-  // 3. Calc total (con IVA) y total sin IVA para desglose
-  let totalSinIVA = pBasicoSinIVA;
+  // 3. Calc total
   let total = pBasico;
   const modulosSeleccionados = ['Básico'];
-  const desglose = [{ nombre: 'Módulo Básico + EMD', sinIVA: pBasicoSinIVA, conIVA: pBasico }];
+  const desglose = [{ nombre: 'Módulo Básico + EMD', valor: pBasico }];
 
   if (document.getElementById('chkAltoCosto').checked) {
     total += pAltoCosto;
-    totalSinIVA += pAltoCostoSinIVA;
     modulosSeleccionados.push('Alto Costo');
-    desglose.push({ nombre: 'Alto Costo', sinIVA: pAltoCostoSinIVA, conIVA: pAltoCosto });
+    desglose.push({ nombre: 'Alto Costo', valor: pAltoCosto });
   }
   if (document.getElementById('chkCirugia').checked) {
     total += pCirugia;
-    totalSinIVA += pCirugiaSinIVA;
     modulosSeleccionados.push('Cirugía Ambulatoria');
-    desglose.push({ nombre: 'Cirugía Ambulatoria', sinIVA: pCirugiaSinIVA, conIVA: pCirugia });
+    desglose.push({ nombre: 'Cirugía Ambulatoria', valor: pCirugia });
   }
   if (matDisponible && document.getElementById('chkMaternidad').checked) {
     total += pMaternidad;
-    totalSinIVA += pMaternidadSinIVA;
     modulosSeleccionados.push('Maternidad');
-    desglose.push({ nombre: 'Maternidad', sinIVA: pMaternidadSinIVA, conIVA: pMaternidad });
+    desglose.push({ nombre: 'Maternidad', valor: pMaternidad });
   }
   if (document.getElementById('chkDomiciliaria').checked) {
     modulosSeleccionados.push('Atención Domiciliaria');
-    desglose.push({ nombre: 'Atención Domiciliaria', sinIVA: 0, conIVA: 0, nota: 'Incluida en Básico' });
+    desglose.push({ nombre: 'Atención Domiciliaria', valor: 0, nota: 'Incluida en Básico' });
   }
 
-  // 4. Comisión sobre prima sin IVA (base de comisión)
+  // 4. Calc commission: 12% if ≤50, 6% if >50
   const comPct = edadNum <= 50 ? 0.12 : 0.06;
-  const comision = Math.round(totalSinIVA * comPct);
+  const comision = total * comPct;
 
-  // 5. Mostrar resumen: desglose sin IVA + total con IVA
+  // 5. Show summary
   document.getElementById('psmResumen').style.display = '';
-  document.getElementById('psmPrimaTotal').textContent = fmt(Math.round(total)) + ' (c/IVA 5%)';
-  document.getElementById('psmComision').textContent = fmt(comision) + ` (${edadNum<=50?'12':'6'}% s/IVA)`;
+  document.getElementById('psmPrimaTotal').textContent = fmt(Math.round(total));
+  document.getElementById('psmComision').textContent = fmt(Math.round(comision)) + ` (${edadNum<=50?'12':'6'}%)`;
 
   document.getElementById('psmDesglose').innerHTML = desglose.map(d => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
       <span style="color:var(--text-muted);">🧩 ${d.nombre}</span>
-      <span style="font-family:var(--mono);color:var(--text);font-weight:600;">${d.nota ? `<span style="color:var(--text-dim);font-size:11px;">${d.nota}</span>` : `<span style="color:var(--text-muted);font-size:11px;">${fmt(Math.round(d.sinIVA))} s/IVA</span>`}</span>
+      <span style="font-family:var(--mono);color:var(--text);font-weight:600;">${d.nota ? `<span style="color:var(--text-dim);font-size:11px;">${d.nota}</span>` : fmt(Math.round(d.valor))}</span>
     </div>
-  `).join('') + `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px;border-top:2px solid var(--border);font-size:13px;">
-      <span style="font-weight:700;">Total s/IVA</span>
-      <span style="font-family:var(--mono);font-weight:700;color:var(--teal);">${fmt(Math.round(totalSinIVA))}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;">
-      <span style="color:var(--text-muted);">IVA 5%</span>
-      <span style="font-family:var(--mono);color:var(--text-muted);">+ ${fmt(Math.round(total - totalSinIVA))}</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:14px;">
-      <span style="font-weight:700;color:var(--sura-lime);">Total c/IVA</span>
-      <span style="font-family:var(--mono);font-weight:700;color:var(--sura-lime);">${fmt(Math.round(total))}</span>
-    </div>
-  `;
+  `).join('');
 }
 
 // =============================================
@@ -7148,174 +7076,6 @@ function copiarTomadorAsegurado() {
   } else {
     fields.style.opacity = '';
     fields.style.pointerEvents = '';
-  }
-}
-
-// =============================================
-// 📄 LECTOR RADICADO SAT — Claude Vision
-// =============================================
-
-// Redimensiona imagen a maxWidth px y devuelve base64 JPEG comprimido
-function redimensionarImagen(file, maxWidth) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxWidth / img.width);
-      const canvas = document.createElement('canvas');
-      canvas.width  = Math.round(img.width  * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      resolve(dataUrl.split(',')[1]);
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-async function procesarRadicadoSAT(input) {
-  const file = input.files[0];
-  if (!file) return;
-
-  const status = document.getElementById('satStatus');
-  status.style.display = '';
-  status.style.color = 'var(--amber)';
-  status.innerHTML = '⏳ Leyendo radicado con IA... espera unos segundos.';
-
-  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
-  if (!apiKey) {
-    status.style.color = 'var(--red)';
-    status.innerHTML = '❌ Necesitas configurar tu API Key de Claude en la sección Agente IA para usar esta función.';
-    input.value = '';
-    return;
-  }
-
-  try {
-    // Convertir archivo a base64
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const isPDF = file.type === 'application/pdf';
-
-    // Redimensionar imagen antes de enviar (reduce tamaño, evita timeouts)
-    let base64Final = base64;
-    if (!isPDF) {
-      try { base64Final = await redimensionarImagen(file, 1400); } catch(e) { base64Final = base64; }
-    }
-
-    const PROMPT_SAT = `Eres un asistente que extrae datos de radicados SAT del sistema de salud colombiano. Responde ÚNICAMENTE con un JSON válido sin texto adicional ni bloques de código:\n{\n  "numeroNovedad": "número completo",\n  "fechaReporte": "YYYY-MM-DD",\n  "tipoAfiliado": "COTIZANTE o BENEFICIARIO",\n  "tipoDocumento": "CC/TI/RC/CE/PPT/PA/PEP/SC/NUIP/CD",\n  "numeroDocumento": "sin puntos ni espacios",\n  "nombreCompleto": "tal como aparece",\n  "fechaNacimiento": "YYYY-MM-DD",\n  "municipio": "solo el nombre",\n  "fechaEfectividad": "YYYY-MM-DD",\n  "epsDestino": "nombre EPS destino"\n}\nSi un campo no aparece usa null.`;
-
-    const bodyPayload = JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 512,
-      messages: [{ role: 'user', content: [
-        { type: isPDF ? 'document' : 'image', source: { type: 'base64', media_type: isPDF ? 'application/pdf' : 'image/jpeg', data: base64Final } },
-        { type: 'text', text: PROMPT_SAT }
-      ]}]
-    });
-
-    // Intentar llamada directa primero, luego proxy como fallback
-    let response;
-    const ENDPOINTS = [
-      { url: 'https://api.anthropic.com/v1/messages', extraHeaders: { 'anthropic-dangerous-direct-browser-calls': 'true' } },
-      { url: 'https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages'), extraHeaders: {} },
-    ];
-    let lastErr;
-    for (const ep of ENDPOINTS) {
-      try {
-        status.innerHTML = `⏳ Conectando con IA...`;
-        response = await fetch(ep.url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', ...ep.extraHeaders },
-          body: bodyPayload,
-        });
-        if (response.ok || response.status < 500) break; // éxito o error de cliente (no reintentar)
-      } catch(e) { lastErr = e; response = null; }
-    }
-    if (!response) throw lastErr || new Error('No se pudo conectar con la API');
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error API');
-
-    const texto = data.content?.[0]?.text || '';
-    let campos;
-    try {
-      campos = JSON.parse(texto.trim());
-    } catch {
-      // Intentar extraer JSON si viene con texto extra
-      const match = texto.match(/\{[\s\S]*\}/);
-      if (match) campos = JSON.parse(match[0]);
-      else throw new Error('No se pudo parsear la respuesta de la IA');
-    }
-
-    // ── Pre-llenar el formulario ──────────────────────────────────────────
-    let camposLlenados = 0;
-
-    if (campos.fechaReporte) {
-      document.getElementById('vFecha').value = campos.fechaReporte;
-      document.getElementById('vFecha').dispatchEvent(new Event('change'));
-      camposLlenados++;
-    }
-    if (campos.tipoAfiliado) {
-      const sel = document.getElementById('vTipo');
-      const val = campos.tipoAfiliado.toUpperCase().includes('COTIZ') ? 'COTIZANTE' : 'BENEFICIARIO';
-      sel.value = val;
-      sel.dispatchEvent(new Event('change'));
-      camposLlenados++;
-    }
-    if (campos.tipoDocumento) {
-      document.getElementById('vTipoDoc').value = campos.tipoDocumento.toUpperCase();
-      camposLlenados++;
-    }
-    if (campos.numeroDocumento) {
-      document.getElementById('vDoc').value = campos.numeroDocumento;
-      camposLlenados++;
-    }
-    if (campos.nombreCompleto) {
-      document.getElementById('vNombre').value = campos.nombreCompleto;
-      camposLlenados++;
-    }
-    if (campos.fechaNacimiento) {
-      document.getElementById('vFechaNac').value = campos.fechaNacimiento;
-      document.getElementById('vFechaNac').dispatchEvent(new Event('change'));
-      camposLlenados++;
-    }
-    if (campos.municipio) {
-      document.getElementById('vCiudad').value = campos.municipio;
-      camposLlenados++;
-    }
-    if (campos.fechaEfectividad) {
-      document.getElementById('vInicioCobertura').value = campos.fechaEfectividad;
-      camposLlenados++;
-    }
-    if (campos.numeroNovedad) {
-      document.getElementById('vFormulario').value = campos.numeroNovedad;
-      camposLlenados++;
-    }
-    // Trámite siempre SAT cuando viene del radicado
-    document.getElementById('vTramite').value = 'SAT';
-
-    // Verificar que es SURA
-    const epsOk = campos.epsDestino && campos.epsDestino.toUpperCase().includes('SURAMER');
-    const epsMsg = epsOk ? '✅ EPS destino: SURA confirmada' : (campos.epsDestino ? `⚠️ EPS destino: ${campos.epsDestino} — verifica que sea traslado a SURA` : '');
-
-    status.style.color = 'var(--green)';
-    status.innerHTML = `✅ ${camposLlenados} campos pre-llenados automáticamente. ${epsMsg}<br><span style="color:var(--text-muted);">Completa: Empresa, NIT, Cotizantes, Siniestralidad, BD, Teléfono y Correo.</span>`;
-
-    // Resetear input para permitir volver a cargar si es necesario
-    input.value = '';
-
-  } catch (err) {
-    status.style.color = 'var(--red)';
-    status.innerHTML = `❌ Error: ${err.message}`;
-    input.value = '';
-    console.error('SAT reader error:', err);
   }
 }
 
@@ -7505,17 +7265,16 @@ function guardarVenta() {
     const rango = getRangoPSM(edadNum);
     if (!rango) return alert('La edad del asegurado está fuera del rango asegurable (0–64 años)');
     const k = rango.key;
-    // Calc total sin IVA y con IVA
-    let primaMensualSinIVA = PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k];
+    // Calc total with IVA
+    let primaMensual = (PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k]) * PSM_IVA;
     const modulosArr = ['Básico'];
-    if (document.getElementById('chkAltoCosto').checked) { primaMensualSinIVA += PSM_TARIFAS.altoCosto[k]; modulosArr.push('Alto Costo'); }
-    if (document.getElementById('chkCirugia').checked) { primaMensualSinIVA += PSM_TARIFAS.cirugia[k]; modulosArr.push('Cirugía Ambulatoria'); }
-    if (document.getElementById('chkMaternidad').checked && edadNum >= 15 && edadNum <= 45) { primaMensualSinIVA += PSM_TARIFAS.maternidad[k]; modulosArr.push('Maternidad'); }
+    if (document.getElementById('chkAltoCosto').checked) { primaMensual += PSM_TARIFAS.altoCosto[k] * PSM_IVA; modulosArr.push('Alto Costo'); }
+    if (document.getElementById('chkCirugia').checked) { primaMensual += PSM_TARIFAS.cirugia[k] * PSM_IVA; modulosArr.push('Cirugía Ambulatoria'); }
+    if (document.getElementById('chkMaternidad').checked && edadNum >= 15 && edadNum <= 45) { primaMensual += PSM_TARIFAS.maternidad[k] * PSM_IVA; modulosArr.push('Maternidad'); }
     if (document.getElementById('chkDomiciliaria').checked) modulosArr.push('Atención Domiciliaria');
-    primaMensualSinIVA = Math.round(primaMensualSinIVA);
-    const primaMensual = Math.round(primaMensualSinIVA * PSM_IVA);
+    primaMensual = Math.round(primaMensual);
     const comPct = edadNum <= 50 ? 0.12 : 0.06;
-    const comision = Math.round(primaMensualSinIVA * comPct); // comisión sobre sin IVA
+    const comision = Math.round(primaMensual * comPct);
     const empNombrePSM = document.getElementById('vEmpresaPSM').value;
     const ciudadPSM = document.getElementById('vCiudadPSM').value;
     state.ventas.push({
@@ -7537,7 +7296,7 @@ function guardarVenta() {
       empresa: empNombrePSM,
       prima: primaMensual,
       primaTotal: primaMensual,
-      primaTotalSinIVA: primaMensualSinIVA,
+      primaTotalSinIVA: Math.round(primaMensual / PSM_IVA), // PSM IVA 5%
       notas: document.getElementById('vNotasPSM').value,
       comision,
       ramo: 'FAMILIAR',
@@ -8446,9 +8205,8 @@ function calcProxVencimiento(fechaExp, periodicidad, ventaId) {
     }
   }
 
-  // Sin pagos: partir desde fechaExp, avanzar al menos 1 intervalo y luego hasta el futuro
+  // Sin pagos: partir desde fechaExp, avanzar hasta primer vencimiento futuro
   let venc = new Date(fechaExp + 'T12:00:00');
-  venc.setMonth(venc.getMonth() + intervalo); // siempre avanza al menos 1 período
   while (venc <= hoy) venc.setMonth(venc.getMonth() + intervalo);
   return venc;
 }
@@ -10819,22 +10577,29 @@ async function importarBDEmpresas(event) {
 
       const colNIT      = findCol('nit', 'identificacion', 'documento');
       const colNombre   = findCol('empresa', 'nombre', 'razon', 'compania');
+      const colCiudad   = findCol('ciudad', 'municipio', 'city', 'localidad');
+      const colSector   = findCol('sector', 'actividad', 'industria');
       const colContacto = findCol('contacto', 'responsable', 'persona');
       const colTel      = findCol('telefono', 'tel', 'celular', 'movil');
       const colCorreo   = findCol('correo', 'email', 'mail');
       const colSin      = findCol('siniestralidad', 'siniestr', '%sin', 'porcentaje');
 
       const empresas = getEmpresas();
-      let nuevas = 0, omitidas = 0;
+      let nuevas = 0, omitidas = 0, actualizadas = 0;
 
       rows.slice(1).forEach(row => {
         const nit    = colNIT >= 0 ? String(row[colNIT] || '').trim().replace(/\D/g,'') : '';
         const nombre = colNombre >= 0 ? String(row[colNombre] || '').trim() : '';
+        const ciudad = colCiudad >= 0 ? String(row[colCiudad] || '').trim() : '';
+        const sector = colSector >= 0 ? String(row[colSector] || '').trim() : '';
         if (!nombre && !nit) return;
 
+        // Deduplicar por NIT + ciudad — permite mismo NIT en distintas ciudades
         const existe = empresas.find(e => {
-          if (nit && e.nit && e.nit.replace(/\D/g,'') === nit) return true;
-          if (nombre && e.nombre.toLowerCase().trim() === nombre.toLowerCase()) return true;
+          const nitMatch = nit && e.nit && e.nit.replace(/\D/g,'') === nit;
+          const ciudadMatch = bdNormalizarCiudad(e.ciudad) === bdNormalizarCiudad(ciudad);
+          if (nitMatch && ciudadMatch) return true;
+          if (!ciudad && nitMatch) return true;
           return false;
         });
 
@@ -10857,8 +10622,8 @@ async function importarBDEmpresas(event) {
           id: Date.now().toString(36) + Math.random().toString(36).substr(2) + nuevas,
           nombre,
           nit: colNIT >= 0 ? String(row[colNIT] || '').trim() : '',
-          ciudad: '',
-          sector: '',
+          ciudad,
+          sector,
           contacto: colContacto >= 0 ? String(row[colContacto] || '').trim() : '',
           telContacto: colTel >= 0 ? String(row[colTel] || '').trim() : '',
           correo: colCorreo >= 0 ? String(row[colCorreo] || '').trim() : '',
@@ -10874,7 +10639,7 @@ async function importarBDEmpresas(event) {
 
       setEmpresas(empresas);
       renderEmpresas();
-      showToast('Importacion completada: ' + nuevas + ' empresa(s) nuevas, ' + omitidas + ' ya existian (omitidas)');
+      showToast(`Importacion completada: ${nuevas} nuevas, ${omitidas} ya existian (NIT+ciudad duplicados omitidos)`);
     } catch(err) {
       showToast('Error al leer el archivo: ' + err.message);
       console.error(err);
@@ -11254,28 +11019,6 @@ function getDefaultConfigAnio(anio) {
         '51-59': { mensual:192544, trimestre:553310, semestre:1099785, anual:2102237 },
       }
     },
-    // Tarifas PSM (Modular) — antes de IVA — Ramo Familiar
-    tarifasPSM: {
-      basico:     { '0-14':229847,'15-20':229847,'21-25':229847,'26-30':246326,'31-40':256144,'41-45':301955,'46-50':317840,'51-55':404786,'56-59':404786,'60-65':525726,'66-70':672240,'71+':1038175 },
-      emd:        { '0-14':21771,'15-20':21771,'21-25':21771,'26-30':21771,'31-40':21771,'41-45':21771,'46-50':21771,'51-55':21771,'56-59':21771,'60-65':21771,'66-70':21771,'71+':21771 },
-      cirugia:    { '0-14':8785,'15-20':25078,'21-25':25078,'26-30':25078,'31-40':31514,'41-45':42708,'46-50':54378,'51-55':66663,'56-59':66663,'60-65':86719,'66-70':99809,'71+':99809 },
-      maternidad: { '0-14':0,'15-20':73462,'21-25':73462,'26-30':73462,'31-40':73462,'41-45':73462,'46-50':0,'51-55':0,'56-59':0,'60-65':0,'66-70':0,'71+':0 },
-      altoCosto:  { '0-14':17477,'15-20':17477,'21-25':17477,'26-30':30726,'31-40':47346,'41-45':76533,'46-50':126374,'51-55':201996,'56-59':201996,'60-65':350150,'66-70':577547,'71+':602205 },
-    },
-    // Tarifas SPD — con IVA incluido
-    tarifasSPD: {
-      MENSUAL:    96674,
-      TRIMESTRAL: 284312,
-      SEMESTRAL:  553814,
-      ANUAL:      1055507,
-    },
-    // Tarifas PAC60 — con IVA 5% incluido
-    tarifasPAC60: {
-      '60-69': { sinAnexo: 358398, conAnexo: 387195 },
-      '70-79': { sinAnexo: 416077, conAnexo: 446830 },
-      '80-89': { sinAnexo: 541876, conAnexo: 581983 },
-      '90+':   { sinAnexo: 693652, conAnexo: 738905 },
-    },
     tablaComPBS: {
       '<=75%':              [15000,30000,40000,46000,54000],
       '76% - 90%':          [10500,21000,28500,32200,37800],
@@ -11452,9 +11195,6 @@ function renderConfigAnioTab(tab) {
         <td style="padding:9px 12px;"><input type="number" class="form-control" id="ta_anu_${id}" value="${tc_.anual||0}" style="width:120px;font-family:var(--mono);font-size:12px;"></td>
       </tr>`;
     }).join('');
-    renderTarifasPSM();
-    renderTarifasSPD();
-    renderTarifasPAC60();
 
   } else if (tab === 'comisiones') {
     document.getElementById('caComSpti').value = d.comSptiPct || 7;
@@ -11532,32 +11272,6 @@ function guardarConfigAnio(seccion) {
         return parseInt(el?.value)||0;
       });
     });
-  } else if (seccion === 'tarifasSPD') {
-    if (!d.tarifasSPD) d.tarifasSPD = {};
-    ['MENSUAL','TRIMESTRAL','SEMESTRAL','ANUAL'].forEach(k => {
-      d.tarifasSPD[k] = parseInt(document.getElementById(`spd_tar_${k}`)?.value) || 0;
-    });
-  } else if (seccion === 'tarifasPAC60') {
-    if (!d.tarifasPAC60) d.tarifasPAC60 = {};
-    ['60-69','70-79','80-89','90+'].forEach(r => {
-      const rid = r.replace('+','plus').replace('-','_');
-      d.tarifasPAC60[r] = {
-        sinAnexo: parseInt(document.getElementById(`pac60_sin_${rid}`)?.value) || 0,
-        conAnexo: parseInt(document.getElementById(`pac60_con_${rid}`)?.value) || 0,
-      };
-    });
-  } else if (seccion === 'tarifasPSM') {
-    const rangos = ['0-14','15-20','21-25','26-30','31-40','41-45','46-50','51-55','56-59','60-65','66-70','71+'];
-    const modulos = ['basico','emd','cirugia','maternidad','altoCosto'];
-    if (!d.tarifasPSM) d.tarifasPSM = {};
-    modulos.forEach(mod => {
-      if (!d.tarifasPSM[mod]) d.tarifasPSM[mod] = {};
-      rangos.forEach(r => {
-        const rid = r.replace('+','plus');
-        const val = parseInt(document.getElementById(`psm_${mod}_${rid}`)?.value) || 0;
-        d.tarifasPSM[mod][r] = val;
-      });
-    });
   } else if (seccion === 'campanas') {
     d.campanas = campanasTemp;
   }
@@ -11574,12 +11288,6 @@ function syncConfigAnioActual() {
   // Update runtime constants
   Object.assign(SPTI_TARIFAS, d.tarifasSptiConIVA || {});
   Object.assign(SPTI_SIN_IVA, d.tarifasSptiSinIVA || {});
-  // Sync PSM tarifas from config if available
-  if (d.tarifasPSM) Object.assign(PSM_TARIFAS, d.tarifasPSM);
-  // Sync SPD tarifas
-  if (d.tarifasSPD) Object.assign(SPD_TARIFAS, d.tarifasSPD);
-  // Sync PAC60 tarifas
-  if (d.tarifasPAC60) Object.assign(PAC60_TARIFAS, d.tarifasPAC60);
   // Update COM_TABLE
   if (d.tablaComPBS) Object.assign(COM_TABLE, d.tablaComPBS);
   state = getState();
@@ -11610,89 +11318,6 @@ function resetTarifasAnio() {
   configAnioData.tarifasSptiSinIVA = def.tarifasSptiSinIVA;
   renderConfigAnioTab('tarifas');
   showToast('↩ Tarifas restauradas');
-}
-
-function resetTarifasPSMAnio() {
-  if (!confirm('¿Restaurar las tarifas PSM a los valores por defecto de 2026?')) return;
-  const def = getDefaultConfigAnio(configAnioActivo);
-  configAnioData.tarifasPSM = def.tarifasPSM;
-  renderTarifasPSM();
-  showToast('↩ Tarifas PSM restauradas');
-}
-
-function resetTarifasSPDAnio() {
-  if (!confirm('¿Restaurar las tarifas SPD a los valores por defecto de 2026?')) return;
-  const def = getDefaultConfigAnio(configAnioActivo);
-  configAnioData.tarifasSPD = def.tarifasSPD;
-  renderTarifasSPD();
-  showToast('↩ Tarifas SPD restauradas');
-}
-
-function resetTarifasPAC60Anio() {
-  if (!confirm('¿Restaurar las tarifas PAC60 a los valores por defecto de 2026?')) return;
-  const def = getDefaultConfigAnio(configAnioActivo);
-  configAnioData.tarifasPAC60 = def.tarifasPAC60;
-  renderTarifasPAC60();
-  showToast('↩ Tarifas PAC60 restauradas');
-}
-
-function renderTarifasSPD() {
-  const t = (configAnioData && configAnioData.tarifasSPD) || getDefaultConfigAnio(configAnioActivo).tarifasSPD;
-  ['MENSUAL','TRIMESTRAL','SEMESTRAL','ANUAL'].forEach(k => {
-    const el = document.getElementById(`spd_tar_${k}`);
-    if (el) el.value = t[k] || 0;
-  });
-}
-
-function renderTarifasPAC60() {
-  const tbody = document.getElementById('caTablaPAC60Body');
-  if (!tbody) return;
-  const t = (configAnioData && configAnioData.tarifasPAC60) || getDefaultConfigAnio(configAnioActivo).tarifasPAC60;
-  const rangos = [
-    { r:'60-69', nota:'' },
-    { r:'70-79', nota:'' },
-    { r:'80-89', nota:'Solo renovaciones' },
-    { r:'90+',   nota:'Solo renovaciones' },
-  ];
-  tbody.innerHTML = rangos.map(({ r, nota }) => {
-    const rid = r.replace('+','plus').replace('-','_');
-    const vals = t[r] || { sinAnexo:0, conAnexo:0 };
-    return `<tr style="border-bottom:1px solid var(--border);">
-      <td style="padding:7px 10px;font-weight:600;font-size:12px;">${r} años ${nota?`<span style="font-size:10px;color:var(--text-dim);">(${nota})</span>`:''}
-      </td>
-      <td style="padding:5px 8px;"><input type="number" class="form-control" id="pac60_sin_${rid}" value="${vals.sinAnexo}" style="text-align:right;font-size:12px;padding:4px 8px;font-family:var(--mono);"></td>
-      <td style="padding:5px 8px;"><input type="number" class="form-control" id="pac60_con_${rid}" value="${vals.conAnexo}" style="text-align:right;font-size:12px;padding:4px 8px;font-family:var(--mono);"></td>
-    </tr>`;
-  }).join('');
-}
-
-function renderTarifasPSM() {
-  const tbody = document.getElementById('caTablaPSMBody');
-  if (!tbody) return;
-  const t = (configAnioData && configAnioData.tarifasPSM) || getDefaultConfigAnio(configAnioActivo).tarifasPSM;
-  const rangos = ['0-14','15-20','21-25','26-30','31-40','41-45','46-50','51-55','56-59','60-65','66-70','71+'];
-  const modulos = ['basico','emd','cirugia','maternidad','altoCosto'];
-  tbody.innerHTML = rangos.map(r => {
-    const rid = r.replace('+','plus');
-    const basicoSinIVA = (t.basico[r]||0) + (t.emd[r]||0);
-    const basicoConIVA = Math.round(basicoSinIVA * 1.05);
-    return `<tr style="border-bottom:1px solid var(--border);">
-      <td style="padding:7px 10px;font-weight:600;font-size:12px;">${r} años</td>
-      <td style="padding:5px 8px;"><input type="number" class="form-control" id="psm_basico_${rid}" value="${t.basico[r]||0}" style="text-align:right;font-size:12px;padding:4px 8px;" oninput="actualizarPreviewPSM('${rid}')"></td>
-      <td style="padding:5px 8px;"><input type="number" class="form-control" id="psm_emd_${rid}" value="${t.emd[r]||0}" style="text-align:right;font-size:12px;padding:4px 8px;" oninput="actualizarPreviewPSM('${rid}')"></td>
-      <td style="padding:5px 8px;"><input type="number" class="form-control" id="psm_cirugia_${rid}" value="${t.cirugia[r]||0}" style="text-align:right;font-size:12px;padding:4px 8px;"></td>
-      <td style="padding:5px 8px;"><input type="number" class="form-control" id="psm_maternidad_${rid}" value="${t.maternidad[r]||0}" style="text-align:right;font-size:12px;padding:4px 8px;"></td>
-      <td style="padding:5px 8px;"><input type="number" class="form-control" id="psm_altoCosto_${rid}" value="${t.altoCosto[r]||0}" style="text-align:right;font-size:12px;padding:4px 8px;"></td>
-      <td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal);font-size:12px;" id="psm_preview_${rid}">${fmt(basicoConIVA)}</td>
-    </tr>`;
-  }).join('');
-}
-
-function actualizarPreviewPSM(rid) {
-  const b = parseInt(document.getElementById(`psm_basico_${rid}`)?.value)||0;
-  const e = parseInt(document.getElementById(`psm_emd_${rid}`)?.value)||0;
-  const prev = document.getElementById(`psm_preview_${rid}`);
-  if (prev) prev.textContent = fmt(Math.round((b+e)*1.05));
 }
 
 function agregarProductoExtra() {
@@ -11935,6 +11560,167 @@ function setEmpresas(arr) {
   if (window.__FB_CACHE__) window.__FB_CACHE__.empresas = arr;
   if (window.FB) window.FB.set('empresas', arr);
   try { localStorage.setItem('sura_empresas_v1', JSON.stringify(arr)); } catch(e) {}
+}
+
+// =============================================
+// 🔍 BÚSQUEDA INTELIGENTE EN BD — por ciudad
+// =============================================
+
+// Normaliza texto para comparación (quita tildes, mayúsculas, espacios extra)
+function bdNormalizar(str) {
+  return String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+
+// Mapeo ciudades BD → variantes que puede escribir el asesor
+const BD_CIUDADES_MAP = {
+  'bogota':       ['bogotá','bogota','bta','bogota d.c','bogota dc'],
+  'medellin':     ['medellín','medellin','med'],
+  'cali':         ['cali'],
+  'barranquilla': ['barranquilla','bquilla','baq'],
+  'bucaramanga':  ['bucaramanga','buca'],
+  'cartagena':    ['cartagena'],
+  'manizales':    ['manizales'],
+  'pereira':      ['pereira'],
+  'armenia':      ['armenia'],
+  'monteria':     ['montería','monteria'],
+  'popayan':      ['popayán','popayan'],
+  'santa marta':  ['santa marta','santamarta'],
+  'tunja':        ['tunja'],
+  'uraba':        ['urabá','uraba'],
+};
+
+// Normaliza ciudad del formulario a clave de BD
+function bdNormalizarCiudad(ciudadInput) {
+  const norm = bdNormalizar(ciudadInput);
+  for (const [clave, variantes] of Object.entries(BD_CIUDADES_MAP)) {
+    if (variantes.some(v => norm.includes(v) || v.includes(norm))) return clave;
+  }
+  return norm; // fallback
+}
+
+// Convierte % siniestralidad numérico a categoría
+function bdSinCategoria(pct) {
+  const n = parseFloat(String(pct).replace('%','').replace(',','.'));
+  if (isNaN(n)) return null;
+  // Detectar si viene como decimal (0.75) o porcentaje (75)
+  const val = (n > 0 && n <= 1) ? n * 100 : n;
+  if (val <= 75) return '<=75%';
+  if (val <= 90) return '76% - 90%';
+  return '>=91% EXCEPCIONADA';
+}
+
+// Busca en la BD de empresas importada considerando la ciudad del formulario
+function bdBuscarEmpresa(modo) {
+  const query = bdNormalizar(document.getElementById(modo === 'nit' ? 'vNIT' : 'vEmpresa').value);
+  if (query.length < 2) { bdOcultarSugerencias(); return; }
+
+  const empresas = getEmpresas();
+  const ciudad = bdNormalizarCiudad(document.getElementById('vCiudad').value || '');
+
+  // Filtrar candidatos
+  const candidatos = empresas.filter(e => {
+    if (modo === 'nit') {
+      return e.nit && bdNormalizar(e.nit).startsWith(query);
+    } else {
+      return bdNormalizar(e.nombre).includes(query);
+    }
+  }).slice(0, 30);
+
+  if (candidatos.length === 0) { bdOcultarSugerencias(); return; }
+
+  // Para cada empresa única (por nombre+NIT), ver si tiene múltiples ciudades en BD
+  // Aquí las empresas ya importadas tienen 1 ciudad cada una (se importaron con ciudad)
+  // Ordenar: primero las que coinciden con la ciudad del formulario
+  candidatos.sort((a, b) => {
+    const aMatch = bdNormalizarCiudad(a.ciudad) === ciudad ? 0 : 1;
+    const bMatch = bdNormalizarCiudad(b.ciudad) === ciudad ? 0 : 1;
+    return aMatch - bMatch;
+  });
+
+  // Mostrar sugerencias
+  const div = document.getElementById('bdSugerencias');
+  div.style.display = '';
+  div.innerHTML = candidatos.map(e => {
+    const ciudadMatch = ciudad && bdNormalizarCiudad(e.ciudad) === ciudad;
+    return `<div onclick="bdSeleccionarEmpresa(${JSON.stringify(e.id)})"
+      style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;
+      background:${ciudadMatch ? 'rgba(34,197,94,0.08)' : 'transparent'};"
+      onmouseover="this.style.background='var(--surface3)'"
+      onmouseout="this.style.background='${ciudadMatch ? 'rgba(34,197,94,0.08)' : 'transparent'}'">
+      <div style="font-weight:600;">${e.nombre}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+        NIT: ${e.nit || '—'} · ${e.ciudad || 'Sin ciudad'} 
+        ${e.siniestralidad ? `· <span style="color:${e.siniestralidad.includes('91')?'var(--red)':e.siniestralidad.includes('76')?'var(--amber)':'var(--green)'};">${e.siniestralidad}</span>` : ''}
+        ${ciudadMatch ? ' <span style="color:var(--green);">✓ ciudad</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function bdSeleccionarEmpresa(id) {
+  const empresas = getEmpresas();
+  const e = empresas.find(emp => emp.id === id);
+  if (!e) return;
+
+  // Verificar si hay múltiples registros con mismo NIT en distintas ciudades
+  const mismoNIT = e.nit ? empresas.filter(x => x.nit && x.nit.replace(/\D/g,'') === e.nit.replace(/\D/g,'')) : [e];
+
+  if (mismoNIT.length > 1) {
+    // Mostrar panel de selección de ciudad
+    bdOcultarSugerencias();
+    document.getElementById('vEmpresa').value = e.nombre;
+    document.getElementById('vNIT').value = e.nit || '';
+    const panel = document.getElementById('bdCiudadPanel');
+    const opts = document.getElementById('bdCiudadOpciones');
+    panel.style.display = '';
+    opts.innerHTML = mismoNIT.map(emp => `
+      <button class="btn btn-secondary btn-sm" onclick="bdAplicarEmpresa('${emp.id}')" style="font-size:12px;gap:6px;">
+        🏙️ ${emp.ciudad || 'Sin ciudad'}
+        <span style="color:${emp.siniestralidad?.includes('91')?'var(--red)':emp.siniestralidad?.includes('76')?'var(--amber)':'var(--green)'};">
+          ${emp.siniestralidad || '—'}
+        </span>
+      </button>`).join('');
+    return;
+  }
+
+  // Un solo resultado — aplicar directo
+  bdAplicarEmpresa(e.id);
+}
+
+function bdAplicarEmpresa(id) {
+  const empresas = getEmpresas();
+  const e = empresas.find(emp => emp.id === id);
+  if (!e) return;
+
+  document.getElementById('vEmpresa').value = e.nombre;
+  document.getElementById('vNIT').value = e.nit || '';
+
+  // Aplicar siniestralidad si existe
+  if (e.siniestralidad) {
+    const sel = document.getElementById('vSiniestralidad');
+    // Buscar opción que contenga el valor
+    const opt = Array.from(sel.options).find(o => o.value === e.siniestralidad);
+    if (opt) {
+      sel.value = e.siniestralidad;
+      sel.dispatchEvent(new Event('change'));
+      // Mostrar indicador
+      const fuente = document.getElementById('bdSinFuente');
+      if (fuente) {
+        fuente.style.display = '';
+        fuente.innerHTML = `✅ Siniestralidad cargada desde BD · ${e.ciudad || ''} · ${e.sinPct ? e.sinPct + '%' : e.siniestralidad}`;
+      }
+    }
+  }
+
+  // Ocultar panel ciudad si estaba visible
+  const panel = document.getElementById('bdCiudadPanel');
+  if (panel) panel.style.display = 'none';
+  bdOcultarSugerencias();
+}
+
+function bdOcultarSugerencias() {
+  const div = document.getElementById('bdSugerencias');
+  if (div) div.style.display = 'none';
 }
 
 function autoRegistrarEmpresaDesdeVenta(nombre, nit, ciudad) {
@@ -12763,35 +12549,28 @@ function renderCotizadorPersonas() {
       const rango = getRangoPSM(edad);
       if (rango) {
         const k = rango.key;
-        // Sin IVA base values
-        const pBasicoSinIVA = PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k];
-        const pCirugiaSinIVA = PSM_TARIFAS.cirugia[k];
-        const pMatSinIVA = (edad>=15&&edad<=45) ? PSM_TARIFAS.maternidad[k] : 0;
-        const pAltoSinIVA = PSM_TARIFAS.altoCosto[k];
-        // Con IVA
-        const pBasico = Math.round(pBasicoSinIVA * PSM_IVA);
-        const pCirugia = Math.round(pCirugiaSinIVA * PSM_IVA);
-        const pMat = Math.round(pMatSinIVA * PSM_IVA);
-        const pAlto = Math.round(pAltoSinIVA * PSM_IVA);
+        const pBasico = Math.round((PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k]) * PSM_IVA);
+        const pCirugia = Math.round(PSM_TARIFAS.cirugia[k] * PSM_IVA);
+        const pMat = (edad>=15&&edad<=45) ? Math.round(PSM_TARIFAS.maternidad[k] * PSM_IVA) : 0;
+        const pAlto = Math.round(PSM_TARIFAS.altoCosto[k] * PSM_IVA);
+        const pBasicoShow = cotConIVA ? pBasico : Math.round(pBasico/IVA_FACTOR);
         const mods = p.modulosExtra || [];
-        let totalSinIVA = pBasicoSinIVA;
-        if (mods.includes('Alto Costo')) totalSinIVA += pAltoSinIVA;
-        if (mods.includes('Cirugía')) totalSinIVA += pCirugiaSinIVA;
-        if (mods.includes('Maternidad') && edad>=15&&edad<=45) totalSinIVA += pMatSinIVA;
-        const totalConIVA = Math.round(totalSinIVA * PSM_IVA);
-        const totalShow = cotConIVA ? totalConIVA : totalSinIVA;
-        const basicoShow = cotConIVA ? pBasico : pBasicoSinIVA;
+        let totalMods = pBasico;
+        if (mods.includes('Alto Costo')) totalMods += pAlto;
+        if (mods.includes('Cirugía')) totalMods += pCirugia;
+        if (mods.includes('Maternidad') && edad>=15&&edad<=45) totalMods += pMat;
+        const totalShow = cotConIVA ? totalMods : Math.round(totalMods/IVA_FACTOR);
 
         const modRows = [
-          { key:'Alto Costo',  sinIVA: pAltoSinIVA,    conIVA: pAlto,    disponible: true },
-          { key:'Cirugía',     sinIVA: pCirugiaSinIVA,  conIVA: pCirugia, disponible: true },
-          { key:'Maternidad',  sinIVA: pMatSinIVA,      conIVA: pMat,     disponible: edad>=15&&edad<=45 },
+          { key:'Alto Costo',  val: pAlto,   disponible: true },
+          { key:'Cirugía',     val: pCirugia, disponible: true },
+          { key:'Maternidad',  val: pMat,    disponible: edad>=15&&edad<=45 },
         ];
         tarifasHTML = `<div style="margin-top:10px;border-radius:8px;padding:12px;background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.2);">
           <div style="font-size:10.5px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🧩 Plan Modular · Rango ${k} años</div>
           <div style="background:var(--surface3);border-radius:6px;padding:8px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:12px;font-weight:600;">🏥 Módulo Básico + EMD <span style="font-size:10px;color:var(--text-muted);">(incluido siempre)</span></span>
-            <span style="font-family:var(--mono);font-weight:700;color:var(--teal);">${fmt(basicoShow)}/mes${cotConIVA?' <span style="font-size:9px;color:var(--text-dim);">c/IVA</span>':' <span style="font-size:9px;color:var(--text-dim);">s/IVA</span>'}</span>
+            <span style="font-family:var(--mono);font-weight:700;color:var(--teal);">${fmt(cotConIVA?pBasico:Math.round(pBasico/IVA_FACTOR))}/mes</span>
           </div>
           ${modRows.map(m => `
             <div style="border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;background:${mods.includes(m.key)?'rgba(6,182,212,0.1)':'var(--surface3)'};border:1px solid ${mods.includes(m.key)?'rgba(6,182,212,0.3)':'transparent'};${!m.disponible?'opacity:.4;pointer-events:none;':'cursor:pointer;'}" onclick="cotizadorToggleModulo('${p.id}','${m.key}',${!mods.includes(m.key)})">
@@ -12799,14 +12578,11 @@ function renderCotizadorPersonas() {
                 <input type="checkbox" ${mods.includes(m.key)?'checked':''} onclick="event.stopPropagation();cotizadorToggleModulo('${p.id}','${m.key}',this.checked)" style="accent-color:var(--teal);width:14px;height:14px;" ${!m.disponible?'disabled':''}>
                 ➕ ${m.key} ${!m.disponible?'<span style="font-size:10px;color:var(--text-dim);">(no aplica esta edad)</span>':''}
               </label>
-              <span style="font-family:var(--mono);font-weight:600;color:${mods.includes(m.key)?'var(--teal)':'var(--text-muted)'};">${(cotConIVA?m.conIVA:m.sinIVA)>0?'+'+fmt(cotConIVA?m.conIVA:m.sinIVA):''}</span>
+              <span style="font-family:var(--mono);font-weight:600;color:${mods.includes(m.key)?'var(--teal)':'var(--text-muted)'};">${m.val>0?'+'+fmt(cotConIVA?m.val:Math.round(m.val/IVA_FACTOR)):''}</span>
             </div>`).join('')}
-          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:8px;">
-            ${!cotConIVA ? '' : `<div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:11px;color:var(--text-muted);">Subtotal s/IVA</span><span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">${fmt(totalSinIVA)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:11px;color:var(--text-muted);">IVA 5%</span><span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">+ ${fmt(totalConIVA-totalSinIVA)}</span></div>`}
-            <div style="display:flex;justify-content:space-between;">
-              <span style="font-size:12.5px;font-weight:700;">Total mensual ${cotConIVA?'c/IVA':'s/IVA'}</span>
-              <span style="font-family:var(--mono);font-weight:700;color:var(--sura-lime);font-size:16px;">${fmt(totalShow)}/mes</span>
-            </div>
+          <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:8px;display:flex;justify-content:space-between;">
+            <span style="font-size:12.5px;font-weight:700;">Total mensual</span>
+            <span style="font-family:var(--mono);font-weight:700;color:var(--sura-lime);font-size:16px;">${fmt(totalShow)}/mes</span>
           </div>
         </div>`;
       } else {
@@ -12934,12 +12710,12 @@ function cotizadorCalcPrima(p) {
     const rango = getRangoPSM(edad);
     if (!rango) return 0;
     const k = rango.key;
-    let totalSinIVA = PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k];
+    let total = (PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k]) * PSM_IVA;
     const mods = p.modulosExtra || [];
-    if (mods.includes('Alto Costo')) totalSinIVA += PSM_TARIFAS.altoCosto[k];
-    if (mods.includes('Cirugía')) totalSinIVA += PSM_TARIFAS.cirugia[k];
-    if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) totalSinIVA += PSM_TARIFAS.maternidad[k];
-    return cotConIVA ? Math.round(totalSinIVA * PSM_IVA) : totalSinIVA;
+    if (mods.includes('Alto Costo')) total += PSM_TARIFAS.altoCosto[k] * PSM_IVA;
+    if (mods.includes('Cirugía')) total += PSM_TARIFAS.cirugia[k] * PSM_IVA;
+    if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) total += PSM_TARIFAS.maternidad[k] * PSM_IVA;
+    return cotConIVA ? Math.round(total) : Math.round(total / IVA_FACTOR);
   }
   if (p.producto === 'PAC60') {
     const rango = getRangoPAC60(edad);
