@@ -3674,6 +3674,20 @@
       <!-- Alerta de mes compensado -->
       <div id="alertaMesComp" class="alert alert-info" style="margin-bottom:14px;display:none;"></div>
 
+      <!-- ── LECTOR SAT ── -->
+      <div style="background:linear-gradient(135deg,rgba(26,76,232,0.12),rgba(200,229,43,0.06));border:1px solid rgba(26,76,232,0.3);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="font-size:22px;">📄</div>
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:2px;">Cargar Radicado SAT</div>
+          <div style="font-size:11.5px;color:var(--text-muted);">Sube la imagen o PDF del radicado y la app pre-llena el formulario automáticamente</div>
+        </div>
+        <label style="cursor:pointer;display:inline-block;">
+          <input type="file" id="satFileInput" accept="image/*,.pdf" style="display:none;" onchange="procesarRadicadoSAT(this)">
+          <span class="btn btn-primary" style="font-size:13px;padding:8px 18px;pointer-events:none;">📄 Cargar radicado SAT</span>
+        </label>
+        <div id="satStatus" style="font-size:12px;color:var(--text-muted);width:100%;display:none;"></div>
+      </div>
+
       <div class="form-grid" style="margin-bottom:16px;">
         <div class="form-group">
           <label class="form-label">Fecha de Venta</label>
@@ -7082,6 +7096,123 @@ function copiarTomadorAsegurado() {
   } else {
     fields.style.opacity = '';
     fields.style.pointerEvents = '';
+  }
+}
+
+// =============================================
+// 📄 LECTOR RADICADO SAT — Claude Vision
+// =============================================
+function redimensionarImagen(file, maxWidth) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function procesarRadicadoSAT(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const status = document.getElementById('satStatus');
+  status.style.display = '';
+  status.style.color = 'var(--amber)';
+  status.innerHTML = '⏳ Leyendo radicado con IA... espera unos segundos.';
+
+  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
+  if (!apiKey) {
+    status.style.color = 'var(--red)';
+    status.innerHTML = '❌ Necesitas configurar tu API Key de Claude en la sección Agente IA para usar esta función.';
+    input.value = '';
+    return;
+  }
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const isPDF = file.type === 'application/pdf';
+    let base64Final = base64;
+    if (!isPDF) {
+      try { base64Final = await redimensionarImagen(file, 1400); } catch(e) { base64Final = base64; }
+    }
+
+    const PROMPT_SAT = `Eres un asistente que extrae datos de radicados SAT del sistema de salud colombiano. Responde ÚNICAMENTE con un JSON válido sin texto adicional ni bloques de código:
+{"numeroNovedad":"","fechaReporte":"YYYY-MM-DD","tipoAfiliado":"COTIZANTE o BENEFICIARIO","tipoDocumento":"CC/TI/RC/CE/PPT/PA/PEP/SC/NUIP/CD","numeroDocumento":"sin puntos ni espacios","nombreCompleto":"tal como aparece","fechaNacimiento":"YYYY-MM-DD","municipio":"solo el nombre","fechaEfectividad":"YYYY-MM-DD","epsDestino":"nombre EPS destino"}
+Si un campo no aparece usa null.`;
+
+    const bodyPayload = JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 512,
+      messages: [{ role: 'user', content: [
+        { type: isPDF ? 'document' : 'image', source: { type: 'base64', media_type: isPDF ? 'application/pdf' : 'image/jpeg', data: base64Final } },
+        { type: 'text', text: PROMPT_SAT }
+      ]}]
+    });
+
+    let response;
+    const ENDPOINTS = [
+      { url: 'https://api.anthropic.com/v1/messages', extraHeaders: { 'anthropic-dangerous-direct-browser-calls': 'true' } },
+      { url: 'https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages'), extraHeaders: {} },
+    ];
+    let lastErr;
+    for (const ep of ENDPOINTS) {
+      try {
+        status.innerHTML = '⏳ Conectando con IA...';
+        response = await fetch(ep.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', ...ep.extraHeaders },
+          body: bodyPayload,
+        });
+        if (response.ok || response.status < 500) break;
+      } catch(e) { lastErr = e; response = null; }
+    }
+    if (!response) throw lastErr || new Error('No se pudo conectar con la API');
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || 'Error API');
+
+    const texto = data.content?.[0]?.text || '';
+    let campos;
+    try { campos = JSON.parse(texto.trim()); }
+    catch { const m = texto.match(/\{[\s\S]*\}/); if (m) campos = JSON.parse(m[0]); else throw new Error('Respuesta inválida de la IA'); }
+
+    let llenados = 0;
+    if (campos.fechaReporte)    { document.getElementById('vFecha').value = campos.fechaReporte; document.getElementById('vFecha').dispatchEvent(new Event('change')); llenados++; }
+    if (campos.tipoAfiliado)    { document.getElementById('vTipo').value = campos.tipoAfiliado.toUpperCase().includes('COTIZ') ? 'COTIZANTE' : 'BENEFICIARIO'; document.getElementById('vTipo').dispatchEvent(new Event('change')); llenados++; }
+    if (campos.tipoDocumento)   { document.getElementById('vTipoDoc').value = campos.tipoDocumento.toUpperCase(); llenados++; }
+    if (campos.numeroDocumento) { document.getElementById('vDoc').value = campos.numeroDocumento; llenados++; }
+    if (campos.nombreCompleto)  { document.getElementById('vNombre').value = campos.nombreCompleto; llenados++; }
+    if (campos.fechaNacimiento) { document.getElementById('vFechaNac').value = campos.fechaNacimiento; document.getElementById('vFechaNac').dispatchEvent(new Event('change')); llenados++; }
+    if (campos.municipio)       { document.getElementById('vCiudad').value = campos.municipio; llenados++; }
+    if (campos.fechaEfectividad){ document.getElementById('vInicioCobertura').value = campos.fechaEfectividad; llenados++; }
+    if (campos.numeroNovedad)   { document.getElementById('vFormulario').value = campos.numeroNovedad; llenados++; }
+    document.getElementById('vTramite').value = 'SAT';
+
+    const epsOk = campos.epsDestino && campos.epsDestino.toUpperCase().includes('SURAMER');
+    const epsMsg = epsOk ? '✅ EPS destino: SURA confirmada' : (campos.epsDestino ? `⚠️ EPS destino: ${campos.epsDestino} — verifica que sea traslado a SURA` : '');
+
+    status.style.color = 'var(--green)';
+    status.innerHTML = `✅ ${llenados} campos pre-llenados. ${epsMsg}<br><span style="color:var(--text-muted);">Completa: Empresa, NIT, Cotizantes, Siniestralidad, BD, Teléfono y Correo.</span>`;
+    input.value = '';
+  } catch(err) {
+    status.style.color = 'var(--red)';
+    status.innerHTML = `❌ Error: ${err.message}`;
+    input.value = '';
   }
 }
 
