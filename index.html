@@ -669,7 +669,21 @@
   async function fbSet(coleccion, valor) {
     try {
       await setDoc(doc(db, coleccion, UID), { payload: valor });
-    } catch(e) { console.warn('fbSet error', coleccion, e); }
+      return true;
+    } catch(e) {
+      console.warn('fbSet error', coleccion, e);
+      // Si el error es por tamaño, intentar guardar sin registros masivos
+      if (coleccion === 'bdSiniestralidad' && e.code === 'invalid-argument') {
+        try {
+          // Guardar solo metadatos + primeros 500 registros
+          const mini = { trimestres: valor.trimestres || [], registros: (valor.registros || []).slice(0, 500) };
+          await setDoc(doc(db, coleccion, UID), { payload: mini });
+          console.warn('bdSin guardada con registros truncados a 500');
+          return 'truncated';
+        } catch(e2) { console.error('fbSet truncated error', e2); }
+      }
+      return false;
+    }
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
@@ -12658,7 +12672,7 @@ function mostrarResumenImportSin(resultados, trimLabel) {
   document.getElementById('modalImportSin').classList.add('open');
 }
 
-function confirmarImportSin() {
+async function confirmarImportSin() {
   if (!_sinImportData) return;
   const { resultados, trimLabel, trimId, anio, raw } = _sinImportData;
   const empresas = getEmpresas();
@@ -12699,11 +12713,21 @@ function confirmarImportSin() {
     }
   });
 
-  setBDSin(bdSin);
+  // Guardar y verificar que Firestore lo aceptó
+  const resultGuardado = window.FB ? await window.FB.set('bdSiniestralidad', bdSin) : false;
+  if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = bdSin;
+  bdSinConstruirCache(bdSin.registros || []);
   setEmpresas(empresas);
   _sinImportData = null;
   closeModal('modalImportSin');
-  showToast(`✅ BD guardada en Firebase · ${actualizadas} empresas del panel actualizadas`);
+
+  if (resultGuardado === false) {
+    showToast('⚠️ BD cargada en memoria pero NO se pudo guardar en Firebase. Verifica tu conexión.', 6000);
+  } else if (resultGuardado === 'truncated') {
+    showToast(`⚠️ BD muy grande — guardados primeros 500 registros en Firebase. Disponible completa esta sesión.`, 6000);
+  } else {
+    showToast(`✅ BD guardada en Firebase · ${actualizadas} empresas del panel actualizadas`);
+  }
   renderEmpresas();
 }
 
@@ -15009,6 +15033,10 @@ function bootApp() {
   const bdSinData = getBDSin();
   if (bdSinData && (bdSinData.registros || []).length > 0) {
     bdSinConstruirCache(bdSinData.registros);
+  } else if (window.__BD_SIN_PENDING__ && window.__BD_SIN_PENDING__.length > 0) {
+    // Firebase cargó antes que la función existiera — construir ahora
+    bdSinConstruirCache(window.__BD_SIN_PENDING__);
+    window.__BD_SIN_PENDING__ = null;
   }
 
   state = initState();
