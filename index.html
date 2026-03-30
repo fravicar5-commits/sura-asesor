@@ -686,7 +686,8 @@
       const [
         stateData, pagosData, pipelineData, actividadesData,
         cierresData, configAniosData, productosExtraData,
-        empresasData, cotizacionesData, syncConfigData, plantillasData
+        empresasData, cotizacionesData, syncConfigData, plantillasData,
+        bdSinData
       ] = await Promise.all([
         fbGet('estado',        {}),
         fbGet('pagos',         {}),
@@ -699,6 +700,7 @@
         fbGet('cotizaciones',  []),
         fbGet('syncConfig',    {}),
         fbGet('plantillas',    {}),
+        fbGet('bdSiniestralidad', { trimestres: [], registros: [] }),
       ]);
 
       // Inyectar en cache global
@@ -714,6 +716,7 @@
         cotizaciones: cotizacionesData,
         syncConfig: syncConfigData,
         plantillas: plantillasData,
+        bdSiniestralidad: bdSinData,
       };
     } catch(e) {
       console.error('Error cargando Firebase:', e);
@@ -3139,6 +3142,42 @@
           </div>
         </div>
 
+        <!-- Estado BD Siniestralidad -->
+        <div id="bdSinEstadoBanner" style="margin-bottom:16px;"></div>
+
+        <!-- Consultor de Siniestralidad -->
+        <div class="card" style="margin-bottom:16px;border-left:3px solid var(--teal);">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+            <div style="font-size:18px;">🔍</div>
+            <div class="card-title" style="margin-bottom:0;">Consultor de Siniestralidad</div>
+            <div id="bdSinTrimVigente" style="font-size:11px;padding:3px 10px;border-radius:12px;background:rgba(6,182,212,0.12);color:var(--teal);margin-left:auto;"></div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <input type="text" class="form-control" id="sinConsultaNIT" placeholder="NIT de la empresa" style="max-width:200px;"
+              oninput="sinConsultar()" onkeydown="if(event.key==='Enter')sinConsultar()">
+            <input type="text" class="form-control" id="sinConsultaNombre" placeholder="O nombre de la empresa" style="flex:1;min-width:200px;"
+              oninput="sinConsultar()" onkeydown="if(event.key==='Enter')sinConsultar()">
+            <select class="form-control" id="sinConsultaCiudad" style="width:160px;" onchange="sinConsultar()">
+              <option value="">Todas las ciudades</option>
+              <option value="Armenia">Armenia</option>
+              <option value="Barranquilla">Barranquilla</option>
+              <option value="Bogota">Bogotá</option>
+              <option value="Bucaramanga">Bucaramanga</option>
+              <option value="Cali">Cali</option>
+              <option value="Cartagena">Cartagena</option>
+              <option value="Manizales">Manizales</option>
+              <option value="Medellin">Medellín</option>
+              <option value="Monteria">Montería</option>
+              <option value="Pereira">Pereira</option>
+              <option value="Popayan">Popayán</option>
+              <option value="Santa Marta">Santa Marta</option>
+              <option value="Tunja">Tunja</option>
+              <option value="Uraba">Urabá</option>
+            </select>
+          </div>
+          <div id="sinConsultaResultados" style="font-size:13px;color:var(--text-muted);">Escribe un NIT o nombre para consultar la siniestralidad.</div>
+        </div>
+
         <!-- KPIs -->
         <div class="grid-4" style="margin-bottom:20px;">
           <div class="stat-card blue"><div class="stat-label">Total Empresas</div><div class="stat-value" id="empKpi0">0</div></div>
@@ -5356,7 +5395,7 @@ function refreshPage(page) {
   else if (page === 'importar') initImportar();
   else if (page === 'cierres') renderCierres();
   else if (page === 'cotizaciones') renderCotizaciones();
-  else if (page === 'empresas') renderEmpresas();
+  else if (page === 'empresas') { renderEmpresas(); renderBdSinEstado(); }
   else if (page === 'config') renderConfig();
 }
 
@@ -11625,6 +11664,40 @@ function setEmpresas(arr) {
   try { localStorage.setItem('sura_empresas_v1', JSON.stringify(arr)); } catch(e) {}
 }
 
+// ── BD Siniestralidad persistente ─────────────────────────────────────────
+function getBDSin() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.bdSiniestralidad || { trimestres: [], registros: [] };
+  try { return JSON.parse(localStorage.getItem('sura_bdsin_v1') || '{"trimestres":[],"registros":[]}'); } catch { return { trimestres: [], registros: [] }; }
+}
+function setBDSin(data) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = data;
+  if (window.FB) window.FB.set('bdSiniestralidad', data);
+  try { localStorage.setItem('sura_bdsin_v1', JSON.stringify(data)); } catch(e) {}
+  // Actualizar cache en memoria para autocompletado
+  bdSinConstruirCache(data.registros || []);
+}
+
+// Construye los índices en memoria para búsqueda rápida
+function bdSinConstruirCache(registros) {
+  window._BD_FULL_LIST = registros;
+  const map = new Map();
+  registros.forEach(r => {
+    if (!r.nit && !r.nombre) return;
+    const key = r.nit ? r.nit.replace(/\D/g,'') : bdNormalizar(r.nombre);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(r);
+  });
+  window._BD_FULL_CACHE = map;
+}
+
+// Trimestres SURA fijos
+const SURA_TRIMESTRES = [
+  { id: 'T1', label: 'T1 — Diciembre · Enero · Febrero',   meses: ['Diciembre','Enero','Febrero'] },
+  { id: 'T2', label: 'T2 — Marzo · Abril · Mayo',          meses: ['Marzo','Abril','Mayo'] },
+  { id: 'T3', label: 'T3 — Junio · Julio · Agosto',        meses: ['Junio','Julio','Agosto'] },
+  { id: 'T4', label: 'T4 — Septiembre · Octubre · Noviembre', meses: ['Septiembre','Octubre','Noviembre'] },
+];
+
 // =============================================
 // 🔍 BÚSQUEDA INTELIGENTE EN BD — por ciudad
 // =============================================
@@ -11896,6 +11969,117 @@ function bdOcultarSugerencias() {
   if (div) div.style.display = 'none';
 }
 
+// =============================================
+// 🔍 CONSULTOR DE SINIESTRALIDAD
+// =============================================
+function renderBdSinEstado() {
+  const banner = document.getElementById('bdSinEstadoBanner');
+  if (!banner) return;
+  const bdSin = getBDSin();
+  const trims = bdSin.trimestres || [];
+  const registros = bdSin.registros || [];
+
+  if (trims.length === 0) {
+    banner.innerHTML = `<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius-sm);padding:12px 16px;font-size:12.5px;color:var(--amber);">
+      ⚠️ <strong>BD de Siniestralidad no cargada.</strong> Importa el archivo Excel de SURA para activar el consultor y el autocompletado permanente.
+    </div>`;
+    return;
+  }
+
+  const vigente = trims[0];
+  // Actualizar badge trimestre vigente en consultor
+  const badge = document.getElementById('bdSinTrimVigente');
+  if (badge) badge.textContent = `Trimestre vigente: ${vigente.label}`;
+
+  banner.innerHTML = `<div style="background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius-sm);padding:12px 16px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:13px;font-weight:700;color:var(--green);">✅ BD Siniestralidad activa · ${registros.length.toLocaleString()} registros</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
+        ${trims.slice(0,4).map((t,i) => `<span style="font-size:11px;padding:3px 10px;border-radius:12px;background:${i===0?'rgba(34,197,94,0.15)':'rgba(255,255,255,0.05)'};color:${i===0?'var(--green)':'var(--text-muted)'};border:1px solid ${i===0?'rgba(34,197,94,0.3)':'var(--border)'};">
+          ${t.label}${i===0?' ✓':''}
+        </span>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function sinConsultar() {
+  const nit    = (document.getElementById('sinConsultaNIT')?.value || '').trim();
+  const nombre = (document.getElementById('sinConsultaNombre')?.value || '').trim();
+  const ciudad = (document.getElementById('sinConsultaCiudad')?.value || '');
+  const res    = document.getElementById('sinConsultaResultados');
+  if (!res) return;
+
+  if (nit.length < 3 && nombre.length < 3) {
+    res.innerHTML = '<span style="color:var(--text-muted);">Escribe al menos 3 caracteres para consultar.</span>';
+    return;
+  }
+
+  const bdSin = getBDSin();
+  const registros = bdSin.registros || [];
+  const trims = bdSin.trimestres || [];
+
+  if (registros.length === 0) {
+    res.innerHTML = '<span style="color:var(--amber);">⚠️ No hay BD cargada. Importa el archivo de siniestralidad primero.</span>';
+    return;
+  }
+
+  const qNit    = nit.replace(/\D/g, '');
+  const qNombre = bdNormalizar(nombre);
+
+  // Filtrar registros
+  let encontrados = registros.filter(r => {
+    const nitMatch    = qNit.length >= 3 && r.nit && r.nit.replace(/\D/g,'').includes(qNit);
+    const nombreMatch = qNombre.length >= 3 && r.nombre && bdNormalizar(r.nombre).includes(qNombre);
+    if (!nitMatch && !nombreMatch) return false;
+    if (ciudad && bdNormalizarCiudad(r.ciudad) !== bdNormalizarCiudad(ciudad)) return false;
+    return true;
+  }).slice(0, 50);
+
+  if (encontrados.length === 0) {
+    res.innerHTML = '<span style="color:var(--text-muted);">No se encontraron coincidencias en la BD.</span>';
+    return;
+  }
+
+  const sinColor = s => s?.includes('91')?'var(--red)':s?.includes('76')?'var(--amber)':'var(--green)';
+  const sinBg    = s => s?.includes('91')?'rgba(239,68,68,0.1)':s?.includes('76')?'rgba(245,158,11,0.1)':'rgba(34,197,94,0.1)';
+
+  // Agrupar por empresa (NIT) para mostrar todas las ciudades
+  const porNit = new Map();
+  encontrados.forEach(r => {
+    const key = r.nit ? r.nit.replace(/\D/g,'') : bdNormalizar(r.nombre);
+    if (!porNit.has(key)) porNit.set(key, []);
+    porNit.get(key).push(r);
+  });
+
+  // Obtener trimestre vigente para mostrar los meses
+  const trimVig = trims[0];
+  const trimObj = trimVig ? SURA_TRIMESTRES.find(t => t.id === trimVig.id) : null;
+
+  res.innerHTML = Array.from(porNit.values()).map(grupo => {
+    const r0 = grupo[0];
+    return `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:10px;overflow:hidden;">
+      <div style="padding:10px 14px;background:var(--surface2);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;font-size:13px;">${r0.nombre}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">NIT: ${r0.nit||'—'} · ${r0.trim||'—'}</div>
+        </div>
+      </div>
+      <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;">
+        ${grupo.map(r => `
+          <div style="padding:8px 12px;border-radius:8px;background:${sinBg(r.sinCat)};border:1px solid ${sinColor(r.sinCat)}44;min-width:160px;">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">🏙️ ${r.ciudad||'Sin ciudad'}</div>
+            <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${sinColor(r.sinCat)};">${r.sinPct!==''&&r.sinPct!==undefined?r.sinPct+'%':'—'}</div>
+            <div style="font-size:11px;color:${sinColor(r.sinCat)};margin-top:2px;">${r.sinCat||'Sin dato'}</div>
+          </div>`).join('')}
+      </div>
+      ${trimObj ? `<div style="padding:8px 14px;background:var(--surface3);border-top:1px solid var(--border);font-size:11.5px;color:var(--text-muted);">
+        📅 Aplica durante: <strong style="color:var(--text);">${trimObj.meses.join(' · ')}</strong>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
 function autoRegistrarEmpresaDesdeVenta(nombre, nit, ciudad) {
   if (!nombre || nombre === '—') return;
   const empresas = getEmpresas();
@@ -12015,6 +12199,7 @@ function eliminarEmpresa(id) {
 }
 
 function renderEmpresas() {
+  renderBdSinEstado();
   const empresas = getEmpresas();
   const state = getState();
   const buscar = (document.getElementById('empBuscar')?.value || '').toLowerCase();
@@ -12145,7 +12330,6 @@ async function importarSiniestralidad(event) {
   event.target.value = '';
   if (!file) return;
 
-  // Dynamic load of SheetJS
   if (typeof XLSX === 'undefined') {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
@@ -12155,30 +12339,71 @@ async function importarSiniestralidad(event) {
     });
   }
 
+  // Paso 1: Preguntar trimestre antes de procesar
+  const anioActual = new Date().getFullYear();
+  const opcionesTrim = SURA_TRIMESTRES.map(t =>
+    `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;border:2px solid var(--border);cursor:pointer;margin-bottom:8px;" onclick="this.style.borderColor='var(--sura-blue)';this.style.background='rgba(26,76,232,0.08)';document.querySelectorAll('.trim-opt').forEach(x=>{if(x!==this){x.style.borderColor='var(--border)';x.style.background='transparent';}});document.getElementById('sinTrimestreSelId').value='${t.id}';">
+      <div>
+        <div style="font-weight:700;font-size:13px;">${t.label}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${t.meses.join(' · ')}</div>
+      </div>
+    </label>`
+  ).join('');
+
+  const aniosOpts = [anioActual-1, anioActual, anioActual+1].map(a =>
+    `<option value="${a}" ${a===anioActual?'selected':''}>${a}</option>`).join('');
+
+  document.getElementById('importSinContenido').innerHTML = `
+    <div style="padding:16px;">
+      <div class="alert alert-info" style="margin-bottom:16px;">
+        📋 Antes de procesar el archivo, indica a qué trimestre corresponde esta BD de siniestralidad.
+      </div>
+      <div style="margin-bottom:14px;">
+        <label class="form-label">Año</label>
+        <select class="form-control" id="sinAnioSel" style="width:120px;">
+          ${aniosOpts}
+        </select>
+      </div>
+      <div class="form-label" style="margin-bottom:8px;">Trimestre SURA</div>
+      <div class="trim-opts-wrap">
+        ${opcionesTrim.replace(/class="label"/g, 'class="label trim-opt"')}
+      </div>
+      <input type="hidden" id="sinTrimestreSelId" value="">
+    </div>`;
+
+  document.getElementById('btnConfirmarImportSin').textContent = '⏳ Procesar archivo';
+  document.getElementById('btnConfirmarImportSin').onclick = () => procesarArchivoSin(file);
+  document.getElementById('modalImportSin').classList.add('open');
+}
+
+// Guarda referencia al archivo mientras se elige trimestre
+async function procesarArchivoSin(file) {
+  const trimId = document.getElementById('sinTrimestreSelId').value;
+  const anio = document.getElementById('sinAnioSel').value;
+  if (!trimId) { showToast('⚠️ Selecciona el trimestre antes de continuar'); return; }
+
+  const trimObj = SURA_TRIMESTRES.find(t => t.id === trimId);
+  const trimLabel = `${trimObj.id} ${anio} (${trimObj.meses.join('-')})`;
+
   showToast('⏳ Leyendo archivo… puede tardar unos segundos');
+  document.getElementById('importSinContenido').innerHTML = `<div style="padding:30px;text-align:center;color:var(--text-muted);">⏳ Procesando ${file.name}...</div>`;
 
   const reader = new FileReader();
   reader.onload = async function(e) {
     try {
       const workbook = XLSX.read(e.target.result, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
 
-      if (data.length < 2) {
-        showToast('⚠️ El archivo parece estar vacío');
-        return;
-      }
+      if (data.length < 2) { showToast('⚠️ El archivo parece estar vacío'); return; }
 
-      // Detect columns — normalizar headers con más variantes
       const rawHeaders = data[0];
-      const headers = rawHeaders.map(h => String(h).toLowerCase().trim()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')); // quitar tildes
+      const headers = rawHeaders.map(h => String(h).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
 
       const findCol = (...keys) => {
         for (const key of keys) {
-          const keyNorm = key.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          const idx = headers.findIndex(h => h.includes(keyNorm));
+          const kn = key.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const idx = headers.findIndex(h => h.includes(kn));
           if (idx >= 0) return idx;
         }
         return -1;
@@ -12187,194 +12412,154 @@ async function importarSiniestralidad(event) {
       const colNombre = findCol('empresa', 'razon', 'nombre', 'compania', 'entidad');
       const colNIT    = findCol('nit', 'identificacion', 'documento', 'rut');
       const colSin    = findCol('siniestralidad', 'siniestr', 'porcentaje', '%sin');
-      const colTrim   = findCol('trimestre', 'periodo', 'trim', 'referencia', 'fecha');
-      const colCiudadSin = findCol('ciudad', 'municipio', 'city', 'localidad');
+      const colCiudad = findCol('ciudad', 'municipio', 'city', 'localidad');
 
       const filas = data.slice(1).filter(row => row.some(c => c !== ''));
-      const empresas = getEmpresas();
       const resultados = [];
-      const CHUNK = 2000; // procesar de a 2000 filas para no bloquear UI
+      const CHUNK = 2000;
 
       showToast(`⏳ Procesando ${filas.length.toLocaleString()} filas…`);
 
-      for (let start = 0; start < filas.length; start += CHUNK) {
-        const chunk = filas.slice(start, start + CHUNK);
-
-        chunk.forEach(row => {
+      for (let s2 = 0; s2 < filas.length; s2 += CHUNK) {
+        filas.slice(s2, s2 + CHUNK).forEach(row => {
           const nombre = colNombre >= 0 ? String(row[colNombre] || '').trim() : '';
           const nit    = colNIT >= 0 ? String(row[colNIT] || '').trim() : '';
           const sinRaw = colSin >= 0 ? row[colSin] : '';
-          const trim   = colTrim >= 0 ? String(row[colTrim] || '').trim() : '';
-          const ciudad = colCiudadSin >= 0 ? String(row[colCiudadSin] || '').trim() : '';
-
+          const ciudad = colCiudad >= 0 ? String(row[colCiudad] || '').trim() : '';
           if (!nombre && !nit) return;
 
-          // Parse sin value
-          let sinPct = '';
+          let sinPct = '', sinCat = '';
           if (sinRaw !== '' && sinRaw !== null) {
-            const rawStr = String(sinRaw).replace(',', '.').replace('%', '').trim();
-            const n = parseFloat(rawStr);
+            const n = parseFloat(String(sinRaw).replace(',','.').replace('%','').trim());
             if (!isNaN(n)) {
-              // Con raw:false SheetJS entrega "95%" como string; parseFloat da 95 directamente
-              // Si por algún motivo llega como decimal (0.95), convertir a porcentaje
-              sinPct = (n > 0 && n <= 1 && !String(sinRaw).includes('%')) ? Math.round(n * 10000) / 100 : Math.round(n * 100) / 100;
+              sinPct = (n > 0 && n <= 1 && !String(sinRaw).includes('%')) ? Math.round(n*10000)/100 : Math.round(n*100)/100;
+              if (sinPct <= 75) sinCat = '<=75%';
+              else if (sinPct <= 90) sinCat = '76% - 90%';
+              else sinCat = '>=91% EXCEPCIONADA';
             }
           }
 
-          // Map to category
-          let sinCat = '';
-          if (sinPct !== '') {
-            if (sinPct <= 75) sinCat = '<=75%';
-            else if (sinPct <= 90) sinCat = '76% - 90%';
-            else sinCat = '>=91% EXCEPCIONADA';
-          }
-
-          // Match empresa — NIT primero (más confiable), luego nombre
-          const nitLimpio = nit.replace(/\D/g, '');
-          const nombreCorto = nombre.toLowerCase().substring(0, 12);
-          const match = empresas.find(e => {
-            if (nitLimpio && e.nit && e.nit.replace(/\D/g, '') === nitLimpio) return true;
-            if (nombre && e.nombre.toLowerCase().substring(0, 12) === nombreCorto) return true;
-            return false;
-          });
-
-          resultados.push({
-            nombre, nit, sinPct, sinCat, trim, ciudad,
-            encontrada: !!match,
-            empresaId: match?.id || null,
-            empresaNombreActual: match?.nombre || '',
-            sinActual: match?.siniestralidad || '',
-          });
+          resultados.push({ nombre, nit, sinPct, sinCat, ciudad, trim: trimLabel, trimId, anio });
         });
-
-        // Ceder control al navegador entre chunks
         await new Promise(r => setTimeout(r, 0));
       }
 
-      // Deduplicar por NIT+ciudad para el resumen de actualización del panel
-      const dedup = new Map();
-      resultados.forEach(r => {
-        const key = (r.nit || r.nombre) + '|' + bdNormalizarCiudad(r.ciudad);
-        if (key) dedup.set(key, r);
-      });
-      const resultadosFinales = Array.from(dedup.values());
+      // Deduplicar por NIT+ciudad para resumen
+      const dedupMap = new Map();
+      resultados.forEach(r => { const k=(r.nit||r.nombre)+'|'+bdNormalizarCiudad(r.ciudad); dedupMap.set(k, r); });
+      const resultadosFinales = Array.from(dedupMap.values());
 
-      // Guardar BD completa en cache para autocompletado (NIT → array de {nombre, nit, ciudad, sinCat, sinPct})
-      const bdFullMap = new Map();
-      resultados.forEach(r => {
-        if (!r.nit && !r.nombre) return;
-        const key = r.nit ? r.nit.replace(/\D/g,'') : bdNormalizar(r.nombre);
-        if (!bdFullMap.has(key)) bdFullMap.set(key, []);
-        bdFullMap.get(key).push({ nombre: r.nombre, nit: r.nit, ciudad: r.ciudad, sinCat: r.sinCat, sinPct: r.sinPct, trim: r.trim });
-      });
-      window._BD_FULL_CACHE = bdFullMap;
-      window._BD_FULL_LIST = resultados; // lista completa para búsqueda por nombre
-
-      _sinImportData = resultadosFinales;
-      mostrarResumenImportSin(resultadosFinales, rawHeaders, colNombre, colNIT, colSin, colTrim);
-      showToast(`✅ Archivo procesado — ${resultadosFinales.length} empresas únicas`);
-    } catch (err) {
-      showToast('❌ Error al leer el archivo: ' + err.message);
+      _sinImportData = { resultados: resultadosFinales, trimLabel, trimId, anio, raw: resultados };
+      mostrarResumenImportSin(resultadosFinales, trimLabel);
+      showToast(`✅ Archivo procesado — ${resultadosFinales.length} registros únicos`);
+    } catch(err) {
+      showToast('❌ Error: ' + err.message);
       console.error(err);
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
-function mostrarResumenImportSin(resultados, headers, colNombre, colNIT, colSin, colTrim) {
-  const encontradas = resultados.filter(r => r.encontrada).length;
-  const noEncontradas = resultados.filter(r => !r.encontrada).length;
+function mostrarResumenImportSin(resultados, trimLabel) {
+  const empresas = getEmpresas();
+  const bdSin = getBDSin();
+  const trims = bdSin.trimestres || [];
+  const trimestreExiste = trims.find(t => t.label === trimLabel);
 
-  let html = `
-    <div style="margin-bottom:16px;">
-      <div class="alert alert-info" style="margin-bottom:12px;">
-        📊 Se procesaron <strong>${resultados.length}</strong> filas del archivo.
-        <strong style="color:var(--green);">${encontradas}</strong> empresas encontradas en tu BD ·
-        <strong style="color:var(--amber);">${noEncontradas}</strong> no encontradas (no se modificarán).
+  let encontradas = 0, noEncontradas = 0;
+  resultados.forEach(r => {
+    const nitL = (r.nit||'').replace(/\D/g,'');
+    const match = empresas.find(e => (nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
+      bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12));
+    if (match) encontradas++; else noEncontradas++;
+  });
+
+  document.getElementById('importSinContenido').innerHTML = `
+    <div style="padding:16px;">
+      ${trimestreExiste ? `<div class="alert" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);margin-bottom:12px;">⚠️ Ya existe datos para <strong>${trimLabel}</strong> — se actualizarán los registros.</div>` : ''}
+      <div class="alert alert-info" style="margin-bottom:14px;">
+        📊 <strong>${trimLabel}</strong> · ${resultados.length.toLocaleString()} registros procesados ·
+        <span style="color:var(--green);">${encontradas} en tu panel</span> ·
+        <span style="color:var(--text-muted);">${noEncontradas} nuevos en BD</span>
       </div>
-      ${colNombre < 0 ? '<div style="color:var(--amber);font-size:12px;margin-bottom:8px;">⚠️ No se detectó columna de nombre de empresa. Verifica el archivo.</div>' : ''}
-      ${colSin < 0 ? '<div style="color:var(--amber);font-size:12px;margin-bottom:8px;">⚠️ No se detectó columna de siniestralidad.</div>' : ''}
-    </div>
-    <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
-      <table style="width:100%;font-size:12px;border-collapse:collapse;">
-        <thead style="background:var(--surface2);position:sticky;top:0;">
-          <tr>
-            <th style="padding:8px 12px;text-align:left;color:var(--text-muted);font-size:10.5px;text-transform:uppercase;">Empresa (Archivo)</th>
-            <th style="padding:8px 12px;text-align:left;color:var(--text-muted);font-size:10.5px;">NIT</th>
-            <th style="padding:8px 12px;text-align:center;color:var(--text-muted);font-size:10.5px;">% Sin.</th>
-            <th style="padding:8px 12px;text-align:left;color:var(--text-muted);font-size:10.5px;">Categoría</th>
-            <th style="padding:8px 12px;text-align:left;color:var(--text-muted);font-size:10.5px;">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${resultados.slice(0,50).map(r => `<tr style="border-top:1px solid var(--border);">
-            <td style="padding:7px 12px;font-weight:${r.encontrada?'600':'400'};color:${r.encontrada?'var(--text)':'var(--text-dim)'};">${r.nombre||'—'}</td>
-            <td style="padding:7px 12px;font-family:var(--mono);font-size:11px;color:var(--text-muted);">${r.nit||'—'}</td>
-            <td style="padding:7px 12px;text-align:center;font-family:var(--mono);color:${r.sinPct<=75?'var(--green)':r.sinPct<=90?'var(--amber)':'var(--red)'};">${r.sinPct!==''?r.sinPct+'%':'—'}</td>
-            <td style="padding:7px 12px;font-size:11px;">${r.sinCat||'—'}</td>
-            <td style="padding:7px 12px;">
-              ${r.encontrada
-                ? `<span class="chip chip-green" style="font-size:10px;">✓ En BD → ${r.empresaNombreActual.substring(0,20)}</span>`
-                : `<span class="chip chip-amber" style="font-size:10px;">⚠ No en BD</span>`}
-            </td>
-          </tr>`).join('')}
-          ${resultados.length > 50 ? `<tr><td colspan="5" style="text-align:center;padding:10px;color:var(--text-dim);font-size:12px;">... y ${resultados.length-50} filas más</td></tr>` : ''}
-        </tbody>
-      </table>
-    </div>
-    <div style="margin-top:12px;font-size:12px;color:var(--text-muted);">
-      Al confirmar, se actualizará la siniestralidad de las <strong style="color:var(--green);">${encontradas}</strong> empresas encontradas en tu BD.
-      Las no encontradas no se modifican — puedes editarlas manualmente desde el panel de empresas.
+      <div style="max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+        <table style="width:100%;font-size:12px;border-collapse:collapse;">
+          <thead style="background:var(--surface2);position:sticky;top:0;">
+            <tr>
+              <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:10.5px;">Empresa</th>
+              <th style="padding:8px 10px;color:var(--text-muted);font-size:10.5px;">NIT</th>
+              <th style="padding:8px 10px;color:var(--text-muted);font-size:10.5px;">Ciudad</th>
+              <th style="padding:8px 10px;color:var(--text-muted);font-size:10.5px;">Sin.</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${resultados.slice(0,60).map(r => `<tr style="border-top:1px solid var(--border);">
+              <td style="padding:6px 10px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.nombre||'—'}</td>
+              <td style="padding:6px 10px;font-family:var(--mono);font-size:11px;color:var(--text-muted);">${r.nit||'—'}</td>
+              <td style="padding:6px 10px;font-size:11px;color:var(--text-muted);">${r.ciudad||'—'}</td>
+              <td style="padding:6px 10px;font-family:var(--mono);font-size:11px;color:${r.sinPct<=75?'var(--green)':r.sinPct<=90?'var(--amber)':'var(--red)'};">${r.sinPct!==''?r.sinPct+'%':'—'}</td>
+            </tr>`).join('')}
+            ${resultados.length>60?`<tr><td colspan="4" style="text-align:center;padding:8px;color:var(--text-dim);font-size:12px;">... y ${resultados.length-60} más</td></tr>`:''}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text-muted);">Al confirmar, se guarda esta BD en Firebase y quedará disponible permanentemente sin necesidad de volver a cargar el archivo.</div>
     </div>`;
 
-  document.getElementById('importSinContenido').innerHTML = html;
+  document.getElementById('btnConfirmarImportSin').textContent = '✅ Guardar en Firebase';
+  document.getElementById('btnConfirmarImportSin').onclick = confirmarImportSin;
   document.getElementById('modalImportSin').classList.add('open');
 }
 
 function confirmarImportSin() {
   if (!_sinImportData) return;
+  const { resultados, trimLabel, trimId, anio, raw } = _sinImportData;
   const empresas = getEmpresas();
+  const bdSin = getBDSin();
+
+  // Actualizar trimestres registrados
+  const trims = bdSin.trimestres || [];
+  const trimIdx = trims.findIndex(t => t.label === trimLabel);
+  const trimEntry = { label: trimLabel, id: trimId, anio, fechaImport: new Date().toISOString().split('T')[0], total: raw.length };
+  if (trimIdx >= 0) trims[trimIdx] = trimEntry;
+  else trims.unshift(trimEntry);
+  bdSin.trimestres = trims;
+
+  // Guardar/actualizar registros — reemplaza los del mismo trimestre, conserva los demás
+  const registrosOtros = (bdSin.registros || []).filter(r => r.trimId !== trimId || r.anio !== anio);
+  const registrosNuevos = raw.map(r => ({ ...r }));
+  bdSin.registros = [...registrosOtros, ...registrosNuevos];
+
+  // Actualizar siniestralidad en panel de empresas (historial)
   let actualizadas = 0;
-  const trimVigente = _sinImportData.find(r => r.trim)?.trim || '';
   const fechaHoy = new Date().toISOString().split('T')[0];
-
-  _sinImportData.filter(r => r.encontrada && r.empresaId).forEach(r => {
-    const idx = empresas.findIndex(e => e.id === r.empresaId);
-    if (idx >= 0) {
-      const emp = empresas[idx];
-
-      // Inicializar historial si no existe
-      if (!emp.historialSin) emp.historialSin = [];
-
-      // Solo agregar al historial si hay datos de siniestralidad
-      if (r.sinCat) {
-        const trimKey = r.trim || trimVigente || fechaHoy;
-        // Verificar si ya existe este trimestre en el historial
-        const existeTrim = emp.historialSin.findIndex(h => h.trim === trimKey);
-        const entrada = { trim: trimKey, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
-        if (existeTrim >= 0) {
-          // Actualizar entrada existente del mismo trimestre
-          emp.historialSin[existeTrim] = entrada;
-        } else {
-          // Agregar nueva entrada al historial
-          emp.historialSin.push(entrada);
-          // Ordenar por fecha de import (más reciente primero)
-          emp.historialSin.sort((a, b) => (b.fechaImport || '').localeCompare(a.fechaImport || ''));
-        }
-        // Actualizar vigente (siempre el más reciente)
-        emp.siniestralidad = r.sinCat;
-        emp.sinPct = r.sinPct;
-      }
-      if (r.trim) emp.trimRef = r.trim;
+  resultados.forEach(r => {
+    const nitL = (r.nit||'').replace(/\D/g,'');
+    const idx = empresas.findIndex(e =>
+      (nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
+      bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)
+    );
+    if (idx >= 0 && r.sinCat) {
+      if (!empresas[idx].historialSin) empresas[idx].historialSin = [];
+      const existeTrim = empresas[idx].historialSin.findIndex(h => h.trim === trimLabel);
+      const entrada = { trim: trimLabel, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
+      if (existeTrim >= 0) empresas[idx].historialSin[existeTrim] = entrada;
+      else { empresas[idx].historialSin.unshift(entrada); }
+      empresas[idx].siniestralidad = r.sinCat;
+      empresas[idx].sinPct = r.sinPct;
+      empresas[idx].trimRef = trimLabel;
       actualizadas++;
     }
   });
+
+  setBDSin(bdSin);
   setEmpresas(empresas);
   _sinImportData = null;
   closeModal('modalImportSin');
-  showToast(`✅ ${actualizadas} empresa${actualizadas!==1?'s':''} actualizadas · historial conservado`);
+  showToast(`✅ BD guardada en Firebase · ${actualizadas} empresas del panel actualizadas`);
   renderEmpresas();
 }
+
 
 // =============================================
 // BACKUP — GOOGLE DRIVE (GAPI + picker)
@@ -14656,6 +14841,12 @@ function bootApp() {
   // Verificar PIN antes de mostrar la app
   if (!pinTieneSesion()) {
     pinMostrarPantalla();
+  }
+
+  // Cargar BD siniestralidad en cache de memoria
+  const bdSinData = getBDSin();
+  if (bdSinData && (bdSinData.registros || []).length > 0) {
+    bdSinConstruirCache(bdSinData.registros);
   }
 
   state = initState();
