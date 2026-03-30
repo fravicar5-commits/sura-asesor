@@ -745,6 +745,53 @@
   <style>@keyframes fbload{0%{width:0%}50%{width:70%}100%{width:100%}}</style>
 </div>
 
+<!-- ===== PANTALLA DE PIN ===== -->
+<div id="pinScreen" style="display:none;position:fixed;inset:0;z-index:99998;background:#0A0F1E;flex-direction:column;align-items:center;justify-content:center;gap:0;">
+  <style>
+    .pin-btn {
+      width:72px;height:72px;border-radius:50%;border:2px solid rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.05);color:#F0F4FF;font-size:22px;font-weight:600;
+      cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .pin-btn:hover { background:rgba(26,76,232,0.3);border-color:rgba(26,76,232,0.6); }
+    .pin-btn:active { transform:scale(0.92); }
+    .pin-dot { width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.3);background:transparent;transition:all 0.2s; }
+    .pin-dot.filled { background:#1A4CE8;border-color:#1A4CE8; }
+    .pin-shake { animation:pinShake 0.4s ease; }
+    @keyframes pinShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
+  </style>
+  <div style="margin-bottom:32px;text-align:center;">
+    <div style="font-size:36px;margin-bottom:12px;">🏥</div>
+    <div style="color:#F0F4FF;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:700;">SURA Asesor</div>
+    <div style="color:rgba(255,255,255,0.4);font-size:13px;margin-top:4px;" id="pinLabel">Ingresa tu PIN de acceso</div>
+  </div>
+  <!-- Dots -->
+  <div style="display:flex;gap:16px;margin-bottom:36px;" id="pinDots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <!-- Teclado -->
+  <div style="display:grid;grid-template-columns:repeat(3,72px);gap:14px;">
+    <button class="pin-btn" onclick="pinDigit('1')">1</button>
+    <button class="pin-btn" onclick="pinDigit('2')">2</button>
+    <button class="pin-btn" onclick="pinDigit('3')">3</button>
+    <button class="pin-btn" onclick="pinDigit('4')">4</button>
+    <button class="pin-btn" onclick="pinDigit('5')">5</button>
+    <button class="pin-btn" onclick="pinDigit('6')">6</button>
+    <button class="pin-btn" onclick="pinDigit('7')">7</button>
+    <button class="pin-btn" onclick="pinDigit('8')">8</button>
+    <button class="pin-btn" onclick="pinDigit('9')">9</button>
+    <button class="pin-btn" onclick="pinBorrar()" style="font-size:18px;">⌫</button>
+    <button class="pin-btn" onclick="pinDigit('0')">0</button>
+    <button class="pin-btn" style="opacity:0;pointer-events:none;"></button>
+  </div>
+  <div style="margin-top:28px;font-size:11.5px;color:rgba(255,255,255,0.2);">Panel Asesor Especializado · SURA</div>
+</div>
+<!-- ===== FIN PANTALLA PIN ===== -->
+
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
 <div class="app">
@@ -1814,6 +1861,16 @@
               <label class="form-label">Nombre (opcional)</label>
               <input type="text" class="form-control" id="nombreAsesor" placeholder="Tu nombre" oninput="guardarConfig()">
             </div>
+          </div>
+        </div>
+
+        <!-- Seguridad PIN -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">🔐 Seguridad — PIN de acceso</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">El PIN protege el acceso a la app. Se solicita al abrir y la sesión dura 8 horas.</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="cambiarPIN()">🔑 Cambiar PIN</button>
+            <span style="font-size:12px;color:var(--text-dim);">Si olvidaste tu PIN, también puedes usar este botón para crear uno nuevo.</span>
           </div>
         </div>
 
@@ -3673,20 +3730,6 @@
     <div id="tabPBS">
       <!-- Alerta de mes compensado -->
       <div id="alertaMesComp" class="alert alert-info" style="margin-bottom:14px;display:none;"></div>
-
-      <!-- ── LECTOR SAT ── -->
-      <div style="background:linear-gradient(135deg,rgba(26,76,232,0.12),rgba(200,229,43,0.06));border:1px solid rgba(26,76,232,0.3);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-        <div style="font-size:22px;">📄</div>
-        <div style="flex:1;min-width:180px;">
-          <div style="font-size:13px;font-weight:700;margin-bottom:2px;">Cargar Radicado SAT</div>
-          <div style="font-size:11.5px;color:var(--text-muted);">Sube la imagen o PDF del radicado y la app pre-llena el formulario automáticamente</div>
-        </div>
-        <label style="cursor:pointer;display:inline-block;">
-          <input type="file" id="satFileInput" accept="image/*,.pdf" style="display:none;" onchange="procesarRadicadoSAT(this)">
-          <span class="btn btn-primary" style="font-size:13px;padding:8px 18px;pointer-events:none;">📄 Cargar radicado SAT</span>
-        </label>
-        <div id="satStatus" style="font-size:12px;color:var(--text-muted);width:100%;display:none;"></div>
-      </div>
 
       <div class="form-grid" style="margin-bottom:16px;">
         <div class="form-group">
@@ -7096,123 +7139,6 @@ function copiarTomadorAsegurado() {
   } else {
     fields.style.opacity = '';
     fields.style.pointerEvents = '';
-  }
-}
-
-// =============================================
-// 📄 LECTOR RADICADO SAT — Claude Vision
-// =============================================
-function redimensionarImagen(file, maxWidth) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxWidth / img.width);
-      const canvas = document.createElement('canvas');
-      canvas.width  = Math.round(img.width  * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-async function procesarRadicadoSAT(input) {
-  const file = input.files[0];
-  if (!file) return;
-
-  const status = document.getElementById('satStatus');
-  status.style.display = '';
-  status.style.color = 'var(--amber)';
-  status.innerHTML = '⏳ Leyendo radicado con IA... espera unos segundos.';
-
-  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
-  if (!apiKey) {
-    status.style.color = 'var(--red)';
-    status.innerHTML = '❌ Necesitas configurar tu API Key de Claude en la sección Agente IA para usar esta función.';
-    input.value = '';
-    return;
-  }
-
-  try {
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const isPDF = file.type === 'application/pdf';
-    let base64Final = base64;
-    if (!isPDF) {
-      try { base64Final = await redimensionarImagen(file, 1400); } catch(e) { base64Final = base64; }
-    }
-
-    const PROMPT_SAT = `Eres un asistente que extrae datos de radicados SAT del sistema de salud colombiano. Responde ÚNICAMENTE con un JSON válido sin texto adicional ni bloques de código:
-{"numeroNovedad":"","fechaReporte":"YYYY-MM-DD","tipoAfiliado":"COTIZANTE o BENEFICIARIO","tipoDocumento":"CC/TI/RC/CE/PPT/PA/PEP/SC/NUIP/CD","numeroDocumento":"sin puntos ni espacios","nombreCompleto":"tal como aparece","fechaNacimiento":"YYYY-MM-DD","municipio":"solo el nombre","fechaEfectividad":"YYYY-MM-DD","epsDestino":"nombre EPS destino"}
-Si un campo no aparece usa null.`;
-
-    const bodyPayload = JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 512,
-      messages: [{ role: 'user', content: [
-        { type: isPDF ? 'document' : 'image', source: { type: 'base64', media_type: isPDF ? 'application/pdf' : 'image/jpeg', data: base64Final } },
-        { type: 'text', text: PROMPT_SAT }
-      ]}]
-    });
-
-    let response;
-    const ENDPOINTS = [
-      { url: 'https://api.anthropic.com/v1/messages', extraHeaders: { 'anthropic-dangerous-direct-browser-calls': 'true' } },
-      { url: 'https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages'), extraHeaders: {} },
-    ];
-    let lastErr;
-    for (const ep of ENDPOINTS) {
-      try {
-        status.innerHTML = '⏳ Conectando con IA...';
-        response = await fetch(ep.url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', ...ep.extraHeaders },
-          body: bodyPayload,
-        });
-        if (response.ok || response.status < 500) break;
-      } catch(e) { lastErr = e; response = null; }
-    }
-    if (!response) throw lastErr || new Error('No se pudo conectar con la API');
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Error API');
-
-    const texto = data.content?.[0]?.text || '';
-    let campos;
-    try { campos = JSON.parse(texto.trim()); }
-    catch { const m = texto.match(/\{[\s\S]*\}/); if (m) campos = JSON.parse(m[0]); else throw new Error('Respuesta inválida de la IA'); }
-
-    let llenados = 0;
-    if (campos.fechaReporte)    { document.getElementById('vFecha').value = campos.fechaReporte; document.getElementById('vFecha').dispatchEvent(new Event('change')); llenados++; }
-    if (campos.tipoAfiliado)    { document.getElementById('vTipo').value = campos.tipoAfiliado.toUpperCase().includes('COTIZ') ? 'COTIZANTE' : 'BENEFICIARIO'; document.getElementById('vTipo').dispatchEvent(new Event('change')); llenados++; }
-    if (campos.tipoDocumento)   { document.getElementById('vTipoDoc').value = campos.tipoDocumento.toUpperCase(); llenados++; }
-    if (campos.numeroDocumento) { document.getElementById('vDoc').value = campos.numeroDocumento; llenados++; }
-    if (campos.nombreCompleto)  { document.getElementById('vNombre').value = campos.nombreCompleto; llenados++; }
-    if (campos.fechaNacimiento) { document.getElementById('vFechaNac').value = campos.fechaNacimiento; document.getElementById('vFechaNac').dispatchEvent(new Event('change')); llenados++; }
-    if (campos.municipio)       { document.getElementById('vCiudad').value = campos.municipio; llenados++; }
-    if (campos.fechaEfectividad){ document.getElementById('vInicioCobertura').value = campos.fechaEfectividad; llenados++; }
-    if (campos.numeroNovedad)   { document.getElementById('vFormulario').value = campos.numeroNovedad; llenados++; }
-    document.getElementById('vTramite').value = 'SAT';
-
-    const epsOk = campos.epsDestino && campos.epsDestino.toUpperCase().includes('SURAMER');
-    const epsMsg = epsOk ? '✅ EPS destino: SURA confirmada' : (campos.epsDestino ? `⚠️ EPS destino: ${campos.epsDestino} — verifica que sea traslado a SURA` : '');
-
-    status.style.color = 'var(--green)';
-    status.innerHTML = `✅ ${llenados} campos pre-llenados. ${epsMsg}<br><span style="color:var(--text-muted);">Completa: Empresa, NIT, Cotizantes, Siniestralidad, BD, Teléfono y Correo.</span>`;
-    input.value = '';
-  } catch(err) {
-    status.style.color = 'var(--red)';
-    status.innerHTML = `❌ Error: ${err.message}`;
-    input.value = '';
   }
 }
 
@@ -14602,9 +14528,136 @@ async function migrarLocalStorageAFirebase() {
 }
 
 // =============================================
+// 🔐 SISTEMA DE PIN
+// =============================================
+const PIN_KEY = 'sura_pin_v1';
+const PIN_SESSION_KEY = 'sura_pin_session';
+let _pinBuffer = '';
+let _pinModo = 'verificar'; // 'verificar' | 'crear' | 'confirmar'
+let _pinNuevo = '';
+
+function pinGetHash(pin) {
+  // Hash simple (no criptográfico, suficiente para PIN personal)
+  let h = 0;
+  for (let i = 0; i < pin.length; i++) { h = (Math.imul(31, h) + pin.charCodeAt(i)) | 0; }
+  return String(h);
+}
+
+function pinTieneSesion() {
+  // Sesión válida por 8 horas
+  try {
+    const s = JSON.parse(sessionStorage.getItem(PIN_SESSION_KEY) || 'null');
+    if (!s) return false;
+    return (Date.now() - s.ts) < 8 * 60 * 60 * 1000;
+  } catch { return false; }
+}
+
+function pinGuardarSesion() {
+  try { sessionStorage.setItem(PIN_SESSION_KEY, JSON.stringify({ ts: Date.now() })); } catch(e) {}
+}
+
+function pinMostrarPantalla() {
+  const pinGuardado = localStorage.getItem(PIN_KEY);
+  _pinModo = pinGuardado ? 'verificar' : 'crear';
+  _pinBuffer = '';
+  document.getElementById('pinLabel').textContent = _pinModo === 'crear' ? 'Crea tu PIN de 4 dígitos' : 'Ingresa tu PIN de acceso';
+  document.getElementById('pinScreen').style.display = 'flex';
+  pinActualizarDots();
+}
+
+function pinDigit(d) {
+  if (_pinBuffer.length >= 4) return;
+  _pinBuffer += d;
+  pinActualizarDots();
+  if (_pinBuffer.length === 4) setTimeout(pinVerificar, 120);
+}
+
+function pinBorrar() {
+  _pinBuffer = _pinBuffer.slice(0, -1);
+  pinActualizarDots();
+}
+
+function pinActualizarDots() {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('pd' + i);
+    if (d) d.classList.toggle('filled', i < _pinBuffer.length);
+  }
+}
+
+function pinVerificar() {
+  const pinGuardado = localStorage.getItem(PIN_KEY);
+
+  if (_pinModo === 'crear') {
+    _pinNuevo = _pinBuffer;
+    _pinBuffer = '';
+    _pinModo = 'confirmar';
+    document.getElementById('pinLabel').textContent = 'Confirma tu PIN';
+    pinActualizarDots();
+    return;
+  }
+
+  if (_pinModo === 'confirmar') {
+    if (_pinBuffer === _pinNuevo) {
+      localStorage.setItem(PIN_KEY, pinGetHash(_pinBuffer));
+      pinGuardarSesion();
+      document.getElementById('pinScreen').style.display = 'none';
+      document.getElementById('pinLabel').textContent = 'Ingresa tu PIN de acceso';
+    } else {
+      pinError('Los PINs no coinciden — intenta de nuevo');
+      _pinModo = 'crear';
+      _pinNuevo = '';
+    }
+    return;
+  }
+
+  // Verificar PIN existente
+  if (pinGetHash(_pinBuffer) === pinGuardado) {
+    pinGuardarSesion();
+    document.getElementById('pinScreen').style.display = 'none';
+  } else {
+    pinError('PIN incorrecto');
+  }
+}
+
+function pinError(msg) {
+  _pinBuffer = '';
+  pinActualizarDots();
+  const label = document.getElementById('pinLabel');
+  const dots = document.getElementById('pinDots');
+  label.textContent = msg;
+  label.style.color = '#EF4444';
+  dots.classList.add('pin-shake');
+  setTimeout(() => {
+    label.style.color = '';
+    label.textContent = _pinModo === 'crear' ? 'Crea tu PIN de 4 dígitos' : _pinModo === 'confirmar' ? 'Confirma tu PIN' : 'Ingresa tu PIN de acceso';
+    dots.classList.remove('pin-shake');
+  }, 1200);
+}
+
+// Cambiar PIN desde configuración
+function cambiarPIN() {
+  localStorage.removeItem(PIN_KEY);
+  sessionStorage.removeItem(PIN_SESSION_KEY);
+  _pinModo = 'crear';
+  _pinBuffer = '';
+  _pinNuevo = '';
+  document.getElementById('pinLabel').textContent = 'Crea tu nuevo PIN de 4 dígitos';
+  document.getElementById('pinScreen').style.display = 'flex';
+  pinActualizarDots();
+}
+
+// =============================================
 // 🔥 ARRANQUE — esperar Firebase antes de init
 // =============================================
 function bootApp() {
+  if (window.__APP_BOOTED__) return;
+  window.__APP_BOOTED__ = true;
+
+  // Verificar PIN antes de mostrar la app
+  if (!pinTieneSesion()) {
+    pinMostrarPantalla();
+  }
+
   state = initState();
   initMultiAnio();
   migrarPagosV1();
@@ -14612,7 +14665,6 @@ function bootApp() {
   checkMenuPulse();
   actualizarSidebarSync();
   setTimeout(checkAlertaBackup, 3000);
-  // Mostrar badge Firebase en sidebar
   const badge = document.getElementById('fb-status-badge');
   if (badge) badge.style.display = '';
 }
@@ -14621,14 +14673,15 @@ if (window.__FB_READY__) {
   bootApp();
 } else {
   document.addEventListener('fb-ready', bootApp, { once: true });
-  // Fallback: si Firebase tarda más de 8 segundos, arrancar con localStorage
   setTimeout(function() {
     if (!window.__FB_READY__) {
       console.warn('Firebase timeout — arrancando con localStorage');
       window.__FB_CACHE__ = null;
+      const splash = document.getElementById('fb-splash');
+      if (splash) splash.style.display = 'none';
       bootApp();
     }
-  }, 8000);
+  }, 3000);
 }
 </script>
 </body>
