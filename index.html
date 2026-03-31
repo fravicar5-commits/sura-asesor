@@ -988,6 +988,9 @@
       <button class="nav-item" onclick="navigate('config')" data-label="Configurar Presupuesto">
         <span class="icon">⚙️</span> Configurar Presupuesto
       </button>
+      <button class="nav-item" onclick="navigate('herramientas')" data-label="Herramientas">
+        <span class="icon">🛠️</span><span class="label">Herramientas</span>
+      </button>
       <button class="nav-item" onclick="navigate('sync')" data-label="Sincronización">
         <span class="icon">🔄</span> Sincronización
       </button>
@@ -3828,6 +3831,109 @@
         </div>
       </div>
 
+
+      <!-- ===== HERRAMIENTAS ===== -->
+      <div class="page" id="page-herramientas">
+
+        <!-- ── SECCIÓN 1: PROYECCIÓN DE COMISIONES ── -->
+        <div class="card" style="margin-bottom:20px;border-left:3px solid var(--sura-lime);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">💰 Proyección de Comisiones PBS</div>
+              <div style="font-size:12px;color:var(--text-muted);">Mes actual · ritmo diario · meta al cierre</div>
+            </div>
+            <select class="form-control" id="htMesProyeccion" style="width:160px;" onchange="renderHerramientas()">
+            </select>
+          </div>
+
+          <!-- Cards de resumen -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;" id="htProyCards"></div>
+
+          <!-- Barra de progreso hacia siguiente rango -->
+          <div id="htRangoBar" style="margin-bottom:20px;"></div>
+
+          <!-- Proyección al cierre -->
+          <div id="htProyeccionCierre" style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;"></div>
+        </div>
+
+        <!-- ── SECCIÓN 2: ALERTAS SINIESTRALIDAD ── -->
+        <div class="card" style="margin-bottom:20px;border-left:3px solid var(--amber);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">⚠️ Alertas de Siniestralidad</div>
+              <div style="font-size:12px;color:var(--text-muted);">Empresas del panel con cambios críticos vs trimestre anterior</div>
+            </div>
+            <span class="chip chip-amber" id="htSinAlertaCount">0 alertas</span>
+          </div>
+          <div id="htSinAlertas">
+            <div class="empty-state"><div class="icon">✅</div><div>Sin alertas — importa siniestralidad trimestral para activar</div></div>
+          </div>
+        </div>
+
+        <!-- ── SECCIÓN 3: GENERADOR WHATSAPP ── -->
+        <div class="card" style="border-left:3px solid var(--teal);">
+          <div class="card-title" style="margin-bottom:4px;">💬 Generador de Mensajes WhatsApp</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Mensajes personalizados listos para enviar</div>
+
+          <!-- Tabs tipo de mensaje -->
+          <div class="tab-pills" style="flex-wrap:wrap;gap:6px;margin-bottom:18px;">
+            <button class="tab-pill active" onclick="setWaTab('bienvenida',this)">🎉 Bienvenida PBS</button>
+            <button class="tab-pill" onclick="setWaTab('prospecto',this)">📋 Prospecto</button>
+            <button class="tab-pill" onclick="setWaTab('renovacion',this)">🔄 Renovación</button>
+            <button class="tab-pill" onclick="setWaTab('radicado',this)">📄 Radicado</button>
+          </div>
+
+          <!-- Campos del mensaje -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;" id="htWaFields">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Nombre del cliente</label>
+              <input type="text" class="form-control" id="waNombre" placeholder="Ej: Juan Pérez" oninput="generarMensajeWa()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;" id="waFieldEmpresaWrap">
+              <label class="form-label">Empresa</label>
+              <input type="text" class="form-control" id="waEmpresa" placeholder="Ej: Acme S.A.S." oninput="generarMensajeWa()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;" id="waFieldProductoWrap">
+              <label class="form-label">Producto</label>
+              <select class="form-control" id="waProducto" onchange="generarMensajeWa()">
+                <option value="SPTI">SPTI</option>
+                <option value="SPD">SPD</option>
+                <option value="PSM">PSM</option>
+                <option value="PAC60">PAC 60+</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;" id="waFieldRadicadoWrap" style="display:none;">
+              <label class="form-label">Número de radicado</label>
+              <input type="text" class="form-control" id="waRadicado" placeholder="Ej: RAD-2026-001234" oninput="generarMensajeWa()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;" id="waFieldFechaWrap" style="display:none;">
+              <label class="form-label">Fecha estimada activación</label>
+              <input type="date" class="form-control" id="waFecha" oninput="generarMensajeWa()">
+            </div>
+          </div>
+
+          <!-- Vista previa del mensaje -->
+          <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;min-height:80px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Vista previa</div>
+            <div id="waMensajePreview" style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;"></div>
+          </div>
+
+          <!-- Teléfono + botones -->
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div class="form-group" style="margin-bottom:0;flex:1;min-width:180px;">
+              <label class="form-label">Celular (opcional)</label>
+              <input type="text" class="form-control" id="waTelefono" placeholder="3001234567" oninput="generarMensajeWa()">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:18px;">
+              <button class="btn btn-secondary" onclick="copiarMensajeWa()">📋 Copiar</button>
+              <button class="btn btn-primary" style="background:var(--teal);" onclick="abrirWhatsApp()">📲 Abrir WhatsApp</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <!-- ===== FIN HERRAMIENTAS ===== -->
+
     </div><!-- content -->
   </main>
 </div>
@@ -5254,6 +5360,7 @@ const pageTitles = {
   cierres: ['Cierres de Mes', 'Fechas límite por tipo de trámite · alertas automáticas'],
   config: ['Configuración', 'Presupuesto mensual y perfil'],
   sync:   ['🔄 Sincronización', 'Exportar · importar · GitHub · multi-dispositivo'],
+  herramientas: ['🛠️ Herramientas', 'Proyección de comisiones · Alertas siniestralidad · Mensajes WhatsApp'],
   agente: ['🤖 Asistente de Planes', 'Consulta los clausulados de SPTI · SPD · PSM · 60+'],
 };
 
@@ -5496,6 +5603,7 @@ function refreshPage(page) {
   else if (page === 'radar') renderRadar();
   else if (page === 'sync') renderSync();
   else if (page === 'agente') renderAgente();
+  else if (page === 'herramientas') renderHerramientas();
   else if (page === 'actividad') renderActividad();
   else if (page === 'plantillas') renderPlantillas();
   else if (page === 'plantilla-pbs') renderPlantillaPBS();
@@ -13730,6 +13838,21 @@ function cotizadorImprimir() {
   const numero  = getNextCotNumero();
   const vigencia = new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
 
+  // Auto-guardar en historial para que el número incremente correctamente en la próxima cotización
+  const cotsArr = getCotizaciones();
+  const yaGuardada = cotsArr.find(c => c.numero === numero);
+  if (!yaGuardada) {
+    cotsArr.unshift({
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      numero,
+      fecha: new Date().toISOString().split('T')[0],
+      cliente: { nombre, tel, correo, cedula, ciudad },
+      personas: cotPersonas.map(p => ({ ...p, primaCalc: cotizadorCalcPrima(p) })),
+      total,
+    });
+    setCotizaciones(cotsArr);
+  }
+
   // Coberturas por producto — basadas en clausulados oficiales SURA 2026
   const COBERTURAS = {
     SPTI: {
@@ -13901,22 +14024,23 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
           </g>
         </svg>
       </div>
-      <div class="header-sub">Seguros de Vida Suramericana S.A. · Canal Salud</div>
+      <div class="header-sub" style="font-size:11px;color:rgba(255,255,255,0.7);">Canal Salud · Seguros de Vida Suramericana S.A.</div>
     </div>
     <div class="header-right">
-      <strong>Cotización N°: ${numero}</strong><br>
-      Fecha cotización: ${fecha}<br>
-      <span class="valid-badge">Válida 30 días · hasta ${vigencia}</span>
+      <strong style="font-size:13px;">Propuesta Comercial N°: ${numero}</strong><br>
+      <span style="font-size:11px;">Preparada por: <strong>${asesor}</strong></span><br>
+      <span style="font-size:11px;">Fecha: ${fecha}</span><br>
+      <span class="valid-badge">Información válida 30 días · hasta ${vigencia}</span>
     </div>
   </div>
   <div class="header-bottom">
-    <div class="hb-item"><label>Plan cotizado</label><p>${productosEnCot.map(p => COT_LABELS[p]||p).join(' · ')}</p></div>
-    <div class="hb-item"><label>Presentado por</label><p>${asesor}</p></div>
-    <div class="hb-item"><label>Personas cotizadas</label><p>${cotPersonas.filter(p=>cotizadorCalcPrima(p)>0).length} persona(s)</p></div>
+    <div class="hb-item"><label>Plan propuesto</label><p>${productosEnCot.map(p => COT_LABELS[p]||p).join(' · ')}</p></div>
+    <div class="hb-item"><label>Asesor comercial</label><p>${asesor}</p></div>
+    <div class="hb-item"><label>Personas incluidas</label><p>${cotPersonas.filter(p=>cotizadorCalcPrima(p)>0).length} persona(s)</p></div>
   </div>
 
   <!-- TOMADOR -->
-  <div class="section-title">Información del Tomador</div>
+  <div class="section-title">Información del Prospecto</div>
   <div class="client-grid">
     <div class="cf"><label>Tomador</label><p>${nombre}</p></div>
     <div class="cf"><label>Tipo y número de identificación</label><p>Cédula ${cedula}</p></div>
@@ -13967,14 +14091,14 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
   </table>
 
   <div class="note-box">
-    La cotización tiene una vigencia de 30 días siempre y cuando no se presente cambio de edad en este período y estando sujeta a las condiciones generales y particulares del seguro que se cotiza, a cambios en la medida en que se modifique la legislación tributaria. El descuento se otorga al momento de la suscripción de la póliza, siempre y cuando se demuestre la afiliación a la EPS SURA Régimen Contributivo. La presente cotización no constituye aceptación del riesgo por parte de SEGUROS DE VIDA SURAMERICANA S.A hasta tanto la Compañía se manifieste de manera expresa y en documento escrito.<br><br>
-    En caso de alguna inquietud, comuníquese con la línea de atención nacional: 01 800 051 8888 · 601 437 8888 en Bogotá · 602 437 8888 en Cali · 604 437 8888 en Medellín. Visítenos en www.segurossura.com.co
+    Esta propuesta comercial es elaborada por el asesor como herramienta informativa de orientación. Los valores, coberturas y condiciones indicados corresponden a los planes vigentes de Seguros de Vida Suramericana S.A. y están sujetos a cambios sin previo aviso. <strong>Esta propuesta no constituye una póliza emitida ni un contrato de seguro.</strong> La cotización oficial y la aceptación del riesgo deben ser tramitadas directamente a través de los canales autorizados de SURA.<br><br>
+    Para información adicional o cotización oficial: Línea nacional 01 800 051 8888 · 601 437 8888 Bogotá · www.segurossura.com.co
   </div>
 
   <div class="footer">
-    Presentado por: ${asesor} · SEGUROS DE VIDA SURAMERICANA S.A. NIT 890.903.790-5<br>
-    E-mail: contactenos@suramericana.com.co · Dirección: Carrera 64 B # 49 A-30<br>
-    Generado por Panel de Gestión SURA Asesor · ${new Date().toLocaleString('es-CO')}
+    Propuesta elaborada por: <strong>${asesor}</strong> · Asesor Canal Salud · Seguros de Vida Suramericana S.A.<br>
+    Para solicitar cotización oficial o aceptación del riesgo, contactar directamente a SURA.<br>
+    Documento generado el ${new Date().toLocaleString('es-CO')} · Propuesta N° ${numero}
   </div>
 
 </div>
@@ -15198,6 +15322,362 @@ function bootApp() {
   const badge = document.getElementById('fb-status-badge');
   if (badge) badge.style.display = '';
 }
+
+
+// =============================================
+// 🛠️ HERRAMIENTAS
+// =============================================
+
+let _waTab = 'bienvenida';
+
+function renderHerramientas() {
+  renderProyeccionComisiones();
+  renderAlertasSiniestralidad();
+  generarMensajeWa();
+}
+
+// ── 1. PROYECCIÓN DE COMISIONES ──────────────────────────────────────────────
+function renderProyeccionComisiones() {
+  const sel = document.getElementById('htMesProyeccion');
+  if (!sel) return;
+
+  // Poblar selector de meses si está vacío
+  if (sel.options.length === 0) {
+    const anio = new Date().getFullYear();
+    const mesActual = new Date().getMonth();
+    MESES.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = m + ' ' + anio;
+      if (i === mesActual) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  const mesIdx  = parseInt(sel.value);
+  const anio    = new Date().getFullYear();
+  const hoy     = new Date();
+  const diasMes = new Date(anio, mesIdx + 1, 0).getDate();
+  const diaHoy  = (mesIdx === hoy.getMonth() && anio === hoy.getFullYear()) ? hoy.getDate() : diasMes;
+
+  const s = getState();
+  const ventasMes = (s.ventas || []).filter(v => {
+    if (v.producto !== 'PBS') return false;
+    const d = new Date((v.fecha || '') + 'T12:00:00');
+    return d.getFullYear() === anio && d.getMonth() === mesIdx;
+  });
+
+  const totalVentas   = ventasMes.length;
+  const comAcum       = ventasMes.reduce((s, v) => s + (v.comision || 0), 0);
+  const ritmoDiario   = diaHoy > 0 ? totalVentas / diaHoy : 0;
+  const proyVentas    = Math.round(ritmoDiario * diasMes);
+  const comVentaBenef = ventasMes.filter(v => v.tipo === 'BENEFICIARIO').reduce((s, v) => s + (v.comision || 0), 0);
+  const comVentaCot   = comAcum - comVentaBenef;
+
+  // Cotizantes totales del mes (suma)
+  const cotizantesMes = ventasMes.filter(v => v.tipo !== 'BENEFICIARIO').reduce((s, v) => s + (parseInt(v.cotizantes) || 0), 0);
+  const rangoActual   = getRango(cotizantesMes);
+
+  // Cards
+  const cards = document.getElementById('htProyCards');
+  if (cards) {
+    const fmt = n => '$' + n.toLocaleString('es-CO');
+    cards.innerHTML = `
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--sura-lime);">
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Ventas PBS este mes</div>
+        <div style="font-size:26px;font-weight:800;color:var(--sura-lime);">${totalVentas}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--teal);">
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Comisión acumulada</div>
+        <div style="font-size:22px;font-weight:800;color:var(--teal);">${fmt(comAcum)}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--sura-blue);">
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Ritmo diario</div>
+        <div style="font-size:22px;font-weight:800;color:var(--sura-blue);">${ritmoDiario.toFixed(1)} <span style="font-size:13px;font-weight:400;">ventas/día</span></div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--amber);">
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Proyección al cierre</div>
+        <div style="font-size:22px;font-weight:800;color:var(--amber);">${proyVentas} ventas</div>
+      </div>
+    `;
+  }
+
+  // Barra de progreso hacia siguiente rango (basado en ventas de cotizantes)
+  const rangoBar = document.getElementById('htRangoBar');
+  if (rangoBar) {
+    const rangos = [
+      { label: 'R1 (1-13)',  max: 13 },
+      { label: 'R2 (14-20)', max: 20 },
+      { label: 'R3 (21-36)', max: 36 },
+      { label: 'R4 (37-47)', max: 47 },
+      { label: 'R5 (48+)',   max: 999 },
+    ];
+    const ventasCotizantes = ventasMes.filter(v => v.tipo !== 'BENEFICIARIO').length;
+    const rIdx = ventasCotizantes <= 13 ? 0 : ventasCotizantes <= 20 ? 1 : ventasCotizantes <= 36 ? 2 : ventasCotizantes <= 47 ? 3 : 4;
+    const rangoSig = rangos[Math.min(rIdx + 1, 4)];
+    const rangoAct = rangos[rIdx];
+    const maxAct   = rangos[Math.max(rIdx - 1, 0)].max === 999 ? 0 : rangos[Math.max(rIdx - 1, 0)].max;
+    const pct      = rIdx >= 4 ? 100 : Math.min(100, Math.round(((ventasCotizantes - maxAct) / (rangoAct.max - maxAct)) * 100));
+    const faltanN  = rIdx >= 4 ? 0 : rangoAct.max - ventasCotizantes + 1;
+    const color    = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--sura-blue)';
+
+    rangoBar.innerHTML = `
+      <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+        <div style="font-size:13px;font-weight:600;">Rango actual: <span style="color:${color};">${rangoAct.label}</span> · ${ventasCotizantes} ventas cotizante</div>
+        ${rIdx < 4 ? `<div style="font-size:12px;color:var(--text-muted);">Faltan <strong style="color:var(--sura-lime);">${faltanN}</strong> para ${rangoSig.label}</div>` : '<div style="font-size:12px;color:var(--green);font-weight:700;">🏆 Rango máximo alcanzado</div>'}
+      </div>
+      <div style="height:10px;background:var(--surface2);border-radius:20px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:20px;transition:width 0.5s ease;"></div>
+      </div>
+      <div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;">${pct}% del rango actual completado</div>
+    `;
+  }
+
+  // Proyección al cierre
+  const proyEl = document.getElementById('htProyeccionCierre');
+  if (proyEl) {
+    const diasRestantes = diasMes - diaHoy;
+    const proyVentasRest = Math.round(ritmoDiario * diasRestantes);
+    const totalCierreVentas = totalVentas + proyVentasRest;
+    // Estimar comisión proyectada usando promedio de comisión actual por venta
+    const comProm = totalVentas > 0 ? comAcum / totalVentas : 0;
+    const comProyectada = Math.round(comAcum + comProm * proyVentasRest);
+    const rangoProyectado = getRango(totalCierreVentas > totalVentas ? totalCierreVentas : totalVentas);
+    const fmt = n => '$' + n.toLocaleString('es-CO');
+
+    proyEl.innerHTML = `
+      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">📊 Proyección al ${diasMes} de ${MESES[mesIdx]}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+        <div>
+          <div style="font-size:10.5px;color:var(--text-muted);">Ventas proyectadas</div>
+          <div style="font-size:20px;font-weight:800;color:var(--sura-lime);">${totalCierreVentas}</div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--text-muted);">Comisión proyectada</div>
+          <div style="font-size:18px;font-weight:800;color:var(--teal);">${fmt(comProyectada)}</div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--text-muted);">Días restantes</div>
+          <div style="font-size:20px;font-weight:800;color:var(--text);">${diasRestantes}</div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--text-muted);">Rango proyectado</div>
+          <div style="font-size:13px;font-weight:700;color:var(--amber);">${rangoProyectado.label}</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ── 2. ALERTAS SINIESTRALIDAD ────────────────────────────────────────────────
+function renderAlertasSiniestralidad() {
+  const contenedor = document.getElementById('htSinAlertas');
+  const badge      = document.getElementById('htSinAlertaCount');
+  if (!contenedor) return;
+
+  const empresas = getEmpresas();
+  if (!empresas.length) {
+    contenedor.innerHTML = '<div class="empty-state"><div class="icon">🏢</div><div>No hay empresas en el panel</div></div>';
+    if (badge) badge.textContent = '0 alertas';
+    return;
+  }
+
+  // Empresas con historial de al menos 2 trimestres
+  const alertas = [];
+  empresas.forEach(e => {
+    const hist = (e.historialSin || []);
+    if (hist.length < 1) return;
+
+    const actual = hist[0]; // más reciente primero
+    const anterior = hist[1] || null;
+
+    // Alerta: supera 90%
+    if (e.sinPct && parseFloat(e.sinPct) >= 91) {
+      alertas.push({ empresa: e.nombre, nit: e.nit, tipo: 'critica', msg: `Siniestralidad ≥91% (${e.sinPct}%) — categoría: ${e.siniestralidad || actual.sinCat}`, trim: actual.trim });
+    }
+    // Alerta: subió de categoría vs anterior
+    if (anterior && actual.sinCat && anterior.sinCat && actual.sinCat !== anterior.sinCat) {
+      const subio = esPeorCategoria(actual.sinCat, anterior.sinCat);
+      if (subio) {
+        alertas.push({ empresa: e.nombre, nit: e.nit, tipo: 'subio', msg: `Subió: ${anterior.sinCat} → ${actual.sinCat} (${anterior.trim} → ${actual.trim})`, trim: actual.trim });
+      } else {
+        alertas.push({ empresa: e.nombre, nit: e.nit, tipo: 'bajo', msg: `Bajó: ${anterior.sinCat} → ${actual.sinCat} (${anterior.trim} → ${actual.trim}) — oportunidad`, trim: actual.trim });
+      }
+    }
+  });
+
+  if (badge) {
+    badge.textContent = alertas.length + ' alerta' + (alertas.length !== 1 ? 's' : '');
+    badge.style.background = alertas.length > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.1)';
+    badge.style.color = alertas.length > 0 ? 'var(--amber)' : 'var(--green)';
+  }
+
+  if (!alertas.length) {
+    contenedor.innerHTML = '<div class="empty-state"><div class="icon">✅</div><div>Sin alertas · todas las empresas estables o sin historial comparativo</div></div>';
+    return;
+  }
+
+  // Ordenar: críticas primero, luego subieron, luego bajaron
+  const orden = { critica: 0, subio: 1, bajo: 2 };
+  alertas.sort((a, b) => orden[a.tipo] - orden[b.tipo]);
+
+  const colores = { critica: '#EF4444', subio: 'var(--amber)', bajo: 'var(--green)' };
+  const iconos  = { critica: '🔴', subio: '🟠', bajo: '🟢' };
+  const etiquetas = { critica: 'CRÍTICA', subio: 'SUBIÓ', bajo: 'OPORTUNIDAD' };
+
+  contenedor.innerHTML = alertas.map(a => `
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--surface2);margin-bottom:8px;border-left:3px solid ${colores[a.tipo]};">
+      <div style="font-size:18px;line-height:1;">${iconos[a.tipo]}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:13.5px;margin-bottom:2px;">${a.empresa}</div>
+        ${a.nit ? `<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px;">NIT: ${a.nit}</div>` : ''}
+        <div style="font-size:12.5px;color:var(--text-muted);">${a.msg}</div>
+      </div>
+      <span style="font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:20px;background:${colores[a.tipo]}22;color:${colores[a.tipo]};white-space:nowrap;">${etiquetas[a.tipo]}</span>
+    </div>
+  `).join('');
+}
+
+function esPeorCategoria(nueva, anterior) {
+  const orden = ['<=75%', '76% - 90%', '>=91% EXCEPCIONADA', '>=91% NO AGIL'];
+  const iNueva = orden.indexOf(nueva);
+  const iAnt   = orden.indexOf(anterior);
+  if (iNueva === -1 || iAnt === -1) return false;
+  return iNueva > iAnt;
+}
+
+// ── 3. GENERADOR WHATSAPP ────────────────────────────────────────────────────
+function setWaTab(tab, btn) {
+  _waTab = tab;
+  document.querySelectorAll('#page-herramientas .tab-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  // Mostrar/ocultar campos según tab
+  const showEmpresa  = ['bienvenida','prospecto'].includes(tab);
+  const showProducto = ['prospecto','renovacion'].includes(tab);
+  const showRadicado = tab === 'radicado';
+  const showFecha    = ['bienvenida','radicado'].includes(tab);
+
+  const wrap = (id, show) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  };
+  wrap('waFieldEmpresaWrap',  showEmpresa);
+  wrap('waFieldProductoWrap', showProducto);
+  wrap('waFieldRadicadoWrap', showRadicado);
+  wrap('waFieldFechaWrap',    showFecha);
+
+  generarMensajeWa();
+}
+
+function generarMensajeWa() {
+  const nombre   = (document.getElementById('waNombre')?.value || '').trim() || '[Nombre]';
+  const empresa  = (document.getElementById('waEmpresa')?.value || '').trim() || '[Empresa]';
+  const producto = document.getElementById('waProducto')?.value || 'SPTI';
+  const radicado = (document.getElementById('waRadicado')?.value || '').trim() || '[Número de radicado]';
+  const fecha    = document.getElementById('waFecha')?.value || '';
+  const asesor   = (getState().config?.nombreAsesor || 'tu asesor SURA').trim();
+
+  const fechaFmt = fecha
+    ? new Date(fecha + 'T12:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '[fecha estimada]';
+
+  const PRODUCTOS = { SPTI: 'Salud Para Todos Individual', SPD: 'Salud Para Dos', PSM: 'Plan Salud Modular', PAC60: 'Plan Atención 60+' };
+  const nombreProd = PRODUCTOS[producto] || producto;
+
+  let msg = '';
+
+  if (_waTab === 'bienvenida') {
+    msg = `¡Hola ${nombre}! 👋
+
+Te escribo para darte la bienvenida a *EPS SURA* — es un gusto tenerte como afiliado en *${empresa}*.
+
+Tu afiliación ya está en proceso. La fecha estimada de inicio de cobertura es el *${fechaFmt}*.
+
+Recuerda que como afiliado a EPS SURA tienes acceso a:
+✅ Red de clínicas y hospitales SURA
+✅ Atención médica domiciliaria 24h
+✅ App de salud y telemedicina
+
+Cualquier duda estoy disponible. ¡Bienvenido(a)! 🙌
+
+Soy *${asesor}*, tu asesor de Canal Salud SURA.`;
+
+  } else if (_waTab === 'prospecto') {
+    msg = `¡Hola ${nombre}! 🤝
+
+Soy *${asesor}*, asesor especializado de *Seguros SURA* — Canal Salud.
+
+Me pongo en contacto contigo porque creo que el plan *${nombreProd}* puede ser una excelente opción para ti y tu empresa *${empresa}*.
+
+Con este plan obtienes cobertura complementaria a tu EPS con beneficios como:
+⭐ Acceso directo a especialistas sin citas previas
+⭐ Hospitalización y cirugías cubiertas
+⭐ Atención médica inmediata 24/7
+
+¿Te gustaría que te enviara una cotización personalizada sin ningún compromiso?
+
+Quedo atento(a) a tu respuesta. 😊`;
+
+  } else if (_waTab === 'renovacion') {
+    msg = `¡Hola ${nombre}! 🔔
+
+Te escribo porque tu plan *${nombreProd}* está próximo a renovarse.
+
+Quería confirmarte que tu cobertura continuará activa y aprovechar para:
+
+📋 Verificar que tus datos de contacto estén actualizados
+💡 Contarte sobre las mejoras del plan para este año
+🎯 Resolver cualquier duda sobre tus coberturas actuales
+
+¿Tienes un momento esta semana para hablar? También podemos hacerlo por aquí si prefieres.
+
+Soy *${asesor}*, tu asesor de Canal Salud SURA. 🏥`;
+
+  } else if (_waTab === 'radicado') {
+    msg = `¡Hola ${nombre}! 📋
+
+Te informo que tu trámite de afiliación ha sido *radicado exitosamente* en EPS SURA.
+
+📌 *Número de radicado:* ${radicado}
+📅 *Fecha estimada de activación:* ${fechaFmt}
+
+*Próximos pasos:*
+1️⃣ Espera la confirmación oficial de EPS SURA
+2️⃣ Descarga la app SURA para hacer seguimiento
+3️⃣ Guarda este número de radicado para cualquier consulta
+
+Si tienes alguna duda no dudes en escribirme.
+
+Soy *${asesor}*, tu asesor de Canal Salud SURA. ✅`;
+  }
+
+  const preview = document.getElementById('waMensajePreview');
+  if (preview) preview.textContent = msg;
+  window._waMensajeActual = msg;
+}
+
+function copiarMensajeWa() {
+  const msg = window._waMensajeActual || '';
+  if (!msg) return;
+  navigator.clipboard.writeText(msg).then(() => {
+    showToast('✅ Mensaje copiado al portapapeles');
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = msg; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('✅ Mensaje copiado');
+  });
+}
+
+function abrirWhatsApp() {
+  const msg  = window._waMensajeActual || '';
+  const tel  = (document.getElementById('waTelefono')?.value || '').replace(/\D/g, '');
+  const base = tel ? `https://wa.me/57${tel}` : 'https://wa.me/';
+  const url  = base + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+
 
 if (window.__FB_READY__) {
   bootApp();
