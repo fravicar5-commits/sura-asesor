@@ -1598,6 +1598,7 @@
           <button class="tab-pill active" onclick="setComTab('pbs',this)">🏥 PBS</button>
           <button class="tab-pill" onclick="setComTab('voluntarios',this)">💊 Voluntarios</button>
           <button class="tab-pill" onclick="setComTab('total',this)">💰 Resumen Total</button>
+          <button class="tab-pill" onclick="setComTab('proyeccion',this)">📈 Proyección</button>
         </div>
 
         <!-- ── PBS TAB ── -->
@@ -1764,6 +1765,20 @@
               <p>• Bonos de consolación: <strong style="color:var(--text)">$1.500.000</strong> (Guatapé/Nuquí) · <strong style="color:var(--text)">$2.500.000</strong> (Convención Cancún).</p>
             </div>
           </div>
+        </div>
+
+        <!-- ── PROYECCIÓN TAB ── -->
+        <div id="comTabProyeccion" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">💰 Proyección de Comisiones PBS</div>
+              <div style="font-size:12px;color:var(--text-muted);">Ritmo diario · meta al cierre de mes</div>
+            </div>
+            <select class="form-control" id="htMesProyeccion" style="width:160px;" onchange="renderProyeccionComisiones()"></select>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;" id="htProyCards"></div>
+          <div id="htRangoBar" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;"></div>
+          <div id="htProyeccionCierre" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;"></div>
         </div>
 
       </div>
@@ -2527,14 +2542,96 @@
         <!-- Acciones masivas -->
         <div class="card" style="margin-bottom:20px;">
           <div class="card-title">📣 Envío Masivo — Registros Filtrados</div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;" id="covBotonesEnvio">
             <button class="btn btn-primary" onclick="envioMasivoWhatsApp('bienvenida')">📱 WhatsApp Bienvenida</button>
             <button class="btn btn-secondary" onclick="envioMasivoWhatsApp('beneficiarios')">👨‍👩‍👧 WhatsApp Beneficiarios</button>
             <button class="btn btn-secondary" onclick="envioMasivoWhatsApp('voluntarios')">💊 WhatsApp Voluntarios</button>
             <button class="btn btn-secondary" onclick="envioMasivoCorreo()">📧 Abrir correos en lista</button>
           </div>
+          <!-- Botones de mensajes personalizados -->
+          <div id="covBotonesCustom" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
           <div style="font-size:11.5px;color:var(--text-muted);margin-top:10px;">
             💡 WhatsApp abre un chat por cada contacto con el mensaje prellenado. Correo genera un mailto con todos los destinatarios.
+          </div>
+        </div>
+
+        <!-- Generador de Mensajes WhatsApp -->
+        <div class="card" style="margin-bottom:20px;border-left:3px solid var(--teal);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">💬 Generador de Mensajes WhatsApp</div>
+              <div style="font-size:12px;color:var(--text-muted);">Mensajes personalizados listos para enviar individualmente o en masivo</div>
+            </div>
+          </div>
+
+          <!-- Tabs tipo de mensaje -->
+          <div class="tab-pills" style="flex-wrap:wrap;gap:6px;margin-bottom:18px;" id="waTabsContainer">
+            <button class="tab-pill active" onclick="setWaTab('bienvenida',this)">🎉 Bienvenida PBS</button>
+            <button class="tab-pill" onclick="setWaTab('prospecto',this)">📋 Prospecto</button>
+            <button class="tab-pill" onclick="setWaTab('renovacion',this)">🔄 Renovación</button>
+            <button class="tab-pill" onclick="setWaTab('radicado',this)">📄 Radicado</button>
+            <!-- tabs custom se insertan aquí dinámicamente -->
+          </div>
+
+          <!-- Campos del mensaje -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;" id="htWaFields">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Nombre del cliente</label>
+              <input type="text" class="form-control" id="waNombre" placeholder="Ej: Juan Pérez" oninput="generarMensajeWa()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;" id="waFieldEmpresaWrap">
+              <label class="form-label">Empresa</label>
+              <input type="text" class="form-control" id="waEmpresa" placeholder="Ej: Acme S.A.S." oninput="generarMensajeWa()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;" id="waFieldProductoWrap">
+              <label class="form-label">Producto</label>
+              <select class="form-control" id="waProducto" onchange="generarMensajeWa()">
+                <option value="SPTI">SPTI</option>
+                <option value="SPD">SPD</option>
+                <option value="PSM">PSM</option>
+                <option value="PAC60">PAC 60+</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;" id="waFieldRadicadoWrap" style="display:none;">
+              <label class="form-label">Número de radicado</label>
+              <input type="text" class="form-control" id="waRadicado" placeholder="Ej: RAD-2026-001234" oninput="generarMensajeWa()">
+            </div>
+            <div class="form-group" style="margin-bottom:0;" id="waFieldFechaWrap" style="display:none;">
+              <label class="form-label">Fecha estimada activación</label>
+              <input type="date" class="form-control" id="waFecha" oninput="generarMensajeWa()">
+            </div>
+          </div>
+
+          <!-- Vista previa del mensaje -->
+          <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;min-height:80px;">
+            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Vista previa</div>
+            <div id="waMensajePreview" style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;"></div>
+          </div>
+
+          <!-- Teléfono + botones -->
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div class="form-group" style="margin-bottom:0;flex:1;min-width:180px;">
+              <label class="form-label">Celular (opcional)</label>
+              <input type="text" class="form-control" id="waTelefono" placeholder="3001234567">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:18px;">
+              <button class="btn btn-secondary" onclick="copiarMensajeWa()">📋 Copiar</button>
+              <button class="btn btn-primary" style="background:var(--teal);" onclick="abrirWhatsApp()">📲 Abrir WhatsApp</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mensajes Personalizados para Envíos Masivos -->
+        <div class="card" style="margin-bottom:20px;border-left:3px solid var(--purple);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">✏️ Mensajes Personalizados — Envío Masivo</div>
+              <div style="font-size:12px;color:var(--text-muted);">Crea tus propios mensajes adicionales para envíos masivos. Usa {nombre}, {empresa}, {fecha_cobertura}.</div>
+            </div>
+            <button class="btn btn-primary" style="background:var(--purple);border-color:var(--purple);" onclick="abrirModalMensajeCustom()">+ Nuevo Mensaje</button>
+          </div>
+          <div id="listaMensajesCustom">
+            <div class="empty-state" style="padding:20px 0;"><div class="icon">💬</div><div>Sin mensajes personalizados aún</div></div>
           </div>
         </div>
 
@@ -3233,6 +3330,15 @@
           </div>
         </div>
 
+        <!-- Tabs empresas -->
+        <div class="tab-pills" style="margin-bottom:20px;">
+          <button class="tab-pill active" onclick="setEmpTab('panel',this)">🏢 Panel de Empresas</button>
+          <button class="tab-pill" onclick="setEmpTab('alertas',this)">⚠️ Alertas Siniestralidad <span class="chip chip-amber" id="empSinAlertaCountTab" style="margin-left:6px;font-size:10px;">0</span></button>
+        </div>
+
+        <!-- TAB: Panel de Empresas -->
+        <div id="empTabPanel">
+
         <!-- Estado BD Siniestralidad -->
         <div id="bdSinEstadoBanner" style="margin-bottom:16px;"></div>
 
@@ -3316,6 +3422,24 @@
           </table>
         </div>
         <div style="margin-top:10px;font-size:12px;color:var(--text-muted);" id="empCount"></div>
+        </div><!-- fin empTabPanel -->
+
+        <!-- TAB: Alertas Siniestralidad -->
+        <div id="empTabAlertas" style="display:none;">
+          <div class="card" style="border-left:3px solid var(--amber);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+              <div>
+                <div class="card-title" style="margin-bottom:2px;">⚠️ Alertas de Siniestralidad</div>
+                <div style="font-size:12px;color:var(--text-muted);">Empresas del panel con cambios críticos vs trimestre anterior</div>
+              </div>
+              <span class="chip chip-amber" id="htSinAlertaCount">0 alertas</span>
+            </div>
+            <div id="htSinAlertas">
+              <div class="empty-state"><div class="icon">✅</div><div>Sin alertas — importa siniestralidad trimestral para activar</div></div>
+            </div>
+          </div>
+        </div><!-- fin empTabAlertas -->
+
       </div>
 
       <!-- ===== ASISTENTE DE PLANES ===== -->
@@ -3834,103 +3958,21 @@
 
       <!-- ===== HERRAMIENTAS ===== -->
       <div class="page" id="page-herramientas">
-
-        <!-- ── SECCIÓN 1: PROYECCIÓN DE COMISIONES ── -->
-        <div class="card" style="margin-bottom:20px;border-left:3px solid var(--sura-lime);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-            <div>
-              <div class="card-title" style="margin-bottom:2px;">💰 Proyección de Comisiones PBS</div>
-              <div style="font-size:12px;color:var(--text-muted);">Mes actual · ritmo diario · meta al cierre</div>
-            </div>
-            <select class="form-control" id="htMesProyeccion" style="width:160px;" onchange="renderHerramientas()">
-            </select>
-          </div>
-
-          <!-- Cards de resumen -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;" id="htProyCards"></div>
-
-          <!-- Barra de progreso hacia siguiente rango -->
-          <div id="htRangoBar" style="margin-bottom:20px;"></div>
-
-          <!-- Proyección al cierre -->
-          <div id="htProyeccionCierre" style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;"></div>
-        </div>
-
-        <!-- ── SECCIÓN 2: ALERTAS SINIESTRALIDAD ── -->
-        <div class="card" style="margin-bottom:20px;border-left:3px solid var(--amber);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-            <div>
-              <div class="card-title" style="margin-bottom:2px;">⚠️ Alertas de Siniestralidad</div>
-              <div style="font-size:12px;color:var(--text-muted);">Empresas del panel con cambios críticos vs trimestre anterior</div>
-            </div>
-            <span class="chip chip-amber" id="htSinAlertaCount">0 alertas</span>
-          </div>
-          <div id="htSinAlertas">
-            <div class="empty-state"><div class="icon">✅</div><div>Sin alertas — importa siniestralidad trimestral para activar</div></div>
+        <div class="empty-state" style="padding:60px 0;">
+          <div class="icon">🛠️</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:8px;">Herramientas reorganizadas</div>
+          <div style="font-size:13px;color:var(--text-muted);max-width:400px;text-align:center;line-height:1.9;">
+            📈 <strong>Proyección de Comisiones</strong> →
+            <span onclick="navigate('comisiones');setTimeout(()=>setComTab('proyeccion',document.querySelector('#page-comisiones .tab-pill:last-child')),150);"
+              style="color:var(--sura-blue);cursor:pointer;text-decoration:underline;">Comisiones y Pagos · pestaña Proyección</span><br>
+            ⚠️ <strong>Alertas Siniestralidad</strong> →
+            <span onclick="navigate('empresas');setTimeout(()=>setEmpTab('alertas',document.querySelectorAll('#page-empresas .tab-pill')[1]),150);"
+              style="color:var(--sura-blue);cursor:pointer;text-decoration:underline;">Empresas · pestaña Alertas</span><br>
+            💬 <strong>Generador WhatsApp</strong> →
+            <span onclick="navigate('cobertura');"
+              style="color:var(--sura-blue);cursor:pointer;text-decoration:underline;">Inicio Cobertura</span>
           </div>
         </div>
-
-        <!-- ── SECCIÓN 3: GENERADOR WHATSAPP ── -->
-        <div class="card" style="border-left:3px solid var(--teal);">
-          <div class="card-title" style="margin-bottom:4px;">💬 Generador de Mensajes WhatsApp</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">Mensajes personalizados listos para enviar</div>
-
-          <!-- Tabs tipo de mensaje -->
-          <div class="tab-pills" style="flex-wrap:wrap;gap:6px;margin-bottom:18px;">
-            <button class="tab-pill active" onclick="setWaTab('bienvenida',this)">🎉 Bienvenida PBS</button>
-            <button class="tab-pill" onclick="setWaTab('prospecto',this)">📋 Prospecto</button>
-            <button class="tab-pill" onclick="setWaTab('renovacion',this)">🔄 Renovación</button>
-            <button class="tab-pill" onclick="setWaTab('radicado',this)">📄 Radicado</button>
-          </div>
-
-          <!-- Campos del mensaje -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;" id="htWaFields">
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label">Nombre del cliente</label>
-              <input type="text" class="form-control" id="waNombre" placeholder="Ej: Juan Pérez" oninput="generarMensajeWa()">
-            </div>
-            <div class="form-group" style="margin-bottom:0;" id="waFieldEmpresaWrap">
-              <label class="form-label">Empresa</label>
-              <input type="text" class="form-control" id="waEmpresa" placeholder="Ej: Acme S.A.S." oninput="generarMensajeWa()">
-            </div>
-            <div class="form-group" style="margin-bottom:0;" id="waFieldProductoWrap">
-              <label class="form-label">Producto</label>
-              <select class="form-control" id="waProducto" onchange="generarMensajeWa()">
-                <option value="SPTI">SPTI</option>
-                <option value="SPD">SPD</option>
-                <option value="PSM">PSM</option>
-                <option value="PAC60">PAC 60+</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0;" id="waFieldRadicadoWrap" style="display:none;">
-              <label class="form-label">Número de radicado</label>
-              <input type="text" class="form-control" id="waRadicado" placeholder="Ej: RAD-2026-001234" oninput="generarMensajeWa()">
-            </div>
-            <div class="form-group" style="margin-bottom:0;" id="waFieldFechaWrap" style="display:none;">
-              <label class="form-label">Fecha estimada activación</label>
-              <input type="date" class="form-control" id="waFecha" oninput="generarMensajeWa()">
-            </div>
-          </div>
-
-          <!-- Vista previa del mensaje -->
-          <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;min-height:80px;">
-            <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Vista previa</div>
-            <div id="waMensajePreview" style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;"></div>
-          </div>
-
-          <!-- Teléfono + botones -->
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div class="form-group" style="margin-bottom:0;flex:1;min-width:180px;">
-              <label class="form-label">Celular (opcional)</label>
-              <input type="text" class="form-control" id="waTelefono" placeholder="3001234567" oninput="generarMensajeWa()">
-            </div>
-            <div style="display:flex;gap:8px;margin-top:18px;">
-              <button class="btn btn-secondary" onclick="copiarMensajeWa()">📋 Copiar</button>
-              <button class="btn btn-primary" style="background:var(--teal);" onclick="abrirWhatsApp()">📲 Abrir WhatsApp</button>
-            </div>
-          </div>
-        </div>
-
       </div>
       <!-- ===== FIN HERRAMIENTAS ===== -->
 
@@ -5145,6 +5187,45 @@
   </div>
 </div>
 
+<!-- MODAL: Mensaje WhatsApp Personalizado -->
+<div class="modal-overlay" id="modalMensajeCustom">
+  <div class="modal" style="width:580px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modalMsgCustomTitle">✏️ Nuevo Mensaje Personalizado</div>
+      <button class="modal-close" onclick="closeModal('modalMensajeCustom')">×</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+      <input type="hidden" id="msgCustomId">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Nombre del mensaje <span style="color:var(--red);">*</span></label>
+        <input type="text" class="form-control" id="msgCustomNombre" placeholder="Ej: Seguimiento post-afiliación">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Mensaje <span style="color:var(--red);">*</span></label>
+        <textarea class="form-control" id="msgCustomTexto" rows="7"
+          placeholder="Escribe el mensaje. Puedes usar:{nombre} → nombre del cliente{empresa} → empresa del cliente{fecha_cobertura} → fecha de inicio de cobertura"
+          oninput="prevMensajeCustom()"
+          style="resize:vertical;font-size:13px;line-height:1.6;"></textarea>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;">
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Vista previa (con datos de ejemplo)</div>
+        <div id="msgCustomPreview" style="font-size:12.5px;color:var(--text);white-space:pre-wrap;line-height:1.6;"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="msgCustomMasivo" style="width:15px;height:15px;">
+          Mostrar como botón en Envío Masivo
+        </label>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Si está activo, aparece un botón para enviar este mensaje a todos los contactos filtrados.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalMensajeCustom')">Cancelar</button>
+      <button class="btn btn-primary" style="background:var(--purple);border-color:var(--purple);" onclick="guardarMensajeCustom()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- BANNER ALERTA BACKUP (flotante, aparece si hay días sin backup) -->
 <div id="backupAlertaBanner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;background:linear-gradient(135deg,#1C2537,#243044);border:1px solid rgba(245,158,11,0.5);border-radius:14px;padding:14px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.5);display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:520px;width:90%;">
   <span style="font-size:22px;">⚠️</span>
@@ -6237,16 +6318,18 @@ function renderCampanas() {
 // COMISIONES — TAB SWITCHER
 // =============================================
 function setComTab(tab, btn) {
-  ['PBS','Vol','Total'].forEach(t => {
+  ['PBS','Vol','Total','Proyeccion'].forEach(t => {
     const el = document.getElementById(`comTab${t}`);
     if (el) el.style.display = 'none';
   });
-  const show = document.getElementById(`comTab${tab === 'pbs' ? 'PBS' : tab === 'voluntarios' ? 'Vol' : 'Total'}`);
+  const map = { pbs: 'PBS', voluntarios: 'Vol', total: 'Total', proyeccion: 'Proyeccion' };
+  const show = document.getElementById(`comTab${map[tab] || 'PBS'}`);
   if (show) show.style.display = '';
   document.querySelectorAll('#page-comisiones .tab-pill').forEach(p => p.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (tab === 'voluntarios') renderVolComisiones();
   if (tab === 'total') renderTotalComisiones();
+  if (tab === 'proyeccion') renderProyeccionComisiones();
 }
 
 // =============================================
@@ -9101,6 +9184,9 @@ function checkCarteraEnDashboard() {
 // =============================================
 function renderCobertura() {
   state = getState();
+  renderMensajesCustom();
+  renderBotonesCustomMasivo();
+  generarMensajeWa();
   // Populate month filter
   const sel = document.getElementById('covMesFiltro');
   if (sel.options.length <= 1) {
@@ -9205,7 +9291,26 @@ function envioMasivoWhatsApp(tipo) {
   if (!conTel.length) { showToast('⚠️ Ningún registro tiene teléfono registrado'); return; }
   if (!confirm(`Se abrirán ${conTel.length} chats de WhatsApp. ¿Continuar?`)) return;
   conTel.forEach((v, i) => {
-    setTimeout(() => enviarWA(v.telefono, v.nombre||'', v.empresa||'', v.inicioCobertura||'', tipo), i * 800);
+    setTimeout(() => {
+      // Si es un mensaje custom, construir desde la plantilla custom
+      if (tipo.startsWith('custom_')) {
+        const id = tipo.replace('custom_', '');
+        const msgs = getMensajesCustom();
+        const msg = msgs.find(m => m.id === id);
+        if (!msg) return;
+        const fechaFmt = v.inicioCobertura
+          ? new Date(v.inicioCobertura + 'T12:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })
+          : '';
+        let texto = msg.texto
+          .replace(/{nombre}/g, v.nombre || '')
+          .replace(/{empresa}/g, v.empresa || '')
+          .replace(/{fecha_cobertura}/g, fechaFmt);
+        const tel = (v.telefono || '').replace(/\D/g, '');
+        window.open(`https://wa.me/57${tel}?text=${encodeURIComponent(texto)}`, '_blank');
+      } else {
+        enviarWA(v.telefono, v.nombre || '', v.empresa || '', v.inicioCobertura || '', tipo);
+      }
+    }, i * 800);
   });
 }
 
@@ -12554,6 +12659,20 @@ function eliminarEmpresa(id) {
   renderEmpresas();
 }
 
+function setEmpTab(tab, btn) {
+  ['Panel','Alertas'].forEach(t => {
+    const el = document.getElementById(`empTab${t}`);
+    if (el) el.style.display = 'none';
+  });
+  const show = document.getElementById(`empTab${tab === 'panel' ? 'Panel' : 'Alertas'}`);
+  if (show) show.style.display = '';
+  document.querySelectorAll('#page-empresas .tab-pill').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab === 'alertas') {
+    renderAlertasSiniestralidad();
+  }
+}
+
 function renderEmpresas() {
   renderBdSinEstado();
   const empresas = getEmpresas();
@@ -15319,6 +15438,7 @@ function bootApp() {
   checkMenuPulse();
   actualizarSidebarSync();
   setTimeout(checkAlertaBackup, 3000);
+  setTimeout(renderTabsCustomWa, 500); // cargar tabs de mensajes custom
   const badge = document.getElementById('fb-status-badge');
   if (badge) badge.style.display = '';
 }
@@ -15331,20 +15451,24 @@ function bootApp() {
 let _waTab = 'bienvenida';
 
 function renderHerramientas() {
-  renderProyeccionComisiones();
-  renderAlertasSiniestralidad();
-  generarMensajeWa();
+  // Las herramientas se reorganizaron:
+  // - Proyección → Comisiones y Pagos (pestaña Proyección)
+  // - Alertas Siniestralidad → Empresas (pestaña Alertas)
+  // - WhatsApp → Inicio Cobertura
+  // Esta función se mantiene por compatibilidad con llamadas existentes
 }
 
-// ── 1. PROYECCIÓN DE COMISIONES ──────────────────────────────────────────────
+// ── 1. PROYECCIÓN DE COMISIONES (lógica compensado: DH6 mes → DH5 mes sig) ───
 function renderProyeccionComisiones() {
   const sel = document.getElementById('htMesProyeccion');
   if (!sel) return;
 
+  const anio = new Date().getFullYear();
+  const hoy  = new Date();
+
   // Poblar selector de meses si está vacío
   if (sel.options.length === 0) {
-    const anio = new Date().getFullYear();
-    const mesActual = new Date().getMonth();
+    const mesActual = hoy.getMonth();
     MESES.forEach((m, i) => {
       const opt = document.createElement('option');
       opt.value = i;
@@ -15355,114 +15479,138 @@ function renderProyeccionComisiones() {
   }
 
   const mesIdx  = parseInt(sel.value);
-  const anio    = new Date().getFullYear();
-  const hoy     = new Date();
-  const diasMes = new Date(anio, mesIdx + 1, 0).getDate();
-  const diaHoy  = (mesIdx === hoy.getMonth() && anio === hoy.getFullYear()) ? hoy.getDate() : diasMes;
+  const fmt     = n => '$' + Math.round(n).toLocaleString('es-CO');
 
-  const s = getState();
-  const ventasMes = (s.ventas || []).filter(v => {
-    if (v.producto !== 'PBS') return false;
-    const d = new Date((v.fecha || '') + 'T12:00:00');
-    return d.getFullYear() === anio && d.getMonth() === mesIdx;
-  });
+  // ── Ventana compensada del mes seleccionado ──────────────────────────────
+  // Período compensado mes M: desde DH6 de M hasta DH5 de M+1 (inclusive)
+  const ventana = getVentanaCompensado(mesIdx, anio);
+
+  // Ventas PBS dentro de la ventana compensada
+  const ventasMes = getVentasPBSCompensado(mesIdx, anio);
+  const ventasCot = ventasMes.filter(v => v.tipo !== 'BENEFICIARIO');
+  const ventasBen = ventasMes.filter(v => v.tipo === 'BENEFICIARIO');
 
   const totalVentas   = ventasMes.length;
   const comAcum       = ventasMes.reduce((s, v) => s + (v.comision || 0), 0);
-  const ritmoDiario   = diaHoy > 0 ? totalVentas / diaHoy : 0;
-  const proyVentas    = Math.round(ritmoDiario * diasMes);
-  const comVentaBenef = ventasMes.filter(v => v.tipo === 'BENEFICIARIO').reduce((s, v) => s + (v.comision || 0), 0);
-  const comVentaCot   = comAcum - comVentaBenef;
+  const cotizantesAcum = ventasCot.reduce((s, v) => s + (parseInt(v.cotizantes) || 0), 0);
 
-  // Cotizantes totales del mes (suma)
-  const cotizantesMes = ventasMes.filter(v => v.tipo !== 'BENEFICIARIO').reduce((s, v) => s + (parseInt(v.cotizantes) || 0), 0);
-  const rangoActual   = getRango(cotizantesMes);
+  // ── Días hábiles transcurridos y totales en la ventana ───────────────────
+  let dhTranscurridos = 0;
+  let dhTotales       = 0;
+  let dhRestantes     = 0;
 
-  // Cards
+  if (ventana) {
+    // Contar días hábiles totales en la ventana
+    const cursor = new Date(ventana.inicio);
+    while (cursor <= ventana.fin) {
+      const str = cursor.toISOString().split('T')[0];
+      if (esDiaHabil(str)) {
+        dhTotales++;
+        if (cursor <= hoy) dhTranscurridos++;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    dhRestantes = dhTotales - dhTranscurridos;
+  }
+
+  // Ritmo: ventas por día hábil transcurrido
+  const ritmoDH     = dhTranscurridos > 0 ? totalVentas / dhTranscurridos : 0;
+  const proyVentas  = Math.round(ritmoDH * dhTotales);
+  const comProm     = totalVentas > 0 ? comAcum / totalVentas : 0;
+  const comProyectada = Math.round(comAcum + comProm * Math.round(ritmoDH * dhRestantes));
+  const cotizProyect  = dhTotales > 0 ? Math.round(cotizantesAcum / Math.max(dhTranscurridos, 1) * dhTotales) : cotizantesAcum;
+  const rangoActual   = getRango(cotizantesAcum);
+  const rangoProyect  = getRango(cotizProyect);
+
+  // ── Fechas de la ventana para mostrar ────────────────────────────────────
+  const fmtFecha = d => d ? d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : '—';
+  const ventanaStr = ventana
+    ? `Período compensado: ${fmtFecha(ventana.inicio)} → ${fmtFecha(ventana.fin)}`
+    : 'Período compensado no disponible';
+
+  // ── Cards resumen ─────────────────────────────────────────────────────────
   const cards = document.getElementById('htProyCards');
   if (cards) {
-    const fmt = n => '$' + n.toLocaleString('es-CO');
     cards.innerHTML = `
       <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--sura-lime);">
-        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Ventas PBS este mes</div>
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Ventas PBS período</div>
         <div style="font-size:26px;font-weight:800;color:var(--sura-lime);">${totalVentas}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${ventasCot.length} cot. · ${ventasBen.length} benef.</div>
       </div>
       <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--teal);">
         <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Comisión acumulada</div>
-        <div style="font-size:22px;font-weight:800;color:var(--teal);">${fmt(comAcum)}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--teal);">${fmt(comAcum)}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">Rango actual: ${rangoActual.label}</div>
       </div>
       <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--sura-blue);">
-        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Ritmo diario</div>
-        <div style="font-size:22px;font-weight:800;color:var(--sura-blue);">${ritmoDiario.toFixed(1)} <span style="font-size:13px;font-weight:400;">ventas/día</span></div>
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Ritmo diario hábil</div>
+        <div style="font-size:22px;font-weight:800;color:var(--sura-blue);">${ritmoDH.toFixed(1)}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${dhTranscurridos} DH transcrr. de ${dhTotales}</div>
       </div>
       <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--amber);">
         <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Proyección al cierre</div>
         <div style="font-size:22px;font-weight:800;color:var(--amber);">${proyVentas} ventas</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${dhRestantes} días hábiles restantes</div>
       </div>
     `;
   }
 
-  // Barra de progreso hacia siguiente rango (basado en ventas de cotizantes)
+  // ── Barra de progreso hacia siguiente rango ───────────────────────────────
   const rangoBar = document.getElementById('htRangoBar');
   if (rangoBar) {
     const rangos = [
-      { label: 'R1 (1-13)',  max: 13 },
-      { label: 'R2 (14-20)', max: 20 },
-      { label: 'R3 (21-36)', max: 36 },
-      { label: 'R4 (37-47)', max: 47 },
-      { label: 'R5 (48+)',   max: 999 },
+      { label: 'Rango 1 (1-13)',  min: 1,  max: 13  },
+      { label: 'Rango 2 (14-20)', min: 14, max: 20  },
+      { label: 'Rango 3 (21-36)', min: 21, max: 36  },
+      { label: 'Rango 4 (37-47)', min: 37, max: 47  },
+      { label: 'Rango 5 (48+)',   min: 48, max: 9999 },
     ];
-    const ventasCotizantes = ventasMes.filter(v => v.tipo !== 'BENEFICIARIO').length;
-    const rIdx = ventasCotizantes <= 13 ? 0 : ventasCotizantes <= 20 ? 1 : ventasCotizantes <= 36 ? 2 : ventasCotizantes <= 47 ? 3 : 4;
-    const rangoSig = rangos[Math.min(rIdx + 1, 4)];
-    const rangoAct = rangos[rIdx];
-    const maxAct   = rangos[Math.max(rIdx - 1, 0)].max === 999 ? 0 : rangos[Math.max(rIdx - 1, 0)].max;
-    const pct      = rIdx >= 4 ? 100 : Math.min(100, Math.round(((ventasCotizantes - maxAct) / (rangoAct.max - maxAct)) * 100));
-    const faltanN  = rIdx >= 4 ? 0 : rangoAct.max - ventasCotizantes + 1;
-    const color    = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--sura-blue)';
+    const nCot  = ventasCot.length; // ventas cotizante (no cotizantes acumulados)
+    const rIdx  = nCot <= 13 ? 0 : nCot <= 20 ? 1 : nCot <= 36 ? 2 : nCot <= 47 ? 3 : 4;
+    const rAct  = rangos[rIdx];
+    const rSig  = rangos[Math.min(rIdx + 1, 4)];
+    const rMin  = rAct.min - 1;
+    const rMax  = rAct.max === 9999 ? nCot : rAct.max;
+    const pct   = rIdx >= 4 ? 100 : Math.min(100, Math.round(((nCot - rMin) / (rMax - rMin)) * 100));
+    const faltan = rIdx >= 4 ? 0 : rAct.max - nCot + 1;
+    const color  = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--sura-blue)';
 
     rangoBar.innerHTML = `
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">📅 ${ventanaStr}</div>
       <div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
-        <div style="font-size:13px;font-weight:600;">Rango actual: <span style="color:${color};">${rangoAct.label}</span> · ${ventasCotizantes} ventas cotizante</div>
-        ${rIdx < 4 ? `<div style="font-size:12px;color:var(--text-muted);">Faltan <strong style="color:var(--sura-lime);">${faltanN}</strong> para ${rangoSig.label}</div>` : '<div style="font-size:12px;color:var(--green);font-weight:700;">🏆 Rango máximo alcanzado</div>'}
+        <div style="font-size:13px;font-weight:600;">Rango actual: <span style="color:${color};">${rAct.label}</span> · ${nCot} ventas cotizante</div>
+        ${rIdx < 4
+          ? `<div style="font-size:12px;color:var(--text-muted);">Faltan <strong style="color:var(--sura-lime);">${faltan}</strong> para ${rSig.label}</div>`
+          : '<div style="font-size:12px;color:var(--green);font-weight:700;">🏆 Rango máximo alcanzado</div>'}
       </div>
-      <div style="height:10px;background:var(--surface2);border-radius:20px;overflow:hidden;">
+      <div style="height:10px;background:var(--surface3);border-radius:20px;overflow:hidden;">
         <div style="height:100%;width:${pct}%;background:${color};border-radius:20px;transition:width 0.5s ease;"></div>
       </div>
       <div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;">${pct}% del rango actual completado</div>
     `;
   }
 
-  // Proyección al cierre
+  // ── Proyección al cierre ──────────────────────────────────────────────────
   const proyEl = document.getElementById('htProyeccionCierre');
   if (proyEl) {
-    const diasRestantes = diasMes - diaHoy;
-    const proyVentasRest = Math.round(ritmoDiario * diasRestantes);
-    const totalCierreVentas = totalVentas + proyVentasRest;
-    // Estimar comisión proyectada usando promedio de comisión actual por venta
-    const comProm = totalVentas > 0 ? comAcum / totalVentas : 0;
-    const comProyectada = Math.round(comAcum + comProm * proyVentasRest);
-    const rangoProyectado = getRango(totalCierreVentas > totalVentas ? totalCierreVentas : totalVentas);
-    const fmt = n => '$' + n.toLocaleString('es-CO');
-
     proyEl.innerHTML = `
-      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">📊 Proyección al ${diasMes} de ${MESES[mesIdx]}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
-        <div>
-          <div style="font-size:10.5px;color:var(--text-muted);">Ventas proyectadas</div>
-          <div style="font-size:20px;font-weight:800;color:var(--sura-lime);">${totalCierreVentas}</div>
+      <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">📊 Proyección al cierre del período compensado — ${MESES[mesIdx]} ${anio}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;">
+          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;">Ventas proyectadas</div>
+          <div style="font-size:22px;font-weight:800;color:var(--sura-lime);">${proyVentas}</div>
         </div>
-        <div>
-          <div style="font-size:10.5px;color:var(--text-muted);">Comisión proyectada</div>
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;">
+          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;">Comisión proyectada</div>
           <div style="font-size:18px;font-weight:800;color:var(--teal);">${fmt(comProyectada)}</div>
         </div>
-        <div>
-          <div style="font-size:10.5px;color:var(--text-muted);">Días restantes</div>
-          <div style="font-size:20px;font-weight:800;color:var(--text);">${diasRestantes}</div>
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;">
+          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;">Días hábiles restantes</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);">${dhRestantes}</div>
         </div>
-        <div>
-          <div style="font-size:10.5px;color:var(--text-muted);">Rango proyectado</div>
-          <div style="font-size:13px;font-weight:700;color:var(--amber);">${rangoProyectado.label}</div>
+        <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;">
+          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;">Rango proyectado</div>
+          <div style="font-size:14px;font-weight:700;color:var(--amber);">${rangoProyect.label}</div>
         </div>
       </div>
     `;
@@ -15511,6 +15659,13 @@ function renderAlertasSiniestralidad() {
     badge.style.background = alertas.length > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.1)';
     badge.style.color = alertas.length > 0 ? 'var(--amber)' : 'var(--green)';
   }
+  // Actualizar también el badge en la pestaña de Empresas
+  const badgeTab = document.getElementById('empSinAlertaCountTab');
+  if (badgeTab) {
+    badgeTab.textContent = alertas.length;
+    badgeTab.style.background = alertas.length > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.1)';
+    badgeTab.style.color = alertas.length > 0 ? 'var(--amber)' : 'var(--green)';
+  }
 
   if (!alertas.length) {
     contenedor.innerHTML = '<div class="empty-state"><div class="icon">✅</div><div>Sin alertas · todas las empresas estables o sin historial comparativo</div></div>';
@@ -15538,6 +15693,149 @@ function renderAlertasSiniestralidad() {
   `).join('');
 }
 
+// ── MENSAJES WHATSAPP PERSONALIZADOS ─────────────────────────────────────────
+
+function getMensajesCustom() {
+  if (window.__FB_CACHE__ && window.__FB_CACHE__.plantillas) {
+    return window.__FB_CACHE__.plantillas._mensajesCustom || [];
+  }
+  try { return JSON.parse(localStorage.getItem('sura_msgs_custom') || '[]'); } catch { return []; }
+}
+
+function setMensajesCustom(arr) {
+  if (window.__FB_CACHE__) {
+    if (!window.__FB_CACHE__.plantillas) window.__FB_CACHE__.plantillas = {};
+    window.__FB_CACHE__.plantillas._mensajesCustom = arr;
+    if (window.FB) window.FB.set('plantillas', window.__FB_CACHE__.plantillas);
+  }
+  try { localStorage.setItem('sura_msgs_custom', JSON.stringify(arr)); } catch(e) {}
+}
+
+function abrirModalMensajeCustom(id) {
+  const msgs = getMensajesCustom();
+  const msg  = id ? msgs.find(m => m.id === id) : null;
+  document.getElementById('modalMsgCustomTitle').textContent = msg ? '✏️ Editar Mensaje' : '✏️ Nuevo Mensaje Personalizado';
+  document.getElementById('msgCustomId').value      = msg ? msg.id : '';
+  document.getElementById('msgCustomNombre').value  = msg ? msg.nombre : '';
+  document.getElementById('msgCustomTexto').value   = msg ? msg.texto : '';
+  document.getElementById('msgCustomMasivo').checked = msg ? !!msg.masivo : true;
+  prevMensajeCustom();
+  openModal('modalMensajeCustom');
+}
+
+function prevMensajeCustom() {
+  const texto = document.getElementById('msgCustomTexto')?.value || '';
+  const prev = texto
+    .replace(/{nombre}/g, 'Juan Pérez')
+    .replace(/{empresa}/g, 'Acme S.A.S.')
+    .replace(/{fecha_cobertura}/g, '1 de mayo de 2026');
+  const el = document.getElementById('msgCustomPreview');
+  if (el) el.textContent = prev;
+}
+
+function guardarMensajeCustom() {
+  const nombre = (document.getElementById('msgCustomNombre')?.value || '').trim();
+  const texto  = (document.getElementById('msgCustomTexto')?.value || '').trim();
+  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  if (!texto)  { showToast('⚠️ El mensaje es obligatorio'); return; }
+
+  const masivo = document.getElementById('msgCustomMasivo')?.checked || false;
+  const id     = document.getElementById('msgCustomId')?.value || '';
+  const msgs   = getMensajesCustom();
+
+  if (id) {
+    const idx = msgs.findIndex(m => m.id === id);
+    if (idx >= 0) msgs[idx] = { ...msgs[idx], nombre, texto, masivo };
+  } else {
+    msgs.push({ id: 'cm_' + Date.now(), nombre, texto, masivo });
+  }
+
+  setMensajesCustom(msgs);
+  closeModal('modalMensajeCustom');
+  renderMensajesCustom();
+  renderBotonesCustomMasivo();
+  // Actualizar tabs del generador
+  renderTabsCustomWa();
+  showToast('✅ Mensaje guardado');
+}
+
+function eliminarMensajeCustom(id) {
+  if (!confirm('¿Eliminar este mensaje personalizado?')) return;
+  const msgs = getMensajesCustom().filter(m => m.id !== id);
+  setMensajesCustom(msgs);
+  renderMensajesCustom();
+  renderBotonesCustomMasivo();
+  renderTabsCustomWa();
+  showToast('🗑 Mensaje eliminado');
+}
+
+function renderMensajesCustom() {
+  const cont = document.getElementById('listaMensajesCustom');
+  if (!cont) return;
+  const msgs = getMensajesCustom();
+  if (!msgs.length) {
+    cont.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="icon">💬</div><div>Sin mensajes personalizados aún</div></div>';
+    return;
+  }
+  cont.innerHTML = msgs.map(m => `
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:var(--radius-sm);background:var(--surface2);margin-bottom:10px;border-left:3px solid var(--purple);">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-weight:700;font-size:13.5px;">${m.nombre}</span>
+          ${m.masivo ? '<span class="chip chip-purple" style="font-size:10px;">📣 Masivo</span>' : ''}
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);white-space:pre-wrap;max-height:60px;overflow:hidden;line-height:1.5;">${m.texto.substring(0, 160)}${m.texto.length > 160 ? '…' : ''}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Variables: {nombre} {empresa} {fecha_cobertura}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-sm btn-secondary" onclick="setWaTabCustom('${m.id}')">👁 Previsualizar</button>
+        <button class="btn btn-sm btn-secondary" onclick="abrirModalMensajeCustom('${m.id}')">✏️</button>
+        <button class="btn btn-sm" style="background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.3);" onclick="eliminarMensajeCustom('${m.id}')">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderBotonesCustomMasivo() {
+  const cont = document.getElementById('covBotonesCustom');
+  if (!cont) return;
+  const msgs = getMensajesCustom().filter(m => m.masivo);
+  cont.innerHTML = msgs.map(m => `
+    <button class="btn btn-secondary" style="border-color:var(--purple);color:var(--purple);"
+      onclick="envioMasivoWhatsApp('custom_${m.id}')">📱 ${m.nombre}</button>
+  `).join('');
+}
+
+function renderTabsCustomWa() {
+  // Agregar/actualizar tabs custom en el generador de WhatsApp
+  const container = document.getElementById('waTabsContainer');
+  if (!container) return;
+  // Remover tabs custom viejos
+  container.querySelectorAll('.tab-pill-custom').forEach(el => el.remove());
+  // Agregar nuevos
+  const msgs = getMensajesCustom();
+  msgs.forEach(m => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-pill tab-pill-custom';
+    btn.textContent = '✏️ ' + m.nombre;
+    btn.onclick = function() { setWaTabCustom(m.id, this); };
+    container.appendChild(btn);
+  });
+}
+
+function setWaTabCustom(id, btn) {
+  _waTab = 'custom_' + id;
+  document.querySelectorAll('#page-cobertura .tab-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Para mensajes custom ocultar campos específicos
+  ['waFieldEmpresaWrap','waFieldProductoWrap','waFieldRadicadoWrap','waFieldFechaWrap'].forEach(fid => {
+    const el = document.getElementById(fid);
+    if (el) el.style.display = '';
+  });
+  document.getElementById('waFieldRadicadoWrap').style.display = 'none';
+  generarMensajeWa();
+}
+
 function esPeorCategoria(nueva, anterior) {
   const orden = ['<=75%', '76% - 90%', '>=91% EXCEPCIONADA', '>=91% NO AGIL'];
   const iNueva = orden.indexOf(nueva);
@@ -15549,7 +15847,7 @@ function esPeorCategoria(nueva, anterior) {
 // ── 3. GENERADOR WHATSAPP ────────────────────────────────────────────────────
 function setWaTab(tab, btn) {
   _waTab = tab;
-  document.querySelectorAll('#page-herramientas .tab-pill').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#page-cobertura .tab-pill').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
   // Mostrar/ocultar campos según tab
@@ -15587,7 +15885,18 @@ function generarMensajeWa() {
 
   let msg = '';
 
-  if (_waTab === 'bienvenida') {
+  // ── Mensaje custom ────────────────────────────────────────────────────────
+  if (_waTab && _waTab.startsWith('custom_')) {
+    const id   = _waTab.replace('custom_', '');
+    const msgs = getMensajesCustom();
+    const m    = msgs.find(x => x.id === id);
+    if (m) {
+      msg = m.texto
+        .replace(/{nombre}/g, nombre)
+        .replace(/{empresa}/g, empresa)
+        .replace(/{fecha_cobertura}/g, fechaFmt);
+    }
+  } else if (_waTab === 'bienvenida') {
     msg = `¡Hola ${nombre}! 👋
 
 Te escribo para darte la bienvenida a *EPS SURA* — es un gusto tenerte como afiliado en *${empresa}*.
