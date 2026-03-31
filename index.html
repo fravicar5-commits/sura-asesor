@@ -5189,12 +5189,16 @@ function calcComision(tipo, criterio, cotizantes) {
 
 function getState() {
   if (window.__FB_CACHE__) return window.__FB_CACHE__.estado || {};
-  try { return JSON.parse(localStorage.getItem('sura_asesor_v2') || '{}'); } catch { return {}; }
+  // Firebase aun no ha cargado — devolver objeto vacio para evitar datos obsoletos de localStorage
+  // Una vez que Firebase cargue, __FB_CACHE__ estara disponible y se usara correctamente
+  return {};
 }
 function setState(s) {
   if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
   if (window.FB) window.FB.set('estado', s);
-  try { localStorage.setItem('sura_asesor_v2', JSON.stringify(s)); } catch(e) {}
+  // No escribir en localStorage — el estado con muchas ventas puede superar el limite de ~5MB
+  // y la escritura falla silenciosamente, dejando datos desactualizados en el fallback.
+  // Firebase + __FB_CACHE__ son la fuente unica de verdad.
 }
 
 function initState() {
@@ -5207,7 +5211,9 @@ function initState() {
     spti: [...DEFAULT_SPTI],
     spd: [...DEFAULT_SPD],
   };
-  setState(s);
+  // No llamar setState aqui — Firebase puede no estar listo aun
+  // setState se llamara normalmente cuando el usuario haga cambios reales
+  if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
   return s;
 }
 
@@ -7730,6 +7736,9 @@ function guardarVenta() {
   }
 
   setState(state);
+  // Re-leer desde cache inmediatamente para garantizar que la variable global
+  // state este sincronizada ANTES de que navigate() llame renderPlantillaPBS
+  state = getState();
   closeModal('modalVenta');
   showToast('✅ Venta registrada correctamente');
   // Redirigir a la plantilla correspondiente según el producto registrado
@@ -15196,13 +15205,15 @@ if (window.__FB_READY__) {
   document.addEventListener('fb-ready', bootApp, { once: true });
   setTimeout(function() {
     if (!window.__FB_READY__) {
-      console.warn('Firebase timeout — arrancando con localStorage');
-      window.__FB_CACHE__ = null;
+      console.warn('Firebase timeout (8s) — arrancando sin datos de Firebase');
+      // NO nullificar __FB_CACHE__ si ya fue inicializado parcialmente
+      // Dejar que la app arranque con estado vacio antes que con datos obsoletos de localStorage
+      if (!window.__FB_CACHE__) window.__FB_CACHE__ = { estado: {}, pagos: {}, pipeline: [], actividades: [], cierres: {}, configAnios: {}, productosExtra: [], empresas: [], cotizaciones: [], syncConfig: {}, plantillas: {}, bdSiniestralidad: { trimestres: [], registros: [] } };
       const splash = document.getElementById('fb-splash');
       if (splash) splash.style.display = 'none';
       bootApp();
     }
-  }, 3000);
+  }, 8000);
 }
 </script>
 </body>
