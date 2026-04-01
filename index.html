@@ -9723,7 +9723,7 @@ function renderCobertura() {
 function getPlantilla(tipo) {
   const pl = (window.__FB_CACHE__ ? window.__FB_CACHE__.plantillas : null) || JSON.parse(localStorage.getItem('sura_plantillas_v1') || '{}');
   const defaults = {
-    bienvenida: `Hola {nombre}, te damos la bienvenida a EPS SURA 🏥. Tu cobertura inicia el {fecha_cobertura}. Puedes activar tu credencial digital en la app SURA o en sura.com.co. ¡Estamos para servirte! — Tu asesor SURA`,
+    bienvenida: `¡Hola *{nombre}!* 👋\n\nTe escribo para darte la bienvenida a *EPS SURA* — es un gusto tenerte como afiliado en la *EPS*.\n\nTu afiliación ya está activa. La fecha de inicio de cobertura es el *{fecha_cobertura}*.\n\nRecuerda que como afiliado a EPS SURA tienes acceso a:\n✅ Red de clínicas y hospitales SURA\n✅ Integración de servicios en una misma sede\n✅ App de salud y telemedicina\n\nTe invito a crear tu cuenta en la etiqueta *Personas* en https://www.epssura.com/crearcuenta\n\nCualquier duda estoy disponible.\n¡Bienvenido(a)! 🙌\n\nSoy *Fran Viloria*, tu asesor de Canal Especializado en Salud SURA.`,
     beneficiarios: `Hola {nombre}, ahora que estás afiliado(a) a SURA, recuerda que puedes incluir a tu familia (cónyuge, hijos) en tu grupo familiar. Si lo haces por SAT en los primeros 5 días del mes, inician cobertura el 1° del mes siguiente. ¿Te gustaría hacerlo? Con gusto te ayudo. — Tu asesor SURA`,
     voluntarios: `Hola {nombre}, como afiliado(a) de SURA, quiero contarte sobre nuestros planes complementarios que amplían tu cobertura: Salud Para Todos Integral y Salud Para Dos. ¿Tienes unos minutos para que te cuente los beneficios? — Tu asesor SURA`,
   };
@@ -9946,7 +9946,7 @@ function eliminarActividad(id) {
 // =============================================
 const PLANTILLAS_DEF = [
   { key:'bienvenida', titulo:'🏥 Bienvenida — Inicio de Cobertura', color:'var(--sura-blue)',
-    default:`Hola {nombre}, te damos la bienvenida a EPS SURA 🏥. Tu cobertura inicia el {fecha_cobertura}. Puedes activar tu credencial digital en la app SURA o en sura.com.co. ¡Estamos para servirte! — Tu asesor SURA` },
+    default:`¡Hola *{nombre}!* 👋\n\nTe escribo para darte la bienvenida a *EPS SURA* — es un gusto tenerte como afiliado en la *EPS*.\n\nTu afiliación ya está activa. La fecha de inicio de cobertura es el *{fecha_cobertura}*.\n\nRecuerda que como afiliado a EPS SURA tienes acceso a:\n✅ Red de clínicas y hospitales SURA\n✅ Integración de servicios en una misma sede\n✅ App de salud y telemedicina\n\nTe invito a crear tu cuenta en la etiqueta *Personas* en https://www.epssura.com/crearcuenta\n\nCualquier duda estoy disponible.\n¡Bienvenido(a)! 🙌\n\nSoy *Fran Viloria*, tu asesor de Canal Especializado en Salud SURA.` },
   { key:'beneficiarios', titulo:'👨‍👩‍👧 Inclusión de Beneficiarios (≥28 años solos)', color:'var(--amber)',
     default:`Hola {nombre}, ahora que estás afiliado(a) a SURA, recuerda que puedes incluir a tu familia (cónyuge, hijos) en tu grupo familiar. Si lo haces por SAT en los primeros 5 días del mes, inician cobertura el 1° del mes siguiente. ¿Te gustaría hacerlo? Con gusto te ayudo. — Tu asesor SURA` },
   { key:'voluntarios', titulo:'💊 Oferta Voluntarios — SPTI / SPD / Plan 60+', color:'var(--teal)',
@@ -9979,7 +9979,11 @@ function guardarPlantillas() {
   if (window.__FB_CACHE__) window.__FB_CACHE__.plantillas = obj;
   if (window.FB) window.FB.set('plantillas', obj);
   try { localStorage.setItem('sura_plantillas_v1', JSON.stringify(obj)); } catch(e) {}
-  showToast('✅ Plantillas guardadas');
+  showToast('✅ Plantillas guardadas — se aplicarán en todos los envíos');
+  // Regenerar vista previa del generador WA si está activo
+  if (typeof generarMensajeWa === 'function') {
+    try { generarMensajeWa(); } catch(e) {}
+  }
 }
 
 function previewPlantilla(key) {
@@ -16514,20 +16518,32 @@ function generarMensajeWa() {
         .replace(/{fecha_cobertura}/g, fechaFmt);
     }
   } else if (_waTab === 'bienvenida') {
-    msg = `¡Hola ${nombre}! 👋
+    // Usar plantilla guardada si existe
+    const _plBienvenida = ((window.__FB_CACHE__ ? window.__FB_CACHE__.plantillas : null) || JSON.parse(localStorage.getItem('sura_plantillas_v1')||'{}')).bienvenida;
+    if (_plBienvenida) {
+      msg = _plBienvenida
+        .replace(/{nombre}/g, nombre)
+        .replace(/{empresa}/g, empresa)
+        .replace(/{fecha_cobertura}/g, fechaFmt);
+    } else {
+      msg = `¡Hola *${nombre}!* 👋
 
-Te escribo para darte la bienvenida a *EPS SURA* — es un gusto tenerte como afiliado en *${empresa}*.
+Te escribo para darte la bienvenida a *EPS SURA* — es un gusto tenerte como afiliado en la *EPS*.
 
-Tu afiliación ya está en proceso. La fecha estimada de inicio de cobertura es el *${fechaFmt}*.
+Tu afiliación ya está activa. La fecha de inicio de cobertura es el *${fechaFmt}*.
 
 Recuerda que como afiliado a EPS SURA tienes acceso a:
 ✅ Red de clínicas y hospitales SURA
-✅ Atención médica domiciliaria 24h
+✅ Integración de servicios en una misma sede
 ✅ App de salud y telemedicina
 
-Cualquier duda estoy disponible. ¡Bienvenido(a)! 🙌
+Te invito a crear tu cuenta en la etiqueta *Personas* en https://www.epssura.com/crearcuenta
 
-Soy *${asesor}*, tu asesor de Canal Salud SURA.`;
+Cualquier duda estoy disponible.
+¡Bienvenido(a)! 🙌
+
+Soy *${asesor}*, tu asesor de Canal Especializado en Salud SURA.`;
+    }
 
   } else if (_waTab === 'prospecto') {
     msg = `¡Hola ${nombre}! 🤝
