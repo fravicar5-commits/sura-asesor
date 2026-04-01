@@ -6792,6 +6792,27 @@ function guardarEdicion() {
   if (v.producto === 'PBS') {
     v.comision = calcComision(v.tipo, v.criterio, v.cotizantes);
     v.rango = getRango(v.cotizantes).label;
+
+    // Actualizar beneficiarios vinculados (heredan datos del cotizante)
+    state.ventas.forEach(ben => {
+      if (ben.cotizanteId === _editId && ben.tipo === 'BENEFICIARIO') {
+        ben.fecha       = v.fecha;
+        ben.mesComp     = v.mesComp;
+        ben.empresa     = v.empresa;
+        ben.nit         = v.nit;
+        ben.criterio    = v.criterio;
+        ben.cotizantes  = v.cotizantes;
+        ben.bd          = v.bd;
+        ben.tramite     = v.tramite;
+        ben.tramiteGrupo = v.tramiteGrupo;
+        ben.formulario  = v.formulario;
+        ben.telefono    = v.telefono;
+        ben.correo      = v.correo;
+        ben.inicioCobertura = v.inicioCobertura;
+        ben.ciudad      = v.ciudad;
+        ben.rango       = v.rango;
+      }
+    });
   } else {
     v.prima = parseFloat(document.getElementById('ePrima').value) || 0;
   }
@@ -7760,6 +7781,39 @@ function guardarVenta() {
       notas: document.getElementById('vNotasPBS').value,
       beneficiarios: beneficiariosData.filter(b => b.nombre || b.doc).map(b => ({...b})),
     });
+
+    // ── Guardar beneficiarios como ventas individuales ──────────────────
+    const benValidos = beneficiariosData.filter(b => b.nombre || b.doc);
+    benValidos.forEach(b => {
+      const benId = Date.now().toString(36) + Math.random().toString(36).substr(2) + '_ben';
+      state.ventas.push({
+        id: benId,
+        producto: 'PBS',
+        fecha, mesComp,
+        tipo: 'BENEFICIARIO',
+        nombre: b.nombre || '',
+        tipoDoc: b.tipoDoc || 'CC',
+        doc: b.doc || '',
+        fechaNac: b.fechaNac || '',
+        edad: b.edad || '',
+        estado: b.estado || estado,
+        // Datos heredados del cotizante
+        empresa: empNombre, nit: empNIT,
+        criterio, cotizantes,
+        bd: document.getElementById('vBD').value,
+        tramite, tramiteGrupo: getTramiteGrupo(tramite),
+        formulario: document.getElementById('vFormulario').value,
+        telefono: document.getElementById('vTelefono').value,
+        correo: document.getElementById('vCorreo').value,
+        inicioCobertura: document.getElementById('vInicioCobertura').value,
+        ciudad,
+        comision: 10000,
+        rango,
+        notas: document.getElementById('vNotasPBS').value,
+        cotizanteId: id, // referencia al cotizante padre
+      });
+    });
+
     // Auto-registrar empresa en BD
     if (empNombre) autoRegistrarEmpresaDesdeVenta(empNombre, empNIT, ciudad);
 
@@ -7941,20 +7995,33 @@ function guardarVenta() {
   // state este sincronizada ANTES de que navigate() llame renderPlantillaPBS
   state = getState();
   closeModal('modalVenta');
-  showToast('✅ Venta registrada correctamente');
+
+  // Contar beneficiarios guardados para el toast
+  const nBen = modalTab === 'pbs' ? beneficiariosData.filter(b => b.nombre || b.doc).length : 0;
+  const toastMsg = nBen > 0
+    ? `✅ Venta registrada · ${nBen} beneficiario${nBen > 1 ? 's' : ''} incluido${nBen > 1 ? 's' : ''}`
+    : '✅ Venta registrada correctamente';
+  showToast(toastMsg);
+
   // Redirigir a la plantilla correspondiente según el producto registrado
-  const prodGuardado = document.getElementById('vTabPBS')?.classList.contains('active') ? 'PBS'
-    : document.getElementById('vTabSPTI')?.classList.contains('active') ? 'SPTI'
-    : document.getElementById('vTabSPD')?.classList.contains('active') ? 'SPD'
-    : 'PBS';
-  if (prodGuardado === 'PBS') { navigate('plantilla-pbs'); }
-  else { const sel = document.getElementById('ptProductoVol'); if (sel) sel.value = prodGuardado; navigate('plantilla-vol'); }
+  // Usar modalTab directamente — es la fuente de verdad del tab activo
+  if (modalTab === 'pbs') {
+    navigate('plantilla-pbs');
+  } else if (modalTab === 'spti' || modalTab === 'spd' || modalTab === 'psm' || modalTab === 'pac60') {
+    const prodMap = { spti: 'SPTI', spd: 'SPD', psm: 'PSM', pac60: 'PAC60' };
+    const sel = document.getElementById('ptProductoVol');
+    if (sel) sel.value = prodMap[modalTab] || 'SPTI';
+    navigate('plantilla-vol');
+  } else {
+    navigate('plantilla-pbs');
+  }
 }
 
 function eliminarVenta(id) {
   if (!confirm('¿Eliminar esta venta?')) return;
   state = getState();
-  state.ventas = state.ventas.filter(v => v.id !== id);
+  // Eliminar la venta y sus beneficiarios vinculados
+  state.ventas = state.ventas.filter(v => v.id !== id && v.cotizanteId !== id);
   setState(state);
   renderTabla();
   showToast('🗑️ Venta eliminada');
@@ -7964,7 +8031,8 @@ function eliminarVenta(id) {
 function eliminarVentaDesdeTabla(id) {
   if (!confirm('¿Eliminar esta venta?')) return;
   state = getState();
-  state.ventas = state.ventas.filter(v => v.id !== id);
+  // Eliminar la venta y sus beneficiarios vinculados
+  state.ventas = state.ventas.filter(v => v.id !== id && v.cotizanteId !== id);
   setState(state);
   // Limpiar pagos asociados
   const pagos = getPagos();
