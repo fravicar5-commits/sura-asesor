@@ -635,6 +635,42 @@
   /* Highlight months */
   .highlight-row td { background: rgba(200,229,43,0.04) !important; }
 
+  /* ---- BOTÓN FLOTANTE REGISTRO RÁPIDO ---- */
+  .fab-btn {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 998;
+    background: var(--sura-blue);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 13px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 20px rgba(26,76,232,0.45);
+    transition: transform 0.15s, box-shadow 0.15s;
+    font-family: var(--font);
+    letter-spacing: 0.02em;
+  }
+  .fab-btn:hover { transform: translateX(-50%) translateY(-2px); box-shadow: 0 6px 28px rgba(26,76,232,0.55); }
+  .fab-btn:active { transform: translateX(-50%) translateY(0); }
+  @media (max-width:900px) { .fab-btn { bottom: 16px; padding: 11px 20px; font-size: 13px; } }
+
+  /* ---- RECORDATORIOS SEGUIMIENTO ---- */
+  .seguimiento-chip {
+    display:inline-flex;align-items:center;gap:6px;
+    padding:4px 10px;border-radius:20px;
+    font-size:11px;font-weight:600;cursor:pointer;
+    transition:opacity .15s;
+  }
+  .seguimiento-chip:hover { opacity:0.8; }
+
   .input-group { display: flex; gap: 8px; }
   .input-group .form-control { flex: 1; }
 </style>
@@ -5247,6 +5283,74 @@
     <button class="btn btn-sm" style="background:var(--amber);color:#111;font-weight:700;" onclick="exportarBackupDesdeAlerta()">💾 Backup ahora</button>
     <button class="btn btn-secondary btn-sm" onclick="posponeralerta()">Después</button>
     <button onclick="document.getElementById('backupAlertaBanner').style.display='none'" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;line-height:1;padding:2px 4px;">×</button>
+  </div>
+</div>
+
+<!-- BOTÓN FLOTANTE REGISTRO RÁPIDO -->
+<button class="fab-btn" onclick="abrirRegistroRapido()" title="Registro rápido PBS">
+  <span style="font-size:20px;line-height:1;">＋</span> Registro rápido
+</button>
+
+<!-- MODAL: Registro Rápido PBS -->
+<div class="modal-overlay" id="modalRegistroRapido">
+  <div class="modal" style="width:460px;">
+    <div class="modal-header">
+      <div class="modal-title">⚡ Registro Rápido PBS</div>
+      <button class="modal-close" onclick="closeModal('modalRegistroRapido')">×</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+      <div style="font-size:12px;color:var(--text-muted);background:var(--surface2);border-radius:8px;padding:10px 14px;">
+        Solo los datos esenciales. Puedes completar el resto después desde Registro de Ventas.
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px;display:grid;">
+        <div class="form-group" style="margin-bottom:0;grid-column:1/-1;">
+          <label class="form-label">Nombre completo <span style="color:var(--red)">*</span></label>
+          <input type="text" class="form-control" id="rqNombre" placeholder="Ej: Juan García López" autocomplete="off">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Cédula <span style="color:var(--red)">*</span></label>
+          <input type="text" class="form-control" id="rqDoc" placeholder="Número de documento">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Fecha de venta <span style="color:var(--red)">*</span></label>
+          <input type="date" class="form-control" id="rqFecha">
+        </div>
+        <div class="form-group" style="margin-bottom:0;grid-column:1/-1;">
+          <label class="form-label">Empresa <span style="color:var(--red)">*</span></label>
+          <input type="text" class="form-control" id="rqEmpresa" placeholder="Nombre de la empresa">
+        </div>
+        <div class="form-group" style="margin-bottom:0;grid-column:1/-1;">
+          <label class="form-label">Teléfono</label>
+          <input type="text" class="form-control" id="rqTelefono" placeholder="3001234567">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Trámite</label>
+          <select class="form-control" id="rqTramite">
+            <option value="SAT">SAT</option>
+            <option value="FORMULARIO DIGITAL">Formulario Digital</option>
+            <option value="PAPEL">Papel</option>
+            <option value="FIRMA VIRTUAL">Firma Virtual</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Siniestralidad</label>
+          <select class="form-control" id="rqSiniestralidad">
+            <option value="<=75%">≤ 75%</option>
+            <option value="76% - 90%">76% - 90%</option>
+            <option value=">=91% EXCEPCIONADA">≥91% Excepcionada</option>
+            <option value=">=91% NO AGIL">≥91% No Ágil</option>
+          </select>
+        </div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;color:var(--text-muted);">Comisión estimada</span>
+        <span style="font-size:16px;font-weight:800;font-family:var(--mono);color:var(--green);" id="rqComisionPreview">$0</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalRegistroRapido')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarRegistroRapido()">⚡ Guardar</button>
+    </div>
   </div>
 </div>
 
@@ -10631,6 +10735,9 @@ function renderResumenDia() {
 
   // Chips de alerta rápidos para el header
   const alertChips = [];
+  // Recordatorios de seguimiento
+  const nRecs = calcularRecordatorios().length;
+  if (nRecs > 0) alertChips.push(`<span style="background:rgba(245,158,11,0.15);color:var(--amber);font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:12px;cursor:pointer;" onclick="event.stopPropagation();toggleResumenDia()">🔔 ${nRecs} recordatorio${nRecs>1?'s':''}</span>`);
   if (cartCritica.length) alertChips.push(`<span style="background:rgba(239,68,68,0.15);color:var(--red);font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:12px;">💳 ${cartCritica.length} cartera</span>`);
   if (coberturasHoy.length) alertChips.push(`<span style="background:rgba(34,197,94,0.15);color:var(--green);font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:12px;">🎉 ${coberturasHoy.length} cobertura hoy</span>`);
   if (rPBS.falta > 0) alertChips.push(`<span style="background:rgba(26,76,232,0.15);color:var(--sura-blue);font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:12px;">🏥 ${rPBS.falta} PBS faltantes</span>`);
@@ -16064,6 +16171,250 @@ function abrirWhatsApp() {
   const url  = base + '?text=' + encodeURIComponent(msg);
   window.open(url, '_blank');
 }
+
+
+// =============================================
+// REGISTRO RÁPIDO PBS
+// =============================================
+function abrirRegistroRapido() {
+  // Fecha por defecto = hoy
+  const hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('rqFecha').value = hoy;
+  document.getElementById('rqNombre').value = '';
+  document.getElementById('rqDoc').value = '';
+  document.getElementById('rqEmpresa').value = '';
+  document.getElementById('rqTelefono').value = '';
+  actualizarComisionRapida();
+  openModal('modalRegistroRapido');
+  setTimeout(() => document.getElementById('rqNombre').focus(), 100);
+}
+
+function actualizarComisionRapida() {
+  const sin  = document.getElementById('rqSiniestralidad')?.value || '<=75%';
+  // Sin cotizantes definidos usamos rango 1 por defecto para previsualización
+  const com  = calcComision('COTIZANTE', sin, 1);
+  const el   = document.getElementById('rqComisionPreview');
+  if (el) el.textContent = '$' + com.toLocaleString('es-CO');
+}
+
+function guardarRegistroRapido() {
+  const nombre   = (document.getElementById('rqNombre')?.value || '').trim();
+  const doc      = (document.getElementById('rqDoc')?.value || '').trim();
+  const fecha    = document.getElementById('rqFecha')?.value || '';
+  const empresa  = (document.getElementById('rqEmpresa')?.value || '').trim();
+  const telefono = (document.getElementById('rqTelefono')?.value || '').trim();
+  const tramite  = document.getElementById('rqTramite')?.value || 'SAT';
+  const criterio = document.getElementById('rqSiniestralidad')?.value || '<=75%';
+
+  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  if (!doc)    { showToast('⚠️ La cédula es obligatoria'); return; }
+  if (!fecha)  { showToast('⚠️ La fecha es obligatoria'); return; }
+  if (!empresa){ showToast('⚠️ La empresa es obligatoria'); return; }
+
+  const s = getState();
+  const id = Date.now().toString(36) + Math.random().toString(36).substr(2) + '_rq';
+  const { mesComp } = calcMesCompensado(fecha);
+  const com   = calcComision('COTIZANTE', criterio, 1);
+  const rango = getRango(1).label;
+
+  s.ventas.push({
+    id, producto: 'PBS', fecha, mesComp,
+    tipo: 'COTIZANTE',
+    nombre, doc, tipoDoc: 'CC',
+    empresa, telefono,
+    tramite, tramiteGrupo: getTramiteGrupo(tramite),
+    criterio, cotizantes: 1,
+    comision: com, rango,
+    estado: 'NO AGIL',
+    bd: '', formulario: '', correo: '',
+    inicioCobertura: '', ciudad: '', nit: '',
+    notas: '⚡ Registro rápido — completar datos pendientes',
+    _registroRapido: true,
+  });
+
+  setState(s);
+  if (empresa) autoRegistrarEmpresaDesdeVenta(empresa, '', '');
+  closeModal('modalRegistroRapido');
+  showToast('⚡ Venta registrada · completa los datos pendientes en Registro');
+  if (currentPage === 'plantilla-pbs' || currentPage === 'dashboard') refreshPage(currentPage);
+}
+
+// Actualizar preview de comisión al cambiar siniestralidad en registro rápido
+document.addEventListener('change', function(e) {
+  if (e.target && e.target.id === 'rqSiniestralidad') actualizarComisionRapida();
+});
+
+// =============================================
+// RECORDATORIOS DE SEGUIMIENTO
+// =============================================
+const DIAS_SIN_CONTACTO_ALERTA = 14; // días sin contacto para alertar
+
+function calcularRecordatorios() {
+  const s   = getState();
+  const hoy = new Date();
+  const hoyStr = hoy.toISOString().split('T')[0];
+  const ventas  = s.ventas || [];
+  const activ   = (window.__FB_CACHE__?.actividades || []);
+  const recordatorios = [];
+
+  // ── 1. Bienvenida: 15 días después del inicio de cobertura ──────────────
+  ventas.forEach(v => {
+    if (v.producto !== 'PBS' || v.tipo === 'BENEFICIARIO' || !v.inicioCobertura) return;
+    const inicioCob = new Date(v.inicioCobertura + 'T12:00:00');
+    const diasDesde = Math.floor((hoy - inicioCob) / 86400000);
+    if (diasDesde >= 13 && diasDesde <= 17) {
+      // Verificar si ya hay actividad de bienvenida registrada
+      const yaContactado = activ.some(a =>
+        (a.clienteNombre || '').toLowerCase().includes((v.nombre || '').toLowerCase().split(' ')[0]) &&
+        new Date(a.fecha) >= inicioCob
+      );
+      if (!yaContactado) {
+        recordatorios.push({
+          tipo: 'bienvenida',
+          color: 'var(--green)',
+          icono: '🎉',
+          titulo: 'Llamada de bienvenida',
+          detalle: v.nombre,
+          sub: `Inició cobertura hace ${diasDesde} días · ${v.empresa || ''}`,
+          telefono: v.telefono || '',
+          id: v.id,
+          urgencia: diasDesde >= 16 ? 2 : 1,
+        });
+      }
+    }
+  });
+
+  // ── 2. Sin contacto más de X días ────────────────────────────────────────
+  // Agrupar por cliente (nombre+empresa) y buscar última actividad
+  const clientesConVenta = {};
+  ventas.forEach(v => {
+    if (!v.nombre || v.tipo === 'BENEFICIARIO') return;
+    const key = (v.nombre + '|' + (v.empresa || '')).toLowerCase();
+    if (!clientesConVenta[key]) clientesConVenta[key] = { ...v, _key: key };
+  });
+
+  Object.values(clientesConVenta).forEach(v => {
+    const activCliente = activ.filter(a =>
+      (a.clienteNombre || '').toLowerCase().includes(v.nombre.toLowerCase().split(' ')[0])
+    );
+    let ultimoContacto = new Date(v.fecha + 'T12:00:00');
+    if (activCliente.length) {
+      const masReciente = activCliente.reduce((max, a) => new Date(a.fecha) > new Date(max.fecha) ? a : max);
+      const fechaAct = new Date(masReciente.fecha + 'T12:00:00');
+      if (fechaAct > ultimoContacto) ultimoContacto = fechaAct;
+    }
+    const diasSin = Math.floor((hoy - ultimoContacto) / 86400000);
+    if (diasSin >= DIAS_SIN_CONTACTO_ALERTA) {
+      recordatorios.push({
+        tipo: 'sinContacto',
+        color: 'var(--amber)',
+        icono: '📵',
+        titulo: 'Sin contacto',
+        detalle: v.nombre,
+        sub: `${diasSin} días sin contacto · ${v.empresa || ''}`,
+        telefono: v.telefono || '',
+        id: v.id,
+        urgencia: diasSin >= 30 ? 3 : 2,
+      });
+    }
+  });
+
+  // ── 3. PBS sin beneficiarios registrados (cotizante ≥28 años solo) ───────
+  ventas.forEach(v => {
+    if (v.producto !== 'PBS' || v.tipo !== 'COTIZANTE') return;
+    const edad = parseInt(v.edad) || 0;
+    if (edad < 28) return;
+    // Verificar si tiene beneficiarios registrados
+    const tieneBen = ventas.some(b => b.cotizanteId === v.id && b.tipo === 'BENEFICIARIO');
+    if (!tieneBen) {
+      recordatorios.push({
+        tipo: 'sinBeneficiario',
+        color: 'var(--purple)',
+        icono: '👨‍👩‍👧',
+        titulo: 'Sin beneficiarios',
+        detalle: v.nombre,
+        sub: `${edad} años · ${v.empresa || ''} · oportunidad grupo familiar`,
+        telefono: v.telefono || '',
+        id: v.id,
+        urgencia: 1,
+      });
+    }
+  });
+
+  // Ordenar por urgencia desc
+  return recordatorios.sort((a, b) => b.urgencia - a.urgencia);
+}
+
+function renderRecordatorios() {
+  // Inyectar en el resumen del día (sección extra dentro del body)
+  const body = document.getElementById('resumenDiaBody');
+  if (!body) return;
+
+  // Remover bloque anterior si existe
+  const viejo = document.getElementById('recordatoriosBloque');
+  if (viejo) viejo.remove();
+
+  const recs = calcularRecordatorios();
+  if (!recs.length) return;
+
+  const bloque = document.createElement('div');
+  bloque.id = 'recordatoriosBloque';
+  bloque.style.cssText = 'border-top:1px solid var(--border);padding-top:12px;margin-top:4px;';
+
+  const maxVis = 5;
+  const visibles = recs.slice(0, maxVis);
+  const resto = recs.length - maxVis;
+
+  bloque.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+      <div style="font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;">
+        🔔 Recordatorios de seguimiento (${recs.length})
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span class="seguimiento-chip" style="background:rgba(34,197,94,0.12);color:var(--green);">🎉 ${recs.filter(r=>r.tipo==='bienvenida').length} bienvenida</span>
+        <span class="seguimiento-chip" style="background:rgba(245,158,11,0.12);color:var(--amber);">📵 ${recs.filter(r=>r.tipo==='sinContacto').length} sin contacto</span>
+        <span class="seguimiento-chip" style="background:rgba(168,85,247,0.12);color:var(--purple);">👨‍👩‍👧 ${recs.filter(r=>r.tipo==='sinBeneficiario').length} sin benef.</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${visibles.map(r => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:8px;border-left:3px solid ${r.color};">
+          <span style="font-size:16px;flex-shrink:0;">${r.icono}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.detalle}</div>
+            <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.sub}</div>
+          </div>
+          ${r.telefono ? `
+            <a href="https://wa.me/57${r.telefono.replace(/\D/g,'')}" target="_blank"
+              style="flex-shrink:0;padding:4px 10px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--green);font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;">
+              📲 WA
+            </a>` : ''}
+        </div>
+      `).join('')}
+      ${resto > 0 ? `<div style="text-align:center;font-size:11.5px;color:var(--text-muted);padding:4px;">+${resto} más — revisa Actividad Diaria</div>` : ''}
+    </div>
+  `;
+
+  body.appendChild(bloque);
+}
+
+// Hook: renderizar recordatorios cuando se abre el resumen del día
+const _toggleResumenDiaOrig = toggleResumenDia;
+toggleResumenDia = function() {
+  _toggleResumenDiaOrig();
+  const body = document.getElementById('resumenDiaBody');
+  if (body && body.style.display !== 'none') renderRecordatorios();
+};
+
+// También renderizar si el resumen ya está abierto al navegar al dashboard
+const _renderResumenDiaOrig = renderResumenDia;
+renderResumenDia = function() {
+  _renderResumenDiaOrig();
+  const body = document.getElementById('resumenDiaBody');
+  if (body && body.style.display !== 'none') {
+    setTimeout(renderRecordatorios, 50);
+  }
+};
 
 
 if (window.__FB_READY__) {
