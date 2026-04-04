@@ -9143,14 +9143,44 @@ function getCarteraEstado(v, pagos) {
   if (v.tipo === 'CANCELACION') return { estado:'CANCELADO', dias:0, color:'#6b7280', label:'⛔ Cancelado', proxVenc:null, prevVenc:null };
 
   const hoy = new Date(); hoy.setHours(12,0,0,0);
+  const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+  const intervalo = meses[v.periodicidad] || 1;
+
   const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
   if (!proxVenc) return null;
 
   const prevVenc = calcPrevVencimiento(proxVenc, v.periodicidad);
-  const diasVencido = Math.max(0, Math.floor((hoy - prevVenc) / 86400000));
   const diffDias = Math.floor((proxVenc - hoy) / 86400000);
 
-  // Auto-cancelación a 60 días de mora (muta el estado de la venta)
+  // ── Lógica de mora corregida ─────────────────────────────────────────────
+  // Para periodicidades no mensuales (TRIMESTRAL, SEMESTRAL, ANUAL):
+  // el cliente no tiene mora hasta que no pase el mes completo del vencimiento.
+  // Es decir: si el vencimiento es 3 mar y hoy es 31 mar → todavía está en plazo.
+  // La mora real empieza el 1 del mes siguiente al vencimiento.
+
+  // Calcular fin del mes de gracia (último día del mes del prevVenc)
+  const finMesGracia = new Date(prevVenc.getFullYear(), prevVenc.getMonth() + 1, 0, 12, 0, 0);
+  // Para MENSUAL: sin mes de gracia extra, la mora empieza el día 31 como antes
+  const diasDesdeVenc = Math.max(0, Math.floor((hoy - prevVenc) / 86400000));
+  // Para no-MENSUAL: días desde el fin del mes de gracia
+  const diasDesdeFin  = Math.max(0, Math.floor((hoy - finMesGracia) / 86400000));
+  // diasVencido efectivo: para MENSUAL usar diasDesdeVenc, para otros usar diasDesdeFin
+  const diasVencido = intervalo === 1 ? diasDesdeVenc : diasDesdeFin;
+
+  // ── Caso especial: primera póliza sin pagos registrados ──────────────────
+  // Si no hay ningún pago y la póliza tiene menos días de vida que su intervalo,
+  // se considera al día (el cliente pagó al contratar, no hay mora posible aún).
+  const tienePagos = getPagosVenta(v.id).length > 0;
+  if (!tienePagos) {
+    const fechaInicio = new Date((v.fechaExp || v.fecha || '') + 'T12:00:00');
+    const diasDeVida  = Math.floor((hoy - fechaInicio) / 86400000);
+    // Si la póliza tiene menos días de vida que un intervalo completo → al día
+    if (diasDeVida < intervalo * 30) {
+      return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc, prevVenc };
+    }
+  }
+
+  // Auto-cancelación a 60 días de mora efectiva
   if (diasVencido >= 60) {
     const state = getState();
     const idx = state.ventas.findIndex(x => x.id === v.id);
@@ -11886,8 +11916,11 @@ Si ya realizaste el pago puedes omitir este mensaje. ☺`
       </td>
       <td style="padding:8px 12px;text-align:center;">
         ${r.enBD
-          ? '<span style="color:var(--green);font-size:11px;font-weight:600;">✅ Sí</span>'
-          : '<span style="color:var(--text-dim);font-size:11px;">⚪ No</span>'}
+          ? '<span style="color:var(--green);font-size:11px;font-weight:600;">✅ En mi BD</span>'
+          : `<button class="btn btn-sm" onclick="importarClienteDesdeCarteraSura(${JSON.stringify(r).replace(/"/g,'&quot;')})"
+              style="background:rgba(26,76,232,0.1);color:var(--sura-blue);border:1px solid rgba(26,76,232,0.3);font-size:10.5px;padding:3px 8px;">
+              ➕ Importar
+            </button>`}
       </td>
       <td style="padding:8px 12px;white-space:nowrap;">
         <div style="display:flex;gap:6px;">
@@ -16386,41 +16419,155 @@ function cancelarVentaCartera(id) {
   showToast(`⛔ ${v.producto} de ${nombre} cancelado · Razón: ${razonTexto}`);
 }
 
-// ── Sincronizar fechaExp desde reporte SURA ──────────────────────────────────
+// ── Sincronizar desde reporte SURA → app ────────────────────────────────────
+// Actualiza fechaExp Y registra pagos automáticos cuando SURA dice diasCart=0
 function sincronizarFechaExpDesdeCarteraSura() {
-  if (!_carteraSuraData || !_carteraSuraData.length) return 0;
-  const s = getState();
-  let actualizados = 0;
+  if (!_carteraSuraData || !_carteraSuraData.length) {
+    showToast('⚠️ Primero importa el archivo de cartera SURA');
+    return;
+  }
+  const s      = getState();
+  const pagos  = getPagos();
+  const COM_PCT = { SPTI:0.07, SPD:0.08, PSM:0.12, PAC60:0.05 };
+  let actuFechas = 0;
+  let actuPagos  = 0;
 
   _carteraSuraData.forEach(item => {
-    if (!item.pagoMax || !item.ventaId) return;
+    if (!item.ventaId) return;
     const v = s.ventas.find(x => x.id === item.ventaId);
     if (!v) return;
 
-    // Parsear fecha pagoMax del reporte (puede venir como DD/MM/YYYY o similar)
-    let fechaReal = '';
-    const raw = item.pagoMax.trim();
-    // Intentar parsear DD/MM/YYYY
-    const partes = raw.split('/');
-    if (partes.length === 3) {
-      const [d, m, a] = partes;
-      fechaReal = `${a.length===2?'20'+a:a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-    } else if (raw.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      fechaReal = raw;
+    // ── 1. Actualizar fechaExp desde pagoMax del reporte ─────────────────
+    if (item.pagoMax) {
+      const raw    = item.pagoMax.trim();
+      let fechaReal = '';
+      const partes = raw.split('/');
+      if (partes.length === 3) {
+        const [d, m, a] = partes;
+        fechaReal = `${a.length===2?'20'+a:a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+      } else if (raw.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        fechaReal = raw;
+      }
+      if (fechaReal && fechaReal !== v.fechaExp) {
+        v.fechaExp = fechaReal;
+        actuFechas++;
+      }
     }
 
-    if (fechaReal && fechaReal !== v.fechaExp) {
-      v.fechaExp = fechaReal;
-      actualizados++;
+    // ── 2. Si SURA dice diasCart=0 (al día) pero app no tiene pagos → registrar pago sintético ──
+    // Esto corrige el falso positivo de mora para clientes que pagaron fuera de la app
+    if (item.diasCart === 0 && item.saldo === 0) {
+      const pagosActuales = pagos[item.ventaId] || [];
+      // Solo registrar si no hay ningún pago reciente (último mes)
+      const hoy      = new Date();
+      const unMesAtras = new Date(hoy); unMesAtras.setMonth(unMesAtras.getMonth() - 1);
+      const tienePagoReciente = pagosActuales.some(p => new Date(p.fecha) >= unMesAtras);
+
+      if (!tienePagoReciente) {
+        const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
+        const prevVenc = proxVenc ? calcPrevVencimiento(proxVenc, v.periodicidad) : null;
+        const prima    = v.prima || v.primaTotal || 0;
+        const comision = Math.round(prima * (COM_PCT[v.producto] || 0.07));
+        if (!pagos[item.ventaId]) pagos[item.ventaId] = [];
+        pagos[item.ventaId].push({
+          id: 'sync_' + Date.now().toString(36) + '_' + item.ventaId.slice(-4),
+          fecha: new Date().toISOString(),
+          periodoDesde: prevVenc ? prevVenc.toISOString().slice(0,10) : (v.fechaExp || ''),
+          periodoHasta: proxVenc ? proxVenc.toISOString().slice(0,10) : '',
+          prima,
+          comision,
+          _fuenteSura: true, // marcado para distinguirlo de pagos manuales
+        });
+        actuPagos++;
+      }
     }
   });
 
-  if (actualizados > 0) {
-    setState(s);
+  // Guardar solo si hubo cambios
+  if (actuFechas > 0) setState(s);
+  if (actuPagos  > 0) setPagos(pagos);
+
+  if (actuFechas > 0 || actuPagos > 0) {
     renderCartera();
-    showToast(`🔄 ${actualizados} fechas de vencimiento actualizadas desde cartera SURA`);
+    const msgs = [];
+    if (actuFechas) msgs.push(`${actuFechas} fecha${actuFechas>1?'s':''} actualizada${actuFechas>1?'s':''}`);
+    if (actuPagos)  msgs.push(`${actuPagos} pago${actuPagos>1?'s':''} sincronizado${actuPagos>1?'s':''}`);
+    showToast('🔄 Sincronización completada · ' + msgs.join(' · '));
+  } else {
+    showToast('✅ Todo ya estaba sincronizado');
   }
-  return actualizados;
+}
+
+// ── Importar cliente desde cartera SURA a BD de la app ───────────────────────
+function importarClienteDesdeCarteraSura(item) {
+  // Detectar producto desde solucion string
+  const sol = (item.solucion || '').toLowerCase();
+  let producto = 'SPTI';
+  if (sol.includes('spd') || sol.includes('salud para dos')) producto = 'SPD';
+  else if (sol.includes('modular') || sol.includes('psm'))   producto = 'PSM';
+  else if (sol.includes('60') || sol.includes('pac'))        producto = 'PAC60';
+
+  if (!confirm(
+    `¿Importar a tu cartera?\n\n` +
+    `Cliente: ${item.nombre}\n` +
+    `Cédula: ${item.cedula}\n` +
+    `Producto: ${item.solucion}\n` +
+    `Póliza: ${item.poliza}\n\n` +
+    `Se creará un registro en tu cartera con los datos del reporte SURA.\n` +
+    `Podrás completar los datos faltantes después editando el registro.`
+  )) return;
+
+  const s   = getState();
+  const id  = 'sura_' + Date.now().toString(36) + '_' + (item.cedula || '').slice(-4);
+  const hoy = new Date().toISOString().slice(0,10);
+
+  // Parsear fechaExp desde pagoMax
+  let fechaExp = '';
+  if (item.pagoMax) {
+    const raw = item.pagoMax.trim();
+    const partes = raw.split('/');
+    if (partes.length === 3) {
+      const [d, m, a] = partes;
+      fechaExp = `${a.length===2?'20'+a:a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    } else if (raw.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      fechaExp = raw;
+    }
+  }
+
+  const nuevaVenta = {
+    id,
+    producto,
+    fecha: hoy,
+    mesComp: getMesKey(new Date().getFullYear(), new Date().getMonth()),
+    fechaExp: fechaExp || hoy,
+    poliza: item.poliza || '',
+    tipo: 'NUEVO',
+    nombre: item.nombre || '',
+    tipoDoc: 'CC',
+    doc: item.cedula || '',
+    telefono: item.telefono || item.telSura || '',
+    empresa: '—',
+    periodicidad: 'MENSUAL', // default — editar después si se conoce
+    prima: item.saldo || 0,
+    primaTotal: item.saldo || 0,
+    primaTotalSinIVA: Math.round((item.saldo || 0) / 1.19),
+    comision: 0,
+    rango: '—', criterio: '—', tramite: '—', bd: '—',
+    notas: `⚠️ Importado desde cartera SURA · Póliza: ${item.poliza} · Completar datos pendientes`,
+    _importadoSura: true,
+  };
+
+  s.ventas.push(nuevaVenta);
+  setState(s);
+
+  // Actualizar el registro en _carteraSuraData para mostrar que ya está en BD
+  const idx = _carteraSuraData.findIndex(r => r.cedula === item.cedula && r.poliza === item.poliza);
+  if (idx >= 0) {
+    _carteraSuraData[idx].enBD    = true;
+    _carteraSuraData[idx].ventaId = id;
+  }
+  renderCarteraSuraTabla();
+  showToast(`✅ ${item.nombre} importado a tu cartera · Revisa y completa los datos`);
 }
 
 // ── Dashboard mini de cancelaciones ─────────────────────────────────────────
