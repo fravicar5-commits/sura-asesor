@@ -5485,6 +5485,44 @@
   </div>
 </div>
 
+<!-- MODAL: Registrar Pago con Fecha + Historial -->
+<div class="modal-overlay" id="modalPago">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modalPagoTitulo">💳 Registrar Pago</div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;" id="modalPagoSubtitulo"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modalPago')">×</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+      <!-- Nuevo pago -->
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--green);">
+        <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Registrar nuevo pago</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Fecha del pago</label>
+            <input type="date" class="form-control" id="pagoFecha">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Prima</label>
+            <input type="text" class="form-control" id="pagoPrima" readonly style="color:var(--text-muted);">
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);" id="pagoPreviewPeriodo"></div>
+        <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="confirmarPago()">✅ Registrar pago</button>
+      </div>
+      <!-- Historial -->
+      <div>
+        <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Historial de pagos registrados</div>
+        <div id="modalPagoHistorial" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+          <div style="color:var(--text-dim);font-size:12px;text-align:center;padding:12px;">Sin pagos registrados</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Panel Registro en SURA -->
 <div class="modal-overlay" id="modalRegistroSura">
   <div class="modal" style="width:520px;">
@@ -7352,7 +7390,11 @@ function openModal(id) {
     calcTotalSPD();
   }
 }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  // Limpiar _editId si se cierra el modal de venta sin guardar
+  if (id === 'modalVenta') _editId = null;
+}
 
 function setModalTab(tab, btn) {
   modalTab = tab;
@@ -8019,6 +8061,107 @@ function guardarVenta() {
 
   // ── Tabs: PBS / SPTI / SPD ───────────────────────────────────────
   state = getState();
+
+  // ── MODO EDICIÓN: si _editId tiene valor y el producto es voluntario,
+  // actualizar el registro existente en lugar de crear uno nuevo ─────
+  if (_editId && modalTab !== 'pbs' && modalTab !== 'extra') {
+    const idxEdit = state.ventas.findIndex(x => x.id === _editId);
+    if (idxEdit >= 0) {
+      const vOld = state.ventas[idxEdit];
+      // Leer campos del tab activo y actualizar solo los campos del registro
+      if (modalTab === 'spti') {
+        const fecha = document.getElementById('vFechaSPTI')?.value || vOld.fecha;
+        state.ventas[idxEdit] = {
+          ...vOld,
+          fecha,
+          mesComp: getMesKey(new Date(fecha+'T12:00:00').getFullYear(), new Date(fecha+'T12:00:00').getMonth()),
+          fechaExp: document.getElementById('vFechaExpSPTI')?.value || vOld.fechaExp,
+          poliza:   document.getElementById('vPolizaSPTI')?.value   || vOld.poliza,
+          tipo:     document.getElementById('vTipoSPTI')?.value     || vOld.tipo,
+          nombre:   document.getElementById('vNombreSPTI')?.value   || vOld.nombre,
+          tipoDoc:  document.getElementById('vTipoDocSPTI')?.value  || vOld.tipoDoc,
+          doc:      document.getElementById('vDocSPTI')?.value      || vOld.doc,
+          fechaNac: document.getElementById('vFechaNacSPTI')?.value || vOld.fechaNac,
+          telefono: document.getElementById('vTelSPTI')?.value      || vOld.telefono,
+          correo:   document.getElementById('vCorreoSPTI')?.value   || vOld.correo,
+          ciudad:   document.getElementById('vCiudadSPTI')?.value   || vOld.ciudad,
+          notas:    document.getElementById('vNotasSPTI')?.value    || vOld.notas,
+          plan:         document.getElementById('vPlanSPTI')?.value        || vOld.plan,
+          periodicidad: document.getElementById('vPeriodicidadSPTI')?.value|| vOld.periodicidad,
+        };
+      } else if (modalTab === 'spd') {
+        const fecha = document.getElementById('vFechaSPD')?.value || vOld.fecha;
+        state.ventas[idxEdit] = {
+          ...vOld,
+          fecha,
+          mesComp: getMesKey(new Date(fecha+'T12:00:00').getFullYear(), new Date(fecha+'T12:00:00').getMonth()),
+          fechaExp:     document.getElementById('vFechaExpSPD')?.value    || vOld.fechaExp,
+          poliza:       document.getElementById('vPolizaSPD')?.value      || vOld.poliza,
+          periodicidad: document.getElementById('vPeriodicidadSPD')?.value|| vOld.periodicidad,
+          tomadorNombre:document.getElementById('vTomadorNombre')?.value  || vOld.tomadorNombre,
+          tomadorDoc:   document.getElementById('vTomadorDoc')?.value     || vOld.tomadorDoc,
+          tomadorTel:   document.getElementById('vTomadorTel')?.value     || vOld.tomadorTel,
+          tomadorCorreo:document.getElementById('vTomadorCorreo')?.value  || vOld.tomadorCorreo,
+          aseguradoNombre: document.getElementById('vAseguradoNombre')?.value || vOld.aseguradoNombre,
+          aseguradoDoc:    document.getElementById('vAseguradoDoc')?.value    || vOld.aseguradoDoc,
+          nombre:  document.getElementById('vTomadorNombre')?.value || vOld.nombre,
+          doc:     document.getElementById('vTomadorDoc')?.value    || vOld.doc,
+          telefono:document.getElementById('vTomadorTel')?.value    || vOld.telefono,
+          correo:  document.getElementById('vTomadorCorreo')?.value || vOld.correo,
+          ciudad:  document.getElementById('vCiudadSPD')?.value     || vOld.ciudad,
+          notas:   document.getElementById('vNotasSPD')?.value      || vOld.notas,
+        };
+      } else if (modalTab === 'psm') {
+        const fecha = document.getElementById('vFechaPSM')?.value || vOld.fecha;
+        state.ventas[idxEdit] = {
+          ...vOld,
+          fecha,
+          mesComp: getMesKey(new Date(fecha+'T12:00:00').getFullYear(), new Date(fecha+'T12:00:00').getMonth()),
+          fechaExp: document.getElementById('vFechaExpPSM')?.value  || vOld.fechaExp,
+          poliza:   document.getElementById('vPolizaPSM')?.value    || vOld.poliza,
+          tipo:     document.getElementById('vTipoMovPSM')?.value   || vOld.tipo,
+          nombre:   document.getElementById('vNombrePSM')?.value    || vOld.nombre,
+          doc:      document.getElementById('vDocPSM')?.value       || vOld.doc,
+          fechaNac: document.getElementById('vFechaNacPSM')?.value  || vOld.fechaNac,
+          edad:     document.getElementById('vEdadPSM')?.value      || vOld.edad,
+          telefono: document.getElementById('vTelPSM')?.value       || vOld.telefono,
+          correo:   document.getElementById('vCorreoPSM')?.value    || vOld.correo,
+          ciudad:   document.getElementById('vCiudadPSM')?.value    || vOld.ciudad,
+          empresa:  document.getElementById('vEmpresaPSM')?.value   || vOld.empresa,
+          notas:    document.getElementById('vNotasPSM')?.value     || vOld.notas,
+        };
+      } else if (modalTab === 'pac60') {
+        const fecha = document.getElementById('vFechaPAC60')?.value || vOld.fecha;
+        state.ventas[idxEdit] = {
+          ...vOld,
+          fecha,
+          mesComp: getMesKey(new Date(fecha+'T12:00:00').getFullYear(), new Date(fecha+'T12:00:00').getMonth()),
+          fechaExp: document.getElementById('vFechaExpPAC60')?.value || vOld.fechaExp,
+          poliza:   document.getElementById('vPolizaPAC60')?.value   || vOld.poliza,
+          tipo:     document.getElementById('vTipoMovPAC60')?.value  || vOld.tipo,
+          nombre:   document.getElementById('vNombrePAC60')?.value   || vOld.nombre,
+          doc:      document.getElementById('vDocPAC60')?.value      || vOld.doc,
+          fechaNac: document.getElementById('vFechaNacPAC60')?.value || vOld.fechaNac,
+          edad:     document.getElementById('vEdadPAC60')?.value     || vOld.edad,
+          telefono: document.getElementById('vTelPAC60')?.value      || vOld.telefono,
+          correo:   document.getElementById('vCorreoPAC60')?.value   || vOld.correo,
+          ciudad:   document.getElementById('vCiudadPAC60')?.value   || vOld.ciudad,
+          notas:    document.getElementById('vNotasPAC60')?.value    || vOld.notas,
+          conAnexo: document.getElementById('chkAnexoPAC60')?.checked ?? vOld.conAnexo,
+        };
+      }
+      setState(state);
+      state = getState();
+      _editId = null;
+      closeModal('modalVenta');
+      showToast(`✅ ${vOld.producto} actualizado correctamente`);
+      refreshPage(currentPage);
+      return;
+    }
+    // Si no encontró el registro, resetear _editId y continuar como nuevo
+    _editId = null;
+  }
+
   const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
 
   if (modalTab === 'pbs') {
@@ -8265,8 +8408,6 @@ function guardarVenta() {
   }
 
   setState(state);
-  // Re-leer desde cache inmediatamente para garantizar que la variable global
-  // state este sincronizada ANTES de que navigate() llame renderPlantillaPBS
   state = getState();
   closeModal('modalVenta');
 
@@ -8277,11 +8418,12 @@ function guardarVenta() {
     : '✅ Venta registrada correctamente';
   showToast(toastMsg);
 
+  _editId = null; // limpiar siempre
+
   // Redirigir a la plantilla correspondiente según el producto registrado
-  // Usar modalTab directamente — es la fuente de verdad del tab activo
   if (modalTab === 'pbs') {
     navigate('plantilla-pbs');
-    // Abrir panel de registro SURA automáticamente
+    // Abrir panel SURA solo en registro nuevo (nunca en edición)
     setTimeout(() => abrirPanelRegistroSura(id), 400);
   } else if (modalTab === 'spti' || modalTab === 'spd' || modalTab === 'psm' || modalTab === 'pac60') {
     const prodMap = { spti: 'SPTI', spd: 'SPD', psm: 'PSM', pac60: 'PAC60' };
@@ -9222,22 +9364,44 @@ function calcPrevVencimiento(proxVenc, periodicidad) {
 }
 
 // Registrar un nuevo pago para una póliza
-function registrarPago(ventaId) {
+// fechaPago: fecha string 'YYYY-MM-DD' opcional — si no se pasa usa hoy
+function registrarPago(ventaId, fechaPago) {
   const state = getState();
   const venta = state.ventas.find(v => v.id === ventaId);
   if (!venta) return;
 
-  const proxVenc = calcProxVencimiento(venta.fechaExp, venta.periodicidad, ventaId);
-  const prevVenc = proxVenc ? calcPrevVencimiento(proxVenc, venta.periodicidad) : null;
+  // Si se pasa fecha personalizada, calcular el próximo vencimiento desde esa fecha
+  // Si no, usar la lógica normal (ancla en último pago o fechaExp)
+  const fechaRef = fechaPago ? new Date(fechaPago + 'T12:00:00') : new Date();
+
+  // Calcular periodoHasta: fechaRef + intervalo
+  const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+  const intervalo = meses[venta.periodicidad] || 1;
+
+  let periodoDesde, periodoHasta;
+  if (fechaPago) {
+    // Con fecha personalizada: el período arranca desde fechaPago
+    const hasta = new Date(fechaRef);
+    hasta.setMonth(hasta.getMonth() + intervalo);
+    periodoDesde = fechaPago;
+    periodoHasta = hasta.toISOString().slice(0,10);
+  } else {
+    // Sin fecha: usar lógica existente basada en último pago o fechaExp
+    const proxVenc = calcProxVencimiento(venta.fechaExp, venta.periodicidad, ventaId);
+    const prevVenc = proxVenc ? calcPrevVencimiento(proxVenc, venta.periodicidad) : null;
+    periodoDesde = prevVenc ? prevVenc.toISOString().slice(0,10) : venta.fechaExp;
+    periodoHasta = proxVenc ? proxVenc.toISOString().slice(0,10) : '';
+  }
+
   const COM_PCT = { SPTI:0.07, SPD:0.08, PSM:0.12, PAC60:0.05 };
-  const prima = venta.prima || 0;
+  const prima    = venta.prima || 0;
   const comision = Math.round(prima * (COM_PCT[venta.producto] || 0.07));
 
   const nuevoPago = {
     id: Date.now().toString(36) + Math.random().toString(36).substr(2,4),
-    fecha: new Date().toISOString(),
-    periodoDesde: prevVenc ? prevVenc.toISOString().slice(0,10) : venta.fechaExp,
-    periodoHasta: proxVenc ? proxVenc.toISOString().slice(0,10) : '',
+    fecha: fechaPago ? fechaPago + 'T12:00:00.000Z' : new Date().toISOString(),
+    periodoDesde,
+    periodoHasta,
     prima,
     comision,
   };
@@ -9245,6 +9409,8 @@ function registrarPago(ventaId) {
   const pagos = getPagos();
   if (!pagos[ventaId]) pagos[ventaId] = [];
   pagos[ventaId].push(nuevoPago);
+  // Ordenar siempre por fecha para que getUltimoPago retorne el más reciente
+  pagos[ventaId].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
   setPagos(pagos);
   return nuevoPago;
 }
@@ -9263,61 +9429,71 @@ function revertirUltimoPago(ventaId) {
 // Determine cartera state
 function getCarteraEstado(v, pagos) {
   if (!v.fechaExp) return null;
-
-  // Si está marcada como cancelada manualmente
   if (v.tipo === 'CANCELACION') return { estado:'CANCELADO', dias:0, color:'#6b7280', label:'⛔ Cancelado', proxVenc:null, prevVenc:null };
 
   const hoy = new Date(); hoy.setHours(12,0,0,0);
   const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
   const intervalo = meses[v.periodicidad] || 1;
-
   const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
   if (!proxVenc) return null;
-
   const prevVenc = calcPrevVencimiento(proxVenc, v.periodicidad);
   const diffDias = Math.floor((proxVenc - hoy) / 86400000);
 
-  // ── Lógica de mora corregida ─────────────────────────────────────────────
-  // Para periodicidades no mensuales (TRIMESTRAL, SEMESTRAL, ANUAL):
-  // el cliente no tiene mora hasta que no pase el mes completo del vencimiento.
-  // Es decir: si el vencimiento es 3 mar y hoy es 31 mar → todavía está en plazo.
-  // La mora real empieza el 1 del mes siguiente al vencimiento.
-
-  // Calcular fin del mes de gracia (último día del mes del prevVenc)
-  const finMesGracia = new Date(prevVenc.getFullYear(), prevVenc.getMonth() + 1, 0, 12, 0, 0);
-  // Para MENSUAL: sin mes de gracia extra, la mora empieza el día 31 como antes
-  const diasDesdeVenc = Math.max(0, Math.floor((hoy - prevVenc) / 86400000));
-  // Para no-MENSUAL: días desde el fin del mes de gracia
-  const diasDesdeFin  = Math.max(0, Math.floor((hoy - finMesGracia) / 86400000));
-  // diasVencido efectivo: para MENSUAL usar diasDesdeVenc, para otros usar diasDesdeFin
-  const diasVencido = intervalo === 1 ? diasDesdeVenc : diasDesdeFin;
-
-  // ── Caso especial: primera póliza sin pagos registrados ──────────────────
-  // Si no hay ningún pago y la póliza tiene menos días de vida que su intervalo,
-  // se considera al día (el cliente pagó al contratar, no hay mora posible aún).
-  const tienePagos = getPagosVenta(v.id).length > 0;
-  if (!tienePagos) {
-    const fechaInicio = new Date((v.fechaExp || v.fecha || '') + 'T12:00:00');
-    const diasDeVida  = Math.floor((hoy - fechaInicio) / 86400000);
-    // Si la póliza tiene menos días de vida que un intervalo completo → al día
-    if (diasDeVida < intervalo * 30) {
-      return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc, prevVenc };
+  // ── Si hay pagos registrados, la mora se calcula desde periodoHasta del último pago ──
+  // Si hoy < periodoHasta → el período actual está pagado → al día o próximo
+  const ultimoPago = getUltimoPago(v.id);
+  if (ultimoPago && ultimoPago.periodoHasta) {
+    const hasta = new Date(ultimoPago.periodoHasta + 'T12:00:00');
+    if (hoy <= hasta) {
+      // Está dentro del período pagado — verificar si vence pronto
+      const diasParaVencer = Math.floor((hasta - hoy) / 86400000);
+      if (diasParaVencer <= 3) return { estado:'PROXIMO', dias:diasParaVencer, color:'var(--teal)', label:`🔵 Vence en ${diasParaVencer}d`, proxVenc: hasta, prevVenc };
+      return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc: hasta, prevVenc };
     }
+    // Período pagado ya venció — calcular mora desde periodoHasta
+    const diasMora = Math.max(0, Math.floor((hoy - hasta) / 86400000));
+    // Para no-MENSUAL: gracia hasta fin del mes de periodoHasta
+    let diasEfectivos = diasMora;
+    if (intervalo > 1) {
+      const finGracia = new Date(hasta.getFullYear(), hasta.getMonth() + 1, 0, 12, 0, 0);
+      diasEfectivos = Math.max(0, Math.floor((hoy - finGracia) / 86400000));
+    }
+    if (diasEfectivos >= 60) {
+      const s = getState(); const idx = s.ventas.findIndex(x => x.id === v.id);
+      if (idx !== -1 && s.ventas[idx].tipo !== 'CANCELACION') {
+        s.ventas[idx].tipo = 'CANCELACION'; s.ventas[idx].motivoCancelacion = 'No pago — mora ≥60 días';
+        s.ventas[idx].fechaCancelacion = hoy.toISOString().slice(0,10); setState(s);
+      }
+      return { estado:'CANCELADO', dias:diasEfectivos, color:'#6b7280', label:'⛔ Cancelado (mora)', proxVenc, prevVenc };
+    }
+    if (diasEfectivos >= 35) return { estado:'SUSPENDIDO', dias:diasEfectivos, color:'var(--red)',   label:'🔴 Suspendido',  proxVenc, prevVenc };
+    if (diasEfectivos >= 31) return { estado:'MORA',       dias:diasEfectivos, color:'var(--amber)', label:'🟡 En mora',      proxVenc, prevVenc };
+    if (diasEfectivos >  0)  return { estado:'PROXIMO',    dias:diasEfectivos, color:'var(--teal)',  label:`🔵 Vence en ${diasEfectivos}d`, proxVenc, prevVenc };
+    return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc, prevVenc };
   }
 
-  // Auto-cancelación a 60 días de mora efectiva
+  // ── Sin pagos registrados ────────────────────────────────────────────────
+  // Si la póliza tiene menos días de vida que su intervalo → al día (pagó al contratar)
+  const fechaInicio = new Date((v.fechaExp || v.fecha || '') + 'T12:00:00');
+  const diasDeVida  = Math.floor((hoy - fechaInicio) / 86400000);
+  if (diasDeVida < intervalo * 30) {
+    return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc, prevVenc };
+  }
+
+  // Sin pagos y ya pasó el intervalo → calcular mora normal
+  const finMesGracia = new Date(prevVenc.getFullYear(), prevVenc.getMonth() + 1, 0, 12, 0, 0);
+  const diasDesdeVenc = Math.max(0, Math.floor((hoy - prevVenc) / 86400000));
+  const diasDesdeFin  = Math.max(0, Math.floor((hoy - finMesGracia) / 86400000));
+  const diasVencido   = intervalo === 1 ? diasDesdeVenc : diasDesdeFin;
+
   if (diasVencido >= 60) {
-    const state = getState();
-    const idx = state.ventas.findIndex(x => x.id === v.id);
-    if (idx !== -1 && state.ventas[idx].tipo !== 'CANCELACION') {
-      state.ventas[idx].tipo = 'CANCELACION';
-      state.ventas[idx].motivoCancelacion = 'No pago — mora ≥60 días';
-      state.ventas[idx].fechaCancelacion = new Date().toISOString().slice(0,10);
-      setState(state);
+    const s = getState(); const idx = s.ventas.findIndex(x => x.id === v.id);
+    if (idx !== -1 && s.ventas[idx].tipo !== 'CANCELACION') {
+      s.ventas[idx].tipo = 'CANCELACION'; s.ventas[idx].motivoCancelacion = 'No pago — mora ≥60 días';
+      s.ventas[idx].fechaCancelacion = hoy.toISOString().slice(0,10); setState(s);
     }
     return { estado:'CANCELADO', dias:diasVencido, color:'#6b7280', label:'⛔ Cancelado (mora)', proxVenc, prevVenc };
   }
-
   if (diasVencido >= 35) return { estado:'SUSPENDIDO', dias:diasVencido, color:'var(--red)',   label:'🔴 Suspendido',   proxVenc, prevVenc };
   if (diasVencido >= 31) return { estado:'MORA',       dias:diasVencido, color:'var(--amber)', label:'🟡 En mora',       proxVenc, prevVenc };
   if (diffDias >= 0 && diffDias <= 3) return { estado:'PROXIMO', dias:diffDias, color:'var(--teal)', label:`🔵 Vence en ${diffDias}d`, proxVenc, prevVenc };
@@ -9564,18 +9740,106 @@ function renderCarteraTabla(filas, pagos) {
   document.getElementById('carteraCount').textContent = `Mostrando ${filas.length} registros · toca cada fila para ver historial y acciones`;
 }
 
+let _pagoVentaId = null;
+
+function abrirModalPago(ventaId) {
+  const state = getState();
+  const venta = state.ventas.find(v => v.id === ventaId);
+  if (!venta) return;
+  _pagoVentaId = ventaId;
+
+  const nombre = tc(venta.tomadorNombre || venta.nombre || '—');
+  document.getElementById('modalPagoTitulo').textContent = '💳 ' + venta.producto + ' — ' + nombre;
+  document.getElementById('modalPagoSubtitulo').textContent = venta.plan ? venta.plan + ' · ' + (venta.periodicidad || '') : (venta.periodicidad || '');
+
+  // Fecha por defecto: hoy
+  document.getElementById('pagoFecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pagoPrima').value = '$' + Math.round(venta.prima || 0).toLocaleString('es-CO');
+
+  actualizarPreviewPago();
+  renderHistorialPagoModal(ventaId);
+  openModal('modalPago');
+}
+
+function actualizarPreviewPago() {
+  if (!_pagoVentaId) return;
+  const state = getState();
+  const venta = state.ventas.find(v => v.id === _pagoVentaId);
+  if (!venta) return;
+  const fechaPago = document.getElementById('pagoFecha')?.value;
+  if (!fechaPago) return;
+  const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+  const intervalo = meses[venta.periodicidad] || 1;
+  const hasta = new Date(fechaPago + 'T12:00:00');
+  hasta.setMonth(hasta.getMonth() + intervalo);
+  const fmtD = d => d.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});
+  const preview = document.getElementById('pagoPreviewPeriodo');
+  if (preview) preview.textContent = `Período cubierto: ${fmtD(new Date(fechaPago+'T12:00:00'))} → ${fmtD(hasta)} · Próx. venc: ${fmtD(hasta)}`;
+}
+
+function renderHistorialPagoModal(ventaId) {
+  const cont = document.getElementById('modalPagoHistorial');
+  if (!cont) return;
+  const pagosVenta = getPagosVenta(ventaId);
+  if (!pagosVenta.length) {
+    cont.innerHTML = '<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:12px;">Sin pagos registrados</div>';
+    return;
+  }
+  const fmt = n => '$' + Math.round(n).toLocaleString('es-CO');
+  const fmtD = str => str ? new Date(str + 'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  cont.innerHTML = pagosVenta.map((p,i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:var(--radius-sm);border-left:3px solid ${p._fuenteSura ? 'var(--teal)' : 'var(--green)'};">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:600;">
+          ${p._fuenteSura ? '🔄 Sincronizado SURA' : '💳 Pago registrado'}
+          ${i === 0 ? '<span style="font-size:10px;background:rgba(34,197,94,0.15);color:var(--green);padding:1px 6px;border-radius:8px;margin-left:4px;">Último</span>' : ''}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);">
+          Período: ${fmtD(p.periodoDesde)} → ${fmtD(p.periodoHasta)}
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);">
+          Prima: ${fmt(p.prima||0)} · Comisión: ${fmt(p.comision||0)}
+        </div>
+      </div>
+      <button onclick="eliminarPagoDesdeModal('${ventaId}','${p.id}')"
+        style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;flex-shrink:0;">🗑</button>
+    </div>
+  `).join('');
+}
+
+function eliminarPagoDesdeModal(ventaId, pagoId) {
+  if (!confirm('¿Eliminar este pago del historial?')) return;
+  const pagos = getPagos();
+  if (!pagos[ventaId]) return;
+  pagos[ventaId] = pagos[ventaId].filter(p => p.id !== pagoId);
+  if (!pagos[ventaId].length) delete pagos[ventaId];
+  setPagos(pagos);
+  renderHistorialPagoModal(ventaId);
+  renderCartera();
+  showToast('🗑 Pago eliminado del historial');
+}
+
+function confirmarPago() {
+  if (!_pagoVentaId) return;
+  const fechaPago = document.getElementById('pagoFecha')?.value;
+  if (!fechaPago) { showToast('⚠️ Selecciona la fecha del pago'); return; }
+  const pago = registrarPago(_pagoVentaId, fechaPago);
+  if (!pago) return;
+  const fmtD = str => str ? new Date(str+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  showToast(`✅ Pago registrado · Próx. venc: ${fmtD(pago.periodoHasta)}`);
+  renderHistorialPagoModal(_pagoVentaId);
+  renderCartera();
+}
+
 function marcarPago(id, revertir) {
   if (revertir) {
     if (!confirm('¿Revertir el último pago registrado para esta póliza?')) return;
     revertirUltimoPago(id);
     showToast('↩ Último pago revertido');
+    renderCartera();
   } else {
-    const pago = registrarPago(id);
-    if (!pago) return;
-    const proxStr = pago.periodoHasta ? new Date(pago.periodoHasta + 'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-    showToast(`✅ Pago registrado · Comisión: ${fmt(pago.comision)} · Próx. venc: ${proxStr}`);
+    abrirModalPago(id);
   }
-  renderCartera();
 }
 
 function eliminarVentaCartera(id) {
@@ -16994,6 +17258,7 @@ function guardarRegistroRapido() {
 // Actualizar preview de comisión al cambiar siniestralidad en registro rápido
 document.addEventListener('change', function(e) {
   if (e.target && e.target.id === 'rqSiniestralidad') actualizarComisionRapida();
+  if (e.target && e.target.id === 'pagoFecha') actualizarPreviewPago();
 });
 
 // =============================================
