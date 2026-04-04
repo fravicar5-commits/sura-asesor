@@ -639,8 +639,9 @@
   .fab-btn {
     position: fixed;
     bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
+    right: 32px;
+    left: auto;
+    transform: none;
     z-index: 998;
     background: var(--sura-blue);
     color: #fff;
@@ -649,18 +650,20 @@
     padding: 13px 24px;
     font-size: 14px;
     font-weight: 700;
-    cursor: pointer;
+    cursor: grab;
     display: flex;
     align-items: center;
     gap: 8px;
     box-shadow: 0 4px 20px rgba(26,76,232,0.45);
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: box-shadow 0.15s, opacity 0.15s;
     font-family: var(--font);
     letter-spacing: 0.02em;
+    user-select: none;
+    touch-action: none;
   }
-  .fab-btn:hover { transform: translateX(-50%) translateY(-2px); box-shadow: 0 6px 28px rgba(26,76,232,0.55); }
-  .fab-btn:active { transform: translateX(-50%) translateY(0); }
-  @media (max-width:900px) { .fab-btn { bottom: 16px; padding: 11px 20px; font-size: 13px; } }
+  .fab-btn:hover { box-shadow: 0 6px 28px rgba(26,76,232,0.55); }
+  .fab-btn.dragging { cursor: grabbing; opacity: 0.9; box-shadow: 0 8px 32px rgba(26,76,232,0.6); transition: none; }
+  @media (max-width:900px) { .fab-btn { bottom: 16px; right: 16px; padding: 11px 20px; font-size: 13px; } }
 
   /* ---- RECORDATORIOS SEGUIMIENTO ---- */
   .seguimiento-chip {
@@ -5306,9 +5309,118 @@
 </div>
 
 <!-- BOTÓN FLOTANTE REGISTRO RÁPIDO -->
-<button class="fab-btn" onclick="abrirRegistroRapido()" title="Registro rápido PBS">
+<button class="fab-btn" id="fabBtn" title="Registro rápido PBS (arrastrable)">
   <span style="font-size:20px;line-height:1;">＋</span> Registro rápido
 </button>
+
+<script>
+(function() {
+  const FAB_KEY = 'sura_fab_pos';
+  const btn = document.getElementById('fabBtn');
+  if (!btn) return;
+
+  // ── Restaurar posición guardada ──────────────────────────────────────────
+  function aplicarPos(pos) {
+    btn.style.right  = pos.right  != null ? pos.right  + 'px' : '32px';
+    btn.style.bottom = pos.bottom != null ? pos.bottom + 'px' : '28px';
+    btn.style.left   = 'auto';
+    btn.style.top    = 'auto';
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem(FAB_KEY));
+    if (saved) aplicarPos(saved);
+  } catch(_) {}
+
+  // ── Click vs drag: solo abre modal si no hubo movimiento ────────────────
+  let didDrag = false;
+
+  btn.addEventListener('click', function(e) {
+    if (didDrag) { didDrag = false; return; }
+    abrirRegistroRapido();
+  });
+
+  // ── Mouse drag ───────────────────────────────────────────────────────────
+  btn.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    didDrag = false;
+    btn.classList.add('dragging');
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const rect   = btn.getBoundingClientRect();
+    // Usar right/bottom relativos a la ventana
+    const initRight  = window.innerWidth  - rect.right;
+    const initBottom = window.innerHeight - rect.bottom;
+
+    function onMove(e) {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDrag = true;
+      const newRight  = Math.max(0, Math.min(window.innerWidth  - rect.width,  initRight  - dx));
+      const newBottom = Math.max(0, Math.min(window.innerHeight - rect.height, initBottom + dy));
+      btn.style.right  = newRight  + 'px';
+      btn.style.bottom = newBottom + 'px';
+      btn.style.left   = 'auto';
+      btn.style.top    = 'auto';
+    }
+
+    function onUp() {
+      btn.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+      // Guardar posición
+      try { localStorage.setItem(FAB_KEY, JSON.stringify({
+        right:  parseInt(btn.style.right),
+        bottom: parseInt(btn.style.bottom),
+      })); } catch(_) {}
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
+  });
+
+  // ── Touch drag (móvil) ───────────────────────────────────────────────────
+  btn.addEventListener('touchstart', function(e) {
+    if (e.touches.length !== 1) return;
+    didDrag = false;
+    btn.classList.add('dragging');
+    const t0     = e.touches[0];
+    const startX = t0.clientX;
+    const startY = t0.clientY;
+    const rect   = btn.getBoundingClientRect();
+    const initRight  = window.innerWidth  - rect.right;
+    const initBottom = window.innerHeight - rect.bottom;
+
+    function onMove(e) {
+      e.preventDefault();
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) didDrag = true;
+      const newRight  = Math.max(0, Math.min(window.innerWidth  - rect.width,  initRight  - dx));
+      const newBottom = Math.max(0, Math.min(window.innerHeight - rect.height, initBottom + dy));
+      btn.style.right  = newRight  + 'px';
+      btn.style.bottom = newBottom + 'px';
+      btn.style.left   = 'auto';
+      btn.style.top    = 'auto';
+    }
+
+    function onEnd() {
+      btn.classList.remove('dragging');
+      btn.removeEventListener('touchmove', onMove);
+      btn.removeEventListener('touchend',  onEnd);
+      try { localStorage.setItem(FAB_KEY, JSON.stringify({
+        right:  parseInt(btn.style.right),
+        bottom: parseInt(btn.style.bottom),
+      })); } catch(_) {}
+    }
+
+    btn.addEventListener('touchmove', onMove, { passive: false });
+    btn.addEventListener('touchend',  onEnd);
+  }, { passive: true });
+})();
+</script>
 
 <!-- MODAL: Registro Rápido PBS -->
 <div class="modal-overlay" id="modalRegistroRapido">
