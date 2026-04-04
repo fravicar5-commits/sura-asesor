@@ -11804,11 +11804,30 @@ async function importarCarteraSura(event) {
         };
       });
 
+      // ── Deduplicar por cédula + póliza ────────────────────────────────
+      // Cuando se importa con todos los períodos, SURA genera una fila por
+      // cada tramo de mora. Se conserva solo el registro con mayor diasCart
+      // (el más antiguo/urgente), que representa el estado real del cliente.
+      const dedupMap = new Map();
+      _carteraSuraData.forEach(r => {
+        const key = (r.cedula || r.nombre) + '|' + r.poliza;
+        const existing = dedupMap.get(key);
+        if (!existing || r.diasCart > existing.diasCart) {
+          dedupMap.set(key, r);
+        }
+      });
+      const totalAntes = _carteraSuraData.length;
+      _carteraSuraData = Array.from(dedupMap.values());
+      const duplicadosEliminados = totalAntes - _carteraSuraData.length;
+
       // Sort by diasCanc ASC (most urgent first)
       _carteraSuraData.sort((a, b) => a.diasCanc - b.diasCanc);
 
       renderCarteraSura();
-      showToast(`Cartera importada: ${_carteraSuraData.length} registros`);
+      const msgImport = duplicadosEliminados > 0
+        ? `Cartera importada: ${_carteraSuraData.length} registros únicos · ${duplicadosEliminados} duplicado${duplicadosEliminados>1?'s':''} consolidado${duplicadosEliminados>1?'s':''}`
+        : `Cartera importada: ${_carteraSuraData.length} registros`;
+      showToast(msgImport);
       document.getElementById('btnLimpiarCarteraSura').style.display = '';
       const btnSync = document.getElementById('btnSincronizarSura');
       if (btnSync) btnSync.style.display = '';
