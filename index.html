@@ -6889,12 +6889,22 @@ function editarVenta(id) {
   // ── Voluntarios: abrir modalVenta con el tab correcto ─────────────
   const PROD_TAB = { SPTI:'spti', SPD:'spd', PSM:'psm', PAC60:'pac60' };
   if (PROD_TAB[v.producto]) {
+    // Primero resetear modalTab a pbs para limpiar estado anterior
+    modalTab = 'pbs';
     openModal('modalVenta');
     const tab = PROD_TAB[v.producto];
-    setTimeout(() => {
+
+    // Función que llena los campos y activa el tab correcto
+    function llenarTabVoluntario() {
       const pills = document.querySelectorAll('#modalVenta .tab-pill');
       const tabIdx = { spti:1, spd:2, psm:3, pac60:4 }[tab];
       if (pills[tabIdx]) setModalTab(tab, pills[tabIdx]);
+      else {
+        // Fallback: buscar el pill por texto
+        pills.forEach(p => {
+          if (p.textContent.toLowerCase().includes(tab)) setModalTab(tab, p);
+        });
+      }
 
       if (tab === 'spti') {
         const s = id => document.getElementById(id);
@@ -6972,7 +6982,10 @@ function editarVenta(id) {
         calcDatosPAC60();
       }
       showToast(`✏️ Editando ${v.producto} — ${tc(v.nombre || v.tomadorNombre || '')}`);
-    }, 200);
+    }
+
+    // Usar requestAnimationFrame para garantizar que el DOM del modal esté listo
+    requestAnimationFrame(() => requestAnimationFrame(llenarTabVoluntario));
     return; // No abrir modalEditar
   }
 
@@ -16650,7 +16663,6 @@ function importarClienteDesdeCarteraSura(item) {
 
   const s   = getState();
   const id  = 'sura_' + Date.now().toString(36) + '_' + (item.cedula || '').slice(-4);
-  const hoy = new Date().toISOString().slice(0,10);
 
   // Parsear fechaExp desde pagoMax
   let fechaExp = '';
@@ -16665,12 +16677,26 @@ function importarClienteDesdeCarteraSura(item) {
     }
   }
 
+  // ── Fecha de venta: derivar desde fechaExp restando 1 mes (periodicidad mensual por defecto)
+  // Esto evita que el registro aparezca sumando en el mes actual de importación.
+  // Si no se puede calcular, usar el primer día del mes de fechaExp como approximación.
+  let fechaVenta = '';
+  if (fechaExp) {
+    try {
+      const fe = new Date(fechaExp + 'T12:00:00');
+      fe.setMonth(fe.getMonth() - 1);
+      fechaVenta = fe.toISOString().slice(0,10);
+    } catch(_) { fechaVenta = fechaExp; }
+  }
+  // Si aun no tenemos fecha, usar una neutral (inicio del año actual) para no contaminar conteos
+  if (!fechaVenta) fechaVenta = new Date().getFullYear() + '-01-01';
+
   const nuevaVenta = {
     id,
     producto,
-    fecha: hoy,
-    mesComp: getMesKey(new Date().getFullYear(), new Date().getMonth()),
-    fechaExp: fechaExp || hoy,
+    fecha: fechaVenta,
+    mesComp: getMesKey(new Date(fechaVenta + 'T12:00:00').getFullYear(), new Date(fechaVenta + 'T12:00:00').getMonth()),
+    fechaExp: fechaExp || fechaVenta,
     poliza: item.poliza || '',
     tipo: 'NUEVO',
     nombre: item.nombre || '',
