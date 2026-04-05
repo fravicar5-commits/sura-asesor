@@ -8684,15 +8684,14 @@ function renderPlantillaPBS() {
 }
 
 function exportarPlantillaExcelPBS() {
-  // Reusar la lógica existente forzando producto PBS
-  const orig = document.getElementById('ptProducto');
-  if (orig) { orig.value = 'PBS'; exportarPlantillaExcel(); return; }
-  // Si ya no existe el selector original, hacer export directo
   state = getState();
-  const ventas = state.ventas.filter(v => v.producto === 'PBS');
+  const anioFilter = document.getElementById('ptAnioFilter')?.value || new Date().getFullYear();
+  const mesFilter  = document.getElementById('ptMesFilter')?.value  || '';
+  let ventas = state.ventas.filter(v => v.producto === 'PBS');
+  if (anioFilter) ventas = ventas.filter(v => new Date((v.fecha||'')+'T12:00:00').getFullYear() == anioFilter);
+  if (mesFilter)  ventas = ventas.filter(v => MESES[new Date((v.fecha||'')+'T12:00:00').getMonth()] === mesFilter);
   if (!ventas.length) { showToast('⚠️ No hay ventas PBS para exportar'); return; }
-  showToast('📊 Exportando PBS...');
-  exportarPlantillaExcelDirecto('PBS', ventas);
+  exportarPlantillaExcelDirecto('PBS', ventas, anioFilter, mesFilter);
 }
 
 function imprimirPlantillaPBS() {
@@ -8883,11 +8882,15 @@ function renderPlantillaVol() {
 }
 
 function exportarPlantillaExcelVol() {
-  const prod = document.getElementById('ptProductoVol')?.value || 'SPTI';
-  // Reusar la lógica existente forzando el producto
-  const orig = document.getElementById('ptProducto');
-  if (orig) { orig.value = prod; exportarPlantillaExcel(); return; }
-  showToast('⚠️ Función de exportación no disponible');
+  state = getState();
+  const prod      = document.getElementById('ptProductoVol')?.value || 'SPTI';
+  const anioFilter= document.getElementById('ptAnioVol')?.value || new Date().getFullYear();
+  const mesFilter = document.getElementById('ptMesVol')?.value || '';
+  let ventas = state.ventas.filter(v => v.producto === prod);
+  if (anioFilter) ventas = ventas.filter(v => new Date((v.fecha||v.fechaExp||'')+'T12:00:00').getFullYear() == anioFilter);
+  if (mesFilter)  ventas = ventas.filter(v => MESES[new Date((v.fecha||v.fechaExp||'')+'T12:00:00').getMonth()] === mesFilter);
+  if (!ventas.length) { showToast('⚠️ No hay ventas de ' + prod + ' para exportar'); return; }
+  exportarPlantillaExcelDirecto(prod, ventas, anioFilter, mesFilter);
 }
 
 function imprimirPlantillaVol() { window.print(); }
@@ -9117,53 +9120,95 @@ function renderPlantilla() {
 
 function exportarPlantillaExcel() {
   state = getState();
-  const producto = document.getElementById('ptProducto').value;
-  const mesFilter = document.getElementById('ptMes').value;
-  const anioFilter = document.getElementById('ptAnio').value;
+  const producto  = document.getElementById('ptProducto')?.value || 'PBS';
+  const mesFilter = document.getElementById('ptMes')?.value || '';
+  const anioFilter= document.getElementById('ptAnio')?.value || '';
 
   let ventas = state.ventas.filter(v => v.producto === producto);
-  if (anioFilter) ventas = ventas.filter(v => new Date(v.fecha).getFullYear() == anioFilter);
-  if (mesFilter) ventas = ventas.filter(v => MESES[new Date(v.fecha).getMonth()] === mesFilter);
+  if (anioFilter) ventas = ventas.filter(v => new Date(v.fecha+'T12:00:00').getFullYear() == anioFilter);
+  if (mesFilter)  ventas = ventas.filter(v => MESES[new Date(v.fecha+'T12:00:00').getMonth()] === mesFilter);
+  if (!ventas.length) { showToast('⚠️ No hay datos para exportar'); return; }
 
-  if (ventas.length === 0) { showToast('⚠️ No hay datos para exportar'); return; }
+  exportarPlantillaExcelDirecto(producto, ventas, anioFilter, mesFilter);
+}
+
+async function exportarPlantillaExcelDirecto(producto, ventas, anioFilter, mesFilter) {
+  if (typeof XLSX === 'undefined') {
+    await new Promise((res,rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
 
   const tramiteLabels = {
-    'SAT': 'SAT', 'FORM.DIGITAL': 'Formulario Digital',
-    'FORM.FIRMA.VIRTUAL': 'Formulario Firma Virtual',
-    'AFIL.TRAMITES.ADM': 'Afiliación Trámites Adm.',
-    'FORM.FISICO': 'Formulario'
+    'SAT':'SAT','FORM.DIGITAL':'Formulario Digital',
+    'FORM.FIRMA.VIRTUAL':'Formulario Firma Virtual',
+    'AFIL.TRAMITES.ADM':'Afiliación Trámites Adm.',
+    'FORM.FISICO':'Formulario'
   };
 
-  let csv, filename;
+  let headers, rows;
+
   if (producto === 'PBS') {
-    const headers = ['#','No Formulario/Radicado','Fecha Venta','Mes Venta','Mes Compensado','Producto','Primer Nombre','Segundo Nombre','Primer Apellido','Segundo Apellido','Tipo Doc','No Documento','Edad','Criterio Compensacion','Comision Estimada','Telefono','Correo','Tramite','Tipo Afiliado','Empresa','NIT','BD','Inicio Cobertura'];
-    const rows = ventas.map((v,i) => {
+    headers = ['#','No Formulario/Radicado','Fecha Venta','Mes Venta','Mes Compensado','Producto',
+      'Primer Nombre','Segundo Nombre','Primer Apellido','Segundo Apellido',
+      'Tipo Doc','No Documento','Edad','Criterio Compensacion','Comision Estimada',
+      'Telefono','Correo','Tramite','Tipo Afiliado','Empresa','NIT','BD','Inicio Cobertura','Registrado SURA'];
+    rows = ventas.map((v,i) => {
       const parts = (v.nombre||'').trim().split(/\s+/);
       const mesVenta = `${MESES[new Date(v.fecha+'T12:00:00').getMonth()]} ${new Date(v.fecha+'T12:00:00').getFullYear()}`;
       return [
-        i+1, v.formulario||'', v.fecha, mesVenta, v.mesComp||'', v.producto||'PBS',
+        i+1, v.formulario||'', v.fecha, mesVenta, v.mesComp||'', 'PBS',
         parts[0]||'', parts[1]||'', parts[2]||'', parts[3]||'',
         v.tipoDoc||'CC', v.doc||'', v.edad||'', v.criterio||'', v.comision||0,
         v.telefono||'', v.correo||'',
-        tramiteLabels[v.tramite]||v.tramite||'', v.tipo||'', v.empresa||'', v.nit||'',
-        v.bd||'', v.inicioCobertura||''
+        tramiteLabels[v.tramite]||v.tramite||'', v.tipo||'',
+        v.empresa||'', v.nit||'', v.bd||'', v.inicioCobertura||'',
+        v.registradoSistema ? 'Sí' : 'No'
       ];
     });
-    csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    filename = `Plantilla_PBS_${anioFilter}${mesFilter?'_'+mesFilter:''}.csv`;
   } else {
-    const headers = ['#','Fecha Venta','Mes Compensado','Tipo Movimiento','Nombre','No Documento','Prima Mensual','Notas'];
-    const rows = ventas.map((v,i) => [i+1, v.fecha, v.mesComp||'', v.tipo||'', v.nombre||'', v.doc||'', v.prima||0, v.notas||'']);
-    csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-    filename = `Plantilla_${producto}_${anioFilter}${mesFilter?'_'+mesFilter:''}.csv`;
+    const pagos = getPagos();
+    headers = ['#','Producto','Fecha Venta','Mes Compensado','Tipo Movimiento',
+      'Nombre / Tomador','Documento','Fecha Nac.','Edad','Plan','Periodicidad',
+      'Prima Mensual','Prima Total','Prima Sin IVA','Comisión',
+      'Ciudad','Empresa','Correo','Teléfono','No. Póliza','Fecha Expedición','Estado Pago','Notas'];
+    rows = ventas.map((v,i) => {
+      const nombre = v.tomadorNombre||v.nombre||'';
+      const doc    = v.tomadorDoc||v.doc||'';
+      const tel    = v.tomadorTel||v.telefono||'';
+      const correo = v.tomadorCorreo||v.correo||'';
+      const pagado = (pagos[v.id]&&pagos[v.id].length>0) ? 'Pagado' : 'Pendiente';
+      return [
+        i+1, v.producto||'', v.fecha||'', v.mesComp||'', v.tipo||'NUEVO',
+        nombre, doc, v.fechaNac||v.tomadorFechaNac||'', v.edad||v.tomadorEdad||'',
+        v.plan||'', v.periodicidad||'',
+        v.prima||0, v.primaTotal||v.prima||0,
+        v.primaTotalSinIVA||Math.round((v.primaTotal||v.prima||0)/1.19)||0,
+        v.comision||0,
+        v.ciudad||'', v.empresa||'', correo, tel,
+        v.poliza||'', v.fechaExp||'', pagado, v.notas||''
+      ];
+    });
   }
 
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-  showToast('✅ Exportado: ' + filename);
+  const ws   = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const wb   = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, producto === 'PBS' ? 'PBS' : producto);
+
+  // Ancho de columnas automático
+  const colWidths = headers.map((h,ci) => {
+    const maxLen = Math.max(h.length, ...rows.map(r => String(r[ci]||'').length));
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+  });
+  ws['!cols'] = colWidths;
+
+  const suffix = `${anioFilter||new Date().getFullYear()}${mesFilter?'_'+mesFilter:''}`;
+  const filename = `Plantilla_${producto}_${suffix}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast(`✅ Exportado: ${filename}`);
 }
 
 function imprimirPlantilla() {
@@ -9228,17 +9273,28 @@ function exportarVoluntariosExcel() {
     ];
   });
 
-  const csv = [headers, ...rows]
-    .map(r => r.map(c => `"${String(c == null ? '' : c).replace(/"/g,'""')}"`).join(','))
-    .join('\n');
+  // Exportar como XLSX real
+  if (typeof XLSX === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => _finalizarExportVoluntarios(headers, rows, ventas.length);
+    s.onerror = () => showToast('⚠️ No se pudo cargar la librería de exportación');
+    document.head.appendChild(s);
+  } else {
+    _finalizarExportVoluntarios(headers, rows, ventas.length);
+  }
+}
 
+function _finalizarExportVoluntarios(headers, rows, n) {
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = headers.map((h,ci) => ({
+    wch: Math.min(Math.max(h.length, ...rows.map(r => String(r[ci]||'').length)) + 2, 40)
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Voluntarios');
   const fecha = new Date().toISOString().split('T')[0];
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = `Voluntarios_SURA_${fecha}.csv`; a.click();
-  URL.revokeObjectURL(url);
-  showToast(`✅ ${ventas.length} ventas de voluntarios exportadas`);
+  XLSX.writeFile(wb, `Voluntarios_SURA_${fecha}.xlsx`);
+  showToast(`✅ ${n} ventas exportadas a Excel`);
 }
 
 // =============================================
@@ -9708,8 +9764,9 @@ function renderCarteraTabla(filas, pagos) {
         <td style="padding:10px 12px;white-space:nowrap;">${protoBadge}</td>
         <td style="padding:10px 12px;white-space:nowrap;" onclick="event.stopPropagation()">
           ${pagosVenta.length > 0
-            ? `<button class="btn btn-secondary btn-sm" onclick="marcarPago('${v.id}', true)">↩ Revertir</button>
-               <span style="font-size:10px;color:var(--text-muted);margin-left:4px;">${pagosVenta.length}p</span>`
+            ? `<button class="btn btn-primary btn-sm" onclick="marcarPago('${v.id}', false)">💳 Pago</button>
+               <button class="btn btn-secondary btn-sm" onclick="marcarPago('${v.id}', true)" title="Revertir último pago">↩</button>
+               <span style="font-size:10px;color:var(--text-muted);margin-left:2px;">${pagosVenta.length}p</span>`
             : `<button class="btn btn-primary btn-sm" onclick="marcarPago('${v.id}', false)">💳 Registrar pago</button>`}
         </td>
         <td style="padding:10px 12px;white-space:nowrap;" onclick="event.stopPropagation()">
@@ -12286,20 +12343,38 @@ function renderCarteraSuraTabla() {
   tbody.innerHTML = data.map(r => {
     const urg = urgConfig[r.urgencia];
     const telLimpio = r.telefono.replace(/\D/g,'');
+
+    // ── Mensaje inteligente según días de cartera ──────────────────────────
+    // Calcular meses adeudados y saldo real (prima × meses)
+    const mesesMora   = r.diasCart > 0 ? Math.ceil(r.diasCart / 30) : 1;
+    // Usar saldo del reporte si está disponible y es válido, si no estimar desde la prima en BD
+    const saldoReal   = r.saldo > 0 ? r.saldo : 0;
+    const saldoFmt    = saldoReal > 0
+      ? '$' + saldoReal.toLocaleString('es-CO')
+      : `$${(mesesMora * 160812).toLocaleString('es-CO')}`; // fallback prima promedio SPTI
+
+    // 60+ días → riesgo de cancelación definitiva
+    // 35-59 días → suspensión del servicio
+    const consecuencia = r.diasCart >= 60
+      ? 'el cual está en *riesgo de ser cancelado definitivamente*'
+      : 'el cual se verá afectado con la *suspensión del servicio*';
+
     const mensaje = encodeURIComponent(
-`Recordatorio❗
-Hola ${r.primerNombre} 👋🏼
+`Recordatorio
+
+Hola *${r.primerNombre}* 👋
 Espero que tú y tu familia se encuentren muy bien.
 
-Queremos recordarte que tienes un saldo pendiente de $${r.saldo.toLocaleString('es-CO')} en tu ${r.solucion} con fecha límite de pago el ${r.pagoMax}. Para tu comodidad puedes realizar el pago en línea ingresando al siguiente link 👇🏼 con tu número de documento:
+Queremos recordarte que tienes un saldo pendiente de *${saldoFmt}* correspondiente a ${r.diasCart} días de mora en tu *${r.solucion}* con fecha límite de pago el *${r.pagoMax}* ${consecuencia}. Para tu comodidad puedes realizar el pago en línea ingresando al siguiente link con tu número de documento:
 
 🔗 https://www.segurossura.com.co/paginas/pago-express.aspx/
 
 Tu pago oportuno asegura la continuidad de tu cobertura y beneficios. ✅
-Si ya realizaste el pago puedes omitir este mensaje. ☺`
+Si ya realizaste el pago puedes omitir este mensaje. 😊`
     );
-    const waLink   = telLimpio ? `https://wa.me/57${telLimpio}?text=${mensaje}` : '';
-    const telLink  = telLimpio ? `tel:${telLimpio}` : '';
+
+    const waLink  = telLimpio ? `https://wa.me/57${telLimpio}?text=${mensaje}` : '';
+    const telLink = telLimpio ? `tel:${telLimpio}` : '';
 
     return `<tr style="border-top:1px solid var(--border);background:${urg.bg};">
       <td style="padding:8px 12px;white-space:nowrap;">
