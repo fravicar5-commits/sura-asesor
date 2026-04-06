@@ -789,7 +789,7 @@
         stateData, pagosData, pipelineData, actividadesData,
         cierresData, configAniosData, productosExtraData,
         empresasData, cotizacionesData, syncConfigData, plantillasData,
-        bdSinData
+        bdSinData, contactosData
       ] = await Promise.all([
         fbGet('estado',        {}),
         fbGet('pagos',         {}),
@@ -803,6 +803,7 @@
         fbGet('syncConfig',    {}),
         fbGet('plantillas',    {}),
         fbGetBdSin(),
+        fbGet('contactos',     []),
       ]);
 
       // Inyectar en cache global
@@ -819,6 +820,7 @@
         syncConfig: syncConfigData,
         plantillas: plantillasData,
         bdSiniestralidad: bdSinData,
+        contactos: contactosData,
       };
     } catch(e) {
       console.error('Error cargando Firebase:', e);
@@ -1042,6 +1044,12 @@
       </button>
       <button class="nav-item" onclick="navigate('sync')" data-label="Sincronización">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 8-8 8 8 0 0 1 5.7 2.3L21 9"/><path d="M21 4v5h-5"/><path d="M20 12a8 8 0 0 1-8 8 8 8 0 0 1-5.7-2.3L3 15"/><path d="M3 20v-5h5"/></svg></span> Sincronización
+      </button>
+      <button class="nav-item" onclick="navigate('contactos')" data-label="BD Contactos">
+        <span class="icon">📒</span> BD Contactos
+      </button>
+      <button class="nav-item" onclick="navigate('accesos')" data-label="Mi Ecosistema">
+        <span class="icon">🌐</span> Mi Ecosistema
       </button>
 
       <!-- Sync status pill at bottom of sidebar -->
@@ -3153,7 +3161,28 @@
               <button class="btn btn-primary" onclick="document.getElementById('inputCarteraSura').click()">📥 Importar Cartera SURA (.xlsx)</button>
               <input type="file" id="inputCarteraSura" accept=".xlsx,.xls" style="display:none;" onchange="importarCarteraSura(event)">
               <button class="btn btn-secondary" style="background:rgba(26,76,232,0.1);color:var(--sura-blue);border-color:rgba(26,76,232,0.3);" onclick="sincronizarFechaExpDesdeCarteraSura()" id="btnSincronizarSura" style="display:none;">🔄 Sincronizar vencimientos → app</button>
+              <button class="btn btn-secondary" style="background:rgba(34,197,94,0.1);color:var(--green);border-color:rgba(34,197,94,0.3);display:none;" onclick="detectarPagosDesdeReporte()" id="btnDetectarPagos">💳 Detectar pagos</button>
               <button class="btn btn-secondary" onclick="limpiarCarteraSura()" id="btnLimpiarCarteraSura" style="display:none;">🗑 Limpiar</button>
+            </div>
+          </div>
+
+          <!-- Panel pagos detectados (aparece al importar) -->
+          <div id="panelPagosDetectados" style="display:none;margin-bottom:16px;">
+            <div class="card" style="border-left:3px solid var(--green);padding:0;overflow:hidden;">
+              <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:rgba(34,197,94,0.06);">
+                <div>
+                  <div style="font-size:13.5px;font-weight:700;color:var(--green);">✅ Pagos detectados</div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="panelPagosSubtitulo">
+                    Clientes que estaban en mora en la app pero ya no aparecen en este reporte — probablemente pagaron.
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-primary" style="background:var(--green);border-color:var(--green);" onclick="confirmarPagosMasivos()">✅ Registrar todos</button>
+                  <button class="btn btn-secondary" onclick="document.getElementById('panelPagosDetectados').style.display='none'">Ignorar</button>
+                </div>
+              </div>
+              <div id="listaPagosDetectados" style="padding:0 18px 14px;max-height:280px;overflow-y:auto;">
+              </div>
             </div>
           </div>
 
@@ -4043,6 +4072,159 @@
         </div>
       </div>
       <!-- ===== FIN HERRAMIENTAS ===== -->
+
+      <!-- ===== BD CONTACTOS ===== -->
+      <div class="page" id="page-contactos">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div class="section-title" style="margin-bottom:2px;">📒 BD Contactos</div>
+            <div style="font-size:12px;color:var(--text-muted);">Directorio de clientes con teléfonos verificados · se usa como fuente prioritaria en cartera</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="document.getElementById('inputContactosXlsx').click()">📥 Importar Excel SURA</button>
+            <input type="file" id="inputContactosXlsx" accept=".xlsx,.xls" style="display:none;" onchange="importarContactosSura(event)">
+            <button class="btn btn-secondary" onclick="limpiarContactos()" id="btnLimpiarContactos" style="display:none;">🗑 Limpiar BD</button>
+          </div>
+        </div>
+        <!-- KPIs -->
+        <div class="grid-4" style="margin-bottom:20px;" id="contactosKpis" style="display:none;">
+          <div class="stat-card blue"><div class="stat-label">Total contactos</div><div class="stat-value" id="kpiContactosTotal">0</div></div>
+          <div class="stat-card green"><div class="stat-label">Con celular</div><div class="stat-value" id="kpiContactosCel">0</div></div>
+          <div class="stat-card teal"><div class="stat-label">Con correo</div><div class="stat-value" id="kpiContactosCorreo">0</div></div>
+          <div class="stat-card purple"><div class="stat-label">Cruzados con cartera</div><div class="stat-value" id="kpiContactosCruzados">0</div></div>
+        </div>
+        <!-- Buscador -->
+        <div style="margin-bottom:14px;" id="contactosBuscadorWrap" style="display:none;">
+          <input type="text" class="form-control" id="contactosBuscar" placeholder="🔍 Buscar por nombre, cédula o teléfono..." oninput="renderTablaContactos()" style="max-width:380px;">
+        </div>
+        <!-- Tabla -->
+        <div id="contactosTablaWrap" style="display:none;overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);">
+          <table style="font-size:12.5px;width:100%;border-collapse:collapse;">
+            <thead style="background:var(--surface2);">
+              <tr>
+                <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Nombre</th>
+                <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Cédula</th>
+                <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Celular</th>
+                <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Correo</th>
+                <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Ciudad</th>
+                <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Vinculación</th>
+              </tr>
+            </thead>
+            <tbody id="contactosTablaBody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);" id="contactosCount"></div>
+        <!-- Empty state -->
+        <div id="contactosEmpty" style="text-align:center;padding:48px 20px;color:var(--text-dim);">
+          <div style="font-size:40px;margin-bottom:12px;">📒</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Importa tu directorio de clientes SURA</div>
+          <div style="font-size:12.5px;line-height:1.7;max-width:400px;margin:0 auto;">Descarga el reporte de clientes del aplicativo SURA y cárgalo aquí.<br>Los teléfonos de esta BD se usarán como fuente prioritaria en cartera y WhatsApp.</div>
+        </div>
+      </div>
+      <!-- ===== FIN BD CONTACTOS ===== -->
+
+      <!-- ===== MI ECOSISTEMA ===== -->
+      <div class="page" id="page-accesos">
+        <div style="margin-bottom:24px;">
+          <div class="section-title" style="margin-bottom:4px;">🌐 Mi Ecosistema de Trabajo</div>
+          <div style="font-size:12px;color:var(--text-muted);">Accesos rápidos a todos los portales y herramientas que usas en tu gestión diaria</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
+
+          <!-- SAT -->
+          <a href="https://miseguridadsocial.gov.co/" target="_blank" style="text-decoration:none;">
+            <div class="card" style="border-left:4px solid var(--sura-blue);cursor:pointer;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 24px rgba(26,76,232,0.2)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+                <div style="width:44px;height:44px;border-radius:10px;background:rgba(26,76,232,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏥</div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:var(--text);">Portal SAT</div>
+                  <div style="font-size:11px;color:var(--text-muted);">Mi Seguridad Social</div>
+                </div>
+                <div style="margin-left:auto;font-size:18px;color:var(--text-dim);">↗</div>
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Registro de afiliaciones, traslados y novedades EPS. Ingresa con tu usuario y contraseña SURA.</div>
+              <div style="margin-top:10px;font-size:11px;font-family:var(--mono);color:var(--sura-blue);background:rgba(26,76,232,0.08);padding:4px 8px;border-radius:6px;display:inline-block;">miseguridadsocial.gov.co</div>
+            </div>
+          </a>
+
+          <!-- Correo Outlook -->
+          <a href="https://outlook.office.com/mail/" target="_blank" style="text-decoration:none;">
+            <div class="card" style="border-left:4px solid #0078D4;cursor:pointer;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 24px rgba(0,120,212,0.2)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+                <div style="width:44px;height:44px;border-radius:10px;background:rgba(0,120,212,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">📧</div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:var(--text);">Correo Corporativo</div>
+                  <div style="font-size:11px;color:var(--text-muted);">Outlook Office 365</div>
+                </div>
+                <div style="margin-left:auto;font-size:18px;color:var(--text-dim);">↗</div>
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Correo corporativo SURA. Comunicaciones con clientes, confirmaciones de afiliación y novedades.</div>
+              <div style="margin-top:10px;font-size:11px;font-family:var(--mono);color:#0078D4;background:rgba(0,120,212,0.08);padding:4px 8px;border-radius:6px;display:inline-block;">outlook.office.com</div>
+            </div>
+          </a>
+
+          <!-- Gestión Comercial -->
+          <div class="card" style="border-left:4px solid var(--sura-lime);cursor:pointer;transition:transform .15s,box-shadow .15s;" onclick="abrirGestionComercial()" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 24px rgba(200,229,43,0.2)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+              <div style="width:44px;height:44px;border-radius:10px;background:rgba(200,229,43,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">💼</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--text);">Gestión Comercial</div>
+                <div style="font-size:11px;color:var(--text-muted);">Aplicaciones de Negocio SURA</div>
+              </div>
+              <div style="margin-left:auto;font-size:18px;color:var(--text-dim);">↗</div>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Portal de gestión comercial SURA. Formularios, reportes y herramientas de negocio.</div>
+            <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+              <input type="text" id="urlGestionComercial" placeholder="Pega aquí la URL de Gestión Comercial" onclick="event.stopPropagation()" oninput="guardarUrlGestionComercial()"
+                style="font-size:11px;font-family:var(--mono);color:var(--text-muted);background:rgba(200,229,43,0.06);padding:4px 8px;border-radius:6px;border:1px solid rgba(200,229,43,0.2);flex:1;min-width:0;outline:none;">
+            </div>
+          </div>
+
+          <!-- WhatsApp Web -->
+          <a href="https://web.whatsapp.com/" target="_blank" style="text-decoration:none;">
+            <div class="card" style="border-left:4px solid #25D366;cursor:pointer;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 24px rgba(37,211,102,0.2)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+                <div style="width:44px;height:44px;border-radius:10px;background:rgba(37,211,102,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">💬</div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:var(--text);">WhatsApp Web</div>
+                  <div style="font-size:11px;color:var(--text-muted);">Mensajería clientes</div>
+                </div>
+                <div style="margin-left:auto;font-size:18px;color:var(--text-dim);">↗</div>
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Complemento para gestiones masivas cuando necesitas el historial completo de conversaciones.</div>
+              <div style="margin-top:10px;font-size:11px;font-family:var(--mono);color:#25D366;background:rgba(37,211,102,0.08);padding:4px 8px;border-radius:6px;display:inline-block;">web.whatsapp.com</div>
+            </div>
+          </a>
+
+          <!-- SURA.com.co -->
+          <a href="https://www.segurossura.com.co/" target="_blank" style="text-decoration:none;">
+            <div class="card" style="border-left:4px solid var(--sura-blue);cursor:pointer;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 24px rgba(26,76,232,0.2)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+                <div style="width:44px;height:44px;border-radius:10px;background:rgba(26,76,232,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏢</div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:var(--text);">Seguros SURA</div>
+                  <div style="font-size:11px;color:var(--text-muted);">Portal corporativo</div>
+                </div>
+                <div style="margin-left:auto;font-size:18px;color:var(--text-dim);">↗</div>
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Portal principal SURA. Pago express de clientes, consulta de coberturas y servicios en línea.</div>
+              <div style="margin-top:10px;font-size:11px;font-family:var(--mono);color:var(--sura-blue);background:rgba(26,76,232,0.08);padding:4px 8px;border-radius:6px;display:inline-block;">segurossura.com.co</div>
+            </div>
+          </a>
+
+          <!-- Agregar acceso personalizado -->
+          <div class="card" style="border:2px dashed var(--border);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:160px;gap:10px;" onclick="agregarAccesoPersonalizado()">
+            <div style="font-size:32px;color:var(--text-dim);">＋</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-muted);">Agregar acceso</div>
+            <div style="font-size:11.5px;color:var(--text-dim);text-align:center;">Agrega cualquier otro portal o herramienta que uses en tu trabajo</div>
+          </div>
+
+        </div>
+
+        <!-- Accesos personalizados -->
+        <div id="accesosPersonalizados" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:16px;"></div>
+      </div>
+      <!-- ===== FIN MI ECOSISTEMA ===== -->
 
     </div><!-- content -->
   </main>
@@ -5994,6 +6176,8 @@ function refreshPage(page) {
   else if (page === 'sync') renderSync();
   else if (page === 'agente') renderAgente();
   else if (page === 'herramientas') renderHerramientas();
+  else if (page === 'contactos') renderContactos();
+  else if (page === 'accesos') renderAccesos();
   else if (page === 'actividad') renderActividad();
   else if (page === 'plantillas') renderPlantillas();
   else if (page === 'plantilla-pbs') renderPlantillaPBS();
@@ -12197,6 +12381,8 @@ async function importarCarteraSura(event) {
       const cTelefono  = col('tel. cliente','telefono','tel ');
       const cBanco     = col('banco');
       const cRespCobro = col('resp. cobro','responsable cobro');
+      const cFIniVig   = col('fecha inicio vig','inicio vig','inicio de vig');
+      const cAbonos    = col('abonos','abono');
 
       // Get ventas and state for cross-reference
       const state = getState();
@@ -12210,7 +12396,9 @@ async function importarCarteraSura(event) {
         const diasCart  = parseInt(row[cDiasCart]) || 0;
         const diasCanc  = parseInt(row[cDiasCanc]) || 0;
         const saldo     = parseFloat(String(row[cSaldo] || '0').replace(/[^0-9.-]/g,'')) || 0;
+        const abonos    = parseFloat(String(row[cAbonos] || '0').replace(/[^0-9.-]/g,'')) || 0;
         const pagoMax   = cFePagoMax >= 0 ? String(row[cFePagoMax] || '').trim() : '';
+        const fIniVig   = cFIniVig  >= 0 ? String(row[cFIniVig]  || '').trim() : '';
         const medioPago = cMedioPago >= 0 ? String(row[cMedioPago] || '').trim() : '';
         const telSura   = cTelefono >= 0 ? String(row[cTelefono] || '').trim() : '';
         const banco     = cBanco >= 0 ? String(row[cBanco] || '').trim() : '';
@@ -12233,16 +12421,12 @@ async function importarCarteraSura(event) {
           return false;
         });
 
-        // Get phone: priority = app phone, fallback = sura file
-        let telefono = telSura;
-        if (matchVenta) {
-          const telApp = matchVenta.telefono || matchVenta.tel || matchVenta.celular || '';
-          if (telApp) telefono = String(telApp).trim();
-        }
+        // Get phone with priority: BD Contactos > App > Reporte SURA
+        let telefono = resolverTelefonoContacto(cedula, nombre, matchVenta, telSura);
 
         return {
           nombre, primerNombre, cedula, poliza, solucion,
-          diasCart, diasCanc, saldo, pagoMax, medioPago,
+          diasCart, diasCanc, saldo, abonos, pagoMax, fIniVig, medioPago,
           banco, respCobro, telefono, telSura,
           urgencia,
           enBD: !!matchVenta,
@@ -12277,6 +12461,8 @@ async function importarCarteraSura(event) {
       document.getElementById('btnLimpiarCarteraSura').style.display = '';
       const btnSync = document.getElementById('btnSincronizarSura');
       if (btnSync) btnSync.style.display = '';
+      const btnDet = document.getElementById('btnDetectarPagos');
+      if (btnDet) btnDet.style.display = '';
     } catch(err) {
       showToast('Error al leer el archivo: ' + err.message);
       console.error(err);
@@ -12421,6 +12607,192 @@ Si ya realizaste el pago puedes omitir este mensaje. 😊`
   document.getElementById('carteraSuraCount').textContent = `${data.length} registro${data.length !== 1 ? 's' : ''} mostrados`;
 }
 
+// ── Detectar pagos desde reporte SURA ────────────────────────────────────────
+// Lógica: los clientes que la app tiene en mora PERO no aparecen en el reporte
+// probablemente pagaron (SURA los saca del reporte cuando regularizaron).
+let _pagosDetectados = []; // cache de pagos a confirmar
+
+function detectarPagosDesdeReporte() {
+  if (!_carteraSuraData || !_carteraSuraData.length) {
+    showToast('⚠️ Primero importa el archivo de cartera SURA');
+    return;
+  }
+
+  const s     = getState();
+  const pagos = getPagos();
+
+  // Cédulas y pólizas que SÍ aparecen en el reporte SURA (con mora pendiente)
+  const cedualsEnReporte = new Set(_carteraSuraData.map(r => r.cedula).filter(Boolean));
+  const polizasEnReporte = new Set(_carteraSuraData.map(r => r.poliza).filter(Boolean));
+
+  // Buscar ventas de voluntarios que en la app tienen estado mora/suspendido
+  // pero NO aparecen en el reporte
+  const ventasConPosiblePago = [];
+
+  s.ventas
+    .filter(v => ['SPTI','SPD','PSM','PAC60'].includes(v.producto) && v.fechaExp && v.tipo !== 'CANCELACION')
+    .forEach(v => {
+      const est = getCarteraEstado(v, pagos);
+      if (!est || ['AL_DIA'].includes(est.estado)) return; // ya al día → ignorar
+
+      const doc    = String(v.doc || v.tomadorDoc || '').replace(/\D/g,'');
+      const poliza = (v.poliza || '').trim();
+      const nombre = v.tomadorNombre || v.nombre || '—';
+
+      // Verificar si está en el reporte por cédula o póliza
+      const estaEnReporte = (doc && cedualsEnReporte.has(doc)) ||
+                            (poliza && polizasEnReporte.has(poliza));
+
+      if (!estaEnReporte) {
+        // No está en el reporte de mora → probablemente pagó
+        // Calcular fecha de pago estimada: hoy o último vencimiento
+        const ult = getUltimoPago(v.id);
+        const fechaPagoEstimada = new Date().toISOString().slice(0,10);
+
+        // Calcular próximo vencimiento para mostrar info
+        const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
+        const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+        const intervalo = meses[v.periodicidad] || 1;
+        const proxDesde = new Date(fechaPagoEstimada + 'T12:00:00');
+        const proxHasta = new Date(proxDesde);
+        proxHasta.setMonth(proxHasta.getMonth() + intervalo);
+
+        ventasConPosiblePago.push({
+          ventaId:    v.id,
+          nombre,
+          producto:   v.producto,
+          plan:       v.plan || '',
+          periodicidad: v.periodicidad || 'MENSUAL',
+          prima:      v.prima || v.primaTotal || 0,
+          estadoActual: est.label,
+          diasMora:   est.dias || 0,
+          fechaPago:  fechaPagoEstimada,
+          proxHasta:  proxHasta.toISOString().slice(0,10),
+          seleccionado: true,
+        });
+      }
+    });
+
+  _pagosDetectados = ventasConPosiblePago;
+
+  const panel = document.getElementById('panelPagosDetectados');
+  const lista  = document.getElementById('listaPagosDetectados');
+  const sub    = document.getElementById('panelPagosSubtitulo');
+
+  if (!ventasConPosiblePago.length) {
+    showToast('ℹ️ Todos tus clientes en mora aparecen en el reporte — ningún pago detectado');
+    if (panel) panel.style.display = 'none';
+    return;
+  }
+
+  const fmt = n => '$' + Math.round(n).toLocaleString('es-CO');
+  const fmtD = str => str ? new Date(str+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+
+  if (sub) sub.textContent = `${ventasConPosiblePago.length} cliente${ventasConPosiblePago.length>1?'s':''} en mora en la app pero ausente${ventasConPosiblePago.length>1?'s':''} del reporte SURA — posibles pagos recientes.`;
+
+  lista.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-muted);">
+        <input type="checkbox" id="chkSelectAll" checked onchange="toggleSeleccionTodos(this.checked)" style="width:14px;height:14px;">
+        Seleccionar todos
+      </label>
+      <span style="font-size:11px;color:var(--text-dim);margin-left:auto;">Ajusta la fecha si la conoces exactamente</span>
+    </div>
+    ${ventasConPosiblePago.map((p, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);" id="pagoDetRow_${i}">
+        <input type="checkbox" id="chkPago_${i}" checked onchange="_pagosDetectados[${i}].seleccionado=this.checked;actualizarContadorPagos()"
+          style="width:14px;height:14px;cursor:pointer;flex-shrink:0;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.nombre}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${p.producto} · ${p.plan} · ${p.periodicidad} · ${fmt(p.prima)}/período</div>
+          <div style="font-size:11px;color:var(--amber);">${p.estadoActual} · ${p.diasMora} días</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+          <label style="font-size:10px;color:var(--text-dim);">Fecha pago</label>
+          <input type="date" value="${p.fechaPago}" onchange="_pagosDetectados[${i}].fechaPago=this.value;_recalcProxHasta(${i})"
+            style="font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);width:130px;">
+        </div>
+        <div style="font-size:11px;color:var(--green);text-align:right;flex-shrink:0;min-width:90px;">
+          Cubre hasta<br><strong>${fmtD(p.proxHasta)}</strong>
+        </div>
+      </div>
+    `).join('')}
+  `;
+
+  panel.style.display = '';
+  // Scroll al panel
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _recalcProxHasta(i) {
+  const p = _pagosDetectados[i];
+  if (!p) return;
+  const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+  const intervalo = meses[p.periodicidad] || 1;
+  const desde = new Date((p.fechaPago || new Date().toISOString().slice(0,10)) + 'T12:00:00');
+  const hasta = new Date(desde);
+  hasta.setMonth(hasta.getMonth() + intervalo);
+  p.proxHasta = hasta.toISOString().slice(0,10);
+  // Actualizar texto en la fila
+  const row = document.getElementById(`pagoDetRow_${i}`);
+  if (row) {
+    const span = row.querySelector('strong');
+    if (span) span.textContent = hasta.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});
+  }
+}
+
+function toggleSeleccionTodos(checked) {
+  _pagosDetectados.forEach((p, i) => {
+    p.seleccionado = checked;
+    const chk = document.getElementById(`chkPago_${i}`);
+    if (chk) chk.checked = checked;
+  });
+  actualizarContadorPagos();
+}
+
+function actualizarContadorPagos() {
+  const sel = _pagosDetectados.filter(p => p.seleccionado).length;
+  const btn = document.querySelector('#panelPagosDetectados .btn-primary');
+  if (btn) btn.textContent = sel > 0 ? `✅ Registrar ${sel} pago${sel>1?'s':''}` : '✅ Registrar todos';
+}
+
+function confirmarPagosMasivos() {
+  const seleccionados = _pagosDetectados.filter(p => p.seleccionado);
+  if (!seleccionados.length) { showToast('⚠️ No hay pagos seleccionados'); return; }
+
+  const fmt = n => '$' + Math.round(n).toLocaleString('es-CO');
+  const totalPrimas = seleccionados.reduce((s, p) => s + p.prima, 0);
+
+  if (!confirm(
+    `¿Registrar ${seleccionados.length} pago${seleccionados.length>1?'s':''}?\n\n` +
+    seleccionados.map(p => `• ${p.nombre} (${p.producto}) — ${fmt(p.prima)}`).join('\n') +
+    `\n\nTotal comisiones estimadas: ${fmt(seleccionados.reduce((s,p) => {
+      const COM = {SPTI:0.07,SPD:0.08,PSM:0.12,PAC60:0.05};
+      return s + Math.round(p.prima * (COM[p.producto]||0.07));
+    }, 0))}`
+  )) return;
+
+  const pagos = getPagos();
+  let registrados = 0;
+
+  seleccionados.forEach(p => {
+    const s = getState();
+    const venta = s.ventas.find(v => v.id === p.ventaId);
+    if (!venta) return;
+
+    // Usar registrarPago con fecha personalizada
+    const pago = registrarPago(p.ventaId, p.fechaPago);
+    if (pago) registrados++;
+  });
+
+  // Ocultar panel y actualizar cartera
+  document.getElementById('panelPagosDetectados').style.display = 'none';
+  _pagosDetectados = [];
+  renderCartera();
+
+  showToast(`✅ ${registrados} pago${registrados>1?'s':''} registrado${registrados>1?'s':''} correctamente`);
+}
+
 function limpiarCarteraSura() {
   if (!confirm('¿Limpiar los datos de cartera SURA importados?')) return;
   _carteraSuraData = [];
@@ -12431,6 +12803,11 @@ function limpiarCarteraSura() {
   document.getElementById('carteraSuraTabla').innerHTML         = '';
   document.getElementById('carteraSuraCount').textContent       = '';
   document.getElementById('btnLimpiarCarteraSura').style.display = 'none';
+  document.getElementById('panelPagosDetectados').style.display  = 'none';
+  const btnDet = document.getElementById('btnDetectarPagos');
+  if (btnDet) btnDet.style.display = 'none';
+  const btnSync = document.getElementById('btnSincronizarSura');
+  if (btnSync) btnSync.style.display = 'none';
   showToast('Cartera SURA limpiada');
 }
 
@@ -17509,6 +17886,389 @@ renderResumenDia = function() {
 };
 
 
+// =============================================
+// BD CONTACTOS — DIRECTORIO DE CLIENTES SURA
+// =============================================
+
+function getContactos() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.contactos || [];
+  try { return JSON.parse(localStorage.getItem('sura_contactos_v1') || '[]'); } catch { return []; }
+}
+function setContactos(arr) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.contactos = arr;
+  if (window.FB) window.FB.set('contactos', arr);
+  try { localStorage.setItem('sura_contactos_v1', JSON.stringify(arr)); } catch(e) {}
+}
+
+// Buscar teléfono en BD contactos por cédula o nombre (fuente prioritaria)
+function buscarTelefonoEnBD(cedula, nombre) {
+  const contactos = getContactos();
+  if (!contactos.length) return null;
+  // Buscar por cédula exacta primero
+  if (cedula) {
+    const porCed = contactos.find(c => String(c.cedula||'').replace(/\D/g,'') === String(cedula).replace(/\D/g,''));
+    if (porCed && porCed.celular) return String(porCed.celular).replace(/\D/g,'');
+  }
+  // Fallback: primer apellido + primer nombre
+  if (nombre) {
+    const primerPalabra = nombre.toLowerCase().split(' ')[0];
+    const porNombre = contactos.find(c => (c.nombre||'').toLowerCase().includes(primerPalabra));
+    if (porNombre && porNombre.celular) return String(porNombre.celular).replace(/\D/g,'');
+  }
+  return null;
+}
+
+async function importarContactosSura(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined') {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb   = XLSX.read(e.target.result, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      if (rows.length < 2) { showToast('El archivo no tiene datos'); return; }
+
+      const headers = rows[0].map(h => String(h).toLowerCase().trim());
+      const col = (...keys) => { for (const k of keys) { const i = headers.findIndex(h => h.includes(k)); if (i >= 0) return i; } return -1; };
+
+      const cTipoDoc   = col('tipo doc','tipo_doc');
+      const cCedula    = col('número doc','numero doc','identificacion','cedula','documento');
+      const cNombre    = col('nombre');
+      const cCorreo    = col('correo','email','mail');
+      const cDireccion = col('dirección','direccion');
+      const cCiudad    = col('ciudad');
+      const cTelFijo   = col('teléfono fijo','telefono fijo','fijo');
+      const cCelular   = col('teléfono celular','celular','movil','móvil','cel');
+      const cFechaNac  = col('fecha nac','nacimiento');
+      const cVinc      = col('vinculación','vinculacion','tipo vinc');
+
+      const contactos = rows.slice(1)
+        .filter(r => r.some(c => c !== ''))
+        .map(row => ({
+          tipoDoc:   String(row[cTipoDoc]   || '').trim(),
+          cedula:    String(row[cCedula]    || '').trim().replace(/\D/g,''),
+          nombre:    String(row[cNombre]    || '').trim(),
+          correo:    String(row[cCorreo]    || '').trim().toLowerCase(),
+          direccion: String(row[cDireccion] || '').trim(),
+          ciudad:    String(row[cCiudad]    || '').trim(),
+          telFijo:   String(row[cTelFijo]   || '').trim().replace(/\D/g,''),
+          celular:   String(row[cCelular]   || '').trim().replace(/\D/g,''),
+          fechaNac:  String(row[cFechaNac]  || '').trim(),
+          vinculacion: String(row[cVinc]    || '').trim(),
+        }))
+        .filter(c => c.nombre); // solo filas con nombre
+
+      setContactos(contactos);
+      showToast(`✅ ${contactos.length} contactos importados y guardados`);
+      renderContactos();
+    } catch(err) {
+      showToast('Error al leer el archivo: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderContactos() {
+  const contactos = getContactos();
+  const isEmpty   = !contactos.length;
+
+  // Mostrar/ocultar secciones
+  const ids = ['contactosKpis','contactosBuscadorWrap','contactosTablaWrap'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isEmpty ? 'none' : '';
+  });
+  const emptyEl = document.getElementById('contactosEmpty');
+  if (emptyEl) emptyEl.style.display = isEmpty ? '' : 'none';
+  const btnLimpiar = document.getElementById('btnLimpiarContactos');
+  if (btnLimpiar) btnLimpiar.style.display = isEmpty ? 'none' : '';
+
+  if (isEmpty) return;
+
+  // KPIs
+  const conCel    = contactos.filter(c => c.celular).length;
+  const conCorreo = contactos.filter(c => c.correo).length;
+  // Cruzar con ventas de voluntarios
+  const s = getState();
+  const ventasCeds = new Set(
+    (s.ventas||[]).filter(v => ['SPTI','SPD','PSM','PAC60'].includes(v.producto))
+      .map(v => String(v.doc||v.tomadorDoc||'').replace(/\D/g,''))
+      .filter(Boolean)
+  );
+  const cruzados = contactos.filter(c => c.cedula && ventasCeds.has(c.cedula)).length;
+
+  document.getElementById('kpiContactosTotal').textContent   = contactos.length;
+  document.getElementById('kpiContactosCel').textContent     = conCel;
+  document.getElementById('kpiContactosCorreo').textContent  = conCorreo;
+  document.getElementById('kpiContactosCruzados').textContent = cruzados;
+
+  renderTablaContactos();
+}
+
+function renderTablaContactos() {
+  const contactos = getContactos();
+  const buscar    = (document.getElementById('contactosBuscar')?.value || '').toLowerCase();
+  const filtrados = buscar
+    ? contactos.filter(c =>
+        (c.nombre||'').toLowerCase().includes(buscar) ||
+        (c.cedula||'').includes(buscar) ||
+        (c.celular||'').includes(buscar) ||
+        (c.correo||'').toLowerCase().includes(buscar)
+      )
+    : contactos;
+
+  const tbody = document.getElementById('contactosTablaBody');
+  if (!tbody) return;
+
+  if (!filtrados.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-dim);">Sin resultados</td></tr>`;
+    document.getElementById('contactosCount').textContent = '';
+    return;
+  }
+
+  tbody.innerHTML = filtrados.map((c, i) => {
+    const rowBg = i % 2 === 0 ? '' : 'rgba(255,255,255,0.015)';
+    const celFmt = c.celular ? `<a href="tel:${c.celular}" style="color:var(--sura-blue);font-family:var(--mono);">${c.celular}</a>` : '—';
+    const waLink = c.celular
+      ? `<a href="https://wa.me/57${c.celular}" target="_blank" style="font-size:10px;padding:2px 6px;background:rgba(37,211,102,0.12);color:#25d366;border-radius:4px;text-decoration:none;margin-left:4px;">WA</a>`
+      : '';
+    return `<tr style="background:${rowBg};border-top:1px solid var(--border);">
+      <td style="padding:9px 12px;font-weight:500;">${tc(c.nombre)}</td>
+      <td style="padding:9px 12px;font-family:var(--mono);font-size:12px;">${c.cedula||'—'}</td>
+      <td style="padding:9px 12px;">${celFmt}${waLink}</td>
+      <td style="padding:9px 12px;font-size:12px;color:var(--text-muted);">${c.correo||'—'}</td>
+      <td style="padding:9px 12px;font-size:12px;color:var(--text-muted);">${c.ciudad||'—'}</td>
+      <td style="padding:9px 12px;font-size:11px;"><span class="chip chip-blue" style="font-size:10px;">${c.vinculacion||'—'}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('contactosCount').textContent =
+    `${filtrados.length} de ${contactos.length} contactos`;
+}
+
+function limpiarContactos() {
+  if (!confirm('¿Eliminar todos los contactos de la BD?\nEsta acción no se puede deshacer.')) return;
+  setContactos([]);
+  renderContactos();
+  showToast('🗑 BD de contactos limpiada');
+}
+
+// =============================================
+// MI ECOSISTEMA — ACCESOS RÁPIDOS
+// =============================================
+
+function renderAccesos() {
+  // Cargar URL guardada de Gestión Comercial
+  const urlGuardada = localStorage.getItem('sura_url_gestion_comercial') || '';
+  const inp = document.getElementById('urlGestionComercial');
+  if (inp && urlGuardada) inp.value = urlGuardada;
+
+  // Renderizar accesos personalizados guardados
+  renderAccesosPersonalizados();
+}
+
+function guardarUrlGestionComercial() {
+  const url = document.getElementById('urlGestionComercial')?.value || '';
+  try { localStorage.setItem('sura_url_gestion_comercial', url); } catch(e) {}
+}
+
+function abrirGestionComercial() {
+  const url = (document.getElementById('urlGestionComercial')?.value ||
+               localStorage.getItem('sura_url_gestion_comercial') || '').trim();
+  if (!url) {
+    showToast('⚠️ Pega la URL de Gestión Comercial en el campo para guardarla');
+    return;
+  }
+  const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+  window.open(fullUrl, '_blank');
+}
+
+function agregarAccesoPersonalizado() {
+  const nombre = prompt('Nombre del acceso (ej: "Reportes SURA"):');
+  if (!nombre) return;
+  const url = prompt('URL completa (ej: https://...):');
+  if (!url) return;
+  const emoji = prompt('Emoji o ícono (ej: 📊):') || '🔗';
+
+  let accesos = [];
+  try { accesos = JSON.parse(localStorage.getItem('sura_accesos_custom') || '[]'); } catch(e) {}
+  accesos.push({ nombre: nombre.trim(), url: url.trim(), emoji });
+  try { localStorage.setItem('sura_accesos_custom', JSON.stringify(accesos)); } catch(e) {}
+  renderAccesosPersonalizados();
+  showToast(`✅ Acceso "${nombre}" agregado`);
+}
+
+function renderAccesosPersonalizados() {
+  const cont = document.getElementById('accesosPersonalizados');
+  if (!cont) return;
+  let accesos = [];
+  try { accesos = JSON.parse(localStorage.getItem('sura_accesos_custom') || '[]'); } catch(e) {}
+  if (!accesos.length) { cont.innerHTML = ''; return; }
+
+  cont.innerHTML = accesos.map((a, i) => `
+    <a href="${a.url.startsWith('http') ? a.url : 'https://'+a.url}" target="_blank" style="text-decoration:none;position:relative;">
+      <div class="card" style="border-left:4px solid var(--purple);cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;">
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(168,85,247,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">${a.emoji}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:var(--text);">${a.nombre}</div>
+            <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.url}</div>
+          </div>
+          <button onclick="event.preventDefault();event.stopPropagation();eliminarAccesoPersonalizado(${i})"
+            style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;flex-shrink:0;">🗑</button>
+        </div>
+      </div>
+    </a>
+  `).join('');
+}
+
+function eliminarAccesoPersonalizado(idx) {
+  let accesos = [];
+  try { accesos = JSON.parse(localStorage.getItem('sura_accesos_custom') || '[]'); } catch(e) {}
+  accesos.splice(idx, 1);
+  try { localStorage.setItem('sura_accesos_custom', JSON.stringify(accesos)); } catch(e) {}
+  renderAccesosPersonalizados();
+  showToast('🗑 Acceso eliminado');
+}
+
+// =============================================
+// INDICADOR CANCELACIONES PREMATURAS
+// =============================================
+// Una cancelación es PREMATURA si ocurre dentro del primer año de vigencia
+// (fecha cancelación - fecha expedición < 365 días)
+
+function calcularIndicadorCancelaciones() {
+  const s = getState();
+  const canceladas = (s.ventas || []).filter(v =>
+    ['SPTI','SPD','PSM','PAC60'].includes(v.producto) &&
+    v.tipo === 'CANCELACION' && v.fechaCancelacion && v.fechaExp
+  );
+
+  const hoy = new Date();
+  const resultados = canceladas.map(v => {
+    const fechaExp  = new Date(v.fechaExp + 'T12:00:00');
+    const fechaCanc = new Date(v.fechaCancelacion + 'T12:00:00');
+    const diasVigencia = Math.floor((fechaCanc - fechaExp) / 86400000);
+    const esPrematura  = diasVigencia < 365;
+    const anioVigencia = fechaExp.getFullYear();
+
+    return {
+      id: v.id,
+      nombre: v.tomadorNombre || v.nombre || '—',
+      producto: v.producto,
+      plan: v.plan || '',
+      fechaExp: v.fechaExp,
+      fechaCanc: v.fechaCancelacion,
+      diasVigencia,
+      esPrematura,
+      anioVigencia,
+      motivoCancelacion: v.motivoCancelacion || 'Sin registrar',
+    };
+  });
+
+  return resultados;
+}
+
+function renderDashboardCancelaciones() {
+  const cont = document.getElementById('ctCancelacionesAnalisis');
+  if (!cont) return;
+  const s = getState();
+  const canceladas = s.ventas.filter(v =>
+    ['SPTI','SPD','PSM','PAC60'].includes(v.producto) &&
+    v.tipo === 'CANCELACION' && v.motivoCancelacion
+  );
+  if (!canceladas.length) {
+    cont.innerHTML = '<div style="color:var(--text-dim);font-size:12.5px;text-align:center;padding:16px;">Sin cancelaciones con razón registrada aún.</div>';
+    return;
+  }
+  const conteo = {};
+  canceladas.forEach(v => { conteo[v.motivoCancelacion] = (conteo[v.motivoCancelacion]||0) + 1; });
+  const sorted = Object.entries(conteo).sort((a,b) => b[1]-a[1]);
+  const total  = canceladas.length;
+  const colors = ['var(--red)','var(--amber)','var(--purple)','var(--teal)','var(--sura-blue)','var(--green)','var(--text-muted)'];
+
+  // Indicador de prematuras
+  const indicador = calcularIndicadorCancelaciones();
+  const prematuras = indicador.filter(r => r.esPrematura);
+  const pctPrematura = total > 0 ? Math.round(prematuras.length / total * 100) : 0;
+  const colorIndicador = pctPrematura === 0 ? 'var(--green)' : pctPrematura <= 20 ? 'var(--amber)' : 'var(--red)';
+
+  cont.innerHTML = `
+    <!-- Indicador SURA de cancelaciones prematuras -->
+    <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;border-left:3px solid ${colorIndicador};">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+        <div style="font-size:12px;font-weight:700;color:${colorIndicador};">📊 Indicador SURA — Cancelaciones prematuras (dentro del año de vigencia)</div>
+        <span style="font-size:18px;font-weight:800;color:${colorIndicador};">${prematuras.length} / ${total}</span>
+      </div>
+      <div style="height:6px;background:var(--surface3);border-radius:3px;margin-bottom:8px;overflow:hidden;">
+        <div style="width:${pctPrematura}%;height:100%;background:${colorIndicador};border-radius:3px;transition:width .5s;"></div>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-muted);">
+        ${prematuras.length === 0
+          ? '✅ Sin cancelaciones prematuras — tu indicador está limpio'
+          : `⚠️ ${prematuras.length} cancelación${prematuras.length>1?'es prematuras':' prematura'} (${pctPrematura}%) — estas afectan tu indicador SURA`}
+      </div>
+      ${prematuras.length > 0 ? `
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;">
+          ${prematuras.map(r => `
+            <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-top:1px solid var(--border);">
+              <span style="color:var(--text);">${r.nombre} · ${r.producto}</span>
+              <span style="color:var(--text-muted);">${r.diasVigencia} días de vigencia · ${r.motivoCancelacion}</span>
+            </div>
+          `).join('')}
+        </div>` : ''}
+    </div>
+
+    <!-- Razones de cancelación -->
+    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Razones de cancelación</div>
+    ${sorted.map(([razon, n], i) => {
+      const pct = Math.round(n/total*100);
+      return `<div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:12.5px;font-weight:500;">${razon}</span>
+          <span style="font-size:12px;font-weight:700;color:${colors[i%colors.length]};">${n} (${pct}%)</span>
+        </div>
+        <div style="height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:${colors[i%colors.length]};border-radius:3px;transition:width .5s;"></div>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// =============================================
+// INTEGRACIÓN BD CONTACTOS EN CARTERA SURA
+// La función importarCarteraSura ya usa matchVenta para el teléfono.
+// Aquí actualizamos la prioridad: BD Contactos > App > Reporte SURA
+// Esta función se llama desde importarCarteraSura al resolver el teléfono
+// =============================================
+function resolverTelefonoContacto(cedula, nombre, matchVenta, telSura) {
+  // 1. BD Contactos (más confiable — número validado por SURA)
+  const telBD = buscarTelefonoEnBD(cedula, nombre);
+  if (telBD) return telBD;
+  // 2. Venta registrada en la app
+  if (matchVenta) {
+    const telApp = matchVenta.telefono || matchVenta.tomadorTel || '';
+    if (telApp) return String(telApp).replace(/\D/g,'');
+  }
+  // 3. Reporte SURA (menos confiable)
+  return (telSura || '').replace(/\D/g,'');
+}
+
+
 if (window.__FB_READY__) {
   bootApp();
 } else {
@@ -17518,7 +18278,7 @@ if (window.__FB_READY__) {
       console.warn('Firebase timeout (8s) — arrancando sin datos de Firebase');
       // NO nullificar __FB_CACHE__ si ya fue inicializado parcialmente
       // Dejar que la app arranque con estado vacio antes que con datos obsoletos de localStorage
-      if (!window.__FB_CACHE__) window.__FB_CACHE__ = { estado: {}, pagos: {}, pipeline: [], actividades: [], cierres: {}, configAnios: {}, productosExtra: [], empresas: [], cotizaciones: [], syncConfig: {}, plantillas: {}, bdSiniestralidad: { trimestres: [], registros: [] } };
+      if (!window.__FB_CACHE__) window.__FB_CACHE__ = { estado: {}, pagos: {}, pipeline: [], actividades: [], cierres: {}, configAnios: {}, productosExtra: [], empresas: [], cotizaciones: [], syncConfig: {}, plantillas: {}, bdSiniestralidad: { trimestres: [], registros: [] }, contactos: [] };
       const splash = document.getElementById('fb-splash');
       if (splash) splash.style.display = 'none';
       bootApp();
