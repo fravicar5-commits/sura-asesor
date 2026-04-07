@@ -1022,6 +1022,9 @@
       <button class="nav-item" onclick="navigate('importar')" data-label="Importar Excel">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span> Importar Excel
       </button>
+      <button class="nav-item" onclick="navigate('segsocial')" data-label="Liquidador Seg. Social">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span> Liquidador Seg. Social
+      </button>
       <button class="nav-item" onclick="navigate('agente')" data-label="Asistente Clausulados">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><circle cx="9" cy="14" r="1.5"/><circle cx="15" cy="14" r="1.5"/><path d="M9 17.5h6"/></svg></span> Asistente Planes
       </button>
@@ -4226,6 +4229,221 @@
       </div>
       <!-- ===== FIN MI ECOSISTEMA ===== -->
 
+      <!-- ===== LIQUIDADOR SEGURIDAD SOCIAL ===== -->
+      <div class="page" id="page-segsocial">
+        <div style="margin-bottom:20px;">
+          <div class="section-title" style="margin-bottom:4px;">💼 Liquidador Seguridad Social</div>
+          <div style="font-size:12px;color:var(--text-muted);">Calcula aportes a salud, pensión, ARL y parafiscales · Valores 2026 (Decretos 1469 y 1470 del 29/dic/2025)</div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-pills" style="margin-bottom:24px;">
+          <button class="tab-pill active" onclick="ssTab('empleado',this)" id="ssTabBtnEmpleado">👔 Empleado Dependiente</button>
+          <button class="tab-pill" onclick="ssTab('independiente',this)" id="ssTabBtnIndep">💼 Trabajador Independiente</button>
+          <button class="tab-pill" onclick="ssTab('tarifas',this)" id="ssTabBtnTarifas">⚙️ Actualizar Tarifas</button>
+        </div>
+
+        <!-- ── TAB EMPLEADO ── -->
+        <div id="ssTabEmpleado">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <!-- Columna izquierda: inputs -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="card">
+                <div class="card-title">Datos del empleado</div>
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Tipo de salario</label>
+                    <select class="form-control" id="ssTipoSalario" onchange="ssCalcularEmpleado()">
+                      <option value="ordinario">Salario ordinario</option>
+                      <option value="integral">Salario integral (cotiza sobre 70%)</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Salario mensual ($)</label>
+                    <input type="number" class="form-control" id="ssSalario" placeholder="Ej: 3500000" oninput="ssCalcularEmpleado()" min="0">
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Días trabajados (1–30)</label>
+                    <input type="number" class="form-control" id="ssDias" value="30" min="1" max="30" oninput="ssCalcularEmpleado()">
+                  </div>
+
+                  <div style="border-top:1px solid var(--border);padding-top:14px;">
+                    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">ARL – Nivel de Riesgo</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;" id="ssArlChecks">
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArl" value="0.522" onchange="ssCalcularEmpleado()" checked> Riesgo I — 0.522%</span>
+                        <span id="ssArlVal1" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArl" value="1.044" onchange="ssCalcularEmpleado()"> Riesgo II — 1.044%</span>
+                        <span id="ssArlVal2" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArl" value="2.436" onchange="ssCalcularEmpleado()"> Riesgo III — 2.436%</span>
+                        <span id="ssArlVal3" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArl" value="4.350" onchange="ssCalcularEmpleado()"> Riesgo IV — 4.350%</span>
+                        <span id="ssArlVal4" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArl" value="6.960" onchange="ssCalcularEmpleado()"> Riesgo V — 6.960%</span>
+                        <span id="ssArlVal5" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style="border-top:1px solid var(--border);padding-top:14px;">
+                    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Caja de Compensación Familiar (CCF)</div>
+                    <div style="display:flex;gap:12px;">
+                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                        <input type="radio" name="ssCCF" value="0" onchange="ssCalcularEmpleado()" checked> Sin CCF (0%)
+                      </label>
+                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                        <input type="radio" name="ssCCF" value="4" onchange="ssCalcularEmpleado()"> Con CCF (4%)
+                      </label>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12.5px;">
+                      <span style="color:var(--text-muted);">Valor CCF empresa:</span>
+                      <span id="ssCCFval" style="font-family:var(--mono);color:var(--text);">$0</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Columna derecha: resultados -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="card" style="border-left:3px solid var(--sura-blue);">
+                <div class="card-title">📊 Resumen Liquidación</div>
+                <div id="ssResumenEmpleado" style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0;">Ingresa el salario para calcular</div>
+              </div>
+              <div class="card" style="border-left:3px solid var(--green);">
+                <div class="card-title">💰 Totales</div>
+                <div style="display:flex;flex-direction:column;gap:10px;" id="ssTotalesEmpleado">
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--surface2);border-radius:8px;">
+                    <span style="font-size:13px;color:var(--text-muted);">Neto empleado</span>
+                    <span id="ssNetoEmpleado" style="font-size:20px;font-weight:800;font-family:var(--mono);color:var(--green);">$0</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--surface2);border-radius:8px;">
+                    <span style="font-size:13px;color:var(--text-muted);">Costo total empresa</span>
+                    <span id="ssCostoEmpresa" style="font-size:20px;font-weight:800;font-family:var(--mono);color:var(--amber);">$0</span>
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="ssGenerarPDFEmpleado()" style="width:100%;">📄 Generar PDF imprimible</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB INDEPENDIENTE ── -->
+        <div id="ssTabIndependiente" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="card">
+                <div class="card-title">Datos del trabajador independiente</div>
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Ingreso bruto mensual ($)</label>
+                    <input type="number" class="form-control" id="ssIngIndep" placeholder="Ej: 5000000" oninput="ssCalcularIndep()" min="0">
+                  </div>
+                  <div id="ssIndepBaseIndicador" style="display:none;padding:12px;border-radius:8px;font-size:12.5px;"></div>
+                  <div style="border-top:1px solid var(--border);padding-top:14px;">
+                    <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">ARL – Nivel de Riesgo (opcional)</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArlIndep" value="0" onchange="ssCalcularIndep()" checked> Sin ARL</span>
+                        <span style="font-size:11px;color:var(--text-dim);">—</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArlIndep" value="0.522" onchange="ssCalcularIndep()"> Riesgo I — 0.522%</span>
+                        <span id="ssArlIndepVal1" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArlIndep" value="1.044" onchange="ssCalcularIndep()"> Riesgo II — 1.044%</span>
+                        <span id="ssArlIndepVal2" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArlIndep" value="2.436" onchange="ssCalcularIndep()"> Riesgo III — 2.436%</span>
+                        <span id="ssArlIndepVal3" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArlIndep" value="4.350" onchange="ssCalcularIndep()"> Riesgo IV — 4.350%</span>
+                        <span id="ssArlIndepVal4" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;font-size:13px;">
+                        <span><input type="radio" name="ssArlIndep" value="6.960" onchange="ssCalcularIndep()"> Riesgo V — 6.960%</span>
+                        <span id="ssArlIndepVal5" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">$0</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="card" style="border-left:3px solid var(--purple);">
+                <div class="card-title">📊 Cálculo paso a paso</div>
+                <div id="ssResumenIndep" style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0;">Ingresa el ingreso bruto para calcular</div>
+              </div>
+              <div class="card" style="border-left:3px solid var(--green);">
+                <div class="card-title">💰 Total aportes a pagar</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--surface2);border-radius:8px;">
+                  <span style="font-size:13px;color:var(--text-muted);">Total seguridad social</span>
+                  <span id="ssTotalIndep" style="font-size:20px;font-weight:800;font-family:var(--mono);color:var(--purple);">$0</span>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="ssGenerarPDFIndep()" style="width:100%;background:var(--purple);border-color:var(--purple);">📄 Generar PDF imprimible</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB TARIFAS ── -->
+        <div id="ssTabTarifas" style="display:none;">
+          <div style="max-width:560px;">
+            <div class="card">
+              <div class="card-title">⚙️ Actualizar valores legales anuales</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Estos valores se guardan en tu navegador. Los porcentajes legales (salud, pensión, ARL, parafiscales) son fijos por ley y no se pueden cambiar.</div>
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">SMMLV – Salario Mínimo Mensual Legal Vigente ($)</label>
+                  <input type="number" class="form-control" id="ssTarifaSMMLV" placeholder="1750905">
+                  <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Decreto 1469 del 29/dic/2025 → <strong style="color:var(--green);">$1.750.905</strong></div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Auxilio de Transporte ($)</label>
+                  <input type="number" class="form-control" id="ssTarifaTransporte" placeholder="249095">
+                  <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Decreto 1470 del 29/dic/2025 → <strong style="color:var(--green);">$249.095</strong></div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">UVT – Unidad de Valor Tributario ($)</label>
+                  <input type="number" class="form-control" id="ssTarifaUVT" placeholder="52374">
+                  <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Resolución DIAN 000238 del 15/dic/2025 → <strong style="color:var(--green);">$52.374</strong></div>
+                </div>
+                <div style="background:var(--surface2);border-radius:8px;padding:14px;">
+                  <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Porcentajes fijos por ley (no modificables)</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12.5px;">
+                    <div>🏥 Salud empleado: <strong>4%</strong></div>
+                    <div>🏥 Salud empresa: <strong>8.5%</strong></div>
+                    <div>🏛 Pensión empleado: <strong>4%</strong></div>
+                    <div>🏛 Pensión empresa: <strong>12%</strong></div>
+                    <div>📚 SENA: <strong>2%</strong></div>
+                    <div>👶 ICBF: <strong>3%</strong></div>
+                    <div>🏥 Salud independiente: <strong>12.5%</strong></div>
+                    <div>🏛 Pensión independiente: <strong>16%</strong></div>
+                    <div>💰 FSP (>4 SMMLV): <strong>1%–2%</strong></div>
+                    <div>💰 FSP indep (>4 SMMLV): <strong>1%–2%</strong></div>
+                  </div>
+                </div>
+                <button class="btn btn-primary" onclick="ssGuardarTarifas()" style="width:100%;">💾 Guardar valores</button>
+                <button class="btn btn-secondary" onclick="ssRestaurarTarifas()" style="width:100%;">↩️ Restaurar valores 2026</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <!-- ===== FIN LIQUIDADOR SEGURIDAD SOCIAL ===== -->
+
     </div><!-- content -->
   </main>
 </div>
@@ -5934,6 +6152,9 @@ const pageTitles = {
   sync:   ['🔄 Sincronización', 'Exportar · importar · GitHub · multi-dispositivo'],
   herramientas: ['🛠️ Herramientas', 'Proyección de comisiones · Alertas siniestralidad · Mensajes WhatsApp'],
   agente: ['🤖 Asistente de Planes', 'Consulta los clausulados de SPTI · SPD · PSM · 60+'],
+  segsocial: ['💼 Liquidador Seguridad Social', 'Empleados · Independientes · Aportes 2026'],
+  contactos: ['BD Contactos', 'Base de datos de contactos y clientes'],
+  accesos: ['🌐 Mi Ecosistema', 'Accesos rápidos a portales y herramientas'],
 };
 
 function toggleSidebar() {
@@ -6178,6 +6399,7 @@ function refreshPage(page) {
   else if (page === 'herramientas') renderHerramientas();
   else if (page === 'contactos') renderContactos();
   else if (page === 'accesos') renderAccesos();
+  else if (page === 'segsocial') ssInitPage();
   else if (page === 'actividad') renderActividad();
   else if (page === 'plantillas') renderPlantillas();
   else if (page === 'plantilla-pbs') renderPlantillaPBS();
@@ -9708,7 +9930,7 @@ function getCarteraEstado(v, pagos) {
     }
     if (diasEfectivos >= 35) return { estado:'SUSPENDIDO', dias:diasEfectivos, color:'var(--red)',   label:'🔴 Suspendido',  proxVenc, prevVenc };
     if (diasEfectivos >= 31) return { estado:'MORA',       dias:diasEfectivos, color:'var(--amber)', label:'🟡 En mora',      proxVenc, prevVenc };
-    if (diasEfectivos >  0)  return { estado:'PROXIMO',    dias:diasEfectivos, color:'var(--teal)',  label:`🔵 Vence en ${diasEfectivos}d`, proxVenc, prevVenc };
+    if (diasEfectivos >  0)  return { estado:'VENCIDO',    dias:diasEfectivos, color:'var(--amber)', label:`🟡 Vencido hace ${diasEfectivos}d`, proxVenc, prevVenc };
     return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc, prevVenc };
   }
 
@@ -9736,6 +9958,7 @@ function getCarteraEstado(v, pagos) {
   }
   if (diasVencido >= 35) return { estado:'SUSPENDIDO', dias:diasVencido, color:'var(--red)',   label:'🔴 Suspendido',   proxVenc, prevVenc };
   if (diasVencido >= 31) return { estado:'MORA',       dias:diasVencido, color:'var(--amber)', label:'🟡 En mora',       proxVenc, prevVenc };
+  if (diasVencido >  0)  return { estado:'VENCIDO',    dias:diasVencido, color:'var(--amber)', label:`🟡 Vencido hace ${diasVencido}d`, proxVenc, prevVenc };
   if (diffDias >= 0 && diffDias <= 3) return { estado:'PROXIMO', dias:diffDias, color:'var(--teal)', label:`🔵 Vence en ${diffDias}d`, proxVenc, prevVenc };
   return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc, prevVenc };
 }
@@ -18268,6 +18491,367 @@ function resolverTelefonoContacto(cedula, nombre, matchVenta, telSura) {
   return (telSura || '').replace(/\D/g,'');
 }
 
+
+// =============================================
+// LIQUIDADOR SEGURIDAD SOCIAL 2026
+// Decretos 1469 y 1470 del 29/dic/2025
+// DIAN Resolución 000238 del 15/dic/2025
+// =============================================
+const SS_DEFAULTS_2026 = { smmlv: 1750905, transporte: 249095, uvt: 52374 };
+
+function ssGetTarifas() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('sura_ss_tarifas') || 'null');
+    return saved || { ...SS_DEFAULTS_2026 };
+  } catch(e) { return { ...SS_DEFAULTS_2026 }; }
+}
+
+function ssGuardarTarifas() {
+  const smmlv = parseFloat(document.getElementById('ssTarifaSMMLV').value) || SS_DEFAULTS_2026.smmlv;
+  const transp = parseFloat(document.getElementById('ssTarifaTransporte').value) || SS_DEFAULTS_2026.transporte;
+  const uvt = parseFloat(document.getElementById('ssTarifaUVT').value) || SS_DEFAULTS_2026.uvt;
+  try { localStorage.setItem('sura_ss_tarifas', JSON.stringify({ smmlv, transporte: transp, uvt })); } catch(e) {}
+  showToast('✅ Tarifas guardadas correctamente');
+}
+
+function ssRestaurarTarifas() {
+  try { localStorage.removeItem('sura_ss_tarifas'); } catch(e) {}
+  document.getElementById('ssTarifaSMMLV').value = SS_DEFAULTS_2026.smmlv;
+  document.getElementById('ssTarifaTransporte').value = SS_DEFAULTS_2026.transporte;
+  document.getElementById('ssTarifaUVT').value = SS_DEFAULTS_2026.uvt;
+  showToast('↩️ Valores 2026 restaurados');
+}
+
+function ssInitPage() {
+  const t = ssGetTarifas();
+  document.getElementById('ssTarifaSMMLV').value = t.smmlv;
+  document.getElementById('ssTarifaTransporte').value = t.transporte;
+  document.getElementById('ssTarifaUVT').value = t.uvt;
+  ssCalcularEmpleado();
+  ssCalcularIndep();
+}
+
+function ssTab(tab, btn) {
+  ['ssTabEmpleado','ssTabIndependiente','ssTabTarifas'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.querySelectorAll('#page-segsocial .tab-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('ssTab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = '';
+}
+
+function ssFmt(n) { return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(Math.round(n)); }
+
+function ssRow(label, valor, color, sub) {
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+    <div>
+      <span style="font-size:13px;color:var(--text);">${label}</span>
+      ${sub ? `<div style="font-size:11px;color:var(--text-muted);">${sub}</div>` : ''}
+    </div>
+    <span style="font-family:var(--mono);font-size:13.5px;font-weight:700;color:${color || 'var(--text)'};">${ssFmt(valor)}</span>
+  </div>`;
+}
+
+function ssCalcularEmpleado() {
+  const t = ssGetTarifas();
+  const smmlv = t.smmlv;
+  const transporte = t.transporte;
+
+  const tipoSalario = document.getElementById('ssTipoSalario').value;
+  const salarioRaw = parseFloat(document.getElementById('ssSalario').value) || 0;
+  const dias = Math.max(1, Math.min(30, parseInt(document.getElementById('ssDias').value) || 30));
+  const factor = dias / 30;
+
+  if (salarioRaw <= 0) {
+    document.getElementById('ssResumenEmpleado').innerHTML = '<span style="color:var(--text-muted);font-size:13px;">Ingresa el salario para calcular</span>';
+    document.getElementById('ssNetoEmpleado').textContent = '$0';
+    document.getElementById('ssCostoEmpresa').textContent = '$0';
+    return;
+  }
+
+  // Base de cotización
+  let baseCot = tipoSalario === 'integral' ? salarioRaw * 0.70 : salarioRaw;
+  // Proporcional por días
+  const salarioProp = salarioRaw * factor;
+  const baseProp = baseCot * factor;
+
+  // Subsidio transporte: solo si salario ordinario <= 2 SMMLV y días < 30 aplica proporcional
+  const tieneTransporte = tipoSalario === 'ordinario' && salarioRaw <= smmlv * 2;
+  const subsidioTransp = tieneTransporte ? (transporte * factor) : 0;
+
+  // Fondo Solidaridad Pensional (FSP): aplica si IBL > 4 SMMLV
+  // 1% si entre 4-16 SMMLV; 1.2% si 16-17; 1.4% 17-18; 1.6% 18-19; 1.8% 19-20; 2% >= 20
+  function calcFSP(base) {
+    const mult = base / smmlv;
+    if (mult <= 4) return 0;
+    if (mult <= 16) return base * 0.01;
+    if (mult <= 17) return base * 0.012;
+    if (mult <= 18) return base * 0.014;
+    if (mult <= 19) return base * 0.016;
+    if (mult <= 20) return base * 0.018;
+    return base * 0.02;
+  }
+
+  // ARL
+  const arlPct = parseFloat(document.querySelector('input[name="ssArl"]:checked')?.value || 0.522) / 100;
+
+  // CCF
+  const ccfPct = parseFloat(document.querySelector('input[name="ssCCF"]:checked')?.value || 0) / 100;
+
+  // ── Aportes EMPLEADO ──
+  const saludEmp   = baseProp * 0.04;
+  const pensionEmp = baseProp * 0.04;
+  const fspEmp     = calcFSP(baseProp);
+  const totalDescuentosEmp = saludEmp + pensionEmp + fspEmp;
+
+  // ── Aportes EMPRESA ──
+  const saludEmpresa   = baseProp * 0.085;
+  const pensionEmpresa = baseProp * 0.12;
+  const arlEmpresa     = baseProp * arlPct;
+  const ccfEmpresa     = salarioProp * ccfPct;
+  const senaEmpresa    = salarioProp * 0.02;
+  const icbfEmpresa    = salarioProp * 0.03;
+
+  // ── Neto empleado ──
+  const neto = salarioProp + subsidioTransp - totalDescuentosEmp;
+
+  // ── Costo total empresa ──
+  const costoEmpresa = salarioProp + subsidioTransp + saludEmpresa + pensionEmpresa + arlEmpresa + ccfEmpresa + senaEmpresa + icbfEmpresa;
+
+  // Actualizar valores ARL en tiempo real
+  const arlBase = baseProp;
+  const arlRates = [0.00522, 0.01044, 0.02436, 0.04350, 0.06960];
+  arlRates.forEach((r, i) => {
+    const el = document.getElementById(`ssArlVal${i+1}`);
+    if (el) el.textContent = ssFmt(arlBase * r);
+  });
+
+  // CCF en tiempo real
+  const ccfEl = document.getElementById('ssCCFval');
+  if (ccfEl) ccfEl.textContent = ssFmt(salarioProp * ccfPct);
+
+  // Render resumen
+  let html = '';
+  html += `<div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;padding:6px 0 4px;">Base de cotización</div>`;
+  html += ssRow('Salario ' + (tipoSalario === 'integral' ? 'integral (70%)' : 'ordinario') + (dias < 30 ? ` · ${dias} días` : ''), salarioProp, 'var(--text)', tipoSalario === 'integral' ? `Base: ${ssFmt(baseProp)}` : null);
+  if (tieneTransporte) html += ssRow('Subsidio de transporte', subsidioTransp, 'var(--green)', dias < 30 ? 'Proporcional por días' : null);
+
+  html += `<div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;padding:10px 0 4px;">Descuentos empleado</div>`;
+  html += ssRow('Salud (4%)', saludEmp, 'var(--red)');
+  html += ssRow('Pensión (4%)', pensionEmp, 'var(--red)');
+  if (fspEmp > 0) html += ssRow('Fondo Solidaridad Pensional', fspEmp, 'var(--red)', `Salario > 4 SMMLV (${(baseProp/smmlv).toFixed(1)} SMMLV)`);
+
+  html += `<div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;padding:10px 0 4px;">Aportes empresa</div>`;
+  html += ssRow('Salud empresa (8.5%)', saludEmpresa, 'var(--amber)');
+  html += ssRow('Pensión empresa (12%)', pensionEmpresa, 'var(--amber)');
+  html += ssRow(`ARL (${(arlPct*100).toFixed(3)}%)`, arlEmpresa, 'var(--amber)');
+  if (ccfPct > 0) html += ssRow('CCF (4%)', ccfEmpresa, 'var(--amber)');
+  html += ssRow('SENA (2%)', senaEmpresa, 'var(--amber)');
+  html += ssRow('ICBF (3%)', icbfEmpresa, 'var(--amber)');
+
+  document.getElementById('ssResumenEmpleado').innerHTML = html;
+  document.getElementById('ssNetoEmpleado').textContent = ssFmt(neto);
+  document.getElementById('ssCostoEmpresa').textContent = ssFmt(costoEmpresa);
+
+  // Guardar datos para PDF
+  window._ssLastEmpleado = { salarioRaw, baseProp, salarioProp, subsidioTransp, saludEmp, pensionEmp, fspEmp, neto, saludEmpresa, pensionEmpresa, arlEmpresa, ccfEmpresa, senaEmpresa, icbfEmpresa, costoEmpresa, dias, tipoSalario, arlPct, ccfPct, smmlv, transporte, tieneTransporte };
+}
+
+function ssCalcularIndep() {
+  const t = ssGetTarifas();
+  const smmlv = t.smmlv;
+
+  const ingreso = parseFloat(document.getElementById('ssIngIndep').value) || 0;
+  if (ingreso <= 0) {
+    document.getElementById('ssResumenIndep').innerHTML = '<span style="color:var(--text-muted);font-size:13px;">Ingresa el ingreso bruto para calcular</span>';
+    document.getElementById('ssTotalIndep').textContent = '$0';
+    document.getElementById('ssIndepBaseIndicador').style.display = 'none';
+    return;
+  }
+
+  // Regla del 40% — aplica siempre (Art. 18 Ley 100/1993)
+  // IBC = máx(ingreso × 40%, SMMLV). Nunca inferior a 1 SMMLV.
+  const base40 = ingreso * 0.40;
+  const usaSMMLV = base40 < smmlv;          // el 40% no alcanza el mínimo
+  const ingresoMuyBajo = ingreso < smmlv;   // ni siquiera gana 1 SMMLV
+  const baseCot = usaSMMLV ? smmlv : base40;
+
+  // Indicador visual — siempre visible
+  const indicEl = document.getElementById('ssIndepBaseIndicador');
+  indicEl.style.display = '';
+
+  if (ingresoMuyBajo) {
+    // Caso extremo: ingreso < SMMLV → igual debe cotizar sobre 1 SMMLV
+    indicEl.style.background = 'rgba(239,68,68,0.08)';
+    indicEl.style.borderLeft = '3px solid var(--red)';
+    indicEl.innerHTML = `⚠️ El ingreso reportado (${ssFmt(ingreso)}) es inferior al SMMLV (${ssFmt(smmlv)}). Por ley el independiente debe cotizar mínimo sobre <strong>${ssFmt(smmlv)}</strong>.`;
+  } else if (usaSMMLV) {
+    // 40% no supera el SMMLV
+    indicEl.style.background = 'rgba(245,158,11,0.1)';
+    indicEl.style.borderLeft = '3px solid var(--amber)';
+    indicEl.innerHTML = `⚠️ El 40% del ingreso (${ssFmt(base40)}) no alcanza el SMMLV mínimo (${ssFmt(smmlv)}). <strong>Se usa el SMMLV como IBC.</strong> Esto ocurre cuando el ingreso es inferior a ${ssFmt(smmlv / 0.40)}.`;
+  } else {
+    // 40% supera el SMMLV → situación normal
+    indicEl.style.background = 'rgba(34,197,94,0.08)';
+    indicEl.style.borderLeft = '3px solid var(--green)';
+    indicEl.innerHTML = `✅ IBC = 40% de ${ssFmt(ingreso)} = <strong>${ssFmt(base40)}</strong>. Supera el SMMLV mínimo. Se cotiza sobre esta base.`;
+  }
+
+  // FSP
+  function calcFSP(base) {
+    const mult = base / smmlv;
+    if (mult <= 4) return 0;
+    if (mult <= 16) return base * 0.01;
+    if (mult <= 17) return base * 0.012;
+    if (mult <= 18) return base * 0.014;
+    if (mult <= 19) return base * 0.016;
+    if (mult <= 20) return base * 0.018;
+    return base * 0.02;
+  }
+
+  const salud = baseCot * 0.125;
+  const pension = baseCot * 0.16;
+  const fsp = calcFSP(baseCot);
+
+  // ARL
+  const arlPct = parseFloat(document.querySelector('input[name="ssArlIndep"]:checked')?.value || 0) / 100;
+  const arl = baseCot * arlPct;
+
+  const total = salud + pension + fsp + arl;
+
+  // Actualizar ARL vals
+  const arlRates = [0.00522, 0.01044, 0.02436, 0.04350, 0.06960];
+  arlRates.forEach((r, i) => {
+    const el = document.getElementById(`ssArlIndepVal${i+1}`);
+    if (el) el.textContent = ssFmt(baseCot * r);
+  });
+
+  let html = '';
+  html += `<div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;padding:6px 0 4px;">Paso 1 — Base de cotización (Regla del 40%)</div>`;
+  html += ssRow('Ingreso bruto mensual', ingreso, 'var(--text)');
+  html += ssRow('40% del ingreso (IBC calculado)', base40, usaSMMLV ? 'var(--amber)' : 'var(--green)');
+  if (usaSMMLV) {
+    html += ssRow('IBC aplicado (mínimo legal)', baseCot, 'var(--sura-blue)', `El 40% no supera el SMMLV — se usa $${smmlv.toLocaleString('es-CO')}`);
+  } else {
+    html += ssRow('IBC aplicado', baseCot, 'var(--sura-blue)', '40% del ingreso ≥ SMMLV ✓');
+  }
+
+  html += `<div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;padding:10px 0 4px;">Paso 2 — Aportes a pagar</div>`;
+  html += ssRow('Salud (12.5%)', salud, 'var(--red)');
+  html += ssRow('Pensión (16%)', pension, 'var(--red)');
+  if (fsp > 0) html += ssRow('Fondo Solidaridad Pensional', fsp, 'var(--red)', `Base > 4 SMMLV`);
+  if (arl > 0) html += ssRow(`ARL (${(arlPct*100).toFixed(3)}%)`, arl, 'var(--amber)');
+
+  document.getElementById('ssResumenIndep').innerHTML = html;
+  document.getElementById('ssTotalIndep').textContent = ssFmt(total);
+
+  window._ssLastIndep = { ingreso, base40, baseCot, usaSMMLV, ingresoMuyBajo, salud, pension, fsp, arl, arlPct, total, smmlv };
+}
+
+function ssGenerarPDFEmpleado() {
+  const d = window._ssLastEmpleado;
+  if (!d) { showToast('Primero ingresa un salario'); return; }
+  const fecha = new Date().toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Liquidación Seguridad Social — Empleado Dependiente</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 680px; margin: 40px auto; color: #1a1a2e; font-size: 14px; }
+    h1 { font-size: 20px; color: #1A4CE8; margin-bottom: 4px; }
+    .sub { font-size: 12px; color: #666; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #1A4CE8; color: white; padding: 9px 14px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; }
+    td:last-child { text-align: right; font-weight: 700; font-family: monospace; font-size: 13px; }
+    .section-label { background: #f3f4f6; font-weight: 700; color: #374151; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; }
+    .section-label td { padding: 6px 14px; }
+    .total-row td { font-size: 16px; font-weight: 800; background: #EFF6FF; color: #1A4CE8; }
+    .neto-row td { font-size: 16px; font-weight: 800; background: #F0FDF4; color: #16A34A; }
+    .costo-row td { font-size: 16px; font-weight: 800; background: #FFFBEB; color: #D97706; }
+    .footer { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 32px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+    @media print { body { margin: 20px; } }
+  </style></head><body>
+  <h1>💼 Liquidación Seguridad Social</h1>
+  <div class="sub">Empleado Dependiente · Generado el ${fecha} · Valores base: Decretos 1469 y 1470 del 29/dic/2025</div>
+  <table>
+    <tr><th colspan="2">Datos del trabajador</th></tr>
+    <tr><td>Tipo de salario</td><td>${d.tipoSalario === 'integral' ? 'Integral (cotiza sobre 70%)' : 'Ordinario'}</td></tr>
+    <tr><td>Salario bruto mensual</td><td>${ssFmt(d.salarioRaw)}</td></tr>
+    <tr><td>Días trabajados</td><td>${d.dias} días</td></tr>
+    <tr><td>Salario proporcional</td><td>${ssFmt(d.salarioProp)}</td></tr>
+    <tr><td>Base de cotización (IBC)</td><td>${ssFmt(d.baseProp)}</td></tr>
+    ${d.tieneTransporte ? `<tr><td>Subsidio de transporte</td><td>${ssFmt(d.subsidioTransp)}</td></tr>` : ''}
+  </table>
+  <table>
+    <tr><th colspan="2">Descuentos al empleado</th></tr>
+    <tr><td>Salud — 4%</td><td>-${ssFmt(d.saludEmp)}</td></tr>
+    <tr><td>Pensión — 4%</td><td>-${ssFmt(d.pensionEmp)}</td></tr>
+    ${d.fspEmp > 0 ? `<tr><td>Fondo Solidaridad Pensional</td><td>-${ssFmt(d.fspEmp)}</td></tr>` : ''}
+    <tr class="neto-row"><td>Neto a pagar al empleado</td><td>${ssFmt(d.neto)}</td></tr>
+  </table>
+  <table>
+    <tr><th colspan="2">Aportes a cargo de la empresa</th></tr>
+    <tr><td>Salud — 8.5%</td><td>${ssFmt(d.saludEmpresa)}</td></tr>
+    <tr><td>Pensión — 12%</td><td>${ssFmt(d.pensionEmpresa)}</td></tr>
+    <tr><td>ARL — ${(d.arlPct*100).toFixed(3)}%</td><td>${ssFmt(d.arlEmpresa)}</td></tr>
+    ${d.ccfPct > 0 ? `<tr><td>CCF — 4%</td><td>${ssFmt(d.ccfEmpresa)}</td></tr>` : ''}
+    <tr><td>SENA — 2%</td><td>${ssFmt(d.senaEmpresa)}</td></tr>
+    <tr><td>ICBF — 3%</td><td>${ssFmt(d.icbfEmpresa)}</td></tr>
+    <tr class="costo-row"><td>Costo total para la empresa</td><td>${ssFmt(d.costoEmpresa)}</td></tr>
+  </table>
+  <div class="footer">SMMLV 2026: ${ssFmt(d.smmlv)} · Auxilio transporte: ${ssFmt(d.transporte)} · Este documento es informativo y no reemplaza la planilla PILA oficial.</div>
+  <script>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
+function ssGenerarPDFIndep() {
+  const d = window._ssLastIndep;
+  if (!d) { showToast('Primero ingresa un ingreso'); return; }
+  const fecha = new Date().toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Liquidación Seguridad Social — Trabajador Independiente</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 680px; margin: 40px auto; color: #1a1a2e; font-size: 14px; }
+    h1 { font-size: 20px; color: #7C3AED; margin-bottom: 4px; }
+    .sub { font-size: 12px; color: #666; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #7C3AED; color: white; padding: 9px 14px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; }
+    td:last-child { text-align: right; font-weight: 700; font-family: monospace; font-size: 13px; }
+    .indicador { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; border-left: 4px solid; }
+    .ind-warn { background: #FFFBEB; border-color: #D97706; color: #92400E; }
+    .ind-ok { background: #F0FDF4; border-color: #16A34A; color: #14532D; }
+    .total-row td { font-size: 18px; font-weight: 800; background: #F5F3FF; color: #7C3AED; }
+    .footer { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 32px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+    @media print { body { margin: 20px; } }
+  </style></head><body>
+  <h1>💼 Liquidación Seguridad Social</h1>
+  <div class="sub">Trabajador Independiente · Generado el ${fecha} · Valores base: Decretos 1469 y 1470 del 29/dic/2025</div>
+  ${d.ingresoMuyBajo
+      ? `<div class="indicador ind-warn" style="border-color:#DC2626;background:#FEF2F2;color:#7F1D1D;">⚠️ El ingreso reportado (${ssFmt(d.ingreso)}) es inferior al SMMLV. Por ley se cotiza mínimo sobre ${ssFmt(d.smmlv)}.</div>`
+      : d.usaSMMLV
+        ? `<div class="indicador ind-warn">⚠️ El 40% del ingreso (${ssFmt(d.base40)}) no supera el SMMLV mínimo (${ssFmt(d.smmlv)}). Se usa el SMMLV como IBC.</div>`
+        : `<div class="indicador ind-ok">✅ IBC = 40% de ${ssFmt(d.ingreso)} = ${ssFmt(d.base40)}. Supera el SMMLV. Se cotiza sobre esta base.</div>`
+  }
+  <table>
+    <tr><th colspan="2">Paso 1 — Base de cotización (Regla del 40%)</th></tr>
+    <tr><td>Ingreso bruto mensual</td><td>${ssFmt(d.ingreso)}</td></tr>
+    <tr><td>40% del ingreso (IBC calculado)</td><td>${ssFmt(d.base40)}</td></tr>
+    <tr><td><strong>IBC aplicado${d.usaSMMLV ? ' (mínimo legal)' : ''}</strong></td><td><strong>${ssFmt(d.baseCot)}</strong></td></tr>
+  </table>
+  <table>
+    <tr><th colspan="2">Paso 2 — Aportes a pagar</th></tr>
+    <tr><td>Salud — 12.5%</td><td>${ssFmt(d.salud)}</td></tr>
+    <tr><td>Pensión — 16%</td><td>${ssFmt(d.pension)}</td></tr>
+    ${d.fsp > 0 ? `<tr><td>Fondo Solidaridad Pensional</td><td>${ssFmt(d.fsp)}</td></tr>` : ''}
+    ${d.arl > 0 ? `<tr><td>ARL — ${(d.arlPct*100).toFixed(3)}%</td><td>${ssFmt(d.arl)}</td></tr>` : ''}
+    <tr class="total-row"><td>Total aportes seguridad social</td><td>${ssFmt(d.total)}</td></tr>
+  </table>
+  <div class="footer">SMMLV 2026: ${ssFmt(d.smmlv)} · Este documento es informativo y no reemplaza la planilla PILA oficial. Recuerda pagar antes del día 10 de cada mes.</div>
+  <script>window.print();<\/script></body></html>`);
+  w.document.close();
+}
 
 if (window.__FB_READY__) {
   bootApp();
