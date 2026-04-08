@@ -17022,6 +17022,7 @@ function pinVerificar() {
       pinGuardarSesion();
       document.getElementById('pinScreen').style.display = 'none';
       document.getElementById('pinLabel').textContent = 'Ingresa tu número de cédula';
+      pinOnLoginExitoso();
     } else {
       pinError('Los PINs no coinciden — intenta de nuevo');
       _pinModo = 'crear';
@@ -17034,6 +17035,7 @@ function pinVerificar() {
   if (pinGetHash(_pinBuffer) === pinGuardado) {
     pinGuardarSesion();
     document.getElementById('pinScreen').style.display = 'none';
+    pinOnLoginExitoso();
   } else {
     pinError('PIN incorrecto');
   }
@@ -17081,14 +17083,22 @@ function bootApp() {
   // Verificar PIN antes de mostrar la app
   if (!pinTieneSesion()) {
     pinMostrarPantalla();
+    // No continúa — pinOnLoginExitoso() se encarga de inicializar tras el login
+    return;
   }
 
+  _iniciarAppTrasLogin();
+}
+
+// Inicialización real de la app — se llama tras PIN correcto O si ya hay sesión activa
+function _iniciarAppTrasLogin() {
+  if (window.__APP_INITIALIZED__) return;
+  window.__APP_INITIALIZED__ = true;
   // Cargar BD siniestralidad en cache de memoria
   const bdSinData = getBDSin();
   if (bdSinData && (bdSinData.registros || []).length > 0) {
     bdSinConstruirCache(bdSinData.registros);
   } else if (window.__BD_SIN_PENDING__ && window.__BD_SIN_PENDING__.length > 0) {
-    // Firebase cargó antes que la función existiera — construir ahora
     bdSinConstruirCache(window.__BD_SIN_PENDING__);
     window.__BD_SIN_PENDING__ = null;
   }
@@ -17100,9 +17110,34 @@ function bootApp() {
   checkMenuPulse();
   actualizarSidebarSync();
   setTimeout(checkAlertaBackup, 3000);
-  setTimeout(renderTabsCustomWa, 500); // cargar tabs de mensajes custom
+  setTimeout(renderTabsCustomWa, 500);
   const badge = document.getElementById('fb-status-badge');
   if (badge) badge.style.display = '';
+}
+
+// Se llama cuando el usuario ingresa el PIN correctamente
+function pinOnLoginExitoso() {
+  // Si Firebase ya cargó → inicializar directamente
+  if (window.__FB_READY__ && window.__FB_CACHE__) {
+    _iniciarAppTrasLogin();
+    return;
+  }
+  // Firebase aún cargando → esperar y luego inicializar
+  const splash = document.getElementById('fb-splash');
+  if (splash) splash.style.display = 'flex';
+  document.addEventListener('fb-ready', function handler() {
+    document.removeEventListener('fb-ready', handler);
+    if (splash) splash.style.display = 'none';
+    _iniciarAppTrasLogin();
+  }, { once: true });
+  // Timeout de seguridad: si Firebase tarda más de 10s, arrancar igual
+  setTimeout(() => {
+    if (!window.__FB_CACHE__) {
+      window.__FB_CACHE__ = { estado: {}, pagos: {}, pipeline: [], actividades: [], cierres: {}, configAnios: {}, productosExtra: [], empresas: [], cotizaciones: [], syncConfig: {}, plantillas: {}, bdSiniestralidad: { trimestres: [], registros: [] }, contactos: [] };
+    }
+    if (splash) splash.style.display = 'none';
+    if (!window.__APP_INITIALIZED__) _iniciarAppTrasLogin();
+  }, 10000);
 }
 
 
