@@ -2072,7 +2072,7 @@
         </div>
 
         <!-- Filtros PBS -->
-        <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end;">
           <div class="form-group" style="margin-bottom:0;">
             <label class="form-label">Mes</label>
             <select class="form-control" style="width:160px;" id="ptMesPBS" onchange="renderPlantillaPBS()">
@@ -2091,7 +2091,26 @@
           <button class="btn btn-secondary" onclick="imprimirPlantillaPBS()">🖨️ Imprimir / PDF</button>
         </div>
 
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <!-- Buscador + Zoom PBS -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+          <div style="position:relative;flex:1;min-width:200px;max-width:380px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
+            <input type="text" id="ptBuscadorPBS" placeholder="Buscar por nombre, documento, empresa…"
+              oninput="ptFiltrarPBS()"
+              style="width:100%;padding:8px 12px 8px 32px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+          </div>
+          <span id="ptBuscadorPBSCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
+          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+            <span style="font-size:11.5px;color:var(--text-muted);">Zoom:</span>
+            <button onclick="ptZoom('pbs',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">−</button>
+            <span id="ptZoomLabelPBS" style="font-size:12px;color:var(--text-muted);min-width:36px;text-align:center;">100%</span>
+            <button onclick="ptZoom('pbs',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">+</button>
+            <button onclick="ptZoomReset('pbs')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;">↺</button>
+            <button onclick="ptToggleFullscreen('plantillaPBSwrap2')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;" title="Expandir/contraer">⛶</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div>
             <div class="section-title" style="margin-bottom:2px;">Plantilla PBS — Estado de Gestión</div>
             <div style="font-size:12px;color:var(--text-muted);" id="ptSubtituloPBS"></div>
@@ -2099,7 +2118,7 @@
           <span class="chip chip-blue" id="ptCountPBS">0 registros</span>
         </div>
 
-        <div id="plantillaPBSwrap2" style="overflow-x:auto;overflow-y:auto;max-height:65vh;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);">
+        <div id="plantillaPBSwrap2" style="overflow-x:auto;overflow-y:auto;max-height:65vh;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);transition:max-height .3s;">
           <table id="tablaPlanPBS2" style="font-size:12.5px;min-width:900px;width:100%;border-collapse:collapse;">
             <thead style="position:sticky;top:0;z-index:3;">
               <tr style="background:var(--sura-blue);">
@@ -2134,7 +2153,7 @@
         </div>
 
         <!-- Filtros Voluntarios -->
-        <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end;">
           <div class="form-group" style="margin-bottom:0;">
             <label class="form-label">Producto</label>
             <select class="form-control" style="width:190px;" id="ptProductoVol" onchange="renderPlantillaVol()">
@@ -2163,7 +2182,26 @@
           <button class="btn btn-sm" style="background:rgba(6,182,212,0.15);color:var(--teal);border:1px solid rgba(6,182,212,0.3);" onclick="exportarVoluntariosExcel()">📊 Exportar todos</button>
         </div>
 
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <!-- Buscador + Zoom Voluntarios -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+          <div style="position:relative;flex:1;min-width:200px;max-width:380px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
+            <input type="text" id="ptBuscadorVol" placeholder="Buscar por nombre, documento, póliza…"
+              oninput="ptFiltrarVol()"
+              style="width:100%;padding:8px 12px 8px 32px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+          </div>
+          <span id="ptBuscadorVolCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
+          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+            <span style="font-size:11.5px;color:var(--text-muted);">Zoom:</span>
+            <button onclick="ptZoom('vol',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">−</button>
+            <span id="ptZoomLabelVol" style="font-size:12px;color:var(--text-muted);min-width:36px;text-align:center;">100%</span>
+            <button onclick="ptZoom('vol',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">+</button>
+            <button onclick="ptZoomReset('vol')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;">↺</button>
+            <button onclick="ptToggleFullscreen('ptWrapSPTI,ptWrapSPD,ptWrapPSM,ptWrapPAC60')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;" title="Expandir/contraer">⛶</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div>
             <div class="section-title" style="margin-bottom:2px;" id="ptTituloVol2">Plantilla SPTI — Estado de Gestión</div>
             <div style="font-size:12px;color:var(--text-muted);" id="ptSubtituloVol2"></div>
@@ -2986,7 +3024,7 @@
         </div>
 
         <!-- Filtros -->
-        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
           <select class="form-control" style="width:160px;" id="ctProductoFiltro" onchange="renderCartera()">
             <option value="">Todos los productos</option>
             <option value="SPTI">Solo SPTI</option>
@@ -3011,9 +3049,28 @@
           </select>
         </div>
 
+        <!-- Buscador + Zoom Cartera -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="position:relative;flex:1;min-width:200px;max-width:380px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
+            <input type="text" id="ctBuscador" placeholder="Buscar por nombre, teléfono, plan…"
+              oninput="ptFiltrarCartera()"
+              style="width:100%;padding:8px 12px 8px 32px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+          </div>
+          <span id="ctBuscadorCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
+          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+            <span style="font-size:11.5px;color:var(--text-muted);">Zoom:</span>
+            <button onclick="ptZoom('cartera',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">−</button>
+            <span id="ptZoomLabelCartera" style="font-size:12px;color:var(--text-muted);min-width:36px;text-align:center;">100%</span>
+            <button onclick="ptZoom('cartera',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">+</button>
+            <button onclick="ptZoomReset('cartera')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;">↺</button>
+            <button onclick="ptToggleFullscreen('ctTableWrap')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;" title="Expandir/contraer">⛶</button>
+          </div>
+        </div>
+
         <!-- Tabla cartera -->
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);">
-          <table style="font-size:12.5px;min-width:1100px;width:100%;border-collapse:collapse;">
+        <div id="ctTableWrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);transition:max-height .3s;">
+          <table id="ctTable" style="font-size:12.5px;min-width:1100px;width:100%;border-collapse:collapse;">
             <thead>
               <tr style="background:var(--surface2);">
                 <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Estado</th>
@@ -7832,8 +7889,8 @@ function setModalTab(tab, btn) {
 
 // =============================================
 // MES COMPENSADO — lógica de días calendario
-// Días 1-5 del mes → compensado = mes anterior
-// Día 6 en adelante → compensado = mes actual
+// Días hábiles 1-5 del mes → compensado = mes anterior
+// A partir del día hábil 6 → compensado = mes actual
 // =============================================
 function calcMesCompensado(fechaStr) {
   if (!fechaStr) return { mesComp: '', esZonaCorte: false };
@@ -7842,9 +7899,12 @@ function calcMesCompensado(fechaStr) {
   const mes = d.getMonth();   // 0-indexed
   const anio = d.getFullYear();
 
+  // Calcular el 5to día hábil del mes en que cae la fecha
+  const dh5 = getDiaHabilN(anio, mes, 5);
+
   let mesComp, esZonaCorte = false;
-  if (dia <= 5) {
-    // Cuenta como compensado del mes anterior
+  // Si la fecha es <= al 5to día hábil del mes → compensa en mes anterior
+  if (dh5 && d <= dh5) {
     esZonaCorte = true;
     const prevMes = mes === 0 ? 11 : mes - 1;
     const prevAnio = mes === 0 ? anio - 1 : anio;
@@ -8389,7 +8449,7 @@ function onFechaChange() {
   if (esZonaCorte) {
     alertEl.style.display = 'flex';
     alertEl.className = 'alert alert-warning';
-    alertEl.innerHTML = `⚠️ <strong>Zona de corte:</strong> El día ${dia} está dentro de los primeros 5 días del mes. Esta venta compensa en <strong>${mesComp}</strong> (mes anterior).`;
+    alertEl.innerHTML = `⚠️ <strong>Zona de corte:</strong> El día ${dia} está dentro de los primeros 5 días hábiles del mes. Esta venta compensa en <strong>${mesComp}</strong> (mes anterior).`;
   } else {
     alertEl.style.display = 'none';
   }
@@ -9028,6 +9088,7 @@ let _importData = [];
 // PLANTILLA PBS (página independiente)
 // =============================================
 function renderPlantillaPBS() {
+  ptLimpiarBuscadorPBS();
   state = getState();
   const mesEl  = document.getElementById('ptMesPBS');
   const anioEl = document.getElementById('ptAnioPBS');
@@ -9118,6 +9179,7 @@ function imprimirPlantillaPBS() {
 // PLANTILLA VOLUNTARIOS (página independiente)
 // =============================================
 function renderPlantillaVol() {
+  ptLimpiarBuscadorVol();
   state = getState();
   const prodEl = document.getElementById('ptProductoVol');
   const mesEl  = document.getElementById('ptMesVol');
@@ -9987,6 +10049,7 @@ function calcPrimaAnual(v) {
 }
 
 function renderCartera() {
+  ptLimpiarBuscadorCartera();
   state = getState();
   const pagos = getPagos();
   const filtroProducto = document.getElementById('ctProductoFiltro').value;
@@ -18865,6 +18928,130 @@ function ssGenerarPDFIndep() {
   <div class="footer">SMMLV 2026: ${ssFmt(d.smmlv)} · Este documento es informativo y no reemplaza la planilla PILA oficial. Recuerda pagar antes del día 10 de cada mes.</div>
   <script>window.print();<\/script></body></html>`);
   w.document.close();
+}
+
+// =============================================
+// ZOOM + FULLSCREEN + BUSCADOR — PLANTILLAS
+// =============================================
+const _ptZoom = { pbs: 100, vol: 100, cartera: 100 };
+
+const _ptZoomTargets = {
+  pbs:     () => document.getElementById('tablaPlanPBS2'),
+  vol:     () => {
+    const prod = document.getElementById('ptProductoVol')?.value || 'SPTI';
+    const ids = { SPTI:'ptWrapSPTI', SPD:'ptWrapSPD', PSM:'ptWrapPSM', PAC60:'ptWrapPAC60' };
+    return document.getElementById(ids[prod])?.querySelector('table');
+  },
+  cartera: () => document.getElementById('ctTable'),
+};
+
+function ptZoom(key, dir) {
+  const step = 10;
+  const min = 50, max = 150;
+  _ptZoom[key] = Math.min(max, Math.max(min, _ptZoom[key] + dir * step));
+  const tbl = _ptZoomTargets[key]();
+  if (tbl) tbl.style.fontSize = (_ptZoom[key] / 100 * 12.5) + 'px';
+  const lbl = document.getElementById('ptZoomLabel' + key.charAt(0).toUpperCase() + key.slice(1));
+  if (lbl) lbl.textContent = _ptZoom[key] + '%';
+}
+
+function ptZoomReset(key) {
+  _ptZoom[key] = 100;
+  const tbl = _ptZoomTargets[key]();
+  if (tbl) tbl.style.fontSize = '12.5px';
+  const lbl = document.getElementById('ptZoomLabel' + key.charAt(0).toUpperCase() + key.slice(1));
+  if (lbl) lbl.textContent = '100%';
+}
+
+// Expande/contrae la altura del contenedor de la tabla
+const _ptFullscreen = {};
+function ptToggleFullscreen(ids) {
+  const idList = ids.split(',');
+  const key = ids;
+  const isFs = _ptFullscreen[key];
+  idList.forEach(id => {
+    const el = document.getElementById(id.trim());
+    if (!el) return;
+    el.style.maxHeight = isFs ? '65vh' : 'none';
+    el.style.overflowY = isFs ? 'auto' : 'visible';
+  });
+  _ptFullscreen[key] = !isFs;
+  // Actualizar ícono del botón
+  document.querySelectorAll(`[onclick="ptToggleFullscreen('${ids}')"]`).forEach(btn => {
+    btn.textContent = _ptFullscreen[key] ? '⛶↙' : '⛶';
+    btn.title = _ptFullscreen[key] ? 'Contraer' : 'Expandir';
+  });
+}
+
+// Buscador PBS — filtra filas de la tabla visualmente
+function ptFiltrarPBS() {
+  const q = (document.getElementById('ptBuscadorPBS')?.value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#ptBodyPBS2 tr');
+  let visible = 0;
+  rows.forEach(tr => {
+    const txt = tr.textContent.toLowerCase();
+    const match = !q || txt.includes(q);
+    tr.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const cnt = document.getElementById('ptBuscadorPBSCount');
+  if (cnt) cnt.textContent = q ? `${visible} resultado${visible !== 1 ? 's' : ''}` : '';
+}
+
+// Buscador Voluntarios — filtra filas del tbody activo
+function ptFiltrarVol() {
+  const q = (document.getElementById('ptBuscadorVol')?.value || '').toLowerCase().trim();
+  const prod = document.getElementById('ptProductoVol')?.value || 'SPTI';
+  const bodyIds = { SPTI:'ptBodySPTI2', SPD:'ptBodySPD2', PSM:'ptBodyPSM2', PAC60:'ptBodyPAC602' };
+  const tbody = document.getElementById(bodyIds[prod]);
+  let visible = 0;
+  if (tbody) {
+    tbody.querySelectorAll('tr').forEach(tr => {
+      const txt = tr.textContent.toLowerCase();
+      const match = !q || txt.includes(q);
+      tr.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+  }
+  const cnt = document.getElementById('ptBuscadorVolCount');
+  if (cnt) cnt.textContent = q ? `${visible} resultado${visible !== 1 ? 's' : ''}` : '';
+}
+
+// Buscador Cartera — filtra filas de carteraTabla
+function ptFiltrarCartera() {
+  const q = (document.getElementById('ctBuscador')?.value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#carteraTabla tr');
+  let visible = 0;
+  rows.forEach(tr => {
+    // Las filas de detalle (no-registro) no las ocultamos
+    if (tr.dataset.detalle) { tr.style.display = ''; return; }
+    const txt = tr.textContent.toLowerCase();
+    const match = !q || txt.includes(q);
+    tr.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const cnt = document.getElementById('ctBuscadorCount');
+  if (cnt) cnt.textContent = q ? `${visible} resultado${visible !== 1 ? 's' : ''}` : '';
+}
+
+// Limpiar buscador al cambiar filtros de mes/producto para evitar estados inconsistentes
+function ptLimpiarBuscadorPBS() {
+  const el = document.getElementById('ptBuscadorPBS');
+  if (el) el.value = '';
+  const cnt = document.getElementById('ptBuscadorPBSCount');
+  if (cnt) cnt.textContent = '';
+}
+function ptLimpiarBuscadorVol() {
+  const el = document.getElementById('ptBuscadorVol');
+  if (el) el.value = '';
+  const cnt = document.getElementById('ptBuscadorVolCount');
+  if (cnt) cnt.textContent = '';
+}
+function ptLimpiarBuscadorCartera() {
+  const el = document.getElementById('ctBuscador');
+  if (el) el.value = '';
+  const cnt = document.getElementById('ctBuscadorCount');
+  if (cnt) cnt.textContent = '';
 }
 
 if (window.__FB_READY__) {
