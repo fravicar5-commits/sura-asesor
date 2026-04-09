@@ -845,10 +845,11 @@
 <!-- ===== SPLASH FIREBASE ===== -->
 <div id="fb-splash" style="display:none;position:fixed;inset:0;z-index:99999;background:#0A0F1E;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
   <div style="font-size:48px;">🔥</div>
-  <div style="color:#F0F4FF;font-family:'DM Sans',sans-serif;font-size:18px;font-weight:600;">Conectando con Firebase...</div>
+  <div style="color:#F0F4FF;font-family:'DM Sans',sans-serif;font-size:18px;font-weight:600;" id="fb-splash-msg">Conectando con Firebase...</div>
   <div style="width:200px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
     <div style="height:100%;background:#1A4CE8;border-radius:2px;animation:fbload 1.5s ease-in-out infinite;" id="fbLoadBar"></div>
   </div>
+  <div style="color:rgba(255,255,255,0.35);font-family:'DM Sans',sans-serif;font-size:12px;max-width:280px;text-align:center;" id="fb-splash-sub">Cargando tus datos desde la nube…</div>
   <style>@keyframes fbload{0%{width:0%}50%{width:70%}100%{width:100%}}</style>
 </div>
 
@@ -1015,6 +1016,9 @@
       </button>
       <button class="nav-item" onclick="navigate('plantilla-pbs')" data-label="Plantilla PBS">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 12h8M8 16h5"/><path d="M9 10l1.5 1.5L13 9"/></svg></span> Plantilla PBS
+      </button>
+      <button class="nav-item" onclick="navigate('conciliacion')" data-label="Conciliación PBS">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span> Conciliación PBS
       </button>
       <button class="nav-item" onclick="navigate('plantilla-vol')" data-label="Plantilla Voluntarios">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/><path d="M12 10l1.5 1.5L16 9"/></svg></span> Plantilla Voluntarios
@@ -2146,6 +2150,145 @@
         </div>
       </div>
 
+      <!-- ===== CONCILIACIÓN PBS ===== -->
+      <div class="page" id="page-conciliacion">
+
+        <!-- ENCABEZADO + INFO PERÍODO -->
+        <div id="concilPeriodoInfo" class="alert alert-info" style="margin-bottom:16px;"></div>
+
+        <!-- CONTROLES -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Mes de pago (el que SURA paga)</label>
+            <select class="form-control" style="width:180px;" id="concilMesPago" onchange="renderConciliacion()">
+              <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+              <option value="4" selected>Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+              <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Año</label>
+            <select class="form-control" style="width:110px;" id="concilAnio" onchange="renderConciliacion()">
+              <option value="2026" selected>2026</option><option value="2025">2025</option><option value="2024">2024</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label class="form-label">📂 Informe SURA — Pagadas (.xls)</label>
+            <input type="file" id="concilFilePagadas" accept=".xls,.xlsx" onchange="concilCargarPagadas(event)"
+              style="font-size:12px;color:var(--text-muted);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label class="form-label">📂 Informe SURA — No pagadas (.xls)</label>
+            <input type="file" id="concilFileNoPagadas" accept=".xls,.xlsx" onchange="concilCargarNoPagadas(event)"
+              style="font-size:12px;color:var(--text-muted);">
+          </div>
+          <button class="btn btn-primary" onclick="concilEjecutarCruce()" id="concilBtnCruce" disabled>
+            🔍 Ejecutar cruce
+          </button>
+          <button class="btn btn-secondary" onclick="concilExportarDiferencias()" id="concilBtnExportar" style="display:none;">
+            📥 Exportar diferencias
+          </button>
+        </div>
+
+        <!-- ESTADO CARGA ARCHIVOS -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;" id="concilEstadoCarga">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
+            <span id="concilIconPagadas">⬜</span> <span>Pagadas:</span> <span id="concilLabelPagadas" style="color:var(--text-muted);">Sin cargar</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
+            <span id="concilIconNoPagadas">⬜</span> <span>No pagadas:</span> <span id="concilLabelNoPagadas" style="color:var(--text-muted);">Sin cargar</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
+            <span id="concilIconApp">⬜</span> <span>Mis ventas (app):</span> <span id="concilLabelApp" style="color:var(--text-muted);">—</span>
+          </div>
+        </div>
+
+        <!-- RESUMEN KPIs -->
+        <div id="concilKpisWrap" style="display:none;margin-bottom:20px;">
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">
+            <div class="stat-card" style="border-top:3px solid var(--green);">
+              <div class="stat-label">✅ Pagadas OK</div>
+              <div class="stat-value" id="kConcilOk" style="color:var(--green);font-size:22px;">0</div>
+              <div class="stat-sub" id="kConcilOkVal">$0</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--amber);">
+              <div class="stat-label">⚠️ Tarifa diferente</div>
+              <div class="stat-value" id="kConcilDif" style="color:var(--amber);font-size:22px;">0</div>
+              <div class="stat-sub" id="kConcilDifVal">diferencia acum.</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--red);">
+              <div class="stat-label">❌ No pagadas SURA</div>
+              <div class="stat-value" id="kConcilNP" style="color:var(--red);font-size:22px;">0</div>
+              <div class="stat-sub" id="kConcilNPVal">causas identificadas</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--text-dim);">
+              <div class="stat-label">🔎 Sin cruzar</div>
+              <div class="stat-value" id="kConcilSinCruzar" style="color:var(--text-muted);font-size:22px;">0</div>
+              <div class="stat-sub">no aparecen en ningún informe</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--purple);">
+              <div class="stat-label">💰 Total pagado SURA</div>
+              <div class="stat-value" id="kConcilTotalSura" style="color:var(--purple);font-size:18px;">$0</div>
+              <div class="stat-sub">vs <span id="kConcilTotalEsp">$0</span> esperado</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABLA DE RESULTADOS -->
+        <div id="concilResultadoWrap" style="display:none;">
+          <!-- Filtro -->
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+            <select class="form-control" style="width:200px;" id="concilFiltroEstado" onchange="concilFiltrarTabla()">
+              <option value="">Todos los estados</option>
+              <option value="OK">✅ Pagadas OK</option>
+              <option value="DIFERENCIA">⚠️ Tarifa diferente</option>
+              <option value="NO_PAGADA">❌ No pagada (en informe SURA)</option>
+              <option value="SIN_CRUZAR">🔎 Sin cruzar</option>
+              <option value="EXTRA_SURA">➕ Extra en SURA</option>
+            </select>
+            <div style="position:relative;flex:1;min-width:200px;max-width:340px;">
+              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;">🔍</span>
+              <input type="text" id="concilBuscador" placeholder="Buscar por cédula, nombre, empresa…"
+                oninput="concilFiltrarTabla()"
+                style="width:100%;padding:8px 12px 8px 32px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+            </div>
+            <span id="concilFiltroCount" style="font-size:12px;color:var(--text-muted);"></span>
+          </div>
+
+          <div style="overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);">
+            <table style="font-size:12.5px;min-width:1100px;width:100%;border-collapse:collapse;" id="concilTabla">
+              <thead style="position:sticky;top:0;z-index:3;">
+                <tr style="background:var(--surface2);">
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Estado</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Cédula</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Nombre (App)</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Empresa</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Fecha radicación</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Tipo afiliado</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Com. esperada</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">SURA pagó</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Diferencia</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Causa / Nota</th>
+                </tr>
+              </thead>
+              <tbody id="concilTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PLACEHOLDER vacío -->
+        <div id="concilPlaceholder" style="text-align:center;padding:60px 20px;color:var(--text-muted);">
+          <div style="font-size:48px;margin-bottom:16px;">🔍</div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Conciliación PBS</div>
+          <div style="font-size:13px;max-width:420px;margin:0 auto;line-height:1.6;">
+            Selecciona el mes de pago, carga los dos informes de SURA y haz clic en <strong>Ejecutar cruce</strong> para ver el resultado automáticamente.
+          </div>
+        </div>
+
+      </div>
+      <!-- ===== FIN CONCILIACIÓN PBS ===== -->
+
       <!-- ===== PLANTILLA VOLUNTARIOS ===== -->
       <div class="page" id="page-plantilla-vol">
         <div class="alert alert-info" style="margin-bottom:20px;">
@@ -2236,7 +2379,7 @@
         </div>
         <!-- SPD -->
         <div id="ptWrapSPD" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);">
-          <table style="font-size:12.5px;min-width:1300px;width:100%;border-collapse:collapse;">
+          <table style="font-size:12.5px;min-width:1350px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--purple);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">No. Póliza</th>
@@ -2245,6 +2388,7 @@
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Plan</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Periodicidad</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Prima Mensual</th>
+              <th style="color:white;padding:10px 12px;white-space:nowrap;">Descuento</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Prima Total</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Tomador</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Tipo Doc. Tom.</th>
@@ -3728,6 +3872,17 @@
             </div>
             <div id="fb-status-badge" style="display:none;margin-left:auto;font-size:11px;padding:4px 12px;border-radius:20px;background:rgba(34,197,94,0.15);color:var(--green);font-weight:600;white-space:nowrap;">✅ Conectado</div>
           </div>
+
+          <!-- Botón recargar desde Firebase -->
+          <div style="background:rgba(26,76,232,0.08);border:1px solid rgba(26,76,232,0.2);border-radius:10px;padding:14px;margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:600;color:var(--sura-blue);margin-bottom:6px;">🔄 ¿Los datos no aparecen al abrir la app?</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Cuando actualizas el archivo HTML desde GitHub, el navegador lo abre fresco. Si los datos no cargan automáticamente, usa este botón para forzar la recarga desde Firebase sin perder nada.</div>
+            <button class="btn btn-primary" onclick="fbRecargarDatos()" id="btnFbRecargar" style="background:var(--sura-blue);border-color:var(--sura-blue);">
+              🔄 Recargar datos desde Firebase
+            </button>
+            <span id="fbRecargarMsg" style="margin-left:12px;font-size:12px;color:var(--text-muted);display:none;"></span>
+          </div>
+
           <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">Si tenías datos en localStorage (antes de la migración), usa el botón de abajo para subirlos a Firebase por única vez.</div>
           <button class="btn btn-primary" onclick="migrarLocalStorageAFirebase()" style="background:#FF6B35;border-color:#FF6B35;">
             🚀 Migrar datos locales → Firebase
@@ -4411,6 +4566,18 @@
                 <div class="card-title">Datos del trabajador independiente</div>
                 <div style="display:flex;flex-direction:column;gap:14px;">
                   <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Tipo de liquidación</label>
+                    <select class="form-control" id="ssTipoLiqIndep" onchange="ssCalcularIndep()">
+                      <option value="mensual">Mes completo (30 días)</option>
+                      <option value="parcial">Días laborados (proporcional)</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;" id="ssDiasIndepWrap" style="display:none;">
+                    <label class="form-label">Días laborados en el mes (1–30)</label>
+                    <input type="number" class="form-control" id="ssDiasIndep" value="30" min="1" max="30" oninput="ssCalcularIndep()">
+                    <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">El IBC se calcula proporcional: (IBC mensual ÷ 30) × días</div>
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
                     <label class="form-label">Ingreso bruto mensual ($)</label>
                     <input type="number" class="form-control" id="ssIngIndep" placeholder="Ej: 5000000" oninput="ssCalcularIndep()" min="0">
                   </div>
@@ -4897,6 +5064,10 @@
         <div class="form-group">
           <label class="form-label">Prima (con IVA)</label>
           <input type="text" class="form-control" id="vPrimaSPD" readonly style="background:var(--surface3);color:var(--sura-lime);font-weight:700;font-size:15px;" placeholder="—">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descuento Periodicidad</label>
+          <input type="text" class="form-control" id="vDctoSPD" readonly style="background:var(--surface3);color:var(--green);font-weight:600;" placeholder="—">
         </div>
         <div class="form-group">
           <label class="form-label">Referencia Tarifas SPD 2026</label>
@@ -6213,6 +6384,7 @@ const pageTitles = {
   plantilla: ['Plantilla Estado de Gestión', 'Exportable por producto · reportar a la empresa'],
   'plantilla-pbs': ['Plantilla PBS', 'Registro y gestión de afiliaciones EPS · exportable'],
   'plantilla-vol': ['Plantilla Voluntarios', 'Registro y gestión SPTI · SPD · Modular · 60+'],
+  conciliacion: ['🔍 Conciliación PBS', 'Cruce ventas registradas vs informe previo SURA · detecta diferencias y no pagadas'],
   importar: ['Importar desde Excel', 'Carga masiva desde tu archivo SURA 2026'],
   cierres: ['Cierres de Mes', 'Fechas límite por tipo de trámite · alertas automáticas'],
   config: ['Configuración', 'Presupuesto mensual y perfil'],
@@ -6470,6 +6642,7 @@ function refreshPage(page) {
   else if (page === 'actividad') renderActividad();
   else if (page === 'plantillas') renderPlantillas();
   else if (page === 'plantilla-pbs') renderPlantillaPBS();
+  else if (page === 'conciliacion') renderConciliacion();
   else if (page === 'plantilla-vol') renderPlantillaVol();
   else if (page === 'plantilla') { navigate('plantilla-pbs'); return; } // legacy redirect
   else if (page === 'importar') initImportar();
@@ -8057,6 +8230,12 @@ function calcTotalSPD() {
   const per = document.getElementById('vPeriodicidadSPD').value;
   const val = SPD_TARIFAS[per] || SPD_TARIFAS.MENSUAL;
   document.getElementById('vPrimaSPD').value = fmt(val);
+  // Mostrar descuento si aplica
+  const dctoEl = document.getElementById('vDctoSPD');
+  if (dctoEl) {
+    const dcto = per !== 'MENSUAL' ? Math.round(SPD_TARIFAS.MENSUAL * { TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 }[per] - val) : 0;
+    dctoEl.value = dcto > 0 ? `Dcto: ${fmt(dcto)}` : 'Sin descuento';
+  }
   // Keep vPrimaTotalSPD in sync for guardarVenta compatibility
   const el = document.getElementById('vPrimaTotalSPD');
   if (el) el.value = fmt(val);
@@ -8547,6 +8726,18 @@ function guardarVenta() {
       // Leer campos del tab activo y actualizar solo los campos del registro
       if (modalTab === 'spti') {
         const fecha = document.getElementById('vFechaSPTI')?.value || vOld.fecha;
+        const planEdit = document.getElementById('vPlanSPTI')?.value || vOld.plan;
+        const perEdit  = document.getElementById('vPeriodicidadSPTI')?.value || vOld.periodicidad;
+        const edadEditRaw = document.getElementById('vEdadSPTI')?.value || vOld.edad || '0';
+        const rangoEdit = getRangoEdadSPTI(parseInt(edadEditRaw));
+        let dctoEdit = vOld.dcto || 0;
+        if (planEdit && rangoEdit && SPTI_TARIFAS[planEdit]?.[rangoEdit]) {
+          const te = SPTI_TARIFAS[planEdit][rangoEdit];
+          if (perEdit === 'TRIMESTRAL') dctoEdit = te.dctoTrim || 0;
+          else if (perEdit === 'SEMESTRAL') dctoEdit = te.dctoSem || 0;
+          else if (perEdit === 'ANUAL') dctoEdit = te.dctoAnual || 0;
+          else dctoEdit = 0;
+        }
         state.ventas[idxEdit] = {
           ...vOld,
           fecha,
@@ -8562,8 +8753,7 @@ function guardarVenta() {
           correo:   document.getElementById('vCorreoSPTI')?.value   || vOld.correo,
           ciudad:   document.getElementById('vCiudadSPTI')?.value   || vOld.ciudad,
           notas:    document.getElementById('vNotasSPTI')?.value    || vOld.notas,
-          plan:         document.getElementById('vPlanSPTI')?.value        || vOld.plan,
-          periodicidad: document.getElementById('vPeriodicidadSPTI')?.value|| vOld.periodicidad,
+          plan: planEdit, periodicidad: perEdit, dcto: dctoEdit,
         };
       } else if (modalTab === 'spd') {
         const fecha = document.getElementById('vFechaSPD')?.value || vOld.fecha;
@@ -8725,11 +8915,12 @@ function guardarVenta() {
     const edadRaw = document.getElementById('vEdadSPTI').value;
     const rangoEdad = getRangoEdadSPTI(parseInt(edadRaw));
     let primaTotalSinIVA = 0;
-    if (plan && rangoEdad && SPTI_SIN_IVA[plan] && SPTI_SIN_IVA[plan][rangoEdad]) {
-      const t = SPTI_SIN_IVA[plan][rangoEdad];
-      if (periodicidad === 'TRIMESTRAL') primaTotalSinIVA = t.trimestre;
-      else if (periodicidad === 'SEMESTRAL') primaTotalSinIVA = t.semestre;
-      else if (periodicidad === 'ANUAL') primaTotalSinIVA = t.anual;
+    let dctoNum = 0;
+    if (plan && rangoEdad && SPTI_TARIFAS[plan] && SPTI_TARIFAS[plan][rangoEdad]) {
+      const t = SPTI_TARIFAS[plan][rangoEdad];
+      if (periodicidad === 'TRIMESTRAL') { primaTotalSinIVA = t.trimestre; dctoNum = t.dctoTrim || 0; }
+      else if (periodicidad === 'SEMESTRAL') { primaTotalSinIVA = t.semestre; dctoNum = t.dctoSem || 0; }
+      else if (periodicidad === 'ANUAL') { primaTotalSinIVA = t.anual; dctoNum = t.dctoAnual || 0; }
       else primaTotalSinIVA = t.mensual;
     } else {
       primaTotalSinIVA = Math.round(primaTotal / IVA_FACTOR);
@@ -8747,7 +8938,7 @@ function guardarVenta() {
       edad: document.getElementById('vEdadSPTI').value,
       telefono: document.getElementById('vTelSPTI').value,
       correo: document.getElementById('vCorreoSPTI').value,
-      plan, periodicidad, prima: primaBase, primaTotal, primaTotalSinIVA,
+      plan, periodicidad, prima: primaBase, primaTotal, primaTotalSinIVA, dcto: dctoNum,
       notas: document.getElementById('vNotasSPTI').value,
       ciudad: document.getElementById('vCiudadSPTI').value,
       comision: 0, rango: '—', criterio: '—', empresa: '—', tramite: '—',
@@ -9243,7 +9434,11 @@ function renderPlantillaVol() {
       const rBg = i%2===0?'':'style="background:rgba(255,255,255,0.02)"';
       const rangoEdad = getRangoEdadSPTI(parseInt(v.edad));
       let dcto = '—';
-      if (v.plan && rangoEdad && SPTI_TARIFAS[v.plan]?.[rangoEdad]) {
+      if (v.dcto && v.dcto > 0) {
+        // Usar el valor guardado directamente (ventas registradas desde el form)
+        dcto = fmt(v.dcto);
+      } else if (v.plan && rangoEdad && SPTI_TARIFAS[v.plan]?.[rangoEdad]) {
+        // Fallback: recalcular desde tabla (ventas importadas desde Excel)
         const t = SPTI_TARIFAS[v.plan][rangoEdad];
         if (v.periodicidad==='TRIMESTRAL') dcto = fmt(t.dctoTrim);
         else if (v.periodicidad==='SEMESTRAL') dcto = fmt(t.dctoSem);
@@ -9273,9 +9468,18 @@ function renderPlantillaVol() {
 
   if (producto === 'SPD') {
     const tbody = document.getElementById('ptBodySPD2');
-    if (!ventas.length) { tbody.innerHTML = empty(19); return; }
+    if (!ventas.length) { tbody.innerHTML = empty(20); return; }
+    // Calcular descuento SPD: diferencia entre prima mensual × meses y prima de periodicidad
+    const SPD_DCTOS = {
+      MENSUAL: 0,
+      TRIMESTRAL: Math.round(SPD_TARIFAS.MENSUAL * 3 - SPD_TARIFAS.TRIMESTRAL),
+      SEMESTRAL:  Math.round(SPD_TARIFAS.MENSUAL * 6 - SPD_TARIFAS.SEMESTRAL),
+      ANUAL:      Math.round(SPD_TARIFAS.MENSUAL * 12 - SPD_TARIFAS.ANUAL),
+    };
     tbody.innerHTML = ventas.map((v,i) => {
       const rBg = i%2===0?'':'style="background:rgba(255,255,255,0.02)"';
+      const dctoSPD = SPD_DCTOS[v.periodicidad] || 0;
+      const dctoLabel = dctoSPD > 0 ? fmt(dctoSPD) : '—';
       return `<tr ${rBg}>
         <td style="color:var(--text-dim);font-family:var(--mono);padding:8px 10px;">${i+1}</td>
         <td style="font-family:var(--mono);font-size:11px;padding:8px 10px;">${v.poliza||'—'}</td>
@@ -9284,6 +9488,7 @@ function renderPlantillaVol() {
         <td style="padding:8px 10px;">${planLabel[v.plan]||v.plan||'—'}</td>
         <td style="padding:8px 10px;"><span class="chip chip-blue" style="font-size:10px;">${perLabel[v.periodicidad]||'—'}</span></td>
         <td style="font-family:var(--mono);color:var(--sura-lime);padding:8px 10px;">${fmt(v.primaMensual||v.prima||0)}</td>
+        <td style="font-family:var(--mono);color:var(--green);padding:8px 10px;">${dctoLabel}</td>
         <td style="font-family:var(--mono);color:var(--sura-lime);padding:8px 10px;">${fmt(v.primaTotal||v.prima||0)}</td>
         <td style="font-weight:500;padding:8px 10px;">${tc(v.tomadorNombre||v.nombre||'—')}</td>
         <td style="padding:8px 10px;"><span class="chip chip-teal" style="font-size:10px;">${v.tomadorTipoDoc||'CC'}</span></td>
@@ -17087,10 +17292,103 @@ function bootApp() {
     return;
   }
 
+  // Hay sesión activa — esperar Firebase y arrancar
+  _esperarFirebaseYArrancar();
+}
+
+// Recarga forzada desde Firebase — para cuando el archivo se actualiza y los datos no aparecen
+async function fbRecargarDatos() {
+  const btn  = document.getElementById('btnFbRecargar');
+  const msg  = document.getElementById('fbRecargarMsg');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Cargando desde Firebase…'; }
+  if (msg) { msg.style.display = ''; msg.textContent = ''; }
+
+  try {
+    if (!window.FB) throw new Error('Firebase no inicializado');
+
+    const [stateData, pagosData, pipelineData, actividadesData,
+           cierresData, configAniosData, productosExtraData,
+           empresasData, cotizacionesData, syncConfigData, plantillasData,
+           bdSinData, contactosData] = await Promise.all([
+      window.FB.get('estado',        {}),
+      window.FB.get('pagos',         {}),
+      window.FB.get('pipeline',      []),
+      window.FB.get('actividades',   []),
+      window.FB.get('cierres',       {}),
+      window.FB.get('configAnios',   {}),
+      window.FB.get('productosExtra',[]),
+      window.FB.get('empresas',      []),
+      window.FB.get('cotizaciones',  []),
+      window.FB.get('syncConfig',    {}),
+      window.FB.get('plantillas',    {}),
+      window.FB.getBdSin(),
+      window.FB.get('contactos',     []),
+    ]);
+
+    window.__FB_CACHE__ = {
+      estado: stateData, pagos: pagosData, pipeline: pipelineData,
+      actividades: actividadesData, cierres: cierresData, configAnios: configAniosData,
+      productosExtra: productosExtraData, empresas: empresasData,
+      cotizaciones: cotizacionesData, syncConfig: syncConfigData,
+      plantillas: plantillasData, bdSiniestralidad: bdSinData, contactos: contactosData,
+    };
+
+    state = initState();
+    initMultiAnio();
+    navigate('dashboard');
+    actualizarSidebarSync();
+
+    if (msg) { msg.textContent = '✅ Datos recargados correctamente'; msg.style.color = 'var(--green)'; }
+    showToast('✅ Datos recargados desde Firebase');
+    setTimeout(() => { if (msg) msg.style.display = 'none'; }, 4000);
+  } catch(e) {
+    if (msg) { msg.textContent = '❌ Error: ' + e.message; msg.style.color = 'var(--red)'; }
+    showToast('❌ Error al recargar: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Recargar datos desde Firebase'; }
+  }
+}
+
+// Promesa global que resuelve cuando Firebase está listo (o falla el timeout)
+// Se crea una sola vez para que no se pierda el evento aunque llegue antes del listener
+window.__FB_PROMISE__ = new Promise(resolve => {
+  if (window.__FB_READY__ && window.__FB_CACHE__) {
+    resolve();
+  } else {
+    document.addEventListener('fb-ready', () => resolve(), { once: true });
+    setTimeout(() => resolve(), 12000); // timeout máximo
+  }
+});
+
+// Espera Firebase sin condición de carrera y luego inicia la app
+async function _esperarFirebaseYArrancar() {
+  if (!window.__FB_READY__ || !window.__FB_CACHE__) {
+    const splash   = document.getElementById('fb-splash');
+    const splashMsg = document.getElementById('fb-splash-msg');
+    const splashSub = document.getElementById('fb-splash-sub');
+    if (splash) splash.style.display = 'flex';
+    if (splashMsg) splashMsg.textContent = 'Cargando tus datos…';
+    if (splashSub) splashSub.textContent = 'Conectando con Firebase · puede tomar unos segundos';
+
+    // Mensaje progresivo si tarda más de 5s
+    const msgTimer = setTimeout(() => {
+      if (splashMsg) splashMsg.textContent = 'Todavía cargando…';
+      if (splashSub) splashSub.textContent = 'La conexión está tardando más de lo usual. Verifica tu internet.';
+    }, 5000);
+
+    await window.__FB_PROMISE__;
+    clearTimeout(msgTimer);
+    if (splash) splash.style.display = 'none';
+  }
+  // Si Firebase falló y __FB_CACHE__ sigue null, crear vacío para no romper la app
+  if (!window.__FB_CACHE__) {
+    window.__FB_CACHE__ = { estado: {}, pagos: {}, pipeline: [], actividades: [], cierres: {}, configAnios: {}, productosExtra: [], empresas: [], cotizaciones: [], syncConfig: {}, plantillas: {}, bdSiniestralidad: { trimestres: [], registros: [] }, contactos: [] };
+    setTimeout(() => showToast('⚠️ Firebase no respondió. Verifica tu conexión y recarga la página.'), 1000);
+  }
   _iniciarAppTrasLogin();
 }
 
-// Inicialización real de la app — se llama tras PIN correcto O si ya hay sesión activa
+// Inicialización real de la app — se llama tras PIN correcto Y Firebase listo
 function _iniciarAppTrasLogin() {
   if (window.__APP_INITIALIZED__) return;
   window.__APP_INITIALIZED__ = true;
@@ -17116,28 +17414,8 @@ function _iniciarAppTrasLogin() {
 }
 
 // Se llama cuando el usuario ingresa el PIN correctamente
-function pinOnLoginExitoso() {
-  // Si Firebase ya cargó → inicializar directamente
-  if (window.__FB_READY__ && window.__FB_CACHE__) {
-    _iniciarAppTrasLogin();
-    return;
-  }
-  // Firebase aún cargando → esperar y luego inicializar
-  const splash = document.getElementById('fb-splash');
-  if (splash) splash.style.display = 'flex';
-  document.addEventListener('fb-ready', function handler() {
-    document.removeEventListener('fb-ready', handler);
-    if (splash) splash.style.display = 'none';
-    _iniciarAppTrasLogin();
-  }, { once: true });
-  // Timeout de seguridad: si Firebase tarda más de 10s, arrancar igual
-  setTimeout(() => {
-    if (!window.__FB_CACHE__) {
-      window.__FB_CACHE__ = { estado: {}, pagos: {}, pipeline: [], actividades: [], cierres: {}, configAnios: {}, productosExtra: [], empresas: [], cotizaciones: [], syncConfig: {}, plantillas: {}, bdSiniestralidad: { trimestres: [], registros: [] }, contactos: [] };
-    }
-    if (splash) splash.style.display = 'none';
-    if (!window.__APP_INITIALIZED__) _iniciarAppTrasLogin();
-  }, 10000);
+async function pinOnLoginExitoso() {
+  await _esperarFirebaseYArrancar();
 }
 
 
@@ -18773,6 +19051,11 @@ function ssCalcularIndep() {
   const t = ssGetTarifas();
   const smmlv = t.smmlv;
 
+  // Mostrar/ocultar campo de días según tipo de liquidación
+  const tipoLiq = document.getElementById('ssTipoLiqIndep')?.value || 'mensual';
+  const diasWrap = document.getElementById('ssDiasIndepWrap');
+  if (diasWrap) diasWrap.style.display = tipoLiq === 'parcial' ? '' : 'none';
+
   const ingreso = parseFloat(document.getElementById('ssIngIndep').value) || 0;
   if (ingreso <= 0) {
     document.getElementById('ssResumenIndep').innerHTML = '<span style="color:var(--text-muted);font-size:13px;">Ingresa el ingreso bruto para calcular</span>';
@@ -18781,37 +19064,43 @@ function ssCalcularIndep() {
     return;
   }
 
-  // Regla del 40% — aplica siempre (Art. 18 Ley 100/1993)
-  // IBC = máx(ingreso × 40%, SMMLV). Nunca inferior a 1 SMMLV.
-  const base40 = ingreso * 0.40;
-  const usaSMMLV = base40 < smmlv;          // el 40% no alcanza el mínimo
-  const ingresoMuyBajo = ingreso < smmlv;   // ni siquiera gana 1 SMMLV
-  const baseCot = usaSMMLV ? smmlv : base40;
+  // Factor proporcional por días
+  const dias = tipoLiq === 'parcial' ? Math.max(1, Math.min(30, parseInt(document.getElementById('ssDiasIndep')?.value) || 30)) : 30;
+  const factor = dias / 30;
+
+  // Regla del 40% — se aplica sobre el ingreso mensual completo para determinar el IBC mensual,
+  // luego ese IBC se hace proporcional a los días laborados
+  const base40Mensual = ingreso * 0.40;
+  const usaSMMLV = base40Mensual < smmlv;
+  const ingresoMuyBajo = ingreso < smmlv;
+  const ibcMensual = usaSMMLV ? smmlv : base40Mensual;
+
+  // IBC proporcional (si es parcial)
+  const baseCot = ibcMensual * factor;
+  const base40 = base40Mensual * factor;
 
   // Indicador visual — siempre visible
   const indicEl = document.getElementById('ssIndepBaseIndicador');
   indicEl.style.display = '';
 
   if (ingresoMuyBajo) {
-    // Caso extremo: ingreso < SMMLV → igual debe cotizar sobre 1 SMMLV
     indicEl.style.background = 'rgba(239,68,68,0.08)';
     indicEl.style.borderLeft = '3px solid var(--red)';
-    indicEl.innerHTML = `⚠️ El ingreso reportado (${ssFmt(ingreso)}) es inferior al SMMLV (${ssFmt(smmlv)}). Por ley el independiente debe cotizar mínimo sobre <strong>${ssFmt(smmlv)}</strong>.`;
+    indicEl.innerHTML = `⚠️ El ingreso mensual (${ssFmt(ingreso)}) es inferior al SMMLV (${ssFmt(smmlv)}). El independiente debe cotizar mínimo sobre ${ssFmt(smmlv)}${factor < 1 ? ` proporcional a ${dias} días = ${ssFmt(smmlv * factor)}` : ''}.`;
   } else if (usaSMMLV) {
-    // 40% no supera el SMMLV
     indicEl.style.background = 'rgba(245,158,11,0.1)';
     indicEl.style.borderLeft = '3px solid var(--amber)';
-    indicEl.innerHTML = `⚠️ El 40% del ingreso (${ssFmt(base40)}) no alcanza el SMMLV mínimo (${ssFmt(smmlv)}). <strong>Se usa el SMMLV como IBC.</strong> Esto ocurre cuando el ingreso es inferior a ${ssFmt(smmlv / 0.40)}.`;
+    indicEl.innerHTML = `⚠️ El 40% del ingreso (${ssFmt(base40Mensual)}) no alcanza el SMMLV (${ssFmt(smmlv)}). <strong>Se usa el SMMLV como IBC mensual.</strong>${factor < 1 ? ` Proporcional a ${dias} días: ${ssFmt(baseCot)}.` : ''}`;
   } else {
-    // 40% supera el SMMLV → situación normal
     indicEl.style.background = 'rgba(34,197,94,0.08)';
     indicEl.style.borderLeft = '3px solid var(--green)';
-    indicEl.innerHTML = `✅ IBC = 40% de ${ssFmt(ingreso)} = <strong>${ssFmt(base40)}</strong>. Supera el SMMLV mínimo. Se cotiza sobre esta base.`;
+    indicEl.innerHTML = `✅ IBC = 40% de ${ssFmt(ingreso)} = <strong>${ssFmt(base40Mensual)}</strong>${factor < 1 ? ` × ${dias}/30 días = <strong>${ssFmt(baseCot)}</strong>` : '. Supera el SMMLV mínimo ✓'}.`;
   }
 
-  // FSP
+  // FSP sobre IBC proporcional
   function calcFSP(base) {
-    const mult = base / smmlv;
+    // El FSP se evalúa sobre el IBC mensual equivalente, no el proporcional
+    const mult = ibcMensual / smmlv;
     if (mult <= 4) return 0;
     if (mult <= 16) return base * 0.01;
     if (mult <= 17) return base * 0.012;
@@ -18821,17 +19110,14 @@ function ssCalcularIndep() {
     return base * 0.02;
   }
 
-  const salud = baseCot * 0.125;
+  const salud   = baseCot * 0.125;
   const pension = baseCot * 0.16;
-  const fsp = calcFSP(baseCot);
+  const fsp     = calcFSP(baseCot);
+  const arlPct  = parseFloat(document.querySelector('input[name="ssArlIndep"]:checked')?.value || 0) / 100;
+  const arl     = baseCot * arlPct;
+  const total   = salud + pension + fsp + arl;
 
-  // ARL
-  const arlPct = parseFloat(document.querySelector('input[name="ssArlIndep"]:checked')?.value || 0) / 100;
-  const arl = baseCot * arlPct;
-
-  const total = salud + pension + fsp + arl;
-
-  // Actualizar ARL vals
+  // Actualizar valores ARL en tiempo real
   const arlRates = [0.00522, 0.01044, 0.02436, 0.04350, 0.06960];
   arlRates.forEach((r, i) => {
     const el = document.getElementById(`ssArlIndepVal${i+1}`);
@@ -18841,23 +19127,26 @@ function ssCalcularIndep() {
   let html = '';
   html += `<div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;padding:6px 0 4px;">Paso 1 — Base de cotización (Regla del 40%)</div>`;
   html += ssRow('Ingreso bruto mensual', ingreso, 'var(--text)');
-  html += ssRow('40% del ingreso (IBC calculado)', base40, usaSMMLV ? 'var(--amber)' : 'var(--green)');
+  html += ssRow('40% del ingreso (IBC mensual)', base40Mensual, usaSMMLV ? 'var(--amber)' : 'var(--green)');
   if (usaSMMLV) {
-    html += ssRow('IBC aplicado (mínimo legal)', baseCot, 'var(--sura-blue)', `El 40% no supera el SMMLV — se usa $${smmlv.toLocaleString('es-CO')}`);
+    html += ssRow('IBC mensual (mínimo legal)', ibcMensual, 'var(--sura-blue)', `El 40% no supera el SMMLV`);
   } else {
-    html += ssRow('IBC aplicado', baseCot, 'var(--sura-blue)', '40% del ingreso ≥ SMMLV ✓');
+    html += ssRow('IBC mensual', ibcMensual, 'var(--sura-blue)', '40% del ingreso ≥ SMMLV ✓');
+  }
+  if (factor < 1) {
+    html += ssRow(`IBC proporcional (${dias} de 30 días)`, baseCot, 'var(--purple)', `${ssFmt(ibcMensual)} × ${dias}/30`);
   }
 
-  html += `<div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;padding:10px 0 4px;">Paso 2 — Aportes a pagar</div>`;
+  html += `<div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;padding:10px 0 4px;">Paso 2 — Aportes a pagar${factor < 1 ? ` (${dias} días)` : ''}</div>`;
   html += ssRow('Salud (12.5%)', salud, 'var(--red)');
   html += ssRow('Pensión (16%)', pension, 'var(--red)');
-  if (fsp > 0) html += ssRow('Fondo Solidaridad Pensional', fsp, 'var(--red)', `Base > 4 SMMLV`);
+  if (fsp > 0) html += ssRow('Fondo Solidaridad Pensional', fsp, 'var(--red)', `IBC mensual > 4 SMMLV`);
   if (arl > 0) html += ssRow(`ARL (${(arlPct*100).toFixed(3)}%)`, arl, 'var(--amber)');
 
   document.getElementById('ssResumenIndep').innerHTML = html;
   document.getElementById('ssTotalIndep').textContent = ssFmt(total);
 
-  window._ssLastIndep = { ingreso, base40, baseCot, usaSMMLV, ingresoMuyBajo, salud, pension, fsp, arl, arlPct, total, smmlv };
+  window._ssLastIndep = { ingreso, base40: base40Mensual, base40Prop: base40, ibcMensual, baseCot, usaSMMLV, ingresoMuyBajo, salud, pension, fsp, arl, arlPct, total, smmlv, dias, factor };
 }
 
 function ssGenerarPDFEmpleado() {
@@ -18920,6 +19209,7 @@ function ssGenerarPDFIndep() {
   const d = window._ssLastIndep;
   if (!d) { showToast('Primero ingresa un ingreso'); return; }
   const fecha = new Date().toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
+  const esParcial = d.factor < 1;
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
   <title>Liquidación Seguridad Social — Trabajador Independiente</title>
@@ -18939,21 +19229,22 @@ function ssGenerarPDFIndep() {
     @media print { body { margin: 20px; } }
   </style></head><body>
   <h1>💼 Liquidación Seguridad Social</h1>
-  <div class="sub">Trabajador Independiente · Generado el ${fecha} · Valores base: Decretos 1469 y 1470 del 29/dic/2025</div>
+  <div class="sub">Trabajador Independiente${esParcial ? ` · Liquidación parcial (${d.dias} días laborados)` : ''} · Generado el ${fecha} · Valores base: Decretos 1469 y 1470 del 29/dic/2025</div>
   ${d.ingresoMuyBajo
-      ? `<div class="indicador ind-warn" style="border-color:#DC2626;background:#FEF2F2;color:#7F1D1D;">⚠️ El ingreso reportado (${ssFmt(d.ingreso)}) es inferior al SMMLV. Por ley se cotiza mínimo sobre ${ssFmt(d.smmlv)}.</div>`
+      ? `<div class="indicador ind-warn" style="border-color:#DC2626;background:#FEF2F2;color:#7F1D1D;">⚠️ El ingreso mensual (${ssFmt(d.ingreso)}) es inferior al SMMLV. Por ley se cotiza mínimo sobre ${ssFmt(d.smmlv)}${esParcial ? ` proporcional a ${d.dias} días = ${ssFmt(d.baseCot)}` : ''}.</div>`
       : d.usaSMMLV
-        ? `<div class="indicador ind-warn">⚠️ El 40% del ingreso (${ssFmt(d.base40)}) no supera el SMMLV mínimo (${ssFmt(d.smmlv)}). Se usa el SMMLV como IBC.</div>`
-        : `<div class="indicador ind-ok">✅ IBC = 40% de ${ssFmt(d.ingreso)} = ${ssFmt(d.base40)}. Supera el SMMLV. Se cotiza sobre esta base.</div>`
+        ? `<div class="indicador ind-warn">⚠️ El 40% del ingreso (${ssFmt(d.base40)}) no supera el SMMLV mínimo (${ssFmt(d.smmlv)}). Se usa el SMMLV como IBC mensual${esParcial ? `, proporcional a ${d.dias} días = ${ssFmt(d.baseCot)}` : ''}.</div>`
+        : `<div class="indicador ind-ok">✅ IBC mensual = 40% de ${ssFmt(d.ingreso)} = ${ssFmt(d.base40)}${esParcial ? ` × ${d.dias}/30 días = ${ssFmt(d.baseCot)}` : '. Supera el SMMLV ✓'}.</div>`
   }
   <table>
     <tr><th colspan="2">Paso 1 — Base de cotización (Regla del 40%)</th></tr>
     <tr><td>Ingreso bruto mensual</td><td>${ssFmt(d.ingreso)}</td></tr>
-    <tr><td>40% del ingreso (IBC calculado)</td><td>${ssFmt(d.base40)}</td></tr>
-    <tr><td><strong>IBC aplicado${d.usaSMMLV ? ' (mínimo legal)' : ''}</strong></td><td><strong>${ssFmt(d.baseCot)}</strong></td></tr>
+    <tr><td>40% del ingreso (IBC mensual)</td><td>${ssFmt(d.base40)}</td></tr>
+    <tr><td>IBC mensual${d.usaSMMLV ? ' (mínimo legal — SMMLV)' : ''}</td><td>${ssFmt(d.ibcMensual)}</td></tr>
+    ${esParcial ? `<tr><td><strong>IBC proporcional (${d.dias} de 30 días)</strong></td><td><strong>${ssFmt(d.baseCot)}</strong></td></tr>` : ''}
   </table>
   <table>
-    <tr><th colspan="2">Paso 2 — Aportes a pagar</th></tr>
+    <tr><th colspan="2">Paso 2 — Aportes a pagar${esParcial ? ` (${d.dias} días)` : ''}</th></tr>
     <tr><td>Salud — 12.5%</td><td>${ssFmt(d.salud)}</td></tr>
     <tr><td>Pensión — 16%</td><td>${ssFmt(d.pension)}</td></tr>
     ${d.fsp > 0 ? `<tr><td>Fondo Solidaridad Pensional</td><td>${ssFmt(d.fsp)}</td></tr>` : ''}
@@ -19089,22 +19380,409 @@ function ptLimpiarBuscadorCartera() {
   if (cnt) cnt.textContent = '';
 }
 
-if (window.__FB_READY__) {
-  bootApp();
-} else {
-  document.addEventListener('fb-ready', bootApp, { once: true });
-  setTimeout(function() {
-    if (!window.__FB_READY__) {
-      console.warn('Firebase timeout (8s) — arrancando sin datos de Firebase');
-      // NO nullificar __FB_CACHE__ si ya fue inicializado parcialmente
-      // Dejar que la app arranque con estado vacio antes que con datos obsoletos de localStorage
-      if (!window.__FB_CACHE__) window.__FB_CACHE__ = { estado: {}, pagos: {}, pipeline: [], actividades: [], cierres: {}, configAnios: {}, productosExtra: [], empresas: [], cotizaciones: [], syncConfig: {}, plantillas: {}, bdSiniestralidad: { trimestres: [], registros: [] }, contactos: [] };
-      const splash = document.getElementById('fb-splash');
-      if (splash) splash.style.display = 'none';
-      bootApp();
-    }
-  }, 8000);
+// =============================================
+// CONCILIACIÓN PBS
+// Cruza ventas registradas en app vs informes
+// previos SURA (pagadas + no pagadas)
+// Cruce por NUMERO ID AFILIADO (cédula)
+// =============================================
+
+// Datos cargados de los archivos SURA
+window._concilDatPagadas   = null; // array de objetos fila pagadas
+window._concilDatNoPagadas = null; // array de objetos fila no pagadas
+window._concilResultados   = [];   // resultados del cruce
+
+// Leer XLS via SheetJS (disponible en el browser como XLSX global) — fallback: Papa
+async function concilLeerXLS(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        // Usar SheetJS si está disponible
+        if (window.XLSX) {
+          const wb = window.XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const json = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          resolve(json);
+        } else {
+          reject(new Error('SheetJS no disponible'));
+        }
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
 }
+
+// Parsear el raw array de filas → encontrar header en fila 6 (índice 6)
+function concilParsearFilas(rawRows, tipo) {
+  // Header siempre en índice 6
+  const headers = rawRows[6] ? rawRows[6].map(h => String(h).trim()) : [];
+  if (!headers.length) return [];
+  const filas = rawRows.slice(7).filter(r => r.some(c => c !== ''));
+
+  const get = (row, col) => {
+    const idx = headers.indexOf(col);
+    return idx >= 0 ? String(row[idx] ?? '').trim() : '';
+  };
+
+  if (tipo === 'pagadas') {
+    return filas.map(r => ({
+      cedula:        get(r, 'NUMERO ID AFILIADO'),
+      numFormulario: get(r, 'NUMERO FORMULARIO'),
+      fechaRad:      get(r, 'FECHA RADICACION'),
+      valor:         parseInt(get(r, 'VALOR')) || 0,
+      agil:          get(r, 'AGIL'),
+      tipoAfiliado:  get(r, 'TIPO AFILIADO'),
+      empresa:       get(r, 'NOMBRE EMPLEADOR').trim(),
+      observacion:   get(r, 'OBSERVACION'),
+      rangoPago:     get(r, 'RANGO DE PAGO'),
+    }));
+  } else {
+    return filas.map(r => ({
+      cedula:        get(r, 'NUMERO ID AFILIADO'),
+      numSolicitud:  get(r, 'NUMERO SOLICITUD'),
+      fechaRad:      get(r, 'FECHA RADICACION'),
+      empleador:     get(r, 'EMPLEADOR'),
+      codigoNoPago:  get(r, 'CODIGO NO PAGO'),
+      causaNoPago:   get(r, 'CAUSA NO PAGO'),
+    }));
+  }
+}
+
+async function concilCargarPagadas(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    document.getElementById('concilLabelPagadas').textContent = 'Cargando…';
+    if (!window.XLSX) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const raw = await concilLeerXLS(file);
+    window._concilDatPagadas = concilParsearFilas(raw, 'pagadas');
+    document.getElementById('concilIconPagadas').textContent = '✅';
+    document.getElementById('concilLabelPagadas').textContent = `${window._concilDatPagadas.length} registros`;
+    document.getElementById('concilLabelPagadas').style.color = 'var(--green)';
+  } catch(e) {
+    document.getElementById('concilIconPagadas').textContent = '❌';
+    document.getElementById('concilLabelPagadas').textContent = 'Error al leer: ' + e.message;
+    document.getElementById('concilLabelPagadas').style.color = 'var(--red)';
+  }
+  concilActualizarBoton();
+}
+
+async function concilCargarNoPagadas(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    document.getElementById('concilLabelNoPagadas').textContent = 'Cargando…';
+    if (!window.XLSX) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const raw = await concilLeerXLS(file);
+    window._concilDatNoPagadas = concilParsearFilas(raw, 'nopagadas');
+    document.getElementById('concilIconNoPagadas').textContent = '✅';
+    document.getElementById('concilLabelNoPagadas').textContent = `${window._concilDatNoPagadas.length} registros`;
+    document.getElementById('concilLabelNoPagadas').style.color = 'var(--green)';
+  } catch(e) {
+    document.getElementById('concilIconNoPagadas').textContent = '❌';
+    document.getElementById('concilLabelNoPagadas').textContent = 'Error al leer: ' + e.message;
+    document.getElementById('concilLabelNoPagadas').style.color = 'var(--red)';
+  }
+  concilActualizarBoton();
+}
+
+function concilActualizarBoton() {
+  const btn = document.getElementById('concilBtnCruce');
+  if (btn) btn.disabled = !(window._concilDatPagadas && window._concilDatNoPagadas);
+}
+
+function renderConciliacion() {
+  const mesPago = parseInt(document.getElementById('concilMesPago')?.value || 4);
+  const anio    = parseInt(document.getElementById('concilAnio')?.value    || 2026);
+
+  // El mes de pago implica: ventas del período compensado = mes anterior al de compensación
+  // Lógica: mes de pago = M → ventas de compensado = M-2 (ej: pago abril → compensado marzo → ventas febrero)
+  // Más preciso: ventas desde DH6 de (M-2) hasta DH5 de (M-1)
+  const mesVentas    = mesPago <= 2 ? mesPago + 10 : mesPago - 2;
+  const anioVentas   = mesPago <= 2 ? anio - 1 : anio;
+  const mesCompens   = mesPago === 1 ? 12 : mesPago - 1;
+  const anioCompens  = mesPago === 1 ? anio - 1 : anio;
+
+  const MESES_ES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  // Calcular ventana de ventas exacta por días hábiles
+  const dh6inicio = getDiaHabilN(anioVentas, mesVentas - 1, 6);
+  const dh5fin    = getDiaHabilN(anioCompens, mesCompens - 1, 5);
+  const inicioStr = dh6inicio ? dh6inicio.toLocaleDateString('es-CO', {day:'2-digit',month:'short',year:'numeric'}) : '—';
+  const finStr    = dh5fin    ? dh5fin.toLocaleDateString('es-CO',    {day:'2-digit',month:'short',year:'numeric'}) : '—';
+
+  const infoEl = document.getElementById('concilPeriodoInfo');
+  if (infoEl) {
+    infoEl.innerHTML = `📅 <strong>Mes de pago: ${MESES_ES[mesPago]} ${anio}</strong> &nbsp;→&nbsp; 
+      Mes compensado: <strong>${MESES_ES[mesCompens]} ${anioCompens}</strong> &nbsp;→&nbsp; 
+      Ventas del período: <strong>${inicioStr}</strong> al <strong>${finStr}</strong>
+      <span style="margin-left:12px;font-size:11px;color:var(--text-muted);">(DH6 de ${MESES_ES[mesVentas]} → DH5 de ${MESES_ES[mesCompens]})</span>`;
+  }
+
+  // Contar mis ventas PBS del período
+  const state = getState();
+  const ventasPeriodo = (state.ventas || []).filter(v => {
+    if (v.producto !== 'PBS' || v.tipo === 'CANCELACION') return false;
+    const d = new Date((v.fecha || '') + 'T12:00:00');
+    if (!dh6inicio || !dh5fin) return false;
+    return d >= dh6inicio && d <= dh5fin;
+  });
+
+  const appEl = document.getElementById('concilLabelApp');
+  const appIcon = document.getElementById('concilIconApp');
+  if (appEl) {
+    appEl.textContent = `${ventasPeriodo.length} ventas PBS del período`;
+    appEl.style.color = ventasPeriodo.length > 0 ? 'var(--green)' : 'var(--text-muted)';
+  }
+  if (appIcon) appIcon.textContent = ventasPeriodo.length > 0 ? '✅' : '⬜';
+
+  // Reset resultado
+  document.getElementById('concilKpisWrap').style.display = 'none';
+  document.getElementById('concilResultadoWrap').style.display = 'none';
+  document.getElementById('concilPlaceholder').style.display = '';
+  document.getElementById('concilBtnExportar').style.display = 'none';
+  window._concilResultados = [];
+  concilActualizarBoton();
+}
+
+function concilEjecutarCruce() {
+  const mesPago = parseInt(document.getElementById('concilMesPago').value || 4);
+  const anio    = parseInt(document.getElementById('concilAnio').value    || 2026);
+
+  const mesVentas  = mesPago <= 2 ? mesPago + 10 : mesPago - 2;
+  const anioVentas = mesPago <= 2 ? anio - 1 : anio;
+  const mesCompens = mesPago === 1 ? 12 : mesPago - 1;
+  const anioCompens = mesPago === 1 ? anio - 1 : anio;
+
+  const dh6inicio = getDiaHabilN(anioVentas, mesVentas - 1, 6);
+  const dh5fin    = getDiaHabilN(anioCompens, mesCompens - 1, 5);
+
+  const state = getState();
+  const ventasPeriodo = (state.ventas || []).filter(v => {
+    if (v.producto !== 'PBS' || v.tipo === 'CANCELACION') return false;
+    const d = new Date((v.fecha || '') + 'T12:00:00');
+    if (!dh6inicio || !dh5fin) return false;
+    return d >= dh6inicio && d <= dh5fin;
+  });
+
+  // Indexar SURA por cédula
+  const pagadasMap   = {}; // cedula → array de filas (puede haber cotizante + beneficiarios)
+  const noPagadasMap = {}; // cedula → fila
+  const pagadasUsadas = new Set();
+
+  (window._concilDatPagadas || []).forEach(r => {
+    if (!pagadasMap[r.cedula]) pagadasMap[r.cedula] = [];
+    pagadasMap[r.cedula].push(r);
+  });
+  (window._concilDatNoPagadas || []).forEach(r => {
+    if (!noPagadasMap[r.cedula]) noPagadasMap[r.cedula] = r;
+  });
+
+  const resultados = [];
+
+  // Para cada venta de la app, cruzar
+  ventasPeriodo.forEach(v => {
+    const cedula = String(v.doc || v.tomadorDoc || '').replace(/\D/g,'');
+    const comEsp = v.comision || 0;
+    const nombre = v.tomadorNombre || v.nombre || '—';
+    const empresa = v.empresa || '—';
+    const fecha  = v.fecha || '—';
+
+    // 1. ¿Está en pagadas?
+    if (cedula && pagadasMap[cedula]) {
+      const filasSura = pagadasMap[cedula];
+      // Sumar todos los valores de SURA para esta cédula (cotizante + beneficiarios)
+      const totalSura = filasSura.reduce((s,r) => s + r.valor, 0);
+      filasSura.forEach(r => pagadasUsadas.add(r.cedula + '|' + r.numFormulario));
+      const dif = totalSura - comEsp;
+      const tipoAfil = filasSura.map(r=>r.tipoAfiliado).join(', ');
+      const empresaSura = filasSura[0]?.empresa || empresa;
+
+      if (Math.abs(dif) <= 500) {
+        // OK — diferencia menor a $500 se considera igual (redondeos)
+        resultados.push({ estado:'OK', cedula, nombre, empresa: empresaSura, fecha, tipoAfil, comEsp, suraPago: totalSura, dif: 0, causa: '' });
+      } else {
+        resultados.push({ estado:'DIFERENCIA', cedula, nombre, empresa: empresaSura, fecha, tipoAfil, comEsp, suraPago: totalSura, dif, causa: dif < 0 ? `SURA pagó ${fmt(totalSura)}, debía ${fmt(comEsp)}` : `SURA pagó más: ${fmt(totalSura)} vs ${fmt(comEsp)}` });
+      }
+      return;
+    }
+
+    // 2. ¿Está en no pagadas?
+    if (cedula && noPagadasMap[cedula]) {
+      const np = noPagadasMap[cedula];
+      resultados.push({ estado:'NO_PAGADA', cedula, nombre, empresa: empresa, fecha, tipoAfil: 'Cotizante', comEsp, suraPago: 0, dif: -comEsp, causa: np.causaNoPago || ('Código ' + np.codigoNoPago) });
+      return;
+    }
+
+    // 3. Sin cruzar — no aparece en ningún informe SURA
+    resultados.push({ estado:'SIN_CRUZAR', cedula, nombre, empresa, fecha, tipoAfil: '—', comEsp, suraPago: 0, dif: -comEsp, causa: 'No aparece en pagadas ni no-pagadas' });
+  });
+
+  // 4. Registros en SURA pagadas que no están en la app (extras)
+  (window._concilDatPagadas || []).forEach(r => {
+    const key = r.cedula + '|' + r.numFormulario;
+    if (!pagadasUsadas.has(key)) {
+      resultados.push({ estado:'EXTRA_SURA', cedula: r.cedula, nombre: '—', empresa: r.empresa, fecha: r.fechaRad, tipoAfil: r.tipoAfiliado, comEsp: 0, suraPago: r.valor, dif: r.valor, causa: 'En SURA pero sin venta registrada en app' });
+    }
+  });
+
+  window._concilResultados = resultados;
+  concilRenderResultados(resultados);
+}
+
+function concilRenderResultados(resultados) {
+  document.getElementById('concilPlaceholder').style.display = 'none';
+  document.getElementById('concilKpisWrap').style.display = '';
+  document.getElementById('concilResultadoWrap').style.display = '';
+  document.getElementById('concilBtnExportar').style.display = '';
+
+  // KPIs
+  const ok         = resultados.filter(r=>r.estado==='OK');
+  const dif        = resultados.filter(r=>r.estado==='DIFERENCIA');
+  const np         = resultados.filter(r=>r.estado==='NO_PAGADA');
+  const sinC       = resultados.filter(r=>r.estado==='SIN_CRUZAR');
+  const extra      = resultados.filter(r=>r.estado==='EXTRA_SURA');
+  const totalSura  = resultados.reduce((s,r)=>s+r.suraPago,0);
+  const totalEsp   = resultados.reduce((s,r)=>s+r.comEsp,0);
+  const totalDif   = dif.reduce((s,r)=>s+Math.abs(r.dif),0);
+
+  document.getElementById('kConcilOk').textContent        = ok.length;
+  document.getElementById('kConcilOkVal').textContent     = fmt(ok.reduce((s,r)=>s+r.suraPago,0));
+  document.getElementById('kConcilDif').textContent       = dif.length;
+  document.getElementById('kConcilDifVal').textContent    = fmt(totalDif) + ' diferencia acum.';
+  document.getElementById('kConcilNP').textContent        = np.length;
+  document.getElementById('kConcilNPVal').textContent     = [...new Set(np.map(r=>r.causa))].length + ' causas';
+  document.getElementById('kConcilSinCruzar').textContent = sinC.length;
+  document.getElementById('kConcilTotalSura').textContent = fmt(totalSura);
+  document.getElementById('kConcilTotalEsp').textContent  = fmt(totalEsp);
+
+  concilRenderTabla(resultados);
+}
+
+function concilRenderTabla(resultados) {
+  const ESTADO_CONFIG = {
+    OK:          { color:'var(--green)',    bg:'rgba(34,197,94,0.08)',  label:'✅ OK' },
+    DIFERENCIA:  { color:'var(--amber)',    bg:'rgba(245,158,11,0.08)', label:'⚠️ Diferencia' },
+    NO_PAGADA:   { color:'var(--red)',      bg:'rgba(239,68,68,0.08)',  label:'❌ No pagada' },
+    SIN_CRUZAR:  { color:'var(--text-dim)', bg:'rgba(255,255,255,0.03)', label:'🔎 Sin cruzar' },
+    EXTRA_SURA:  { color:'var(--purple)',   bg:'rgba(168,85,247,0.08)', label:'➕ Extra SURA' },
+  };
+
+  const tbody = document.getElementById('concilTbody');
+  if (!resultados.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-dim);">Sin resultados</td></tr>`;
+    return;
+  }
+
+  // Ordenar: primero diferencias, no pagadas, sin cruzar, extras, ok
+  const orden = { DIFERENCIA:0, NO_PAGADA:1, SIN_CRUZAR:2, EXTRA_SURA:3, OK:4 };
+  const sorted = [...resultados].sort((a,b) => (orden[a.estado]??5) - (orden[b.estado]??5));
+
+  tbody.innerHTML = sorted.map((r,i) => {
+    const cfg = ESTADO_CONFIG[r.estado] || {};
+    const difStr = r.dif === 0 ? '—' : (r.dif > 0 ? `+${fmt(r.dif)}` : fmt(r.dif));
+    const difColor = r.dif < 0 ? 'var(--red)' : r.dif > 0 ? 'var(--amber)' : 'var(--text-muted)';
+    const fRad = r.fecha ? new Date(r.fecha+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    return `<tr data-estado="${r.estado}" style="background:${i%2===0?'':cfg.bg||''};">
+      <td style="padding:8px 10px;"><span style="font-size:11.5px;font-weight:700;color:${cfg.color||'var(--text)'};">${cfg.label||r.estado}</span></td>
+      <td style="font-family:var(--mono);font-size:12px;padding:8px 10px;">${r.cedula||'—'}</td>
+      <td style="font-size:12.5px;padding:8px 10px;">${r.nombre}</td>
+      <td style="font-size:11.5px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 10px;" title="${r.empresa}">${r.empresa}</td>
+      <td style="font-family:var(--mono);font-size:11px;padding:8px 10px;white-space:nowrap;">${fRad}</td>
+      <td style="font-size:11.5px;padding:8px 10px;">${r.tipoAfil}</td>
+      <td style="font-family:var(--mono);text-align:right;padding:8px 10px;">${r.comEsp>0?fmt(r.comEsp):'—'}</td>
+      <td style="font-family:var(--mono);text-align:right;padding:8px 10px;color:var(--green);">${r.suraPago>0?fmt(r.suraPago):'—'}</td>
+      <td style="font-family:var(--mono);text-align:right;padding:8px 10px;color:${difColor};font-weight:700;">${difStr}</td>
+      <td style="font-size:11.5px;padding:8px 10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);" title="${r.causa}">${r.causa||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('concilFiltroCount').textContent = `${sorted.length} registros`;
+}
+
+function concilFiltrarTabla() {
+  const filtro = document.getElementById('concilFiltroEstado').value;
+  const q = (document.getElementById('concilBuscador').value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#concilTbody tr');
+  let vis = 0;
+  rows.forEach(tr => {
+    const estado = tr.dataset.estado || '';
+    const txt = tr.textContent.toLowerCase();
+    const matchEstado = !filtro || estado === filtro;
+    const matchQ = !q || txt.includes(q);
+    const show = matchEstado && matchQ;
+    tr.style.display = show ? '' : 'none';
+    if (show) vis++;
+  });
+  document.getElementById('concilFiltroCount').textContent = `${vis} registros`;
+}
+
+function concilExportarDiferencias() {
+  const res = window._concilResultados.filter(r => r.estado !== 'OK');
+  if (!res.length) { showToast('No hay diferencias para exportar'); return; }
+
+  const MESES_ES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesPago = parseInt(document.getElementById('concilMesPago').value || 4);
+  const anio    = parseInt(document.getElementById('concilAnio').value    || 2026);
+  const fechaGen = new Date().toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'});
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Conciliación PBS — Diferencias ${MESES_ES[mesPago]} ${anio}</title>
+  <style>
+    body{font-family:'Segoe UI',Arial,sans-serif;max-width:1100px;margin:30px auto;color:#1a1a2e;font-size:13px;}
+    h1{font-size:18px;color:#1A4CE8;margin-bottom:4px;}
+    .sub{font-size:11px;color:#666;margin-bottom:20px;}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+    th{background:#1A4CE8;color:white;padding:8px 10px;text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+    td{padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;}
+    td.num{text-align:right;font-family:monospace;}
+    tr.dif td{background:#FFFBEB;}
+    tr.np td{background:#FEF2F2;}
+    tr.sinc td{background:#F9FAFB;}
+    tr.extra td{background:#F5F3FF;}
+    .badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10.5px;font-weight:700;}
+    .b-dif{background:#FEF3C7;color:#92400E;}
+    .b-np{background:#FEE2E2;color:#991B1B;}
+    .b-sinc{background:#F3F4F6;color:#374151;}
+    .b-extra{background:#EDE9FE;color:#4C1D95;}
+    .footer{font-size:10px;color:#9ca3af;text-align:center;margin-top:20px;border-top:1px solid #e5e7eb;padding-top:10px;}
+    @media print{body{margin:15px;}}
+  </style></head><body>
+  <h1>🔍 Conciliación PBS — Diferencias y pendientes</h1>
+  <div class="sub">Mes de pago: <strong>${MESES_ES[mesPago]} ${anio}</strong> · Generado: ${fechaGen} · Asesor: ${window.FB?.UID || '—'}</div>
+  <table>
+    <thead><tr>
+      <th>Estado</th><th>Cédula</th><th>Nombre (App)</th><th>Empresa</th>
+      <th>Fecha radicación</th><th>Tipo afiliado</th>
+      <th class="num">Com. esperada</th><th class="num">SURA pagó</th><th class="num">Diferencia</th>
+      <th>Causa / Nota</th>
+    </tr></thead>
+    <tbody>
+    ${res.map(r => {
+      const cl = r.estado==='DIFERENCIA'?'dif':r.estado==='NO_PAGADA'?'np':r.estado==='SIN_CRUZAR'?'sinc':'extra';
+      const badge = r.estado==='DIFERENCIA'?'b-dif':r.estado==='NO_PAGADA'?'b-np':r.estado==='SIN_CRUZAR'?'b-sinc':'b-extra';
+      const labels = {DIFERENCIA:'⚠️ Diferencia',NO_PAGADA:'❌ No pagada',SIN_CRUZAR:'🔎 Sin cruzar',EXTRA_SURA:'➕ Extra SURA'};
+      const fRad = r.fecha ? new Date(r.fecha+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      const difStr = r.dif===0?'—':(r.dif>0?`+${fmt(r.dif)}`:fmt(r.dif));
+      return `<tr class="${cl}"><td><span class="badge ${badge}">${labels[r.estado]||r.estado}</span></td>
+        <td>${r.cedula||'—'}</td><td>${r.nombre}</td><td>${r.empresa}</td><td>${fRad}</td><td>${r.tipoAfil}</td>
+        <td class="num">${r.comEsp>0?fmt(r.comEsp):'—'}</td><td class="num">${r.suraPago>0?fmt(r.suraPago):'—'}</td>
+        <td class="num" style="font-weight:700;color:${r.dif<0?'#991B1B':r.dif>0?'#92400E':'#374151'}">${difStr}</td>
+        <td>${r.causa||'—'}</td></tr>`;
+    }).join('')}
+    </tbody>
+  </table>
+  <div class="footer">Documento generado desde el panel Asesor SURA · Para reclamación interna</div>
+  <script>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
+// La promesa __FB_PROMISE__ ya fue creada cuando se definió arriba.
+// Solo necesitamos llamar bootApp cuando el DOM y el script estén listos.
+bootApp();
 </script>
 </body>
 
