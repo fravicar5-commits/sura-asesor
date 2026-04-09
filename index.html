@@ -2095,23 +2095,27 @@
           <button class="btn btn-secondary" onclick="imprimirPlantillaPBS()">🖨️ Imprimir / PDF</button>
         </div>
 
-        <!-- Buscador + Zoom PBS -->
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
-          <div style="position:relative;flex:1;min-width:200px;max-width:380px;">
-            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
-            <input type="text" id="ptBuscadorPBS" placeholder="Buscar por nombre, documento, empresa…"
-              oninput="ptFiltrarPBS()"
-              style="width:100%;padding:8px 12px 8px 32px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+        <!-- Controles PBS -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 8px;">
+            <button onclick="ptZoom('pbs',-1)" title="Reducir" style="background:none;border:none;color:var(--text);width:26px;height:26px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">−</button>
+            <span id="ptZoomLabelPBS" style="font-size:11.5px;color:var(--text-muted);min-width:34px;text-align:center;font-family:var(--mono);">100%</span>
+            <button onclick="ptZoom('pbs',1)" title="Ampliar" style="background:none;border:none;color:var(--text);width:26px;height:26px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">+</button>
+            <div style="width:1px;height:18px;background:var(--border);margin:0 2px;"></div>
+            <button onclick="ptZoomReset('pbs')" title="Restablecer zoom" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:12px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">↺</button>
+            <button onclick="ptToggleFullscreen('plantillaPBSwrap2')" title="Expandir/contraer" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:13px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">⛶</button>
           </div>
-          <span id="ptBuscadorPBSCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
-          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-            <span style="font-size:11.5px;color:var(--text-muted);">Zoom:</span>
-            <button onclick="ptZoom('pbs',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">−</button>
-            <span id="ptZoomLabelPBS" style="font-size:12px;color:var(--text-muted);min-width:36px;text-align:center;">100%</span>
-            <button onclick="ptZoom('pbs',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">+</button>
-            <button onclick="ptZoomReset('pbs')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;">↺</button>
-            <button onclick="ptToggleFullscreen('plantillaPBSwrap2')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;" title="Expandir/contraer">⛶</button>
+          <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5;">🔍</span>
+            <input type="text" id="ptBuscadorPBS" placeholder="Buscar nombre, documento, empresa…" oninput="ptFiltrarPBS()"
+              style="width:100%;padding:7px 12px 7px 30px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
           </div>
+          <span id="ptBuscadorPBSCount" style="font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
+        </div>
+        <!-- Barra de scroll horizontal proxy (siempre visible, izquierda) -->
+        <div id="ptScrollBarPBS" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:6px;"
+             onscroll="document.getElementById('plantillaPBSwrap2').scrollLeft=this.scrollLeft">
+          <div id="ptScrollInnerPBS" style="height:1px;min-width:100%;"></div>
         </div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -2122,7 +2126,8 @@
           <span class="chip chip-blue" id="ptCountPBS">0 registros</span>
         </div>
 
-        <div id="plantillaPBSwrap2" style="overflow-x:auto;overflow-y:auto;max-height:65vh;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);transition:max-height .3s;">
+        <div id="plantillaPBSwrap2" style="overflow-x:auto;overflow-y:auto;max-height:65vh;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);transition:max-height .3s;"
+             onscroll="document.getElementById('ptScrollBarPBS').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerPBS',this)">
           <table id="tablaPlanPBS2" style="font-size:12.5px;min-width:900px;width:100%;border-collapse:collapse;">
             <thead style="position:sticky;top:0;z-index:3;">
               <tr style="background:var(--sura-blue);">
@@ -2325,23 +2330,26 @@
           <button class="btn btn-sm" style="background:rgba(6,182,212,0.15);color:var(--teal);border:1px solid rgba(6,182,212,0.3);" onclick="exportarVoluntariosExcel()">📊 Exportar todos</button>
         </div>
 
-        <!-- Buscador + Zoom Voluntarios -->
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
-          <div style="position:relative;flex:1;min-width:200px;max-width:380px;">
-            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
-            <input type="text" id="ptBuscadorVol" placeholder="Buscar por nombre, documento, póliza…"
-              oninput="ptFiltrarVol()"
-              style="width:100%;padding:8px 12px 8px 32px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+        <!-- Controles Voluntarios -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 8px;">
+            <button onclick="ptZoom('vol',-1)" title="Reducir" style="background:none;border:none;color:var(--text);width:26px;height:26px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">−</button>
+            <span id="ptZoomLabelVol" style="font-size:11.5px;color:var(--text-muted);min-width:34px;text-align:center;font-family:var(--mono);">100%</span>
+            <button onclick="ptZoom('vol',1)" title="Ampliar" style="background:none;border:none;color:var(--text);width:26px;height:26px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">+</button>
+            <div style="width:1px;height:18px;background:var(--border);margin:0 2px;"></div>
+            <button onclick="ptZoomReset('vol')" title="Restablecer zoom" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:12px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">↺</button>
+            <button onclick="ptToggleFullscreen('ptWrapSPTI,ptWrapSPD,ptWrapPSM,ptWrapPAC60')" title="Expandir/contraer" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:13px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">⛶</button>
           </div>
-          <span id="ptBuscadorVolCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
-          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-            <span style="font-size:11.5px;color:var(--text-muted);">Zoom:</span>
-            <button onclick="ptZoom('vol',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">−</button>
-            <span id="ptZoomLabelVol" style="font-size:12px;color:var(--text-muted);min-width:36px;text-align:center;">100%</span>
-            <button onclick="ptZoom('vol',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">+</button>
-            <button onclick="ptZoomReset('vol')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;">↺</button>
-            <button onclick="ptToggleFullscreen('ptWrapSPTI,ptWrapSPD,ptWrapPSM,ptWrapPAC60')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;" title="Expandir/contraer">⛶</button>
+          <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5;">🔍</span>
+            <input type="text" id="ptBuscadorVol" placeholder="Buscar nombre, documento, póliza…" oninput="ptFiltrarVol()"
+              style="width:100%;padding:7px 12px 7px 30px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
           </div>
+          <span id="ptBuscadorVolCount" style="font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
+        </div>
+        <div id="ptScrollBarVol" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:6px;"
+             onscroll="ptSyncVolTable(this)">
+          <div id="ptScrollInnerVol" style="height:1px;min-width:100%;"></div>
         </div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -2353,7 +2361,7 @@
         </div>
 
         <!-- SPTI -->
-        <div id="ptWrapSPTI" style="overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);">
+        <div id="ptWrapSPTI" style="overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
           <table style="font-size:12.5px;min-width:1100px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--teal);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
@@ -2378,7 +2386,7 @@
           </table>
         </div>
         <!-- SPD -->
-        <div id="ptWrapSPD" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);">
+        <div id="ptWrapSPD" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
           <table style="font-size:12.5px;min-width:1350px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--purple);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
@@ -2406,7 +2414,7 @@
           </table>
         </div>
         <!-- PSM -->
-        <div id="ptWrapPSM" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);">
+        <div id="ptWrapPSM" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
           <table style="font-size:12.5px;min-width:1100px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--teal);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
@@ -2432,7 +2440,7 @@
           </table>
         </div>
         <!-- PAC60 -->
-        <div id="ptWrapPAC60" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);">
+        <div id="ptWrapPAC60" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
           <table style="font-size:12.5px;min-width:1000px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--green);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
@@ -3031,6 +3039,15 @@
 
       <!-- ===== ACTIVIDAD DIARIA ===== -->
       <div class="page" id="page-actividad">
+
+        <!-- Tabs principales -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0;">
+          <button id="actTab-diaria" class="tab-pill active" onclick="actSwitchTab('diaria')" style="border-radius:8px 8px 0 0;border-bottom:2px solid var(--sura-blue);">📝 Actividad Diaria</button>
+          <button id="actTab-prospectos" class="tab-pill" onclick="actSwitchTab('prospectos')" style="border-radius:8px 8px 0 0;">👥 BD Prospectos</button>
+        </div>
+
+        <!-- PANEL: ACTIVIDAD DIARIA -->
+        <div id="actPanel-diaria">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
           <div>
             <div class="section-title" style="margin-bottom:2px;">Registro de Actividad Diaria</div>
@@ -3061,6 +3078,173 @@
             </thead>
             <tbody id="actividadTabla"></tbody>
           </table>
+        </div>
+        </div><!-- /actPanel-diaria -->
+
+        <!-- PANEL: BD PROSPECTOS -->
+        <div id="actPanel-prospectos" style="display:none;">
+
+          <!-- Header y campañas -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div class="section-title" style="margin-bottom:2px;">BD Prospectos</div>
+              <div style="font-size:12px;color:var(--text-muted);">Importa BDs por campaña · gestiona llamadas, correos y seguimientos · filtra por mes</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <select class="form-control" style="width:170px;" id="prosFiltroMes" onchange="prosRenderTabla()">
+                <option value="">Todos los meses</option>
+              </select>
+              <select class="form-control" style="width:160px;" id="prosFiltroEstado" onchange="prosRenderTabla()">
+                <option value="">Todos los estados</option>
+                <option value="pendiente">⬜ Pendiente</option>
+                <option value="interesado">🟢 Interesado</option>
+                <option value="callback">🔵 Callback</option>
+                <option value="no_interesado">🔴 No interesado</option>
+                <option value="cerrado">✅ Cerrado / Vendido</option>
+              </select>
+              <select class="form-control" style="width:170px;" id="prosFiltrocamp" onchange="prosRenderTabla()">
+                <option value="">Todas las campañas</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Acciones de importación -->
+          <div class="card" style="margin-bottom:16px;border-left:3px solid var(--sura-blue);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+              <div>
+                <div style="font-size:13px;font-weight:600;margin-bottom:4px;">📥 Importar nueva BD</div>
+                <div style="font-size:12px;color:var(--text-muted);">Excel con columnas: Nombre, Cédula, Teléfono, Correo, Empresa (el orden puede variar, se detecta automáticamente)</div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <input type="text" id="prosNombreCampana" placeholder="Nombre campaña (ej: SPTI Abril 2026)"
+                  style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;width:220px;">
+                <label style="cursor:pointer;">
+                  <input type="file" id="prosFileInput" accept=".xlsx,.xls" style="display:none;" onchange="prosImportarExcel(event)">
+                  <div class="btn btn-primary">📂 Cargar Excel</div>
+                </label>
+                <button class="btn btn-secondary" onclick="prosLimpiarTodo()" style="color:var(--red);border-color:rgba(239,68,68,0.3);">🗑 Limpiar BD</button>
+              </div>
+            </div>
+            <div id="prosImportMsg" style="display:none;margin-top:10px;font-size:12.5px;"></div>
+          </div>
+
+          <!-- KPIs -->
+          <div id="prosKpisWrap" style="display:none;margin-bottom:16px;">
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;">
+              <div class="stat-card blue" style="padding:14px;"><div class="stat-label" style="font-size:10px;">Total</div><div class="stat-value" id="prosKpiTotal" style="font-size:20px;">0</div></div>
+              <div class="stat-card" style="padding:14px;border-top:3px solid var(--text-dim);"><div class="stat-label" style="font-size:10px;">⬜ Pendiente</div><div class="stat-value" id="prosKpiPend" style="font-size:20px;color:var(--text-muted);">0</div></div>
+              <div class="stat-card green" style="padding:14px;"><div class="stat-label" style="font-size:10px;">🟢 Interesado</div><div class="stat-value" id="prosKpiInt" style="font-size:20px;color:var(--green);">0</div></div>
+              <div class="stat-card blue" style="padding:14px;"><div class="stat-label" style="font-size:10px;">🔵 Callback</div><div class="stat-value" id="prosKpiCB" style="font-size:20px;color:var(--sura-blue);">0</div></div>
+              <div class="stat-card amber" style="padding:14px;"><div class="stat-label" style="font-size:10px;">🔴 No interesado</div><div class="stat-value" id="prosKpiNI" style="font-size:20px;color:var(--red);">0</div></div>
+              <div class="stat-card" style="padding:14px;border-top:3px solid var(--green);"><div class="stat-label" style="font-size:10px;">✅ Cerrado</div><div class="stat-value" id="prosKpiCerr" style="font-size:20px;color:var(--green);">0</div></div>
+            </div>
+          </div>
+
+          <!-- Buscador -->
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+            <div style="position:relative;flex:1;min-width:200px;max-width:360px;">
+              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5;">🔍</span>
+              <input type="text" id="prosBuscador" placeholder="Buscar nombre, cédula, empresa, teléfono…" oninput="prosRenderTabla()"
+                style="width:100%;padding:7px 12px 7px 30px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+            </div>
+            <span id="prosBuscadorCount" style="font-size:11px;color:var(--text-muted);"></span>
+          </div>
+
+          <!-- Tabla de prospectos -->
+          <div id="prosTablaWrap" style="display:none;overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);">
+            <table style="font-size:12.5px;min-width:1050px;width:100%;border-collapse:collapse;">
+              <thead style="position:sticky;top:0;z-index:3;">
+                <tr style="background:var(--surface2);">
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Estado</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Nombre</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Cédula</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Teléfono</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Correo</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Empresa</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Campaña</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Última gestión</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Próx. seguimiento</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;text-align:left;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="prosTablaBody"></tbody>
+            </table>
+          </div>
+          <div id="prosVacio" style="text-align:center;padding:50px 20px;color:var(--text-muted);">
+            <div style="font-size:40px;margin-bottom:12px;">👥</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Sin prospectos cargados</div>
+            <div style="font-size:12.5px;">Importa un Excel con la BD para empezar a gestionar</div>
+          </div>
+
+        </div><!-- /actPanel-prospectos -->
+
+      </div><!-- /page-actividad -->
+
+      <!-- MODAL: Gestión de prospecto -->
+      <div class="modal-overlay" id="modalGestionProsp">
+        <div class="modal" style="width:560px;">
+          <div class="modal-header">
+            <div>
+              <div class="modal-title" id="mgpTitulo">Gestionar prospecto</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;" id="mgpSubtitulo"></div>
+            </div>
+            <button class="modal-close" onclick="closeModal('modalGestionProsp')">×</button>
+          </div>
+          <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+            <input type="hidden" id="mgpId">
+            <!-- Estado -->
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Estado del prospecto</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="mgpSetEstado('pendiente',this)" class="mgp-estado-btn" data-estado="pendiente"
+                  style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer;font-size:12.5px;font-family:var(--font);">⬜ Pendiente</button>
+                <button onclick="mgpSetEstado('interesado',this)" class="mgp-estado-btn" data-estado="interesado"
+                  style="padding:6px 14px;border-radius:20px;border:1px solid rgba(34,197,94,0.4);background:rgba(34,197,94,0.08);color:var(--green);cursor:pointer;font-size:12.5px;font-family:var(--font);">🟢 Interesado</button>
+                <button onclick="mgpSetEstado('callback',this)" class="mgp-estado-btn" data-estado="callback"
+                  style="padding:6px 14px;border-radius:20px;border:1px solid rgba(26,76,232,0.4);background:rgba(26,76,232,0.08);color:var(--sura-blue);cursor:pointer;font-size:12.5px;font-family:var(--font);">🔵 Callback</button>
+                <button onclick="mgpSetEstado('no_interesado',this)" class="mgp-estado-btn" data-estado="no_interesado"
+                  style="padding:6px 14px;border-radius:20px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);color:var(--red);cursor:pointer;font-size:12.5px;font-family:var(--font);">🔴 No interesado</button>
+                <button onclick="mgpSetEstado('cerrado',this)" class="mgp-estado-btn" data-estado="cerrado"
+                  style="padding:6px 14px;border-radius:20px;border:1px solid rgba(34,197,94,0.6);background:rgba(34,197,94,0.15);color:var(--green);cursor:pointer;font-size:12.5px;font-family:var(--font);font-weight:600;">✅ Cerrado</button>
+              </div>
+            </div>
+            <!-- Tipo de gestión -->
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Tipo de gestión</label>
+              <select class="form-control" id="mgpTipo">
+                <option value="llamada">📞 Llamada</option>
+                <option value="whatsapp">💬 WhatsApp</option>
+                <option value="correo">📧 Correo</option>
+                <option value="visita">🏢 Visita</option>
+                <option value="no_contesta">📵 No contesta</option>
+              </select>
+            </div>
+            <!-- Observación -->
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Observación / Resultado</label>
+              <textarea class="form-control" id="mgpObservacion" rows="3" placeholder="Ej: Mostró interés, pide cotización para la próxima semana…" style="resize:vertical;font-size:13px;line-height:1.5;"></textarea>
+            </div>
+            <!-- Próximo seguimiento -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Próximo seguimiento</label>
+                <input type="date" class="form-control" id="mgpProxSeg">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Fecha de esta gestión</label>
+                <input type="date" class="form-control" id="mgpFecha">
+              </div>
+            </div>
+            <!-- Historial de gestiones previas -->
+            <div id="mgpHistorialWrap" style="display:none;">
+              <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Historial de gestiones</div>
+              <div id="mgpHistorial" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalGestionProsp')">Cancelar</button>
+            <button class="btn btn-primary" onclick="mgpGuardar()">💾 Guardar gestión</button>
+          </div>
         </div>
       </div>
 
@@ -3193,27 +3377,31 @@
           </select>
         </div>
 
-        <!-- Buscador + Zoom Cartera -->
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
-          <div style="position:relative;flex:1;min-width:200px;max-width:380px;">
-            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;">🔍</span>
-            <input type="text" id="ctBuscador" placeholder="Buscar por nombre, teléfono, plan…"
-              oninput="ptFiltrarCartera()"
-              style="width:100%;padding:8px 12px 8px 32px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+        <!-- Controles Cartera -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:5px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px 8px;">
+            <button onclick="ptZoom('cartera',-1)" title="Reducir" style="background:none;border:none;color:var(--text);width:26px;height:26px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">−</button>
+            <span id="ptZoomLabelCartera" style="font-size:11.5px;color:var(--text-muted);min-width:34px;text-align:center;font-family:var(--mono);">100%</span>
+            <button onclick="ptZoom('cartera',1)" title="Ampliar" style="background:none;border:none;color:var(--text);width:26px;height:26px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">+</button>
+            <div style="width:1px;height:18px;background:var(--border);margin:0 2px;"></div>
+            <button onclick="ptZoomReset('cartera')" title="Restablecer zoom" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:12px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">↺</button>
+            <button onclick="ptToggleFullscreen('ctTableWrap')" title="Expandir/contraer" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:13px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">⛶</button>
           </div>
-          <span id="ctBuscadorCount" style="font-size:12px;color:var(--text-muted);white-space:nowrap;"></span>
-          <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-            <span style="font-size:11.5px;color:var(--text-muted);">Zoom:</span>
-            <button onclick="ptZoom('cartera',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">−</button>
-            <span id="ptZoomLabelCartera" style="font-size:12px;color:var(--text-muted);min-width:36px;text-align:center;">100%</span>
-            <button onclick="ptZoom('cartera',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">+</button>
-            <button onclick="ptZoomReset('cartera')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;">↺</button>
-            <button onclick="ptToggleFullscreen('ctTableWrap')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;" title="Expandir/contraer">⛶</button>
+          <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5;">🔍</span>
+            <input type="text" id="ctBuscador" placeholder="Buscar nombre, teléfono, plan…" oninput="ptFiltrarCartera()"
+              style="width:100%;padding:7px 12px 7px 30px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
           </div>
+          <span id="ctBuscadorCount" style="font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
+        </div>
+        <div id="ptScrollBarCartera" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:6px;"
+             onscroll="document.getElementById('ctTableWrap').scrollLeft=this.scrollLeft">
+          <div id="ptScrollInnerCartera" style="height:1px;min-width:100%;"></div>
         </div>
 
         <!-- Tabla cartera -->
-        <div id="ctTableWrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);transition:max-height .3s;">
+        <div id="ctTableWrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);transition:max-height .3s;"
+             onscroll="document.getElementById('ptScrollBarCartera').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerCartera',this)">
           <table id="ctTable" style="font-size:12.5px;min-width:1100px;width:100%;border-collapse:collapse;">
             <thead>
               <tr style="background:var(--surface2);">
@@ -9280,6 +9468,7 @@ let _importData = [];
 // =============================================
 function renderPlantillaPBS() {
   ptLimpiarBuscadorPBS();
+  ptRefreshScrollBars();
   state = getState();
   const mesEl  = document.getElementById('ptMesPBS');
   const anioEl = document.getElementById('ptAnioPBS');
@@ -9371,6 +9560,7 @@ function imprimirPlantillaPBS() {
 // =============================================
 function renderPlantillaVol() {
   ptLimpiarBuscadorVol();
+  ptRefreshScrollBars();
   state = getState();
   const prodEl = document.getElementById('ptProductoVol');
   const mesEl  = document.getElementById('ptMesVol');
@@ -10255,6 +10445,7 @@ function calcPrimaAnual(v) {
 
 function renderCartera() {
   ptLimpiarBuscadorCartera();
+  ptRefreshScrollBars();
   state = getState();
   const pagos = getPagos();
   const filtroProducto = document.getElementById('ctProductoFiltro').value;
@@ -19271,6 +19462,34 @@ const _ptZoomTargets = {
   cartera: () => document.getElementById('ctTable'),
 };
 
+// Sincroniza el ancho del inner div del scroll proxy con el contenido real
+function ptSyncInner(innerId, wrapEl) {
+  const inner = document.getElementById(innerId);
+  if (inner) inner.style.width = wrapEl.scrollWidth + 'px';
+}
+
+// Sincroniza la tabla de vol activa con la barra proxy
+function ptSyncVolTable(scrollBar) {
+  const prod = document.getElementById('ptProductoVol')?.value || 'SPTI';
+  const ids = { SPTI:'ptWrapSPTI', SPD:'ptWrapSPD', PSM:'ptWrapPSM', PAC60:'ptWrapPAC60' };
+  const wrap = document.getElementById(ids[prod]);
+  if (wrap) wrap.scrollLeft = scrollBar.scrollLeft;
+}
+
+// Actualiza widths de todos los scrollbars proxy (llamar después de renderizar)
+function ptRefreshScrollBars() {
+  setTimeout(() => {
+    const pbsWrap = document.getElementById('plantillaPBSwrap2');
+    if (pbsWrap) ptSyncInner('ptScrollInnerPBS', pbsWrap);
+    const prod = document.getElementById('ptProductoVol')?.value || 'SPTI';
+    const vids = { SPTI:'ptWrapSPTI', SPD:'ptWrapSPD', PSM:'ptWrapPSM', PAC60:'ptWrapPAC60' };
+    const volWrap = document.getElementById(vids[prod]);
+    if (volWrap) ptSyncInner('ptScrollInnerVol', volWrap);
+    const ctWrap = document.getElementById('ctTableWrap');
+    if (ctWrap) ptSyncInner('ptScrollInnerCartera', ctWrap);
+  }, 120);
+}
+
 function ptZoom(key, dir) {
   const step = 10;
   const min = 50, max = 150;
@@ -19279,6 +19498,7 @@ function ptZoom(key, dir) {
   if (tbl) tbl.style.fontSize = (_ptZoom[key] / 100 * 12.5) + 'px';
   const lbl = document.getElementById('ptZoomLabel' + key.charAt(0).toUpperCase() + key.slice(1));
   if (lbl) lbl.textContent = _ptZoom[key] + '%';
+  ptRefreshScrollBars();
 }
 
 function ptZoomReset(key) {
@@ -19287,6 +19507,7 @@ function ptZoomReset(key) {
   if (tbl) tbl.style.fontSize = '12.5px';
   const lbl = document.getElementById('ptZoomLabel' + key.charAt(0).toUpperCase() + key.slice(1));
   if (lbl) lbl.textContent = '100%';
+  ptRefreshScrollBars();
 }
 
 // Expande/contrae la altura del contenedor de la tabla
@@ -19778,6 +19999,296 @@ function concilExportarDiferencias() {
   <div class="footer">Documento generado desde el panel Asesor SURA · Para reclamación interna</div>
   <script>window.print();<\/script></body></html>`);
   w.document.close();
+}
+
+// =============================================
+// BD PROSPECTOS
+// =============================================
+function actSwitchTab(tab) {
+  ['diaria','prospectos'].forEach(t => {
+    document.getElementById('actPanel-' + t).style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById('actTab-' + t);
+    if (btn) {
+      btn.classList.toggle('active', t === tab);
+      btn.style.borderBottom = t === tab ? '2px solid var(--sura-blue)' : '';
+    }
+  });
+  if (tab === 'prospectos') prosRenderTabla();
+}
+
+// Storage helpers
+function getProsDB() {
+  try { return JSON.parse(localStorage.getItem('sura_prospectos_v1') || '[]'); } catch(e) { return []; }
+}
+function setProsDB(arr) {
+  try { localStorage.setItem('sura_prospectos_v1', JSON.stringify(arr)); } catch(e) {}
+}
+
+// Importar Excel
+async function prosImportarExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const campana = (document.getElementById('prosNombreCampana').value || '').trim() || 'Sin nombre';
+  const msg = document.getElementById('prosImportMsg');
+  msg.style.display = '';
+  msg.innerHTML = '⏳ Cargando…';
+  msg.style.color = 'var(--text-muted)';
+
+  try {
+    if (!window.XLSX) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = window.XLSX.read(e.target.result, { type:'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = window.XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+        if (!rows.length) { msg.innerHTML = '⚠️ Archivo vacío'; msg.style.color='var(--amber)'; return; }
+
+        // Detectar encabezados automáticamente
+        const headers = rows[0].map(h => String(h).toLowerCase().trim());
+        const col = (...keys) => {
+          for (const k of keys) {
+            const i = headers.findIndex(h => h.includes(k));
+            if (i >= 0) return i;
+          }
+          return -1;
+        };
+        const cNom  = col('nombre','name','names');
+        const cCed  = col('cédula','cedula','nit','documento','id','identificacion');
+        const cTel  = col('teléfono','telefono','celular','movil','móvil','phone','tel');
+        const cCor  = col('correo','email','mail');
+        const cEmp  = col('empresa','compañia','company','empleador','entidad');
+
+        const mesActual = new Date().toISOString().slice(0,7); // YYYY-MM
+        const nuevos = rows.slice(1)
+          .filter(r => r.some(c => String(c).trim() !== ''))
+          .map(r => ({
+            id: Date.now().toString(36) + Math.random().toString(36).substr(2,5),
+            nombre:   String(cNom  >= 0 ? r[cNom]  : '').trim(),
+            cedula:   String(cCed  >= 0 ? r[cCed]  : '').trim().replace(/\D/g,''),
+            telefono: String(cTel  >= 0 ? r[cTel]  : '').trim().replace(/\D/g,''),
+            correo:   String(cCor  >= 0 ? r[cCor]  : '').trim().toLowerCase(),
+            empresa:  String(cEmp  >= 0 ? r[cEmp]  : '').trim(),
+            campana,
+            mes: mesActual,
+            estado: 'pendiente',
+            gestiones: [], // historial [{fecha,tipo,obs,proxSeg}]
+            ultimaGestion: '',
+            proxSeguimiento: '',
+          }))
+          .filter(p => p.nombre || p.cedula || p.telefono);
+
+        const db = getProsDB();
+        db.push(...nuevos);
+        setProsDB(db);
+
+        msg.innerHTML = `✅ ${nuevos.length} prospectos importados en campaña "<strong>${campana}</strong>"`;
+        msg.style.color = 'var(--green)';
+        document.getElementById('prosNombreCampana').value = '';
+        event.target.value = '';
+        prosRenderTabla();
+      } catch(err) {
+        msg.innerHTML = '❌ Error al procesar: ' + err.message;
+        msg.style.color = 'var(--red)';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } catch(err) {
+    msg.innerHTML = '❌ Error: ' + err.message;
+    msg.style.color = 'var(--red)';
+  }
+}
+
+function prosLimpiarTodo() {
+  if (!confirm('¿Eliminar TODA la BD de prospectos? Esta acción no se puede deshacer.')) return;
+  setProsDB([]);
+  prosRenderTabla();
+  showToast('🗑 BD de prospectos eliminada');
+}
+
+function prosRenderTabla() {
+  let db = getProsDB();
+  const filtroMes    = document.getElementById('prosFiltroMes')?.value    || '';
+  const filtroEst    = document.getElementById('prosFiltroEstado')?.value  || '';
+  const filtroCamp   = document.getElementById('prosFiltrocamp')?.value    || '';
+  const q            = (document.getElementById('prosBuscador')?.value     || '').toLowerCase().trim();
+
+  // Poblar campañas
+  const campSelEl = document.getElementById('prosFiltrocamp');
+  if (campSelEl) {
+    const camps = [...new Set(db.map(p=>p.campana).filter(Boolean))].sort();
+    const prev = campSelEl.value;
+    campSelEl.innerHTML = '<option value="">Todas las campañas</option>' + camps.map(c=>`<option value="${c}">${c}</option>`).join('');
+    campSelEl.value = prev;
+  }
+
+  // Poblar meses
+  const mesSelEl = document.getElementById('prosFiltroMes');
+  if (mesSelEl) {
+    const meses = [...new Set(db.map(p=>p.mes).filter(Boolean))].sort().reverse();
+    const prev = mesSelEl.value;
+    mesSelEl.innerHTML = '<option value="">Todos los meses</option>' + meses.map(m=>{
+      const [y,mo] = m.split('-');
+      const nombre = new Date(parseInt(y), parseInt(mo)-1, 1).toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+      return `<option value="${m}">${nombre}</option>`;
+    }).join('');
+    mesSelEl.value = prev;
+  }
+
+  // KPIs globales
+  const total = db.length;
+  document.getElementById('prosKpiTotal').textContent = total;
+  document.getElementById('prosKpiPend').textContent  = db.filter(p=>p.estado==='pendiente').length;
+  document.getElementById('prosKpiInt').textContent   = db.filter(p=>p.estado==='interesado').length;
+  document.getElementById('prosKpiCB').textContent    = db.filter(p=>p.estado==='callback').length;
+  document.getElementById('prosKpiNI').textContent    = db.filter(p=>p.estado==='no_interesado').length;
+  document.getElementById('prosKpiCerr').textContent  = db.filter(p=>p.estado==='cerrado').length;
+  document.getElementById('prosKpisWrap').style.display = total > 0 ? '' : 'none';
+
+  // Filtrar
+  let filtrado = db;
+  if (filtroMes)  filtrado = filtrado.filter(p => p.mes === filtroMes);
+  if (filtroEst)  filtrado = filtrado.filter(p => p.estado === filtroEst);
+  if (filtroCamp) filtrado = filtrado.filter(p => p.campana === filtroCamp);
+  if (q) filtrado = filtrado.filter(p => [p.nombre,p.cedula,p.telefono,p.correo,p.empresa,p.campana].join(' ').toLowerCase().includes(q));
+
+  document.getElementById('prosBuscadorCount').textContent = q || filtroMes || filtroEst || filtroCamp
+    ? `${filtrado.length} resultado${filtrado.length!==1?'s':''}` : '';
+
+  const wrap   = document.getElementById('prosTablaWrap');
+  const vacio  = document.getElementById('prosVacio');
+  const tbody  = document.getElementById('prosTablaBody');
+  wrap.style.display  = filtrado.length > 0 ? '' : 'none';
+  vacio.style.display = total === 0 ? '' : 'none';
+
+  const ESTADO_CFG = {
+    pendiente:     { label:'⬜ Pendiente',     color:'var(--text-muted)',  bg:'var(--surface3)' },
+    interesado:    { label:'🟢 Interesado',    color:'var(--green)',       bg:'rgba(34,197,94,0.1)' },
+    callback:      { label:'🔵 Callback',      color:'var(--sura-blue)',   bg:'rgba(26,76,232,0.1)' },
+    no_interesado: { label:'🔴 No interesado', color:'var(--red)',         bg:'rgba(239,68,68,0.1)' },
+    cerrado:       { label:'✅ Cerrado',        color:'var(--green)',       bg:'rgba(34,197,94,0.15)' },
+  };
+
+  tbody.innerHTML = filtrado.map((p,i) => {
+    const cfg = ESTADO_CFG[p.estado] || ESTADO_CFG.pendiente;
+    const tel = p.telefono?.replace(/\D/g,'') || '';
+    const waUrl = tel ? `https://wa.me/57${tel}` : '';
+    const mailUrl = p.correo ? `mailto:${p.correo}` : '';
+    const proxFmt = p.proxSeguimiento
+      ? new Date(p.proxSeguimiento+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})
+      : '—';
+    const proxColor = p.proxSeguimiento && p.proxSeguimiento < new Date().toISOString().slice(0,10)
+      ? 'var(--amber)' : 'var(--text-muted)';
+    const ultFmt = p.ultimaGestion
+      ? new Date(p.ultimaGestion+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})
+      : '—';
+    return `<tr style="${i%2===0?'':'background:rgba(255,255,255,0.02)'}">
+      <td style="padding:8px 10px;">
+        <span style="font-size:11.5px;font-weight:600;color:${cfg.color};background:${cfg.bg};padding:3px 10px;border-radius:12px;white-space:nowrap;">${cfg.label}</span>
+      </td>
+      <td style="padding:8px 10px;font-weight:500;font-size:13px;">${p.nombre||'—'}</td>
+      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;">${p.cedula||'—'}</td>
+      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px;">
+        ${tel ? `<a href="tel:${tel}" style="color:var(--teal);text-decoration:none;">${p.telefono}</a>` : '—'}
+      </td>
+      <td style="padding:8px 10px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.correo||'—'}</td>
+      <td style="padding:8px 10px;font-size:12.5px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.empresa||'—'}</td>
+      <td style="padding:8px 10px;font-size:11.5px;color:var(--text-muted);">${p.campana||'—'}</td>
+      <td style="padding:8px 10px;font-size:11.5px;color:var(--text-muted);">${ultFmt}</td>
+      <td style="padding:8px 10px;font-size:11.5px;font-weight:600;color:${proxColor};">${proxFmt}</td>
+      <td style="padding:8px 10px;white-space:nowrap;">
+        <div style="display:flex;gap:5px;align-items:center;">
+          <button onclick="prosAbrirGestion('${p.id}')" title="Gestionar" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:12px;">✏️ Gestionar</button>
+          ${waUrl ? `<a href="${waUrl}" target="_blank" title="WhatsApp" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);border-radius:6px;text-decoration:none;font-size:14px;">💬</a>` : ''}
+          ${mailUrl ? `<a href="${mailUrl}" title="Correo" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:rgba(26,76,232,0.08);border:1px solid rgba(26,76,232,0.2);border-radius:6px;text-decoration:none;font-size:14px;">📧</a>` : ''}
+          <button onclick="prosEliminar('${p.id}')" title="Eliminar" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:6px;cursor:pointer;font-size:12px;">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+let _mgpEstadoActual = 'pendiente';
+
+function prosAbrirGestion(id) {
+  const db = getProsDB();
+  const p  = db.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('mgpId').value          = id;
+  document.getElementById('mgpTitulo').textContent = p.nombre || 'Prospecto';
+  document.getElementById('mgpSubtitulo').textContent = [p.empresa, p.cedula].filter(Boolean).join(' · ');
+  document.getElementById('mgpObservacion').value  = '';
+  document.getElementById('mgpProxSeg').value      = p.proxSeguimiento || '';
+  document.getElementById('mgpFecha').value        = new Date().toISOString().slice(0,10);
+
+  // Estado actual
+  _mgpEstadoActual = p.estado || 'pendiente';
+  document.querySelectorAll('.mgp-estado-btn').forEach(btn => {
+    btn.style.opacity = btn.dataset.estado === _mgpEstadoActual ? '1' : '0.45';
+    btn.style.fontWeight = btn.dataset.estado === _mgpEstadoActual ? '700' : '400';
+  });
+
+  // Historial
+  const hist = p.gestiones || [];
+  const hw = document.getElementById('mgpHistorialWrap');
+  const hc = document.getElementById('mgpHistorial');
+  hw.style.display = hist.length ? '' : 'none';
+  hc.innerHTML = [...hist].reverse().map(g => {
+    const fechaFmt = g.fecha ? new Date(g.fecha+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    const iconos = {llamada:'📞',whatsapp:'💬',correo:'📧',visita:'🏢',no_contesta:'📵'};
+    return `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;border-left:3px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
+        <span>${iconos[g.tipo]||''} ${g.tipo||''} · ${fechaFmt}</span>
+        ${g.proxSeg ? `<span style="color:var(--teal);">Próx: ${g.proxSeg}</span>` : ''}
+      </div>
+      <div style="font-size:12.5px;color:var(--text);">${g.obs||'—'}</div>
+    </div>`;
+  }).join('');
+
+  openModal('modalGestionProsp');
+}
+
+function mgpSetEstado(estado, btn) {
+  _mgpEstadoActual = estado;
+  document.querySelectorAll('.mgp-estado-btn').forEach(b => {
+    b.style.opacity = b.dataset.estado === estado ? '1' : '0.45';
+    b.style.fontWeight = b.dataset.estado === estado ? '700' : '400';
+  });
+}
+
+function mgpGuardar() {
+  const id  = document.getElementById('mgpId').value;
+  const obs = document.getElementById('mgpObservacion').value.trim();
+  const tipo = document.getElementById('mgpTipo').value;
+  const fecha = document.getElementById('mgpFecha').value;
+  const proxSeg = document.getElementById('mgpProxSeg').value;
+
+  const db  = getProsDB();
+  const idx = db.findIndex(p => p.id === id);
+  if (idx < 0) return;
+
+  // Agregar gestión al historial
+  if (obs || tipo) {
+    db[idx].gestiones = db[idx].gestiones || [];
+    db[idx].gestiones.push({ fecha, tipo, obs, proxSeg });
+    db[idx].ultimaGestion = fecha;
+  }
+
+  db[idx].estado           = _mgpEstadoActual;
+  db[idx].proxSeguimiento  = proxSeg;
+
+  setProsDB(db);
+  closeModal('modalGestionProsp');
+  prosRenderTabla();
+  showToast('✅ Gestión guardada');
+}
+
+function prosEliminar(id) {
+  if (!confirm('¿Eliminar este prospecto?')) return;
+  const db = getProsDB().filter(p => p.id !== id);
+  setProsDB(db);
+  prosRenderTabla();
 }
 
 // La promesa __FB_PROMISE__ ya fue creada cuando se definió arriba.
