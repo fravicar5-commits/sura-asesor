@@ -778,59 +778,78 @@
   window.FB = { get: fbGet, set: fbSet, getBdSin: fbGetBdSin, db, UID };
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
+  async function cargarDatosFirebase() {
+    const [
+      stateData, pagosData, pipelineData, actividadesData,
+      cierresData, configAniosData, productosExtraData,
+      empresasData, cotizacionesData, syncConfigData, plantillasData,
+      bdSinData, contactosData
+    ] = await Promise.all([
+      fbGet('estado',        {}),
+      fbGet('pagos',         {}),
+      fbGet('pipeline',      []),
+      fbGet('actividades',   []),
+      fbGet('cierres',       {}),
+      fbGet('configAnios',   {}),
+      fbGet('productosExtra',[]),
+      fbGet('empresas',      []),
+      fbGet('cotizaciones',  []),
+      fbGet('syncConfig',    {}),
+      fbGet('plantillas',    {}),
+      fbGetBdSin(),
+      fbGet('contactos',     []),
+    ]);
+    return {
+      estado: stateData, pagos: pagosData, pipeline: pipelineData,
+      actividades: actividadesData, cierres: cierresData, configAnios: configAniosData,
+      productosExtra: productosExtraData, empresas: empresasData,
+      cotizaciones: cotizacionesData, syncConfig: syncConfigData,
+      plantillas: plantillasData, bdSiniestralidad: bdSinData, contactos: contactosData,
+    };
+  }
+
   async function arrancarApp() {
-    // Mostrar splash de carga
-    const splash = document.getElementById('fb-splash');
+    const splash    = document.getElementById('fb-splash');
+    const splashMsg = document.getElementById('fb-splash-msg');
+    const splashSub = document.getElementById('fb-splash-sub');
     if (splash) splash.style.display = 'flex';
 
-    try {
-      // Cargar datos en paralelo
-      const [
-        stateData, pagosData, pipelineData, actividadesData,
-        cierresData, configAniosData, productosExtraData,
-        empresasData, cotizacionesData, syncConfigData, plantillasData,
-        bdSinData, contactosData
-      ] = await Promise.all([
-        fbGet('estado',        {}),
-        fbGet('pagos',         {}),
-        fbGet('pipeline',      []),
-        fbGet('actividades',   []),
-        fbGet('cierres',       {}),
-        fbGet('configAnios',   {}),
-        fbGet('productosExtra',[]),
-        fbGet('empresas',      []),
-        fbGet('cotizaciones',  []),
-        fbGet('syncConfig',    {}),
-        fbGet('plantillas',    {}),
-        fbGetBdSin(),
-        fbGet('contactos',     []),
-      ]);
+    const MAX_INTENTOS = 3;
+    let intentos = 0;
+    let cacheOk = false;
 
-      // Inyectar en cache global
-      window.__FB_CACHE__ = {
-        estado: stateData,
-        pagos: pagosData,
-        pipeline: pipelineData,
-        actividades: actividadesData,
-        cierres: cierresData,
-        configAnios: configAniosData,
-        productosExtra: productosExtraData,
-        empresas: empresasData,
-        cotizaciones: cotizacionesData,
-        syncConfig: syncConfigData,
-        plantillas: plantillasData,
-        bdSiniestralidad: bdSinData,
-        contactos: contactosData,
-      };
-    } catch(e) {
-      console.error('Error cargando Firebase:', e);
-      // Fallback a localStorage si Firebase falla
+    while (intentos < MAX_INTENTOS && !cacheOk) {
+      intentos++;
+      try {
+        if (splashMsg) splashMsg.textContent = intentos > 1 ? `Reintentando… (${intentos}/${MAX_INTENTOS})` : 'Cargando tus datos…';
+        if (splashSub) splashSub.textContent = 'Conectando con Firebase · puede tomar unos segundos';
+        window.__FB_CACHE__ = await cargarDatosFirebase();
+        cacheOk = true;
+      } catch(e) {
+        console.warn(`Firebase intento ${intentos} falló:`, e);
+        if (intentos < MAX_INTENTOS) {
+          // Esperar antes del siguiente intento (backoff: 1.5s, 3s)
+          await new Promise(r => setTimeout(r, intentos * 1500));
+        }
+      }
+    }
+
+    if (!cacheOk) {
+      // Todos los intentos fallaron → mostrar error con botón de recarga
+      console.error('Firebase falló después de', MAX_INTENTOS, 'intentos');
       window.__FB_CACHE__ = null;
+      if (splashMsg) splashMsg.textContent = '⚠️ Sin conexión con Firebase';
+      if (splashSub) {
+        splashSub.innerHTML = `No se pudieron cargar tus datos. Verifica tu conexión e intenta de nuevo.<br>
+          <button onclick="location.reload()" style="margin-top:12px;padding:8px 20px;background:#1A4CE8;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;">🔄 Recargar página</button>`;
+      }
+      // Esperar 15s más antes de continuar (por si la red se recupera)
+      await new Promise(r => setTimeout(r, 15000));
+      // Último intento silencioso
+      try { window.__FB_CACHE__ = await cargarDatosFirebase(); } catch(e) {}
     }
 
     if (splash) splash.style.display = 'none';
-
-    // Señal para que el script principal sepa que puede arrancar
     window.__FB_READY__ = true;
     document.dispatchEvent(new Event('fb-ready'));
   }
@@ -2158,6 +2177,15 @@
       <!-- ===== CONCILIACIÓN PBS ===== -->
       <div class="page" id="page-conciliacion">
 
+        <!-- Tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0;">
+          <button id="concilTab-mes" class="tab-pill active" onclick="concilSwitchTab('mes')" style="border-radius:8px 8px 0 0;border-bottom:2px solid var(--sura-blue);">🔍 Cruce del Mes</button>
+          <button id="concilTab-hist" class="tab-pill" onclick="concilSwitchTab('hist')" style="border-radius:8px 8px 0 0;">📋 Historial</button>
+        </div>
+
+        <!-- ===== PANEL: CRUCE DEL MES ===== -->
+        <div id="concilPanel-mes">
+
         <!-- ENCABEZADO + INFO PERÍODO -->
         <div id="concilPeriodoInfo" class="alert alert-info" style="margin-bottom:16px;"></div>
 
@@ -2206,6 +2234,9 @@
           </div>
           <div style="display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
             <span id="concilIconApp">⬜</span> <span>Mis ventas (app):</span> <span id="concilLabelApp" style="color:var(--text-muted);">—</span>
+          </div>
+          <div id="concilGuardadoBadge" style="display:none;align-items:center;gap:6px;font-size:12px;padding:6px 12px;background:rgba(34,197,94,0.1);border-radius:6px;border:1px solid rgba(34,197,94,0.3);color:var(--green);">
+            💾 Guardado en historial
           </div>
         </div>
 
@@ -2290,6 +2321,82 @@
             Selecciona el mes de pago, carga los dos informes de SURA y haz clic en <strong>Ejecutar cruce</strong> para ver el resultado automáticamente.
           </div>
         </div>
+
+        </div><!-- /concilPanel-mes -->
+
+        <!-- ===== PANEL: HISTORIAL ===== -->
+        <div id="concilPanel-hist" style="display:none;">
+
+          <!-- KPIs historial -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+            <div class="stat-card" style="border-top:3px solid var(--red);">
+              <div class="stat-label">❌ Ventas nunca pagadas</div>
+              <div class="stat-value" id="hKpiNunca" style="color:var(--red);font-size:22px;">0</div>
+              <div class="stat-sub">sin pago en ningún mes</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--amber);">
+              <div class="stat-label">🔄 Recuperadas</div>
+              <div class="stat-value" id="hKpiRecup" style="color:var(--amber);font-size:22px;">0</div>
+              <div class="stat-sub">se pagaron con retraso</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--sura-blue);">
+              <div class="stat-label">📅 Meses guardados</div>
+              <div class="stat-value" id="hKpiMeses" style="color:var(--sura-blue);font-size:22px;">0</div>
+              <div class="stat-sub">conciliaciones importadas</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--text-dim);">
+              <div class="stat-label">⚠️ Con diferencias</div>
+              <div class="stat-value" id="hKpiDif" style="color:var(--amber);font-size:22px;">0</div>
+              <div class="stat-sub">tarifa incorrecta algún mes</div>
+            </div>
+          </div>
+
+          <!-- Filtros historial -->
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+            <select class="form-control" style="width:180px;" id="hFiltroMes" onchange="histRender()">
+              <option value="">Todos los meses</option>
+            </select>
+            <select class="form-control" style="width:190px;" id="hFiltroEstado" onchange="histRender()">
+              <option value="">Todos los estados</option>
+              <option value="NUNCA_PAGADA">❌ Nunca pagada</option>
+              <option value="RECUPERADA">🔄 Recuperada</option>
+              <option value="DIFERENCIA">⚠️ Diferencia de tarifa</option>
+              <option value="NO_PAGADA">❌ No pagada (1 mes)</option>
+              <option value="SIN_CRUZAR">🔎 Sin cruzar</option>
+            </select>
+            <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
+              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.5;">🔍</span>
+              <input type="text" id="hBuscador" placeholder="Cédula, nombre, empresa…" oninput="histRender()"
+                style="width:100%;padding:7px 12px 7px 30px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:var(--font);outline:none;">
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="histLimpiar()" style="color:var(--red);border-color:rgba(239,68,68,0.3);">🗑 Limpiar historial</button>
+            <span id="hCount" style="font-size:11px;color:var(--text-muted);"></span>
+          </div>
+
+          <!-- Tabla historial -->
+          <div id="hTablaWrap" style="overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);">
+            <table style="font-size:12.5px;min-width:1050px;width:100%;border-collapse:collapse;" id="hTabla">
+              <thead style="position:sticky;top:0;z-index:3;">
+                <tr style="background:var(--surface2);">
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Estado global</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Cédula</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Nombre</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Empresa</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Meses afectados</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Causales</th>
+                  <th style="padding:10px 12px;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Detalle por mes</th>
+                </tr>
+              </thead>
+              <tbody id="hTablaBody"></tbody>
+            </table>
+          </div>
+          <div id="hVacio" style="text-align:center;padding:50px;color:var(--text-muted);">
+            <div style="font-size:36px;margin-bottom:10px;">📋</div>
+            <div style="font-size:14px;font-weight:600;">Sin historial aún</div>
+            <div style="font-size:12.5px;margin-top:6px;">Ejecuta el cruce de cada mes y se guardará automáticamente aquí.</div>
+          </div>
+
+        </div><!-- /concilPanel-hist -->
 
       </div>
       <!-- ===== FIN CONCILIACIÓN PBS ===== -->
@@ -17554,7 +17661,7 @@ window.__FB_PROMISE__ = new Promise(resolve => {
 // Espera Firebase sin condición de carrera y luego inicia la app
 async function _esperarFirebaseYArrancar() {
   if (!window.__FB_READY__ || !window.__FB_CACHE__) {
-    const splash   = document.getElementById('fb-splash');
+    const splash    = document.getElementById('fb-splash');
     const splashMsg = document.getElementById('fb-splash-msg');
     const splashSub = document.getElementById('fb-splash-sub');
     if (splash) splash.style.display = 'flex';
@@ -17571,11 +17678,23 @@ async function _esperarFirebaseYArrancar() {
     clearTimeout(msgTimer);
     if (splash) splash.style.display = 'none';
   }
-  // Si Firebase falló y __FB_CACHE__ sigue null, crear vacío para no romper la app
+
+  // Si Firebase falló y __FB_CACHE__ sigue null → NO arrancar con datos vacíos
+  // Dar opción de recargar
   if (!window.__FB_CACHE__) {
-    window.__FB_CACHE__ = { estado: {}, pagos: {}, pipeline: [], actividades: [], cierres: {}, configAnios: {}, productosExtra: [], empresas: [], cotizaciones: [], syncConfig: {}, plantillas: {}, bdSiniestralidad: { trimestres: [], registros: [] }, contactos: [] };
-    setTimeout(() => showToast('⚠️ Firebase no respondió. Verifica tu conexión y recarga la página.'), 1000);
+    const splash    = document.getElementById('fb-splash');
+    const splashMsg = document.getElementById('fb-splash-msg');
+    const splashSub = document.getElementById('fb-splash-sub');
+    if (splash) splash.style.display = 'flex';
+    if (splashMsg) splashMsg.textContent = '⚠️ No se pudieron cargar los datos';
+    if (splashSub) {
+      splashSub.innerHTML = `Firebase no respondió. Verifica tu conexión a internet e intenta de nuevo.<br>
+        <button onclick="location.reload()" style="margin-top:14px;padding:10px 24px;background:#1A4CE8;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;">🔄 Recargar página</button>
+        <button onclick="window.__FB_CACHE__={estado:{},pagos:{},pipeline:[],actividades:[],cierres:{},configAnios:{},productosExtra:[],empresas:[],cotizaciones:[],syncConfig:{},plantillas:{},bdSiniestralidad:{trimestres:[],registros:[]},contactos:[]};document.getElementById('fb-splash').style.display='none';_iniciarAppTrasLogin();" style="margin-top:14px;margin-left:10px;padding:10px 24px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;">Continuar sin datos</button>`;
+    }
+    return; // No inicializar la app con datos vacíos
   }
+
   _iniciarAppTrasLogin();
 }
 
@@ -19851,6 +19970,10 @@ function concilEjecutarCruce() {
 
   window._concilResultados = resultados;
   concilRenderResultados(resultados);
+  // Guardar en historial automáticamente
+  histGuardarMes(mesPago, anio, resultados);
+  const badge = document.getElementById('concilGuardadoBadge');
+  if (badge) { badge.style.display = 'flex'; setTimeout(() => badge.style.display = 'none', 4000); }
 }
 
 function concilRenderResultados(resultados) {
@@ -20289,6 +20412,182 @@ function prosEliminar(id) {
   const db = getProsDB().filter(p => p.id !== id);
   setProsDB(db);
   prosRenderTabla();
+}
+
+// =============================================
+// CONCILIACIÓN PBS — HISTORIAL MENSUAL
+// =============================================
+const CONCIL_HIST_KEY = 'sura_concil_hist_v1';
+
+function histGetDB() {
+  try { return JSON.parse(localStorage.getItem(CONCIL_HIST_KEY) || '[]'); } catch(e) { return []; }
+}
+function histSetDB(arr) {
+  try { localStorage.setItem(CONCIL_HIST_KEY, JSON.stringify(arr)); } catch(e) {} }
+
+function histMesKey(mesPago, anio) {
+  return `${anio}-${String(mesPago).padStart(2,'0')}`;
+}
+
+function histGuardarMes(mesPago, anio, resultados) {
+  const key = histMesKey(mesPago, anio);
+  const db  = histGetDB().filter(m => m.key !== key); // reemplazar si ya existe
+  // Guardar solo los no-OK para no inflar el storage
+  const relevantes = resultados
+    .filter(r => r.estado !== 'OK' && r.cedula)
+    .map(r => ({ cedula: r.cedula, nombre: r.nombre, empresa: r.empresa, estado: r.estado, dif: r.dif, causa: r.causa, comEsp: r.comEsp, suraPago: r.suraPago }));
+  db.push({ key, mesPago, anio, fecha: new Date().toISOString().slice(0,10), registros: relevantes });
+  histSetDB(db);
+}
+
+function concilSwitchTab(tab) {
+  ['mes','hist'].forEach(t => {
+    const panel = document.getElementById('concilPanel-' + t);
+    const btn   = document.getElementById('concilTab-' + t);
+    if (panel) panel.style.display = t === tab ? '' : 'none';
+    if (btn) {
+      btn.classList.toggle('active', t === tab);
+      btn.style.borderBottom = t === tab ? '2px solid var(--sura-blue)' : '';
+    }
+  });
+  if (tab === 'hist') histRender();
+}
+
+function histRender() {
+  const db       = histGetDB();
+  const filtroMes = document.getElementById('hFiltroMes')?.value    || '';
+  const filtroEst = document.getElementById('hFiltroEstado')?.value  || '';
+  const q         = (document.getElementById('hBuscador')?.value     || '').toLowerCase().trim();
+
+  // Poblar selector meses
+  const mesEl = document.getElementById('hFiltroMes');
+  if (mesEl) {
+    const meses = [...new Set(db.map(m => m.key))].sort().reverse();
+    const prev  = mesEl.value;
+    const MESES_ES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    mesEl.innerHTML = '<option value="">Todos los meses</option>' +
+      meses.map(k => { const [y,m] = k.split('-'); return `<option value="${k}">${MESES_ES[parseInt(m)]} ${y}</option>`; }).join('');
+    mesEl.value = prev;
+  }
+
+  // Construir mapa: cédula → historial por mes
+  // Para cada cédula que aparece en algún mes como no-OK, construir su línea histórica
+  const ceduMap = {}; // cedula → { nombre, empresa, meses: [{key, estado, causa, dif}] }
+  const mesesFiltrados = filtroMes ? db.filter(m => m.key === filtroMes) : db;
+
+  mesesFiltrados.forEach(mes => {
+    mes.registros.forEach(r => {
+      if (!r.cedula) return;
+      if (!ceduMap[r.cedula]) ceduMap[r.cedula] = { cedula: r.cedula, nombre: r.nombre, empresa: r.empresa, meses: {} };
+      // Guardar el estado de este mes para esta cédula
+      ceduMap[r.cedula].meses[mes.key] = { estado: r.estado, causa: r.causa, dif: r.dif, comEsp: r.comEsp, suraPago: r.suraPago };
+    });
+  });
+
+  // Hacer barrido: si en un mes posterior aparece como OK en el cruce general (no está en no-OK),
+  // marcarla como RECUPERADA. Para eso necesitamos saber en qué meses posteriores SÍ se pagó.
+  // Estrategia: si no aparece en los registros de un mes posterior → asumimos OK (no fue reportada como problema).
+  const todosLosMeses = [...new Set(db.map(m => m.key))].sort();
+
+  let filas = Object.values(ceduMap);
+
+  // Calcular estado global de cada cédula
+  filas = filas.map(c => {
+    const mesKeys = Object.keys(c.meses).sort();
+    const ultimoMes = mesKeys[mesKeys.length - 1];
+    const ultEstado = c.meses[ultimoMes]?.estado || '';
+    // ¿Alguna vez fue recuperada? Buscar si hay un mes en el historial en que no aparezca como problema (gap = recuperada)
+    let recuperada = false;
+    for (let i = 1; i < mesKeys.length; i++) {
+      const prevKey  = mesKeys[i-1];
+      const currKey  = mesKeys[i];
+      // Si entre prevKey y currKey hay meses en el historial donde NO aparece → fue recuperada
+      const entreKeys = todosLosMeses.filter(k => k > prevKey && k < currKey);
+      if (entreKeys.length > 0) { recuperada = true; break; }
+    }
+    // Si el último mes disponible en historial no coincide con el último de esta cédula → fue recuperada al final
+    const ultimoMesHist = todosLosMeses[todosLosMeses.length - 1];
+    if (ultimoMesHist && ultimoMes < ultimoMesHist) recuperada = true;
+
+    const nMesesAfectados = mesKeys.length;
+    const causales = [...new Set(mesKeys.map(k => c.meses[k]?.causa).filter(Boolean))];
+    const tienesDif = mesKeys.some(k => c.meses[k]?.estado === 'DIFERENCIA');
+
+    let estadoGlobal;
+    if (recuperada && nMesesAfectados >= 1) estadoGlobal = 'RECUPERADA';
+    else if (nMesesAfectados > 1 && !recuperada) estadoGlobal = 'NUNCA_PAGADA';
+    else if (tienesDif) estadoGlobal = 'DIFERENCIA';
+    else estadoGlobal = ultEstado;
+
+    return { ...c, estadoGlobal, mesKeys, causales, nMesesAfectados, recuperada };
+  });
+
+  // KPIs
+  document.getElementById('hKpiMeses').textContent  = db.length;
+  document.getElementById('hKpiNunca').textContent  = filas.filter(f=>f.estadoGlobal==='NUNCA_PAGADA').length;
+  document.getElementById('hKpiRecup').textContent  = filas.filter(f=>f.estadoGlobal==='RECUPERADA').length;
+  document.getElementById('hKpiDif').textContent    = filas.filter(f=>f.estadoGlobal==='DIFERENCIA').length;
+
+  // Filtros
+  if (filtroEst)  filas = filas.filter(f => f.estadoGlobal === filtroEst || f.mesKeys.some(k => f.meses[k]?.estado === filtroEst));
+  if (q) filas = filas.filter(f => [f.cedula,f.nombre,f.empresa].join(' ').toLowerCase().includes(q));
+
+  const wrap  = document.getElementById('hTablaWrap');
+  const vacio = document.getElementById('hVacio');
+  const tbody = document.getElementById('hTablaBody');
+  const total = filas.length;
+  wrap.style.display  = total > 0 ? '' : 'none';
+  vacio.style.display = db.length === 0 ? '' : (total === 0 ? '' : 'none');
+  document.getElementById('hCount').textContent = total > 0 ? `${total} venta${total!==1?'s':''}` : '';
+
+  const ESTADO_CFG = {
+    NUNCA_PAGADA: { label:'❌ Nunca pagada',    color:'var(--red)',       bg:'rgba(239,68,68,0.08)' },
+    RECUPERADA:   { label:'🔄 Recuperada',       color:'var(--amber)',     bg:'rgba(245,158,11,0.08)' },
+    DIFERENCIA:   { label:'⚠️ Diferencia tarifa',color:'var(--amber)',     bg:'rgba(245,158,11,0.06)' },
+    NO_PAGADA:    { label:'❌ No pagada',         color:'var(--red)',       bg:'rgba(239,68,68,0.05)' },
+    SIN_CRUZAR:   { label:'🔎 Sin cruzar',        color:'var(--text-muted)','bg':'rgba(255,255,255,0.02)' },
+  };
+  const MESES_ES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  // Ordenar: nunca pagadas primero, luego por número de meses desc
+  filas.sort((a,b) => {
+    const ord = {NUNCA_PAGADA:0,DIFERENCIA:1,RECUPERADA:2,NO_PAGADA:3,SIN_CRUZAR:4};
+    const od = (ord[a.estadoGlobal]??5) - (ord[b.estadoGlobal]??5);
+    if (od !== 0) return od;
+    return b.nMesesAfectados - a.nMesesAfectados;
+  });
+
+  tbody.innerHTML = filas.map((f, i) => {
+    const cfg = ESTADO_CFG[f.estadoGlobal] || {};
+    // Detalle por mes como chips
+    const detalle = f.mesKeys.map(k => {
+      const est = f.meses[k];
+      const [y,m] = k.split('-');
+      const mesNom = `${MESES_ES[parseInt(m)].slice(0,3)} ${y}`;
+      const ecfg = ESTADO_CFG[est?.estado] || { color:'var(--text-muted)' };
+      return `<span title="${est?.causa||''}" style="display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:10px;background:${ecfg.bg||'var(--surface3)'};color:${ecfg.color};border:1px solid ${ecfg.color}30;margin:2px;cursor:default;">
+        ${mesNom}</span>`;
+    }).join('');
+    const causalesStr = f.causales.length ? f.causales.join(' · ') : '—';
+    return `<tr style="${i%2===0?'':'background:rgba(255,255,255,0.02)'}">
+      <td style="padding:9px 12px;">
+        <span style="font-size:11.5px;font-weight:700;color:${cfg.color||'var(--text)'};background:${cfg.bg||'transparent'};padding:3px 10px;border-radius:12px;white-space:nowrap;">${cfg.label||f.estadoGlobal}</span>
+      </td>
+      <td style="padding:9px 12px;font-family:var(--mono);font-size:12px;">${f.cedula||'—'}</td>
+      <td style="padding:9px 12px;font-size:13px;font-weight:500;">${f.nombre||'—'}</td>
+      <td style="padding:9px 12px;font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.empresa||''}">${f.empresa||'—'}</td>
+      <td style="padding:9px 12px;font-size:12px;text-align:center;font-weight:700;color:${f.nMesesAfectados>1?'var(--red)':'var(--text-muted)'};">${f.nMesesAfectados}</td>
+      <td style="padding:9px 12px;font-size:11.5px;color:var(--text-muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.causales.join(' · ')}">${causalesStr}</td>
+      <td style="padding:9px 12px;">${detalle}</td>
+    </tr>`;
+  }).join('');
+}
+
+function histLimpiar() {
+  if (!confirm('¿Eliminar todo el historial de conciliaciones? Esta acción no se puede deshacer.')) return;
+  localStorage.removeItem(CONCIL_HIST_KEY);
+  histRender();
+  showToast('🗑 Historial eliminado');
 }
 
 // La promesa __FB_PROMISE__ ya fue creada cuando se definió arriba.
