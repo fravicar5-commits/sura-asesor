@@ -699,11 +699,84 @@
   const UID = 'fran';
 
   // ── Helper genérico: leer un documento ───────────────────────────────────
+  // ── Estado (ventas) usa chunks para superar límite 1MB de Firestore ───────
+  const ESTADO_CHUNK_SIZE = 200; // ventas por chunk
+
+  async function fbGetEstado() {
+    // Intentar formato nuevo (chunked) primero
+    try {
+      const metaSnap = await getDoc(doc(db, 'estadoMeta', UID));
+      if (metaSnap.exists()) {
+        const meta = metaSnap.data().payload;
+        const totalChunks = meta.totalChunks || 0;
+        if (totalChunks > 0) {
+          const chunkPromises = [];
+          for (let i = 0; i < totalChunks; i++) {
+            chunkPromises.push(getDoc(doc(db, 'estadoChunks', `${UID}_chunk_${i}`)));
+          }
+          const chunkSnaps = await Promise.all(chunkPromises);
+          const ventas = chunkSnaps.flatMap(s => s.exists() ? (s.data().payload || []) : []);
+          return { config: meta.config || {}, ventas };
+        }
+      }
+    } catch(e) {
+      console.warn('fbGetEstado meta error, intentando formato clásico:', e.message);
+    }
+    // Fallback: formato clásico (un solo documento)
+    try {
+      const snap = await getDoc(doc(db, 'estado', UID));
+      if (snap.exists()) return snap.data().payload;
+    } catch(e) {
+      console.error('fbGetEstado classic ERROR', e.code, e.message);
+    }
+    return {};
+  }
+
+  async function fbSetEstado(valor) {
+    const ventas  = valor.ventas  || [];
+    const config  = valor.config  || {};
+    const totalChunks = Math.ceil(ventas.length / ESTADO_CHUNK_SIZE) || 1;
+
+    try {
+      // Guardar metadata + config
+      await setDoc(doc(db, 'estadoMeta', UID), {
+        payload: { config, totalChunks, version: 2, updatedAt: Date.now() }
+      });
+      // Guardar chunks de ventas en paralelo
+      const promises = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = ventas.slice(i * ESTADO_CHUNK_SIZE, (i + 1) * ESTADO_CHUNK_SIZE);
+        promises.push(setDoc(doc(db, 'estadoChunks', `${UID}_chunk_${i}`), { payload: chunk }));
+      }
+      await Promise.all(promises);
+      // Borrar chunks sobrantes de versiones anteriores con más chunks
+      for (let i = totalChunks; i < totalChunks + 20; i++) {
+        try { await deleteDoc(doc(db, 'estadoChunks', `${UID}_chunk_${i}`)); } catch(_) { break; }
+      }
+      console.log(`Estado guardado: ${ventas.length} ventas en ${totalChunks} chunk(s)`);
+      return true;
+    } catch(e) {
+      console.error('fbSetEstado chunks ERROR', e.code, e.message);
+      // Fallback: intentar guardar en documento único (puede fallar si es muy grande)
+      try {
+        await setDoc(doc(db, 'estado', UID), { payload: valor });
+        return true;
+      } catch(e2) {
+        console.error('fbSetEstado classic fallback ERROR', e2.code, e2.message);
+        return false;
+      }
+    }
+  }
+
+  // ── Helper genérico: leer un documento ───────────────────────────────────
   async function fbGet(coleccion, defVal) {
     try {
       const snap = await getDoc(doc(db, coleccion, UID));
       return snap.exists() ? snap.data().payload : defVal;
-    } catch(e) { console.warn('fbGet error', coleccion, e); return defVal; }
+    } catch(e) {
+      console.error('fbGet ERROR coleccion=' + coleccion, e.code, e.message);
+      return defVal;
+    }
   }
 
   // ── Helper genérico: escribir un documento ────────────────────────────────
@@ -775,7 +848,7 @@
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, getBdSin: fbGetBdSin, db, UID };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, db, UID };
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
   async function cargarDatosFirebase() {
@@ -785,7 +858,7 @@
       empresasData, cotizacionesData, syncConfigData, plantillasData,
       bdSinData, contactosData
     ] = await Promise.all([
-      fbGet('estado',        {}),
+      fbGetEstado(),          // ← usa chunked reader
       fbGet('pagos',         {}),
       fbGet('pipeline',      []),
       fbGet('actividades',   []),
@@ -6624,10 +6697,8 @@ function getState() {
 }
 function setState(s) {
   if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
-  if (window.FB) window.FB.set('estado', s);
-  // No escribir en localStorage — el estado con muchas ventas puede superar el limite de ~5MB
-  // y la escritura falla silenciosamente, dejando datos desactualizados en el fallback.
-  // Firebase + __FB_CACHE__ son la fuente unica de verdad.
+  // Usar fbSetEstado (chunked) para superar el límite de 1MB de Firestore
+  if (window.FB) window.FB.setEstado(s);
 }
 
 function initState() {
@@ -8200,7 +8271,7 @@ function guardarConfig() {
 
 function resetAll() {
   if (window.__FB_CACHE__) window.__FB_CACHE__.estado = {};
-  if (window.FB) window.FB.set('estado', {});
+  if (window.FB) window.FB.setEstado({});
   try { localStorage.removeItem('sura_asesor_v2'); } catch(e) {}
   state = initState();
   navigate('dashboard');
@@ -17356,7 +17427,7 @@ async function migrarLocalStorageAFirebase() {
     const syncConfig   = JSON.parse(localStorage.getItem('sura_sync_config')  || '{}');
 
     await Promise.all([
-      window.FB.set('estado',        estado),
+      window.FB.setEstado(estado),   // ← chunked
       window.FB.set('pagos',         pagos),
       window.FB.set('pipeline',      pipeline),
       window.FB.set('actividades',   actividades),
@@ -17608,7 +17679,7 @@ async function fbRecargarDatos() {
            cierresData, configAniosData, productosExtraData,
            empresasData, cotizacionesData, syncConfigData, plantillasData,
            bdSinData, contactosData] = await Promise.all([
-      window.FB.get('estado',        {}),
+      window.FB.getEstado(),   // ← chunked
       window.FB.get('pagos',         {}),
       window.FB.get('pipeline',      []),
       window.FB.get('actividades',   []),
