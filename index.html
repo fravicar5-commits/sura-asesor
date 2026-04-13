@@ -3215,6 +3215,56 @@
           </div>
           <div id="radarListaSeguimiento"></div>
         </div>
+
+        <!-- ===== IA: ANÁLISIS DE CARTERA ===== -->
+        <div id="iaCarteraPanel" style="margin-top:32px;border-top:1px solid var(--border);padding-top:28px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <div style="font-size:20px;">🤖</div>
+            <div>
+              <div class="section-title" style="margin-bottom:0;">Análisis inteligente de cartera</div>
+              <div style="font-size:12px;color:var(--text-muted);">Claude analiza tus clientes del radar y sugiere acciones concretas</div>
+            </div>
+            <div id="iaCarteraApiStatus" style="margin-left:auto;font-size:11.5px;padding:4px 10px;border-radius:6px;background:rgba(239,68,68,0.1);color:var(--red);">Sin API Key</div>
+          </div>
+
+          <div id="iaCarteraSinKey" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:16px;margin-bottom:16px;font-size:13px;color:var(--amber);">
+            ⚠️ Para usar esta función necesitas ingresar tu API Key de Anthropic en la sección <strong>Asistente Clausulados</strong> (menú lateral).
+          </div>
+
+          <div id="iaCarteraContenido" style="display:none;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+              <div style="background:var(--surface2);border-radius:10px;padding:14px;">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Tipo de análisis</div>
+                <select class="form-control" id="iaCarteraTipo">
+                  <option value="prioridades">¿A qué clientes contactar primero hoy?</option>
+                  <option value="riesgo">¿Qué clientes están en riesgo de cancelación?</option>
+                  <option value="oportunidades">¿Dónde hay más oportunidades de venta cruzada?</option>
+                  <option value="estrategia">¿Cuál es la mejor estrategia para esta semana?</option>
+                </select>
+              </div>
+              <div style="background:var(--surface2);border-radius:10px;padding:14px;">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Contexto adicional (opcional)</div>
+                <input class="form-control" id="iaCarteraContexto" placeholder="Ej: tengo 2 horas libres, mi meta mensual es 15 ventas..." />
+              </div>
+            </div>
+
+            <button class="btn btn-primary" id="iaCarteraBtnAnalizar" onclick="iaAnalizarCartera()" style="margin-bottom:16px;">🔍 Analizar con IA</button>
+
+            <div id="iaCarteraCargando" style="display:none;color:var(--text-muted);font-size:13px;padding:12px 0;">
+              🤖 Claude está analizando tu cartera...
+            </div>
+
+            <div id="iaCarteraResultado" style="display:none;">
+              <div style="background:var(--surface2);border-radius:10px;padding:18px;font-size:13.5px;line-height:1.7;" id="iaCarteraTexto"></div>
+              <div style="display:flex;gap:8px;margin-top:12px;">
+                <button class="btn btn-secondary btn-sm" onclick="iaAnalizarCartera()">🔄 Nuevo análisis</button>
+                <button class="btn btn-secondary btn-sm" onclick="iaCarteraCopiar()">📋 Copiar análisis</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /IA CARTERA -->
+
       </div>
 
       <!-- ===== ACTIVIDAD DIARIA ===== -->
@@ -3436,8 +3486,90 @@
 
         <div style="display:flex;flex-direction:column;gap:20px;" id="plantillasContainer"></div>
         <div style="margin-top:20px;">
-          <button class="btn btn-primary" onclick="guardarPlantillas()">💾 Guardar Plantillas</button>
+          <button class="btn btn-primary" onclick="guardarPlantillas()">💾Guardar Plantillas</button>
         </div>
+
+        <!-- ===== IA: GENERADOR DE MENSAJES PERSONALIZADOS ===== -->
+        <div id="iaMensajesPanel" style="margin-top:32px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <div style="font-size:20px;">🤖</div>
+            <div>
+              <div class="section-title" style="margin-bottom:0;">Generador de mensajes con IA</div>
+              <div style="font-size:12px;color:var(--text-muted);">Claude redacta mensajes personalizados para tus clientes según el contexto</div>
+            </div>
+            <div id="iaMensajesApiStatus" style="margin-left:auto;font-size:11.5px;padding:4px 10px;border-radius:6px;background:rgba(239,68,68,0.1);color:var(--red);">Sin API Key</div>
+          </div>
+
+          <!-- Aviso si no hay API key -->
+          <div id="iaMensajesSinKey" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:16px;margin-bottom:16px;font-size:13px;color:var(--amber);">
+            ⚠️ Para usar esta función necesitas ingresar tu API Key de Anthropic en la sección <strong>Asistente Clausulados</strong> (menú lateral). La misma key funciona para todas las funciones IA de la app.
+          </div>
+
+          <div id="iaMensajesContenido" style="display:none;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+              <div>
+                <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">Nombre del cliente</label>
+                <input class="form-control" id="iaMsgNombre" placeholder="Ej: Carlos Gómez" />
+              </div>
+              <div>
+                <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">Empresa</label>
+                <input class="form-control" id="iaMsgEmpresa" placeholder="Ej: Empresas Públicas" />
+              </div>
+              <div>
+                <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">Plan actual o de interés</label>
+                <input class="form-control" id="iaMsgPlan" placeholder="Ej: SPTI Clásico, Plan 60+" />
+              </div>
+              <div>
+                <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">Canal de envío</label>
+                <select class="form-control" id="iaMsgCanal">
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">Email</option>
+                  <option value="llamada">Guión de llamada</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">Objetivo del mensaje</label>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                <button class="btn btn-sm" style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.3);color:var(--sura-blue);" onclick="iaMsgSetObjetivo(this,'Seguimiento post-venta — verificar satisfacción y ofrecer ayuda')">Seguimiento post-venta</button>
+                <button class="btn btn-sm" style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.3);color:var(--sura-blue);" onclick="iaMsgSetObjetivo(this,'Recordatorio de renovación próxima — evitar que se cancele la póliza')">Recordatorio renovación</button>
+                <button class="btn btn-sm" style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.3);color:var(--sura-blue);" onclick="iaMsgSetObjetivo(this,'Ofrecer un plan complementario de salud voluntaria SURA')">Venta cruzada</button>
+                <button class="btn btn-sm" style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.3);color:var(--sura-blue);" onclick="iaMsgSetObjetivo(this,'Reactiva un cliente que no ha respondido en más de 30 días')">Reactivación</button>
+                <button class="btn btn-sm" style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.3);color:var(--sura-blue);" onclick="iaMsgSetObjetivo(this,'Felicitación de cumpleaños con mensaje cálido y oferta de revisión de cobertura')">Cumpleaños</button>
+              </div>
+              <textarea class="form-control" id="iaMsgObjetivo" rows="2" placeholder="O escribe aquí el objetivo del mensaje..."></textarea>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">Tono del mensaje</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-sm iaMsgTono active-tono" data-tono="cálido y cercano" onclick="iaMsgSelTono(this)" style="background:rgba(26,76,232,0.15);border:1px solid var(--sura-blue);color:var(--sura-blue);">Cálido y cercano</button>
+                <button class="btn btn-sm iaMsgTono" data-tono="profesional y formal" onclick="iaMsgSelTono(this)" style="background:var(--surface2);border:1px solid var(--border);">Profesional</button>
+                <button class="btn btn-sm iaMsgTono" data-tono="breve y directo" onclick="iaMsgSelTono(this)" style="background:var(--surface2);border:1px solid var(--border);">Breve y directo</button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" id="iaMsgBtnGenerar" onclick="iaGenerarMensaje()" style="margin-bottom:16px;">✨ Generar mensaje</button>
+
+            <div id="iaMsgResultado" style="display:none;">
+              <label style="font-size:12px;color:var(--text-muted);margin-bottom:6px;display:block;">Mensaje generado</label>
+              <div style="position:relative;">
+                <textarea class="form-control" id="iaMsgTexto" rows="8" style="font-size:13.5px;line-height:1.6;padding-right:90px;"></textarea>
+                <button onclick="iaMsgCopiar()" style="position:absolute;top:10px;right:10px;background:var(--sura-blue);color:white;border:none;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;">📋 Copiar</button>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:10px;">
+                <button class="btn btn-secondary btn-sm" onclick="iaGenerarMensaje()">🔄 Regenerar</button>
+                <button class="btn btn-secondary btn-sm" onclick="iaMsgGuardarPlantilla()">💾 Guardar como plantilla</button>
+              </div>
+            </div>
+
+            <div id="iaMsgCargando" style="display:none;color:var(--text-muted);font-size:13px;padding:12px 0;">
+              ✍️ Claude está redactando el mensaje...
+            </div>
+          </div>
+        </div>
+        <!-- /IA MENSAJES -->
       </div>
 
       <!-- ===== GESTIÓN DE CARTERA ===== -->
@@ -7008,7 +7140,7 @@ function refreshPage(page) {
   else if (page === 'cartera') renderCartera();
   else if (page === 'cobertura') renderCobertura();
   else if (page === 'pipeline') renderPipeline();
-  else if (page === 'radar') renderRadar();
+  else if (page === 'radar') { renderRadar(); iaActualizarEstadoPaneles(); }
   else if (page === 'sync') renderSync();
   else if (page === 'agente') renderAgente();
   else if (page === 'herramientas') renderHerramientas();
@@ -7016,7 +7148,8 @@ function refreshPage(page) {
   else if (page === 'accesos') renderAccesos();
   else if (page === 'segsocial') ssInitPage();
   else if (page === 'actividad') renderActividad();
-  else if (page === 'plantillas') renderPlantillas();
+  else if (page === 'plantillas') { renderPlantillas(); iaActualizarEstadoPaneles(); }
+  else if (page === 'radar') {} // radar ya fue manejado arriba
   else if (page === 'plantilla-pbs') renderPlantillaPBS();
   else if (page === 'conciliacion') renderConciliacion();
   else if (page === 'plantilla-vol') renderPlantillaVol();
@@ -17366,6 +17499,153 @@ function agenteLimpiarHistorial() {
   if (chatArea) chatArea.innerHTML = `<div data-initial style="text-align:center;padding:32px 16px;color:var(--text-dim);"><div style="font-size:32px;margin-bottom:8px;">🤖</div><div style="font-size:13px;">Hola, soy tu asistente de clausulados.<br>Carga los PDFs y hazme una pregunta.</div></div>`;
   showToast('🗑 Historial limpiado');
 }
+
+
+// =============================================
+// 🤖 IA AZUL 1 — GENERADOR DE MENSAJES PERSONALIZADOS
+// =============================================
+
+function iaVerificarApiKey() {
+  return localStorage.getItem('sura_agente_apikey') || '';
+}
+
+function iaActualizarEstadoPaneles() {
+  const key = iaVerificarApiKey();
+  const activa = key && key.startsWith('sk-ant-');
+  const statusMsg = document.getElementById('iaMensajesApiStatus');
+  const sinKeyMsg = document.getElementById('iaMensajesSinKey');
+  const contenidoMsg = document.getElementById('iaMensajesContenido');
+  if (statusMsg) {
+    statusMsg.textContent = activa ? '✅ API activa' : 'Sin API Key';
+    statusMsg.style.background = activa ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+    statusMsg.style.color = activa ? 'var(--green)' : 'var(--red)';
+  }
+  if (sinKeyMsg) sinKeyMsg.style.display = activa ? 'none' : '';
+  if (contenidoMsg) contenidoMsg.style.display = activa ? '' : 'none';
+  const statusCart = document.getElementById('iaCarteraApiStatus');
+  const sinKeyCart = document.getElementById('iaCarteraSinKey');
+  const contenidoCart = document.getElementById('iaCarteraContenido');
+  if (statusCart) {
+    statusCart.textContent = activa ? '✅ API activa' : 'Sin API Key';
+    statusCart.style.background = activa ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+    statusCart.style.color = activa ? 'var(--green)' : 'var(--red)';
+  }
+  if (sinKeyCart) sinKeyCart.style.display = activa ? 'none' : '';
+  if (contenidoCart) contenidoCart.style.display = activa ? '' : 'none';
+}
+
+function iaMsgSetObjetivo(btn, texto) {
+  const el = document.getElementById('iaMsgObjetivo');
+  if (el) el.value = texto;
+}
+
+function iaMsgSelTono(btn) {
+  document.querySelectorAll('.iaMsgTono').forEach(b => {
+    b.style.background = 'var(--surface2)';
+    b.style.borderColor = 'var(--border)';
+    b.style.color = 'var(--text)';
+  });
+  btn.style.background = 'rgba(26,76,232,0.15)';
+  btn.style.borderColor = 'var(--sura-blue)';
+  btn.style.color = 'var(--sura-blue)';
+}
+
+async function iaGenerarMensaje() {
+  const apiKey = iaVerificarApiKey();
+  if (!apiKey) { showToast('Configura tu API Key en Asistente Clausulados'); return; }
+  const nombre   = (document.getElementById('iaMsgNombre')?.value   || '').trim();
+  const empresa  = (document.getElementById('iaMsgEmpresa')?.value  || '').trim();
+  const plan     = (document.getElementById('iaMsgPlan')?.value     || '').trim();
+  const canal    = document.getElementById('iaMsgCanal')?.value     || 'whatsapp';
+  const objetivo = (document.getElementById('iaMsgObjetivo')?.value || '').trim();
+  const tonoBtn  = document.querySelector('.iaMsgTono[style*="sura-blue"]');
+  const tono     = tonoBtn?.dataset?.tono || 'calido y cercano';
+  if (!objetivo) { showToast('Define el objetivo del mensaje'); return; }
+  const btn = document.getElementById('iaMsgBtnGenerar');
+  const cargando = document.getElementById('iaMsgCargando');
+  const resultado = document.getElementById('iaMsgResultado');
+  btn.disabled = true;
+  if (cargando) cargando.style.display = '';
+  if (resultado) resultado.style.display = 'none';
+  const canalDesc = { whatsapp: 'WhatsApp (maximo 300 palabras, estilo conversacional)', email: 'correo electronico (estructura clara, saludo y despedida)', llamada: 'guion de llamada telefonica (natural, con preguntas abiertas)' }[canal] || canal;
+  const prompt = `Eres Fran Viloria, asesor especializado del canal de salud de Seguros SURA en Colombia.\nRedacta un mensaje personalizado para:\n- Nombre: ${nombre || 'el cliente'}\n- Empresa: ${empresa || 'no especificada'}\n- Plan: ${plan || 'no especificado'}\n- Canal: ${canalDesc}\n- Objetivo: ${objetivo}\n- Tono: ${tono}\n\nReglas: natural y humano, lenguaje colombiano, incluir nombre si fue dado, firmar como Fran Viloria | Asesor SURA Salud.\nDevuelve SOLO el mensaje listo para enviar.`;
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 800, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!response.ok) { const err = await response.json().catch(()=>({})); throw new Error(err.error?.message || 'HTTP '+response.status); }
+    const data = await response.json();
+    const texto = data.content?.map(b => b.text || '').join('') || '';
+    const textoEl = document.getElementById('iaMsgTexto');
+    if (textoEl) textoEl.value = texto;
+    if (resultado) resultado.style.display = '';
+    showToast('Mensaje generado');
+  } catch (err) { showToast('Error al generar: ' + err.message); } finally { btn.disabled = false; if (cargando) cargando.style.display = 'none'; }
+}
+
+function iaMsgCopiar() {
+  const el = document.getElementById('iaMsgTexto');
+  if (!el || !el.value) return;
+  navigator.clipboard.writeText(el.value).then(() => showToast('Mensaje copiado'));
+}
+
+function iaMsgGuardarPlantilla() {
+  navigate('plantillas');
+  showToast('Pega el mensaje en una plantilla nueva');
+}
+
+// =============================================
+// 🤖 IA AZUL 2 — ANÁLISIS INTELIGENTE DE CARTERA
+// =============================================
+
+async function iaAnalizarCartera() {
+  const apiKey = iaVerificarApiKey();
+  if (!apiKey) { showToast('Configura tu API Key en Asistente Clausulados'); return; }
+  const tipo = document.getElementById('iaCarteraTipo')?.value || 'prioridades';
+  const contextoExtra = (document.getElementById('iaCarteraContexto')?.value || '').trim();
+  const btn = document.getElementById('iaCarteraBtnAnalizar');
+  const cargando = document.getElementById('iaCarteraCargando');
+  const resultado = document.getElementById('iaCarteraResultado');
+  btn.disabled = true;
+  if (cargando) cargando.style.display = '';
+  if (resultado) resultado.style.display = 'none';
+  const sinContacto = document.getElementById('radarKpi0')?.textContent || '0';
+  const normal      = document.getElementById('radarKpi1')?.textContent || '0';
+  const cruzada     = document.getElementById('radarKpi2')?.textContent || '0';
+  const recientes   = document.getElementById('radarKpi3')?.textContent || '0';
+  const diasFiltro  = document.getElementById('radarDiasFiltro')?.value || '14';
+  const resumen = `RADAR (umbral ${diasFiltro} dias): Sin contacto critico: ${sinContacto} | Sin contacto normal: ${normal} | Oportunidades cruzada: ${cruzada} | Contactados recientes: ${recientes}${contextoExtra ? ' | Contexto asesor: '+contextoExtra : ''}`;
+  const preguntas = {
+    prioridades:   'A cuales clientes deberia contactar primero hoy y por que? Dame lista priorizada con argumento para cada uno.',
+    riesgo:        'Que clientes estan en mayor riesgo de cancelar su cobertura? Que senales lo indican y como actuar?',
+    oportunidades: 'Donde estan las mejores oportunidades de venta cruzada? Como abordarlas?',
+    estrategia:    'Cual es la estrategia mas efectiva para esta semana? Dame plan de accion concreto.',
+  };
+  const prompt = `Eres un coach experto en ventas de seguros de salud en Colombia. Analizas carteras de asesores SURA.\n\n${resumen}\n\nPregunta: ${preguntas[tipo]||preguntas.prioridades}\n\nResponde con: 1) Analisis directo (2-3 oraciones) 2) Acciones concretas (lista max 5 puntos) 3) Tip rapido de cierre. Maximo 300 palabras, tono directo y motivador.`;
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!response.ok) { const err = await response.json().catch(()=>({})); throw new Error(err.error?.message || 'HTTP '+response.status); }
+    const data = await response.json();
+    const texto = data.content?.map(b => b.text || '').join('') || '';
+    const textoEl = document.getElementById('iaCarteraTexto');
+    if (textoEl) textoEl.innerHTML = texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    if (resultado) resultado.style.display = '';
+    showToast('Analisis completado');
+  } catch (err) { showToast('Error en analisis: ' + err.message); } finally { btn.disabled = false; if (cargando) cargando.style.display = 'none'; }
+}
+
+function iaCarteraCopiar() {
+  const el = document.getElementById('iaCarteraTexto');
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText || el.textContent).then(() => showToast('Analisis copiado'));
+}
+
 
 // ── CHECK YEAR CHANGE and SYNC ────────────────────────────────────
 function checkYearChange() {
