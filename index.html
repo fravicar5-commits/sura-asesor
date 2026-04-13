@@ -17830,8 +17830,8 @@ async function iaAnalizarCarteraV2() {
 CARTERA REAL DEL ASESOR (${total} clientes${iaCarteraV2ProductoFiltro ? ', filtro: '+iaCarteraV2ProductoFiltro : ''}):
 
 ALERTAS DE MORA:
-- En mora 31-60 días (${conMora30.length}): ${conMora30.slice(0,5).map(d=>`${d.nombre}${d.empresa?' ('+d.empresa+')':''} — ${d.producto} — ${d.diasSinPago}d sin pago`).join(' | ') || 'Ninguno'}
-- En mora +60 días (${conMora60.length}): ${conMora60.slice(0,5).map(d=>`${d.nombre}${d.empresa?' ('+d.empresa+')':''} — ${d.producto} — ${d.diasSinPago}d sin pago`).join(' | ') || 'Ninguno'}
+- En mora 31-60 dias (${conMora30.length}): ${conMora30.slice(0,5).map(d=>`${d.nombre}${d.empresa?' ('+d.empresa+')':''} — ${d.producto} — ${d.diasSinPago}d sin pago`).join(' | ') || 'Ninguno'}
+- En mora +60 dias (${conMora60.length}): ${conMora60.slice(0,5).map(d=>`${d.nombre}${d.empresa?' ('+d.empresa+')':''} — ${d.producto} — ${d.diasSinPago}d sin pago`).join(' | ') || 'Ninguno'}
 
 SIN REGISTRO DE PAGO (${sinContacto.length}): ${sinContacto.slice(0,4).map(d=>`${d.nombre} (${d.producto})`).join(', ') || 'Ninguno'}
 
@@ -17841,19 +17841,19 @@ ${altaPrima.map((d,i)=>`${i+1}. ${d.nombre}${d.empresa?' — '+d.empresa:''} —
 
 CLIENTES FIELES +12 MESES (${masFideles.length}): ${masFideles.slice(0,4).map(d=>`${d.nombre} (${d.mesesActivo} meses)`).join(', ') || 'Ninguno'}
 
-DISTRIBUCIÓN POR PRODUCTO: ${['SPTI','SPD','PSM','PAC60'].map(p => `${p}: ${datos.filter(d=>d.producto===p).length}`).join(' | ')}
+DISTRIBUCION POR PRODUCTO: ${['SPTI','SPD','PSM','PAC60'].map(p => `${p}: ${datos.filter(d=>d.producto===p).length}`).join(' | ')}
 ${contextoExtra ? '
 CONTEXTO DEL ASESOR: ' + contextoExtra : ''}`;
 
   const preguntas = {
-    prioridades:   'Con base en estos datos reales, ¿a cuáles clientes debería contactar hoy primero y por qué? Dame una lista priorizada de máximo 5, con el argumento específico para cada uno.',
-    riesgo:        '¿Cuáles clientes están en mayor riesgo de cancelar su cobertura? Analiza los patrones de mora y da acciones concretas para retenerlos.',
-    oportunidades: '¿Dónde están las mejores oportunidades de upgrade de plan o venta cruzada? Identifica clientes específicos y el argumento para cada uno.',
-    mora:          '¿Cómo gestionar los clientes en mora de forma efectiva? Dame un plan de acción por segmento (31-60 días vs +60 días) con guiones de contacto.',
-    estrategia:    '¿Cuál es la estrategia más efectiva para esta semana? Dame un plan de acción día a día basado en los datos reales de la cartera.',
+    prioridades:   'Con base en estos datos reales, a cuales clientes debo contactar hoy primero y por que? Dame lista priorizada de maximo 5 con el argumento especifico para cada uno.',
+    riesgo:        'Cuales clientes estan en mayor riesgo de cancelar su cobertura? Analiza patrones de mora y da acciones concretas para retenerlos.',
+    oportunidades: 'Donde estan las mejores oportunidades de upgrade de plan o venta cruzada? Identifica clientes especificos y el argumento para cada uno.',
+    mora:          'Como gestionar los clientes en mora de forma efectiva? Dame plan de accion por segmento (31-60 dias vs +60 dias) con guiones de contacto.',
+    estrategia:    'Cual es la estrategia mas efectiva para esta semana? Dame plan de accion dia a dia basado en los datos reales de la cartera.',
   };
 
-  const prompt = `Eres un coach experto en ventas y gestión de carteras de seguros de salud en Colombia. Analizas la cartera real de un asesor SURA y das recomendaciones muy concretas y accionables.
+  const prompt = `Eres un coach experto en ventas y gestion de carteras de seguros de salud en Colombia. Analizas la cartera real de un asesor SURA y das recomendaciones muy concretas y accionables.
 
 ${resumenTexto}
 
@@ -17861,10 +17861,10 @@ PREGUNTA DEL ASESOR: ${preguntas[tipo] || preguntas.prioridades}
 
 Responde con:
 1. **Diagnóstico rápido** (2 oraciones sobre el estado de la cartera)
-2. **Acciones concretas** (lista numerada, máximo 6 puntos, con nombres reales de clientes cuando aplique)
+2. **Acciones concretas** (lista numerada, maximo 6 puntos, con nombres reales de clientes cuando aplique)
 3. **Tip de cierre** (una táctica específica para este contexto)
 
-Usa lenguaje directo, motivador y profesional. Máximo 350 palabras.`;
+Usa lenguaje directo, motivador y profesional. Maximo 350 palabras.`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -17898,10 +17898,10 @@ Usa lenguaje directo, motivador y profesional. Máximo 350 palabras.`;
 /g, '<br>');
     }
     if (resultado) resultado.style.display = '';
-    showToast('✅ Análisis completado');
+    showToast('Analisis completado');
 
   } catch (err) {
-    showToast('❌ Error en análisis: ' + err.message);
+    showToast('Error en analisis: ' + err.message);
     console.error(err);
   } finally {
     btn.disabled = false;
@@ -17913,20 +17913,15 @@ function iaCarteraV2Copiar() {
   const el = document.getElementById('iaCarteraV2Texto');
   if (!el) return;
   navigator.clipboard.writeText(el.innerText || el.textContent)
-    .then(() => showToast('✅ Análisis copiado'));
+    .then(() => showToast('Analisis copiado'));
 }
 
 function iaCarteraV2AbrirMensajes() {
   navigate('plantillas');
-  showToast('💡 Usa el Generador IA para redactar el mensaje del cliente');
+  showToast('Usa el Generador IA para redactar el mensaje del cliente');
 }
 
-// También actualizar iaActualizarEstadoPaneles para incluir el nuevo panel
-const _iaActOrig = iaActualizarEstadoPaneles;
-iaActualizarEstadoPaneles = function() {
-  _iaActOrig();
-  // El panel de cartera V2 se actualiza solo al hacer clic en la pestaña (iaCarteraV2Init)
-};
+// iaCarteraV2 se inicializa desde switchCarteraTab al hacer clic en la pestana
 
 // ── CHECK YEAR CHANGE and SYNC ────────────────────────────────────
 function checkYearChange() {
