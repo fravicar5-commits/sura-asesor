@@ -4230,26 +4230,36 @@
       <!-- ===== SINCRONIZACIÓN GITHUB ===== -->
       <div class="page" id="page-sync">
 
-        <!-- 🔥 CARD MIGRACIÓN FIREBASE -->
+        <!-- 🔥 CARD FIREBASE / DIAGNÓSTICO -->
         <div class="card" style="margin-bottom:16px;border-left:3px solid #FF6B35;background:linear-gradient(135deg,rgba(255,107,53,0.08),transparent);">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
             <div style="font-size:28px;">🔥</div>
             <div>
-              <div class="card-title" style="margin-bottom:2px;">Firebase activo — Nube en tiempo real</div>
-              <div style="font-size:12px;color:var(--text-muted);">Tus datos ahora se guardan automáticamente en Firebase Firestore. Funciona en cualquier dispositivo.</div>
+              <div class="card-title" style="margin-bottom:2px;">Firebase — Estado de conexión</div>
+              <div style="font-size:12px;color:var(--text-muted);">Diagnóstico en tiempo real · UID: <strong id="fbDiagUID" style="color:var(--sura-blue);">—</strong></div>
             </div>
             <div id="fb-status-badge" style="display:none;margin-left:auto;font-size:11px;padding:4px 12px;border-radius:20px;background:rgba(34,197,94,0.15);color:var(--green);font-weight:600;white-space:nowrap;">✅ Conectado</div>
           </div>
 
-          <!-- Botón recargar desde Firebase -->
-          <div style="background:rgba(26,76,232,0.08);border:1px solid rgba(26,76,232,0.2);border-radius:10px;padding:14px;margin-bottom:14px;">
-            <div style="font-size:13px;font-weight:600;color:var(--sura-blue);margin-bottom:6px;">🔄 ¿Los datos no aparecen al abrir la app?</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Cuando actualizas el archivo HTML desde GitHub, el navegador lo abre fresco. Si los datos no cargan automáticamente, usa este botón para forzar la recarga desde Firebase sin perder nada.</div>
-            <button class="btn btn-primary" onclick="fbRecargarDatos()" id="btnFbRecargar" style="background:var(--sura-blue);border-color:var(--sura-blue);">
-              🔄 Recargar datos desde Firebase
+          <!-- Diagnóstico automático -->
+          <div id="fbDiagPanel" style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">🔬 Diagnóstico Firebase</div>
+            <div id="fbDiagItems" style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;"></div>
+            <button onclick="fbDiagnosticar()" class="btn btn-secondary btn-sm" style="margin-top:12px;">
+              🔬 Ejecutar diagnóstico completo
             </button>
-            <span id="fbRecargarMsg" style="margin-left:12px;font-size:12px;color:var(--text-muted);display:none;"></span>
           </div>
+
+          <!-- Acciones principales -->
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+            <button class="btn btn-primary" onclick="fbRecargarDatos()" id="btnFbRecargar" style="background:var(--sura-blue);border-color:var(--sura-blue);">
+              🔄 Recargar ventas desde Firebase
+            </button>
+            <button class="btn btn-primary" onclick="fbMigrarAChunks()" id="btnFbMigrar" style="background:var(--green);border-color:var(--green);">
+              📦 Migrar ventas al nuevo formato
+            </button>
+          </div>
+          <div id="fbRecargarMsg" style="font-size:12px;color:var(--text-muted);display:none;margin-bottom:10px;"></div>
 
           <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">Si tenías datos en localStorage (antes de la migración), usa el botón de abajo para subirlos a Firebase por única vez.</div>
           <button class="btn btn-primary" onclick="migrarLocalStorageAFirebase()" style="background:#FF6B35;border-color:#FF6B35;">
@@ -16595,6 +16605,11 @@ function renderSync() {
   const acts = getActividades().length;
   const empresas = getEmpresas().length;
 
+  // Mostrar UID y ejecutar diagnóstico automáticamente
+  const uidEl = document.getElementById('fbDiagUID');
+  if (uidEl && window.FB) uidEl.textContent = window.FB.UID || '—';
+  setTimeout(fbDiagnosticar, 300);
+
   // Status badge
   const badge = document.getElementById('syncStatusBadge');
   const ult = cfg.ultimaExport ? new Date(cfg.ultimaExport) : null;
@@ -17666,6 +17681,131 @@ function bootApp() {
 }
 
 // Recarga forzada desde Firebase — para cuando el archivo se actualiza y los datos no aparecen
+// =============================================
+// DIAGNÓSTICO Y MIGRACIÓN FIREBASE
+// =============================================
+async function fbDiagnosticar() {
+  const el = document.getElementById('fbDiagItems');
+  if (!el) return;
+
+  const uid = document.getElementById('fbDiagUID');
+  if (uid && window.FB) uid.textContent = window.FB.UID || '—';
+
+  const log = (icon, txt, color) => {
+    const d = document.createElement('div');
+    d.style.cssText = `display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);color:${color||'var(--text)'};`;
+    d.innerHTML = `<span style="flex-shrink:0;">${icon}</span><span style="font-size:12.5px;">${txt}</span>`;
+    el.appendChild(d);
+  };
+
+  el.innerHTML = '';
+  log('⏳', 'Iniciando diagnóstico…', 'var(--text-muted)');
+
+  if (!window.FB || !window.FB.db) {
+    log('❌', 'Firebase no inicializado. La app no puede conectarse a Firestore.', 'var(--red)');
+    return;
+  }
+  log('✅', `Firebase SDK cargado · UID: ${window.FB.UID}`, 'var(--green)');
+
+  // Test 1: documento estado clásico
+  try {
+    const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const snap = await getDoc(doc(window.FB.db, 'estado', window.FB.UID));
+    if (snap.exists()) {
+      const data = snap.data().payload;
+      const ventas = data?.ventas || [];
+      const sizeEst = JSON.stringify(data).length;
+      if (sizeEst > 900000) {
+        log('⚠️', `estado/fran existe · ${ventas.length} ventas · ~${Math.round(sizeEst/1024)}KB — EXCEDE LÍMITE 1MB de Firestore. Esta es la causa del problema.`, 'var(--amber)');
+      } else {
+        log('✅', `estado/fran existe · ${ventas.length} ventas · ~${Math.round(sizeEst/1024)}KB`, 'var(--green)');
+      }
+    } else {
+      log('ℹ️', 'estado/fran no existe (puede estar en formato chunked)', 'var(--text-muted)');
+    }
+  } catch(e) {
+    log('❌', `Error leyendo estado/fran: ${e.code || ''} ${e.message}`, 'var(--red)');
+  }
+
+  // Test 2: estadoMeta (formato nuevo)
+  try {
+    const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const snap = await getDoc(doc(window.FB.db, 'estadoMeta', window.FB.UID));
+    if (snap.exists()) {
+      const meta = snap.data().payload;
+      log('✅', `estadoMeta existe · ${meta.totalChunks} chunk(s) · formato nuevo ✓`, 'var(--green)');
+    } else {
+      log('⚠️', 'estadoMeta no existe — ventas aún en formato clásico. Usa "Migrar ventas al nuevo formato".', 'var(--amber)');
+    }
+  } catch(e) {
+    log('ℹ️', `estadoMeta: ${e.message}`, 'var(--text-muted)');
+  }
+
+  // Test 3: cache actual
+  const cache = window.__FB_CACHE__;
+  if (cache) {
+    const ventas = cache.estado?.ventas || [];
+    log(ventas.length > 0 ? '✅' : '⚠️',
+      `Cache en memoria: ${ventas.length} ventas cargadas${ventas.length === 0 ? ' — datos no cargaron correctamente' : ''}`,
+      ventas.length > 0 ? 'var(--green)' : 'var(--amber)');
+  } else {
+    log('❌', '__FB_CACHE__ es null — Firebase no cargó datos', 'var(--red)');
+  }
+
+  log('✅', 'Diagnóstico completo.', 'var(--text-muted)');
+}
+
+// Migrar ventas del formato clásico al chunked
+async function fbMigrarAChunks() {
+  const btn = document.getElementById('btnFbMigrar');
+  const msg = document.getElementById('fbRecargarMsg');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Migrando…'; }
+  if (msg) { msg.style.display = ''; msg.style.color = 'var(--text-muted)'; msg.textContent = 'Leyendo ventas desde Firestore…'; }
+
+  try {
+    if (!window.FB) throw new Error('Firebase no inicializado');
+
+    // Leer del formato clásico directamente
+    const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const snap = await getDoc(doc(window.FB.db, 'estado', window.FB.UID));
+
+    let estadoData = {};
+    if (snap.exists()) {
+      estadoData = snap.data().payload || {};
+      if (msg) msg.textContent = `Leídas ${(estadoData.ventas||[]).length} ventas del formato clásico. Guardando en chunks…`;
+    } else {
+      // Ya está en formato nuevo o no tiene datos
+      estadoData = window.__FB_CACHE__?.estado || {};
+      if (msg) msg.textContent = `Usando cache en memoria: ${(estadoData.ventas||[]).length} ventas. Guardando en chunks…`;
+    }
+
+    if (!estadoData.ventas?.length) {
+      if (msg) { msg.textContent = '⚠️ No hay ventas para migrar. ¿Cargaste el backup primero?'; msg.style.color = 'var(--amber)'; }
+      return;
+    }
+
+    // Guardar en formato chunked
+    const ok = await window.FB.setEstado(estadoData);
+    if (!ok) throw new Error('fbSetEstado retornó false');
+
+    // Actualizar cache local
+    window.__FB_CACHE__.estado = estadoData;
+    state = initState();
+    navigate('dashboard');
+
+    if (msg) {
+      msg.textContent = `✅ Migración exitosa: ${estadoData.ventas.length} ventas guardadas en chunks. Las ventas ya están visibles.`;
+      msg.style.color = 'var(--green)';
+    }
+    showToast(`✅ ${estadoData.ventas.length} ventas migradas al nuevo formato`);
+  } catch(e) {
+    if (msg) { msg.textContent = '❌ Error: ' + e.message; msg.style.color = 'var(--red)'; }
+    showToast('❌ Error en migración: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📦 Migrar ventas al nuevo formato'; }
+  }
+}
+
 async function fbRecargarDatos() {
   const btn  = document.getElementById('btnFbRecargar');
   const msg  = document.getElementById('fbRecargarMsg');
