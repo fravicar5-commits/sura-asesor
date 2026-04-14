@@ -16493,13 +16493,50 @@ function cotizadorImprimir() {
   }).join('');
 
   // Build formas de pago table per person
-  const FACTORES = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
   const IVA_RATE = 0.05;
+  // Función auxiliar: obtiene el valor SIN IVA para una persona y periodicidad dada
+  // Usa las tarifas con descuento de SPTI_TARIFAS en lugar de multiplicar por meses
+  function _cotPrimaPerPer(p, per) {
+    const edad = parseInt(p.edad) || 0;
+    if (p.producto === 'SPTI') {
+      const rango = getRangoEdadSPTI(edad);
+      if (rango && SPTI_SIN_IVA[p.plan]?.[rango]) {
+        const row = SPTI_SIN_IVA[p.plan][rango];
+        if (per === 'TRIMESTRAL') return row.trimestre;
+        if (per === 'SEMESTRAL')  return row.semestre;
+        if (per === 'ANUAL')      return row.anual;
+        return row.mensual;
+      }
+    }
+    if (p.producto === 'SPD') {
+      const valConIVA = SPD_TARIFAS[per] || SPD_TARIFAS.MENSUAL;
+      return Math.round(valConIVA / IVA_FACTOR);
+    }
+    if (p.producto === 'PSM') {
+      const rango = getRangoPSM(edad);
+      if (!rango) return 0;
+      const k = rango.key;
+      let total = PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k];
+      const mods = p.modulosExtra || [];
+      if (mods.includes('Alto Costo')) total += PSM_TARIFAS.altoCosto[k];
+      if (mods.includes('Cirugía')) total += PSM_TARIFAS.cirugia[k];
+      if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) total += PSM_TARIFAS.maternidad[k];
+      const FACTORES = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+      return Math.round(total * (FACTORES[per] || 1));
+    }
+    if (p.producto === 'PAC60') {
+      const rango = getRangoPAC60(edad);
+      if (!rango) return 0;
+      const valConIVA = p.conAnexo ? PAC60_TARIFAS[rango].conAnexo : PAC60_TARIFAS[rango].sinAnexo;
+      const FACTORES = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+      return Math.round((valConIVA / 1.05) * (FACTORES[per] || 1));
+    }
+    return 0;
+  }
   let pagosRows = cotPersonas.filter(p => cotizadorCalcPrima(p) > 0).map((p, i) => {
-    const prima = cotizadorCalcPrima(p);
     const label = p.nombre || `Persona ${i+1}`;
     return ['MENSUAL','TRIMESTRAL','SEMESTRAL','ANUAL'].map(per => {
-      const base = prima * (FACTORES[per]||1);
+      const base = _cotPrimaPerPer(p, per);
       const iva = Math.round(base * IVA_RATE);
       const total = base + iva;
       return `<tr>
