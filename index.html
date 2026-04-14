@@ -676,6 +676,7 @@
 
   .input-group { display: flex; gap: 8px; }
   .input-group .form-control { flex: 1; }
+  .bd-sugerencia-item:hover { background: var(--surface3) !important; }
 </style>
 
 <!-- ===== FIREBASE SDK ===== -->
@@ -14676,10 +14677,8 @@ function bdBuscarEmpresa(modo) {
     html += `<div style="padding:5px 12px;font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;background:var(--surface3);letter-spacing:.06em;">📋 Tu panel</div>`;
     html += delPanel.map(e => {
       const ciudadMatch = ciudad && bdNormalizarCiudad(e.ciudad) === ciudad;
-      return `<div onclick="bdSeleccionarEmpresa(${JSON.stringify(e.id)})"
-        style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;background:${ciudadMatch?'rgba(34,197,94,0.08)':'transparent'};"
-        onmouseover="this.style.background='var(--surface3)'"
-        onmouseout="this.style.background='${ciudadMatch?'rgba(34,197,94,0.08)':'transparent'}'">
+      return `<div class="bd-sugerencia-item" onmousedown="event.preventDefault();bdSeleccionarEmpresa(${JSON.stringify(e.id)})"
+        style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;background:${ciudadMatch?'rgba(34,197,94,0.08)':'transparent'};">
         <div style="font-weight:600;">${e.nombre}</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
           NIT: ${e.nit||'—'} · ${e.ciudad||'Sin ciudad'}
@@ -14698,11 +14697,9 @@ function bdBuscarEmpresa(modo) {
       const uid = 'bd_' + i + '_' + Date.now();
       // Store temp data in a data attribute to retrieve on click
       const dataStr = JSON.stringify({ nombre: r.nombre, nit: r.nit, ciudad: r.ciudad, sinCat: r.sinCat, sinPct: r.sinPct, trim: r.trim }).replace(/'/g, '&#39;');
-      return `<div onclick="bdAplicarDesdeBDCompleta(this)"
+      return `<div class="bd-sugerencia-item" onmousedown="event.preventDefault();bdAplicarDesdeBDCompleta(this)"
         data-bd='${dataStr}'
-        style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;background:${ciudadMatch?'rgba(34,197,94,0.06)':'transparent'};"
-        onmouseover="this.style.background='var(--surface3)'"
-        onmouseout="this.style.background='${ciudadMatch?'rgba(34,197,94,0.06)':'transparent'}'">
+        style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;background:${ciudadMatch?'rgba(34,197,94,0.06)':'transparent'};">
         <div style="font-weight:600;">${r.nombre} <span style="font-size:10px;color:var(--text-dim);font-weight:400;">· BD</span></div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
           NIT: ${r.nit||'—'} · ${r.ciudad||'Sin ciudad'}
