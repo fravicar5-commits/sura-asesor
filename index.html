@@ -2199,8 +2199,8 @@
             <button onclick="ptToggleFullscreen('plantillaPBSwrap2')" title="Expandir/contraer" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:13px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">⛶</button>
           </div>
           <!-- Flechas scroll horizontal PBS -->
-          <button title="Ver columnas del final →" onclick="(function(){var t=document.getElementById('tablaPlanPBS2');var w=document.getElementById('plantillaPBSwrap2');t.style.width='max-content';setTimeout(function(){w.scrollTo({left:w.scrollWidth,behavior:'smooth'});},30);})()" style="background:var(--surface2);border:1px solid var(--border);color:var(--sura-blue);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;font-weight:700;line-height:1;white-space:nowrap;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">⟶ Final</button>
-          <button title="← Volver al inicio" onclick="(function(){var t=document.getElementById('tablaPlanPBS2');var w=document.getElementById('plantillaPBSwrap2');w.scrollTo({left:0,behavior:'smooth'});setTimeout(function(){t.style.width='100%';},350);})()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;font-weight:700;line-height:1;white-space:nowrap;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">Inicio ⟵</button>
+          <button onclick="(function(){var w=document.getElementById('plantillaPBSwrap2');w.scrollTo({left:w.scrollWidth,behavior:'smooth'});})()" title="Ir al final →" style="background:var(--surface2);border:1px solid var(--border);color:var(--sura-blue);border-radius:8px;padding:4px 11px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">→</button>
+          <button onclick="(function(){var w=document.getElementById('plantillaPBSwrap2');w.scrollTo({left:0,behavior:'smooth'});})()" title="← Volver al inicio" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:4px 11px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">←</button>
           <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5;">🔍</span>
             <input type="text" id="ptBuscadorPBS" placeholder="Buscar nombre, documento, empresa…" oninput="ptFiltrarPBS()"
@@ -2525,8 +2525,8 @@
             <button onclick="ptToggleFullscreen('ptWrapSPTI,ptWrapSPD,ptWrapPSM,ptWrapPAC60')" title="Expandir/contraer" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:13px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">⛶</button>
           </div>
           <!-- Flechas scroll horizontal Voluntarios -->
-          <button title="Ver columnas del final →" onclick="(function(){var prod=document.getElementById('ptProductoVol')?document.getElementById('ptProductoVol').value:'SPTI';var wids={SPTI:'ptWrapSPTI',SPD:'ptWrapSPD',PSM:'ptWrapPSM',PAC60:'ptWrapPAC60'};var w=document.getElementById(wids[prod]||'ptWrapSPTI');if(!w)return;var t=w.querySelector('table');if(t)t.style.width='max-content';setTimeout(function(){w.scrollTo({left:w.scrollWidth,behavior:'smooth'});},30);})()" style="background:var(--surface2);border:1px solid var(--border);color:var(--teal);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;font-weight:700;line-height:1;white-space:nowrap;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">⟶ Final</button>
-          <button title="← Volver al inicio" onclick="(function(){var prod=document.getElementById('ptProductoVol')?document.getElementById('ptProductoVol').value:'SPTI';var wids={SPTI:'ptWrapSPTI',SPD:'ptWrapSPD',PSM:'ptWrapPSM',PAC60:'ptWrapPAC60'};var w=document.getElementById(wids[prod]||'ptWrapSPTI');if(!w)return;var t=w.querySelector('table');w.scrollTo({left:0,behavior:'smooth'});setTimeout(function(){if(t)t.style.width='100%';},350);})()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;font-weight:700;line-height:1;white-space:nowrap;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">Inicio ⟵</button>
+          <button onclick="(function(){var ids=['ptWrapSPTI','ptWrapSPD','ptWrapPSM','ptWrapPAC60'];var w=ids.map(function(i){return document.getElementById(i);}).find(function(el){return el&&el.style.display!=='none';});if(w)w.scrollTo({left:w.scrollWidth,behavior:'smooth'});})()" title="Ir al final →" style="background:var(--surface2);border:1px solid var(--border);color:var(--teal);border-radius:8px;padding:4px 11px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">→</button>
+          <button onclick="(function(){var ids=['ptWrapSPTI','ptWrapSPD','ptWrapPSM','ptWrapPAC60'];var w=ids.map(function(i){return document.getElementById(i);}).find(function(el){return el&&el.style.display!=='none';});if(w)w.scrollTo({left:0,behavior:'smooth'});})()" title="← Volver al inicio" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:4px 11px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">←</button>
           <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5;">🔍</span>
             <input type="text" id="ptBuscadorVol" placeholder="Buscar nombre, documento, póliza…" oninput="ptFiltrarVol()"
@@ -3086,6 +3086,7 @@
                 <th>Correo</th>
                 <th>Prospecto Benef.</th>
                 <th>Prospecto Vol.</th>
+                <th>Notas</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -3660,8 +3661,8 @@
             <button onclick="ptToggleFullscreen('ctTableWrap')" title="Expandir/contraer" style="background:none;border:none;color:var(--text-muted);padding:3px 5px;cursor:pointer;font-size:13px;border-radius:4px;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'">⛶</button>
           </div>
           <!-- Flechas scroll horizontal Cartera -->
-          <button title="Ver columnas del final →" onclick="(function(){var t=document.getElementById('ctTable');var w=document.getElementById('ctTableWrap');t.style.width='max-content';setTimeout(function(){w.scrollTo({left:w.scrollWidth,behavior:'smooth'});},30);})()" style="background:var(--surface2);border:1px solid var(--border);color:var(--sura-blue);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;font-weight:700;line-height:1;white-space:nowrap;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">⟶ Final</button>
-          <button title="← Volver al inicio" onclick="(function(){var t=document.getElementById('ctTable');var w=document.getElementById('ctTableWrap');w.scrollTo({left:0,behavior:'smooth'});setTimeout(function(){t.style.width='100%';},350);})()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:15px;font-weight:700;line-height:1;white-space:nowrap;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">Inicio ⟵</button>
+          <button onclick="(function(){var w=document.getElementById('ctTableWrap');w.scrollTo({left:w.scrollWidth,behavior:'smooth'});})()" title="Ir al final →" style="background:var(--surface2);border:1px solid var(--border);color:var(--sura-blue);border-radius:8px;padding:4px 11px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">→</button>
+          <button onclick="(function(){var w=document.getElementById('ctTableWrap');w.scrollTo({left:0,behavior:'smooth'});})()" title="← Volver al inicio" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:4px 11px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">←</button>
           <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
             <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5;">🔍</span>
             <input type="text" id="ctBuscador" placeholder="Buscar nombre, teléfono, plan…" oninput="ptFiltrarCartera()"
@@ -11416,7 +11417,7 @@ function renderCobertura() {
 
   const tbody = document.getElementById('coberturaTabla');
   if (!ventas.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="icon">📅</div><div>No hay registros con fecha de inicio de cobertura</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="icon">📅</div><div>No hay registros con fecha de inicio de cobertura</div></div></td></tr>`;
     return;
   }
 
@@ -11436,6 +11437,7 @@ function renderCobertura() {
       <td style="font-size:11.5px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.correo||'<span style="color:var(--text-dim)">—</span>'}</td>
       <td style="text-align:center;">${prospB?'<span class="chip chip-amber" style="font-size:10px;">✓ Prospecto</span>':'—'}</td>
       <td style="text-align:center;"><span class="chip chip-teal" style="font-size:10px;">✓ Ver vol.</span></td>
+      <td style="font-size:11px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${(v.notas||'').replace(/"/g,'&quot;')}">${v.notas ? `<span title="${(v.notas||'').replace(/"/g,'&quot;')}" style="cursor:default;">${v.notas}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
       <td style="white-space:nowrap;">
         ${v.telefono?`<button class="btn btn-secondary btn-sm" onclick="enviarWA('${v.telefono}','${v.nombre||''}','${v.empresa||''}','${v.inicioCobertura||''}','bienvenida')" title="WhatsApp Bienvenida">📱</button>`:''}
         ${v.telefono&&prospB?`<button class="btn btn-secondary btn-sm" onclick="enviarWA('${v.telefono}','${v.nombre||''}','${v.empresa||''}','${v.inicioCobertura||''}','beneficiarios')" title="WhatsApp Beneficiarios">👨‍👩‍👧</button>`:''}
