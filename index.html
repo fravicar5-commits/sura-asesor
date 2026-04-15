@@ -12800,6 +12800,39 @@ function renderResumenDia() {
           </div>`).join('')}
       </div>
 
+      <!-- Rangos PBS cotizantes -->
+      ${(() => {
+        const ventasPBSMes = getVentasByProduct(mesActual, 'PBS');
+        const cotizantesMes = ventasPBSMes.filter(v => v.tipo === 'COTIZANTE').length;
+        const rangoActual = getRango(cotizantesMes);
+        const RANGOS_PBS = [
+          { n:1, min:1,  max:13,       label:'R1' },
+          { n:2, min:14, max:20,       label:'R2' },
+          { n:3, min:21, max:36,       label:'R3' },
+          { n:4, min:37, max:47,       label:'R4' },
+          { n:5, min:48, max:Infinity, label:'R5' },
+        ];
+        const chips = RANGOS_PBS.map(r => {
+          const esActual = rangoActual.n === r.n;
+          const superado = cotizantesMes > 0 && cotizantesMes >= r.min;
+          let bg, color, texto;
+          if (esActual) {
+            bg = 'rgba(26,76,232,0.18)'; color = 'var(--sura-blue)';
+            const faltaSig = r.max === Infinity ? 0 : r.max - cotizantesMes + 1;
+            texto = r.max === Infinity ? r.label + ' ✓' : r.label + ' · ' + faltaSig + ' para R' + (r.n+1);
+          } else if (superado) {
+            bg = 'rgba(34,197,94,0.08)'; color = 'var(--green)';
+            texto = r.label + ' ✓';
+          } else {
+            bg = 'var(--surface3)'; color = 'var(--text-dim)';
+            const falta = r.min - cotizantesMes;
+            texto = r.label + ' −' + falta;
+          }
+          return '<span style="font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:12px;background:' + bg + ';color:' + color + ';white-space:nowrap;">' + texto + '</span>';
+        }).join('');
+        return '<div style="background:var(--surface2);border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:10px;font-weight:700;color:var(--sura-blue);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;">🏥 PBS Rangos · <strong style="font-size:12px;">' + cotizantesMes + '</strong> cot.</span><div style="display:flex;gap:5px;flex-wrap:wrap;">' + chips + '</div></div>';
+      })()}
+
       <!-- Modular + 60+ + alertas -->
       <div style="display:grid;grid-template-columns:1fr 1fr ${cartCritica.length||coberturasHoy.length?'1fr':''};gap:10px;margin-bottom:12px;">
         <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;border-left:3px solid var(--teal);">
@@ -14683,11 +14716,17 @@ function bdBuscarEmpresa(modo) {
 
   let html = '';
 
+  // Guardar referencias del panel en un mapa temporal para lookup seguro sin JSON.stringify inline
+  window._bdSugPanelMap = window._bdSugPanelMap || {};
+  window._bdSugPanelMap = {};
+
   if (delPanel.length > 0) {
     html += `<div style="padding:5px 12px;font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;background:var(--surface3);letter-spacing:.06em;">📋 Tu panel</div>`;
-    html += delPanel.map(e => {
+    html += delPanel.map((e, idx) => {
       const ciudadMatch = ciudad && bdNormalizarCiudad(e.ciudad) === ciudad;
-      return `<div class="bd-sugerencia-item" onmousedown="event.preventDefault();bdSeleccionarEmpresa(${JSON.stringify(e.id)})"
+      const mapKey = 'panel_' + idx;
+      window._bdSugPanelMap[mapKey] = e.id;
+      return `<div class="bd-sugerencia-item" onmousedown="event.preventDefault();bdSeleccionarEmpresaKey('${mapKey}')"
         style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;background:${ciudadMatch?'rgba(34,197,94,0.08)':'transparent'};">
         <div style="font-weight:600;">${e.nombre}</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
@@ -14721,6 +14760,11 @@ function bdBuscarEmpresa(modo) {
   }
 
   div.innerHTML = html;
+}
+
+function bdSeleccionarEmpresaKey(mapKey) {
+  const id = (window._bdSugPanelMap || {})[mapKey];
+  if (id !== undefined) bdSeleccionarEmpresa(id);
 }
 
 function bdSeleccionarEmpresa(id) {
