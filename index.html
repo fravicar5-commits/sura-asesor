@@ -10752,14 +10752,16 @@ function getCarteraEstado(v, pagos) {
   }
 
   // ── Sin pagos registrados ────────────────────────────────────────────────
-  // Si la póliza tiene menos días de vida que su intervalo → al día (pagó al contratar)
-  const fechaInicio = new Date((v.fechaExp || v.fecha || '') + 'T12:00:00');
-  const diasDeVida  = Math.floor((hoy - fechaInicio) / 86400000);
-  if (diasDeVida < intervalo * 30) {
+  // Si hoy < proxVenc → la póliza está dentro de su primer período → al día
+  if (hoy < proxVenc) {
+    const diasParaVencer = Math.floor((proxVenc - hoy) / 86400000);
+    if (diasParaVencer <= 3) return { estado:'PROXIMO', dias:diasParaVencer, color:'var(--teal)', label:`🔵 Vence en ${diasParaVencer}d`, proxVenc, prevVenc };
     return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc, prevVenc };
   }
 
-  // Sin pagos y ya pasó el intervalo → calcular mora normal
+  // Sin pagos y ya superó el vencimiento → calcular mora desde prevVenc
+  // MENSUAL: mora desde el día siguiente al vencimiento (sin período de gracia)
+  // TRIMESTRAL/SEMESTRAL/ANUAL: gracia hasta fin del mes del vencimiento
   const finMesGracia = new Date(prevVenc.getFullYear(), prevVenc.getMonth() + 1, 0, 12, 0, 0);
   const diasDesdeVenc = Math.max(0, Math.floor((hoy - prevVenc) / 86400000));
   const diasDesdeFin  = Math.max(0, Math.floor((hoy - finMesGracia) / 86400000));
