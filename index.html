@@ -15993,7 +15993,7 @@ function renderCotizadorPersonas() {
         <div style="font-size:16px;font-weight:800;color:${color};min-width:24px;text-align:center;align-self:center;">${i+1}</div>
         <div class="form-group" style="margin-bottom:0;">
           <label class="form-label" style="font-size:10px;">Nombre (opcional)</label>
-          <input type="text" class="form-control" style="font-size:12.5px;" value="${p.nombre}" placeholder="Persona ${i+1}" oninput="cotizadorUpdatePersona('${p.id}','nombre',this.value)">
+          <input type="text" class="form-control" style="font-size:12.5px;" value="${p.nombre}" placeholder="Persona ${i+1}" onblur="cotizadorUpdatePersona('${p.id}','nombre',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
         </div>
         <div class="form-group" style="margin-bottom:0;">
           <label class="form-label" style="font-size:10px;">Producto</label>
@@ -16006,7 +16006,7 @@ function renderCotizadorPersonas() {
         </div>
         <div class="form-group" style="margin-bottom:0;">
           <label class="form-label" style="font-size:10px;">Edad</label>
-          <input type="number" class="form-control" style="font-size:12.5px;width:72px;" value="${p.edad}" min="0" max="120" placeholder="Edad" oninput="cotizadorUpdatePersona('${p.id}','edad',this.value)">
+          <input type="number" class="form-control" style="font-size:12.5px;width:72px;" value="${p.edad}" min="0" max="120" placeholder="Edad" onchange="cotizadorUpdatePersona('${p.id}','edad',this.value)" onblur="cotizadorUpdatePersona('${p.id}','edad',this.value)">
         </div>
         <div class="form-group" style="margin-bottom:0;">
           <label class="form-label" style="font-size:10px;">Personas</label>
@@ -16500,9 +16500,10 @@ function cotizadorImprimir() {
       ['Edad de ingreso','—','0 meses a 64 años'],
     ],
     PAC60: [
-      ['Edad de ingreso al plan','—','60 años o más — afiliado EPS SURA régimen contributivo'],
+      ['Edad de ingreso al plan','—','60 años o más'],
+      ['Requisitos de adquisición','—','Debe estar afiliado a EPS SURA régimen contributivo y cumplir con las políticas de grupo asegurable'],
       ['Periodos de carencia','—','Sin carencia — acceso inmediato desde inicio de vigencia'],
-      ['DIMENSIÓN FÍSICA — Acceso directo a especialistas: Medicina Interna, Geriatría, Nutrición y Dietética, Psicología','Consulta','DIRECTA sin remisión médico general'],
+      ['DIMENSIÓN FÍSICA — Acceso directo a especialistas: Internista, Oftalmólogo, Urólogo, Ortopedista (+ Cardiólogo y Dermatólogo con Anexo opcional)','Consulta','DIRECTA sin remisión médico general — sin autorización EPS'],
       ['Ayudas diagnósticas PBS (lab. clínico, imagenología, pruebas diagnósticas)','—','SÍ — ordenadas por red del plan'],
       ['Exoneración copagos y cuotas moderadoras PBS (consultas, lab., imagenología, terapias)','—','SÍ — sin costo en red del plan'],
       ['Atención médica domiciliaria (medicina general programada)','—','SÍ — según zona cobertura y disponibilidad'],
