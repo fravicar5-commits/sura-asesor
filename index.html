@@ -3828,6 +3828,7 @@
                 <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Estado</th>
                 <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Producto</th>
                 <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Cliente / Tomador</th>
+                <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Documento</th>
                 <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Plan</th>
                 <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Periodicidad</th>
                 <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Últ. Expedición</th>
@@ -3924,6 +3925,7 @@
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Fecha Pago</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Producto</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Cliente</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Documento</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Plan</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Periodo cubierto</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Prima</th>
@@ -8372,7 +8374,9 @@ function renderPagoMes() {
     const ventaPagos = pagos[venta.id] || [];
     ventaPagos.forEach(pago => {
       if (!pago.fecha) return;
-      const fechaPago = new Date(pago.fecha + 'T12:00:00');
+      // La fecha puede estar en ISO completo (2026-04-17T12:00:00.000Z) o solo YYYY-MM-DD
+      const fechaStr = pago.fecha.length > 10 ? pago.fecha.slice(0, 10) : pago.fecha;
+      const fechaPago = new Date(fechaStr + 'T12:00:00');
       if (isNaN(fechaPago)) return;
       if (fechaPago.getMonth() + 1 !== mesPago || fechaPago.getFullYear() !== anioPago) return;
       const dia = fechaPago.getDate();
@@ -8405,7 +8409,7 @@ function renderPagoMes() {
     vacio.style.display = 'none';
     const perLabel = { MENSUAL:'Mensual', TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' };
     const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial' };
-    const fmtFecha = str => str ? new Date(str+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const fmtFecha = str => { if (!str) return '—'; const s = str.length > 10 ? str.slice(0,10) : str; return new Date(s+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); };
     let totalCom = 0;
     tbody.innerHTML = entradas.map(({ venta: v, pago: p }, i) => {
       const nombre = tc(v.tomadorNombre || v.nombre || '—');
@@ -8419,7 +8423,7 @@ function renderPagoMes() {
         <td style="padding:7px 10px;font-size:12.5px;font-weight:500;">${nombre}</td>
         <td style="padding:7px 10px;"><span class="chip ${prodColor}" style="font-size:10px;">${v.producto}</span></td>
         <td style="padding:7px 10px;font-size:11.5px;color:var(--text-muted);">${planStr || '—'}</td>
-        <td style="padding:7px 10px;text-align:center;font-size:12px;font-family:var(--mono);">${fmtFecha(p.fecha)} <span style="font-size:10px;color:var(--text-dim);">(día ${p.fecha ? new Date(p.fecha+'T12:00:00').getDate() : '?'})</span></td>
+        <td style="padding:7px 10px;text-align:center;font-size:12px;font-family:var(--mono);">${fmtFecha(p.fecha)} <span style="font-size:10px;color:var(--text-dim);">(día ${p.fecha ? new Date((p.fecha.length>10?p.fecha.slice(0,10):p.fecha)+'T12:00:00').getDate() : '?'})</span></td>
         <td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-size:12px;">${fmt(prima)}</td>
         <td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--text-muted);">${pct}</td>
         <td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal);">${fmt(com)}</td>
@@ -11299,7 +11303,7 @@ function renderCarteraTabla(filas, pagos) {
   }).join('');
 
   if (!filas.length) {
-    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:32px;color:var(--text-dim);">Sin registros en este filtro</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14" style="text-align:center;padding:32px;color:var(--text-dim);">Sin registros en este filtro</td></tr>`;
     document.getElementById('carteraCount').textContent = '';
     return;
   }
@@ -11389,6 +11393,7 @@ function renderCarteraTabla(filas, pagos) {
         </td>
         <td style="padding:10px 12px;"><span class="chip ${prodChipColor}" style="font-size:10px;">${v.producto}</span></td>
         <td style="padding:10px 12px;font-weight:500;font-size:13px;">${nombre}</td>
+        <td style="padding:10px 12px;font-size:12px;font-family:var(--mono);color:var(--text-muted);">${v.doc || v.tomadorDoc || '—'}</td>
         <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);">${v.plan||'—'}</td>
         <td style="padding:10px 12px;"><span class="chip chip-blue" style="font-size:10px;">${perLabel[v.periodicidad]||'—'}</span></td>
         <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:nowrap;">${expFmt}</td>
@@ -11411,7 +11416,7 @@ function renderCarteraTabla(filas, pagos) {
         </td>
       </tr>
       <tr id="${rowId}" style="display:none;background:var(--surface2);">
-        <td colspan="13" style="padding:0;">
+        <td colspan="14" style="padding:0;">
           <div style="padding:16px 20px;border-top:1px solid var(--border);">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
               <!-- Historial -->
@@ -11618,7 +11623,7 @@ function renderHistorialPagos() {
 
   const tbody = document.getElementById('historialPagosTabla');
   if (!filas.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-dim);">Sin pagos registrados en este periodo</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-dim);">Sin pagos registrados en este periodo</td></tr>`;
     document.getElementById('historialPagosCount').textContent = '';
     return;
   }
@@ -11627,6 +11632,7 @@ function renderHistorialPagos() {
   tbody.innerHTML = filas.map(({v, p, fechaPago}, i) => {
     const rowBg = i%2===0 ? '' : 'rgba(255,255,255,0.015)';
     const nombre = tc(v.tomadorNombre || v.nombre || '—');
+    const documento = v.doc || v.tomadorDoc || '—';
     const fechaStr = fechaPago.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});
     const desdeStr = p.periodoDesde ? new Date(p.periodoDesde+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'}) : '—';
     const hastaStr = p.periodoHasta ? new Date(p.periodoHasta+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
@@ -11635,6 +11641,7 @@ function renderHistorialPagos() {
       <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:nowrap;">${fechaStr}</td>
       <td style="padding:10px 12px;"><span class="chip ${prodChip[v.producto]||'chip-blue'}" style="font-size:10px;">${v.producto}</span></td>
       <td style="padding:10px 12px;font-weight:500;font-size:13px;">${nombre}</td>
+      <td style="padding:10px 12px;font-size:12px;font-family:var(--mono);color:var(--text-muted);">${documento}</td>
       <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);">${planLabel}</td>
       <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--text-muted);">${desdeStr} → ${hastaStr}</td>
       <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;color:var(--sura-lime);">${fmt(p.prima||0)}</td>
