@@ -1756,6 +1756,7 @@
           <button class="tab-pill" onclick="setComTab('voluntarios',this)">💊 Voluntarios</button>
           <button class="tab-pill" onclick="setComTab('total',this)">💰 Resumen Total</button>
           <button class="tab-pill" onclick="setComTab('proyeccion',this)">📈 Proyección</button>
+          <button class="tab-pill" onclick="setComTab('pagomes',this)" style="background:rgba(200,229,43,0.08);border-color:rgba(200,229,43,0.3);color:var(--sura-lime);">🗓️ Pago del Mes</button>
         </div>
 
         <!-- ── PBS TAB ── -->
@@ -1937,6 +1938,150 @@
           <div id="htRangoBar" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;"></div>
           <div id="htProyeccionCierre" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;"></div>
         </div>
+
+        <!-- ── PAGO DEL MES TAB ── -->
+        <div id="comTabPagomes" style="display:none;">
+
+          <!-- Selector de mes proyectado -->
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">🗓️ Proyección de Pago del Mes</div>
+              <div style="font-size:12px;color:var(--text-muted);">¿Cuánto recibirás este mes? PBS el día 15 · Voluntarios días 15 y 30</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+              <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Mes a proyectar:</label>
+              <select class="form-control" id="pagoMesSel" style="width:160px;" onchange="renderPagoMes()">
+                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+              <select class="form-control" id="pagoAnioSel" style="width:100px;" onchange="renderPagoMes()">
+                <option value="2026">2026</option><option value="2025">2025</option><option value="2027">2027</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Reglas informativas -->
+          <div class="alert alert-info" style="margin-bottom:20px;">
+            ℹ️ <strong>Cómo se calcula:</strong>
+            <span style="color:var(--sura-blue)"><strong>PBS</strong></span>: <span id="pmLeyendaPBS">la compensación pagada este mes corresponde a ventas del período compensado de Enero (aprox. 9 ene − 6 feb). Siempre paga el</span> <strong>día 15</strong>.
+            · <span style="color:var(--teal)"><strong>Voluntarios 1ª quincena</strong></span>: planes pagados del 1 al 10 → comisión el <strong>día 15</strong>.
+            · <span style="color:var(--purple)"><strong>Voluntarios 2ª quincena</strong></span>: planes pagados del 11 al 20 → comisión el <strong>día 30</strong>.
+          </div>
+
+          <!-- KPIs resumen -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
+            <div class="stat-card green">
+              <div class="stat-label">💳 Total Pago Día 15</div>
+              <div class="stat-value" id="pmKpi15" style="font-size:22px;">$0</div>
+              <div class="stat-sub" id="pmKpi15Sub">PBS + Voluntarios 1ª quinc.</div>
+            </div>
+            <div class="stat-card purple">
+              <div class="stat-label">💳 Total Pago Día 30</div>
+              <div class="stat-value" id="pmKpi30" style="font-size:22px;">$0</div>
+              <div class="stat-sub">Voluntarios 2ª quincena</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--sura-lime);">
+              <div class="stat-label">💰 Total del Mes</div>
+              <div class="stat-value" id="pmKpiTotal" style="font-size:22px;color:var(--sura-lime);">$0</div>
+              <div class="stat-sub">PBS + Todos los voluntarios</div>
+            </div>
+          </div>
+
+          <!-- Bloque día 15 -->
+          <div class="card" style="margin-bottom:20px;border-left:3px solid var(--green);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--green);">📅 Pago del día 15 — <span id="pmFecha15Label">—</span></div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Comisión PBS + Voluntarios que pagaron del 1 al 10</div>
+              </div>
+              <div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--green);" id="pmTotal15">$0</div>
+            </div>
+
+            <!-- Sub-sección PBS -->
+            <div style="background:rgba(26,76,232,0.06);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+                <div style="font-size:12px;font-weight:700;color:#6B9EFF;text-transform:uppercase;letter-spacing:.06em;" id="pmPBSTitulo">🏥 Comisión PBS</div>
+                <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:#6B9EFF;" id="pmPBSTotal">$0</div>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;" id="pmPBSPeriodo">Período de ventas: —</div>
+              <div id="pmPBSTablaWrap" style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead><tr style="background:var(--surface2);">
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Nombre</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Empresa</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Tipo</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Rango</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Fecha Venta</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Comp. Para</th>
+                    <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Comisión</th>
+                  </tr></thead>
+                  <tbody id="pmPBSBody"></tbody>
+                </table>
+              </div>
+              <div id="pmPBSVacio" style="display:none;text-align:center;padding:16px;color:var(--text-dim);font-size:13px;">Sin ventas PBS en el período de compensación para este mes</div>
+            </div>
+
+            <!-- Sub-sección Voluntarios 1ª quincena -->
+            <div style="background:rgba(6,182,212,0.06);border-radius:var(--radius-sm);padding:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+                <div style="font-size:12px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;">💊 Voluntarios — 1ª Quincena (pagos 1–10)</div>
+                <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:var(--teal);" id="pmVol1Total">$0</div>
+              </div>
+              <div id="pmVol1TablaWrap" style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead><tr style="background:var(--surface2);">
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Cliente</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Producto</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Plan · Periodicidad</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Fecha Pago</th>
+                    <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Prima</th>
+                    <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">% Com.</th>
+                    <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Comisión</th>
+                  </tr></thead>
+                  <tbody id="pmVol1Body"></tbody>
+                </table>
+              </div>
+              <div id="pmVol1Vacio" style="display:none;text-align:center;padding:16px;color:var(--text-dim);font-size:13px;">Sin pagos de voluntarios registrados del 1 al 10</div>
+            </div>
+          </div>
+
+          <!-- Bloque día 30 -->
+          <div class="card" style="border-left:3px solid var(--purple);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--purple);">📅 Pago del día 30 — <span id="pmFecha30Label">—</span></div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Voluntarios que pagaron del 11 al 20</div>
+              </div>
+              <div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--purple);" id="pmTotal30">$0</div>
+            </div>
+
+            <div style="background:rgba(168,85,247,0.06);border-radius:var(--radius-sm);padding:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+                <div style="font-size:12px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.06em;">💊 Voluntarios — 2ª Quincena (pagos 11–20)</div>
+                <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:var(--purple);" id="pmVol2Total">$0</div>
+              </div>
+              <div id="pmVol2TablaWrap" style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead><tr style="background:var(--surface2);">
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Cliente</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Producto</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Plan · Periodicidad</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Fecha Pago</th>
+                    <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Prima</th>
+                    <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">% Com.</th>
+                    <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Comisión</th>
+                  </tr></thead>
+                  <tbody id="pmVol2Body"></tbody>
+                </table>
+              </div>
+              <div id="pmVol2Vacio" style="display:none;text-align:center;padding:16px;color:var(--text-dim);font-size:13px;">Sin pagos de voluntarios registrados del 11 al 20</div>
+            </div>
+          </div>
+
+        </div>
+        <!-- /PAGO DEL MES TAB -->
 
       </div>
 
@@ -7820,11 +7965,11 @@ function renderCampanas() {
 // COMISIONES — TAB SWITCHER
 // =============================================
 function setComTab(tab, btn) {
-  ['PBS','Vol','Total','Proyeccion'].forEach(t => {
+  ['PBS','Vol','Total','Proyeccion','Pagomes'].forEach(t => {
     const el = document.getElementById(`comTab${t}`);
     if (el) el.style.display = 'none';
   });
-  const map = { pbs: 'PBS', voluntarios: 'Vol', total: 'Total', proyeccion: 'Proyeccion' };
+  const map = { pbs: 'PBS', voluntarios: 'Vol', total: 'Total', proyeccion: 'Proyeccion', pagomes: 'Pagomes' };
   const show = document.getElementById(`comTab${map[tab] || 'PBS'}`);
   if (show) show.style.display = '';
   document.querySelectorAll('#page-comisiones .tab-pill').forEach(p => p.classList.remove('active'));
@@ -7832,6 +7977,7 @@ function setComTab(tab, btn) {
   if (tab === 'voluntarios') renderVolComisiones();
   if (tab === 'total') renderTotalComisiones();
   if (tab === 'proyeccion') renderProyeccionComisiones();
+  if (tab === 'pagomes') renderPagoMes();
 }
 
 // =============================================
@@ -8085,6 +8231,248 @@ function renderComisiones() {
       <td><span class="chip chip-blue" style="font-size:11px;">${d.rng}</span></td>
     </tr>`;
   }).join('');
+}
+
+// =============================================
+// 🗓️ PAGO DEL MES — PROYECCIÓN QUINCENAS
+// =============================================
+function renderPagoMes() {
+  // ── Inicializar selectores la primera vez ─────────────────────────────
+  const selMes  = document.getElementById('pagoMesSel');
+  const selAnio = document.getElementById('pagoAnioSel');
+  if (!selMes || !selAnio) return;
+
+  // Pre-seleccionar mes/año actual si no se ha tocado aún
+  if (!selMes.dataset.init) {
+    const hoy = new Date();
+    selMes.value  = String(hoy.getMonth() + 1);
+    selAnio.value = String(hoy.getFullYear());
+    // Si el año actual no está en opciones, agregarlo
+    if (!Array.from(selAnio.options).find(o => o.value === String(hoy.getFullYear()))) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = hoy.getFullYear();
+      selAnio.appendChild(opt);
+      selAnio.value = String(hoy.getFullYear());
+    }
+    selMes.dataset.init = '1';
+  }
+
+  const mesPago = parseInt(selMes.value);   // 1–12
+  const anioPago = parseInt(selAnio.value);
+
+  const MESES_ES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                    'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesNombre = MESES_ES[mesPago];
+
+  // ── Etiquetas de fechas de pago ───────────────────────────────────────
+  document.getElementById('pmFecha15Label').textContent = `15 de ${mesNombre} ${anioPago}`;
+  document.getElementById('pmFecha30Label').textContent = `30 de ${mesNombre} ${anioPago}`;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // BLOQUE 1: COMISIÓN PBS
+  // Regla real de Sura: el pago del mes M corresponde a las ventas cuyo
+  // "mes compensado" es M-3. Ejemplo: pago de Abril → compensado Enero.
+  // El mes compensado abarca ventas desde el día hábil 6 de ese mes
+  // hasta el día hábil 5 del mes siguiente (lógica de getVentanaCompensado).
+  // ═══════════════════════════════════════════════════════════════════
+  const stateNow = getState();
+
+  // Calcular el mes compensado = mes de pago - 3
+  const mesCompIdx0  = mesPago - 1;          // 0-based
+  const mesCompRaw   = mesCompIdx0 - 3;      // puede ser negativo
+  const mesCompIdx   = ((mesCompRaw % 12) + 12) % 12;  // 0-based, siempre positivo
+  const anioComp     = anioPago + Math.floor((mesCompRaw) / 12) - (mesCompRaw < 0 ? 1 : 0);
+  // Corrección: usar cálculo directo sin floor doble
+  let _mesCompMes = mesPago - 3;
+  let _anioComp   = anioPago;
+  while (_mesCompMes <= 0) { _mesCompMes += 12; _anioComp--; }
+  const mesCompFinal   = _mesCompMes;      // 1-based
+  const anioCompFinal  = _anioComp;
+  const mesCompIdxFinal = mesCompFinal - 1; // 0-based para getVentanaCompensado
+
+  // Obtener ventas PBS usando la ventana real de días hábiles
+  const ventasPBS = getVentasPBSCompensado(mesCompIdxFinal, anioCompFinal);
+
+  // Período real de ventas PBS (ventana del mes compensado)
+  const ventanaComp = getVentanaCompensado(mesCompIdxFinal, anioCompFinal);
+  const fmtVentana = d => d ? d.toLocaleDateString('es-CO', { day:'2-digit', month:'short' }) : '?';
+  const pbsPeriodo = ventanaComp
+    ? `${fmtVentana(ventanaComp.inicio)} − ${fmtVentana(ventanaComp.fin)} ${anioCompFinal} (comp. ${MESES_ES[mesCompFinal]})`
+    : `Mes compensado: ${MESES_ES[mesCompFinal]} ${anioCompFinal}`;
+  document.getElementById('pmPBSPeriodo').textContent = `Período de ventas: ${pbsPeriodo}`;
+  const pbsTituloEl = document.getElementById('pmPBSTitulo');
+  if (pbsTituloEl) pbsTituloEl.textContent = `🏥 Comisión PBS — Compensado ${MESES_ES[mesCompFinal]} ${anioCompFinal}`;
+
+  // ── Leyenda dinámica ──────────────────────────────────────────────────
+  const leyendaEl = document.getElementById('pmLeyendaPBS');
+  if (leyendaEl) {
+    const mesCompNombre = MESES_ES[mesCompFinal];
+    // Mes siguiente al compensado (para mostrar "Enero a Febrero")
+    let mesCompSigNum = mesCompFinal === 12 ? 1 : mesCompFinal + 1;
+    const mesCompSigNombre = MESES_ES[mesCompSigNum];
+    const periodoStr = ventanaComp
+      ? `${fmtVentana(ventanaComp.inicio)} − ${fmtVentana(ventanaComp.fin)}`
+      : `aprox. inicio ${mesCompNombre} − inicio ${mesCompSigNombre}`;
+    leyendaEl.textContent = `la compensación pagada este mes corresponde a ventas de ${mesCompNombre} (período ${periodoStr} ${anioCompFinal}). Siempre paga el`;
+  }
+
+  // Agrupar por empresa / cotizante para calcular la comisión conjunta
+  // (tal como hace la tabla de PBS — por empresa + siniestralidad)
+  const totalComPBS = ventasPBS.reduce((s, v) => s + (v.comision || 0), 0);
+  document.getElementById('pmPBSTotal').textContent = fmt(totalComPBS);
+
+  const pbsBody = document.getElementById('pmPBSBody');
+  const pbsVacio = document.getElementById('pmPBSVacio');
+  if (!ventasPBS.length) {
+    pbsBody.innerHTML = '';
+    pbsVacio.style.display = '';
+  } else {
+    pbsVacio.style.display = 'none';
+    const fmtFecha = str => {
+      if (!str) return '—';
+      const d = new Date(str + 'T12:00:00');
+      return isNaN(d) ? str : d.toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' });
+    };
+    pbsBody.innerHTML = ventasPBS.map((v, i) => {
+      const nombre = tc(v.nombre || '—');
+      const empresa = v.empresa || '—';
+      const tipo = v.tipo === 'COTIZANTE' ? '<span class="chip chip-blue" style="font-size:10px;">Cotizante</span>' : '<span class="chip chip-teal" style="font-size:10px;">Beneficiario</span>';
+      const rango = v.rango ? `<span class="chip chip-green" style="font-size:10px;">${v.rango}</span>` : '—';
+      const fechaVenta = fmtFecha(v.fecha);
+      const compPara = v.mesComp || '—';
+      const com = v.comision || 0;
+      return `<tr style="${i%2===0?'':'background:rgba(255,255,255,0.02)'}">
+        <td style="padding:7px 10px;font-size:12.5px;font-weight:500;">${nombre}</td>
+        <td style="padding:7px 10px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${empresa}">${empresa}</td>
+        <td style="padding:7px 10px;text-align:center;">${tipo}</td>
+        <td style="padding:7px 10px;text-align:center;">${rango}</td>
+        <td style="padding:7px 10px;font-size:12px;font-family:var(--mono);">${fechaVenta}</td>
+        <td style="padding:7px 10px;font-size:11.5px;color:var(--text-muted);">${compPara}</td>
+        <td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-weight:700;color:#6B9EFF;">${fmt(com)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // BLOQUE 2: VOLUNTARIOS — filtrar por pagos registrados en el mes
+  // Usamos el registro de pagos (getPagos()) — la fecha del pago
+  // determina a qué quincena pertenece.
+  // 1ª quincena: fecha.getDate() >= 1  && <= 10  → paga el 15
+  // 2ª quincena: fecha.getDate() >= 11 && <= 20  → paga el 30
+  // ═══════════════════════════════════════════════════════════════════
+  const pagos = getPagos();
+  const volProductos = ['SPTI','SPD','PSM','PAC60'];
+  const comPcts = { SPTI: COM_SPTI_PCT, SPD: COM_SPD_PCT };
+
+  // Recolectar todos los pagos de voluntarios registrados en el mes seleccionado
+  const pagosQ1 = []; // 1–10
+  const pagosQ2 = []; // 11–20
+
+  stateNow.ventas.filter(v => volProductos.includes(v.producto)).forEach(venta => {
+    const ventaPagos = pagos[venta.id] || [];
+    ventaPagos.forEach(pago => {
+      if (!pago.fecha) return;
+      const fechaPago = new Date(pago.fecha + 'T12:00:00');
+      if (isNaN(fechaPago)) return;
+      if (fechaPago.getMonth() + 1 !== mesPago || fechaPago.getFullYear() !== anioPago) return;
+      const dia = fechaPago.getDate();
+      const entry = { venta, pago, dia };
+      if (dia >= 1 && dia <= 10) pagosQ1.push(entry);
+      else if (dia >= 11 && dia <= 20) pagosQ2.push(entry);
+    });
+  });
+
+  // ── Si NO hay pagos registrados, mostrar estimado basado en ventas activas ──
+  // Mostramos las ventas activas de voluntarios como "esperadas" con un badge distinto
+  const tienesPagosRegistrados = pagosQ1.length > 0 || pagosQ2.length > 0;
+
+  function calcComVol(venta, prima) {
+    if (venta.producto === 'SPTI') return Math.round((prima || getSinIVABase(venta)) * COM_SPTI_PCT);
+    if (venta.producto === 'SPD')  return Math.round((prima || getSinIVABase(venta)) * COM_SPD_PCT);
+    return venta.comision || 0; // PSM / PAC60 usan comisión almacenada
+  }
+
+  function renderVolTabla(entradas, tbodyId, vacioId, totalId) {
+    const tbody = document.getElementById(tbodyId);
+    const vacio = document.getElementById(vacioId);
+    const totalEl = document.getElementById(totalId);
+    if (!entradas.length) {
+      tbody.innerHTML = '';
+      vacio.style.display = '';
+      if (totalEl) totalEl.textContent = fmt(0);
+      return 0;
+    }
+    vacio.style.display = 'none';
+    const perLabel = { MENSUAL:'Mensual', TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' };
+    const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial' };
+    const fmtFecha = str => str ? new Date(str+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    let totalCom = 0;
+    tbody.innerHTML = entradas.map(({ venta: v, pago: p }, i) => {
+      const nombre = tc(v.tomadorNombre || v.nombre || '—');
+      const planStr = (planLabel[v.plan] || v.plan || '') + (v.periodicidad ? ' · ' + (perLabel[v.periodicidad] || v.periodicidad) : '');
+      const prima = p.prima || v.prima || 0;
+      const com = p.comision || calcComVol(v, prima);
+      totalCom += com;
+      const pct = v.producto === 'SPTI' ? '7%' : v.producto === 'SPD' ? '8%' : (v.comPct ? v.comPct + '%' : '—');
+      const prodColor = { SPTI:'chip-teal', SPD:'chip-purple', PSM:'chip-blue', PAC60:'chip-green' }[v.producto] || 'chip-blue';
+      return `<tr style="${i%2===0?'':'background:rgba(255,255,255,0.02)'}">
+        <td style="padding:7px 10px;font-size:12.5px;font-weight:500;">${nombre}</td>
+        <td style="padding:7px 10px;"><span class="chip ${prodColor}" style="font-size:10px;">${v.producto}</span></td>
+        <td style="padding:7px 10px;font-size:11.5px;color:var(--text-muted);">${planStr || '—'}</td>
+        <td style="padding:7px 10px;text-align:center;font-size:12px;font-family:var(--mono);">${fmtFecha(p.fecha)} <span style="font-size:10px;color:var(--text-dim);">(día ${p.fecha ? new Date(p.fecha+'T12:00:00').getDate() : '?'})</span></td>
+        <td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-size:12px;">${fmt(prima)}</td>
+        <td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--text-muted);">${pct}</td>
+        <td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--teal);">${fmt(com)}</td>
+      </tr>`;
+    }).join('');
+    if (totalEl) totalEl.textContent = fmt(totalCom);
+    return totalCom;
+  }
+
+  // ── Si no hay pagos registrados en el mes, mostrar ventas activas como estimado ──
+  let comVol1 = 0, comVol2 = 0;
+  if (!tienesPagosRegistrados) {
+    // Estimado: mostrar ventas de voluntarios activas sin pagos cancelados
+    // Para este mes proyectado, mostrar todas las ventas activas como "pendiente de pago"
+    const ventasActivas = stateNow.ventas.filter(v => {
+      if (!volProductos.includes(v.producto)) return false;
+      if (v.estado === 'CANCELADO' || v.tipo === 'CANCELACION') return false;
+      return true;
+    });
+
+    // Distribuir aleatoriamente entre Q1 y Q2 para la estimación... 
+    // Mejor: distribuir por orden de registro (50/50)
+    const estimQ1 = [], estimQ2 = [];
+    ventasActivas.forEach((v, idx) => {
+      const entry = { venta: v, pago: { fecha: null, prima: v.prima || 0, comision: calcComVol(v, 0) } };
+      if (idx % 2 === 0) estimQ1.push(entry);
+      else estimQ2.push(entry);
+    });
+
+    // Mostrar mensaje de estimado si no hay pagos reales
+    const nota = `<tr><td colspan="7" style="text-align:center;padding:10px;font-size:11.5px;background:rgba(245,158,11,0.08);color:var(--amber);border-radius:6px;">⚠️ No hay pagos registrados en ${mesNombre} ${anioPago}. Registra los pagos en Gestión de Cartera para ver el cálculo real.</td></tr>`;
+    document.getElementById('pmVol1Body').innerHTML = nota;
+    document.getElementById('pmVol1Vacio').style.display = 'none';
+    document.getElementById('pmVol1Total').textContent = fmt(0);
+    document.getElementById('pmVol2Body').innerHTML = nota;
+    document.getElementById('pmVol2Vacio').style.display = 'none';
+    document.getElementById('pmVol2Total').textContent = fmt(0);
+  } else {
+    comVol1 = renderVolTabla(pagosQ1, 'pmVol1Body', 'pmVol1Vacio', 'pmVol1Total');
+    comVol2 = renderVolTabla(pagosQ2, 'pmVol2Body', 'pmVol2Vacio', 'pmVol2Total');
+  }
+
+  // ── Totales generales ─────────────────────────────────────────────────────
+  const total15 = totalComPBS + comVol1;
+  const total30 = comVol2;
+  const totalMes = totalComPBS + comVol1 + comVol2;
+
+  document.getElementById('pmTotal15').textContent    = fmt(total15);
+  document.getElementById('pmTotal30').textContent    = fmt(total30);
+  document.getElementById('pmKpi15').textContent      = fmt(total15);
+  document.getElementById('pmKpi30').textContent      = fmt(total30);
+  document.getElementById('pmKpiTotal').textContent   = fmt(totalMes);
+  document.getElementById('pmKpi15Sub').textContent   = `PBS ${fmt(totalComPBS)} + Voluntarios ${fmt(comVol1)}`;
 }
 
 // =============================================
