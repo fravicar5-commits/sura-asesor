@@ -699,7 +699,14 @@
   // ── ID de usuario fijo (app monousuario) ──────────────────────────────────
   // ── ID de usuario dinámico (multiusuario) ────────────────────────────────────────────
   // Se asigna tras login exitoso desde la CC del asesor
+  // Intentar restaurar UID desde sesión guardada (para recargas de página)
   let UID = '';
+  try {
+    const _sess = JSON.parse(sessionStorage.getItem('sura_pin_session_v2') || 'null');
+    if (_sess && _sess.cc && (Date.now() - _sess.ts) < 8 * 60 * 60 * 1000) UID = _sess.cc;
+    else { const _lsCC = localStorage.getItem('sura_last_cc'); if (_lsCC) UID = _lsCC; }
+  } catch(_) {}
+  console.log('[Firebase] UID inicial:', UID || '(sin sesión)');
   function fbSetUID(cc) { UID = cc; if (window.FB) window.FB.UID = cc; }
 
   // ── Gestión de usuarios en Firestore ────────────────────────────────────────────
@@ -19144,9 +19151,9 @@ async function fbDiagnosticar() {
       const ventas = data?.ventas || [];
       const sizeEst = JSON.stringify(data).length;
       if (sizeEst > 900000) {
-        log('⚠️', `estado/fran existe · ${ventas.length} ventas · ~${Math.round(sizeEst/1024)}KB — EXCEDE LÍMITE 1MB de Firestore. Esta es la causa del problema.`, 'var(--amber)');
+        log('⚠️', `estado/${window.FB.UID} existe · ${ventas.length} ventas · ~${Math.round(sizeEst/1024)}KB — EXCEDE LÍMITE 1MB de Firestore.`, 'var(--amber)');
       } else {
-        log('✅', `estado/fran existe · ${ventas.length} ventas · ~${Math.round(sizeEst/1024)}KB`, 'var(--green)');
+        log('✅', `estado/${window.FB.UID} existe · ${ventas.length} ventas · ~${Math.round(sizeEst/1024)}KB`, 'var(--green)');
       }
     } else {
       log('ℹ️', 'estado/fran no existe (puede estar en formato chunked)', 'var(--text-muted)');
