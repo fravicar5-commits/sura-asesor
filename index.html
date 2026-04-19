@@ -697,7 +697,25 @@
   const db = getFirestore(app);
 
   // ── ID de usuario fijo (app monousuario) ──────────────────────────────────
-  const UID = 'fran';
+  // ── ID de usuario dinámico (multiusuario) ────────────────────────────────────────────
+  // Se asigna tras login exitoso desde la CC del asesor
+  let UID = '';
+  function fbSetUID(cc) { UID = cc; if (window.FB) window.FB.UID = cc; }
+
+  // ── Gestión de usuarios en Firestore ────────────────────────────────────────────
+  // Estructura: usuarios/{cc} → { cc, nombre, email, rol, estado, pinHash, creadoEn, aprobadoEn? }
+  async function fbGetUsuario(cc) {
+    try { const snap = await getDoc(doc(db, 'usuarios', cc)); return snap.exists() ? snap.data() : null; }
+    catch(e) { console.error('fbGetUsuario', e); return null; }
+  }
+  async function fbSetUsuario(cc, data) {
+    try { await setDoc(doc(db, 'usuarios', cc), data, { merge: true }); return true; }
+    catch(e) { console.error('fbSetUsuario', e); return false; }
+  }
+  window.fbGetUsuario     = fbGetUsuario;
+  window.fbSetUsuario     = fbSetUsuario;
+  window.fbSetUID         = fbSetUID;
+
 
   // ── Helper genérico: leer un documento ───────────────────────────────────
   // ── Estado (ventas) usa chunks para superar límite 1MB de Firestore ───────
@@ -849,7 +867,7 @@
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, db, UID };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, db, UID, collection, getDocs };
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
   async function cargarDatosFirebase() {
@@ -947,67 +965,54 @@
 </div>
 
 <!-- ===== PANTALLA DE LOGIN ===== -->
-<div id="pinScreen" style="display:none;position:fixed;inset:0;z-index:99998;background:#0A0F1E;flex-direction:column;align-items:center;justify-content:center;gap:0;">
+<div id="pinScreen" style="display:none;position:fixed;inset:0;z-index:99998;background:#0A0F1E;flex-direction:column;align-items:center;justify-content:center;gap:0;overflow-y:auto;">
   <style>
-    .pin-btn {
-      width:72px;height:72px;border-radius:50%;border:2px solid rgba(255,255,255,0.12);
-      background:rgba(255,255,255,0.05);color:#F0F4FF;font-size:22px;font-weight:600;
-      cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;
-      display:flex;align-items:center;justify-content:center;
-    }
+    .pin-btn { width:72px;height:72px;border-radius:50%;border:2px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#F0F4FF;font-size:22px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center; }
     .pin-btn:hover { background:rgba(26,76,232,0.3);border-color:rgba(26,76,232,0.6); }
     .pin-btn:active { transform:scale(0.92); }
     .pin-dot { width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.3);background:transparent;transition:all 0.2s; }
     .pin-dot.filled { background:#1A4CE8;border-color:#1A4CE8; }
     .pin-shake { animation:pinShake 0.4s ease; }
     @keyframes pinShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
-    .login-input {
-      width:260px;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.12);
-      background:rgba(255,255,255,0.07);color:#F0F4FF;font-size:16px;font-family:'DM Sans',sans-serif;
-      outline:none;text-align:center;letter-spacing:2px;transition:border-color 0.2s;
-    }
+    .login-input { width:260px;padding:12px 16px;border-radius:10px;border:2px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);color:#F0F4FF;font-size:16px;font-family:'DM Sans',sans-serif;outline:none;text-align:center;transition:border-color 0.2s; }
     .login-input:focus { border-color:rgba(26,76,232,0.7); }
-    .login-input::placeholder { letter-spacing:0;color:rgba(255,255,255,0.3);font-size:13px; }
-    .login-step { width:100%;display:flex;flex-direction:column;align-items:center;gap:16px; }
-    .login-btn-primary {
-      margin-top:4px;padding:12px 40px;border-radius:10px;border:none;
-      background:#1A4CE8;color:#fff;font-size:15px;font-weight:700;
-      font-family:'DM Sans',sans-serif;cursor:pointer;transition:background 0.15s;
-    }
+    .login-input::placeholder { color:rgba(255,255,255,0.3);font-size:13px; }
+    .login-step { width:100%;display:flex;flex-direction:column;align-items:center;gap:14px; }
+    .login-btn-primary { margin-top:4px;padding:12px 40px;border-radius:10px;border:none;background:#1A4CE8;color:#fff;font-size:15px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;transition:background 0.15s;width:260px; }
     .login-btn-primary:hover { background:#1540c0; }
+    .login-btn-secondary { margin-top:0;padding:10px 40px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:rgba(255,255,255,0.5);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;width:260px; }
+    .login-btn-secondary:hover { background:rgba(255,255,255,0.05); }
   </style>
 
-  <div style="margin-bottom:28px;text-align:center;">
-    <div style="margin-bottom:16px;display:flex;justify-content:center;">
-    <div style="width:72px;height:72px;background:rgba(255,255,255,0.08);border-radius:18px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.12);">
-      <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="#60A5FA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 4L6 11v10c0 9.4 6.4 18.2 15 20 8.6-1.8 15-10.6 15-20V11L21 4z"/>
-        <circle cx="21" cy="18" r="5"/>
-        <path d="M13 33c1.5-3.5 4.5-6 8-6s6.5 2.5 8 6"/>
-      </svg>
+  <!-- Logo y título -->
+  <div style="margin-bottom:24px;text-align:center;">
+    <div style="margin-bottom:14px;display:flex;justify-content:center;">
+      <div style="width:72px;height:72px;background:rgba(255,255,255,0.08);border-radius:18px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.12);">
+        <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="#60A5FA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 4L6 11v10c0 9.4 6.4 18.2 15 20 8.6-1.8 15-10.6 15-20V11L21 4z"/>
+          <circle cx="21" cy="18" r="5"/>
+          <path d="M13 33c1.5-3.5 4.5-6 8-6s6.5 2.5 8 6"/>
+        </svg>
+      </div>
     </div>
-  </div>
     <div style="color:#F0F4FF;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:700;">SURA Asesor</div>
     <div style="color:rgba(255,255,255,0.4);font-size:13px;margin-top:4px;" id="pinLabel">Ingresa tu número de cédula</div>
   </div>
 
-  <!-- Paso 1: Cédula -->
+  <!-- PASO 1: Cédula -->
   <div class="login-step" id="loginStepCC">
     <input type="text" class="login-input" id="loginCC" placeholder="Número de cédula" inputmode="numeric"
       onkeydown="if(event.key==='Enter')loginSiguiente()">
     <button class="login-btn-primary" onclick="loginSiguiente()">Continuar →</button>
+    <button class="login-btn-secondary" onclick="loginMostrarRegistro()">¿Eres nuevo? Solicitar acceso</button>
   </div>
 
-  <!-- Paso 2: PIN -->
+  <!-- PASO 2: PIN -->
   <div class="login-step" id="loginStepPIN" style="display:none;">
-    <!-- Dots -->
     <div style="display:flex;gap:16px;margin-bottom:8px;" id="pinDots">
-      <div class="pin-dot" id="pd0"></div>
-      <div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div>
-      <div class="pin-dot" id="pd3"></div>
+      <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
     </div>
-    <!-- Teclado -->
     <div style="display:grid;grid-template-columns:repeat(3,72px);gap:14px;margin-top:8px;">
       <button class="pin-btn" onclick="pinDigit('1')">1</button>
       <button class="pin-btn" onclick="pinDigit('2')">2</button>
@@ -1018,10 +1023,36 @@
       <button class="pin-btn" onclick="pinDigit('7')">7</button>
       <button class="pin-btn" onclick="pinDigit('8')">8</button>
       <button class="pin-btn" onclick="pinDigit('9')">9</button>
-      <button class="pin-btn" onclick="pinBorrar()" style="font-size:18px;">⌫</button>
+      <button class="pin-btn" onclick="pinBorrar()" style="font-size:18px;">&#x232B;</button>
       <button class="pin-btn" onclick="pinDigit('0')">0</button>
-      <button class="pin-btn" onclick="loginVolverCC()" style="font-size:12px;opacity:0.5;">←</button>
+      <button class="pin-btn" onclick="loginVolverCC()" style="font-size:12px;opacity:0.5;">&#8592;</button>
     </div>
+    <button class="login-btn-secondary" style="margin-top:16px;" onclick="loginMostrarRecuperacion()">¿Olvidaste tu PIN?</button>
+  </div>
+
+  <!-- PASO 3: Registro nuevo asesor -->
+  <div class="login-step" id="loginStepRegistro" style="display:none;">
+    <input type="text" class="login-input" id="regNombre" placeholder="Nombre completo" style="letter-spacing:0;">
+    <input type="text" class="login-input" id="regCC" placeholder="Número de cédula" inputmode="numeric">
+    <input type="email" class="login-input" id="regEmail" placeholder="Correo electrónico" style="letter-spacing:0;">
+    <button class="login-btn-primary" onclick="loginEnviarSolicitud()">Enviar solicitud de acceso</button>
+    <button class="login-btn-secondary" onclick="loginVolverCC()">← Volver</button>
+  </div>
+
+  <!-- PASO 4: Pendiente de aprobación -->
+  <div class="login-step" id="loginStepPendiente" style="display:none;">
+    <div style="font-size:48px;margin-bottom:8px;">⏳</div>
+    <div style="color:#F0F4FF;font-size:15px;font-weight:600;text-align:center;">Solicitud enviada</div>
+    <div style="color:rgba(255,255,255,0.45);font-size:13px;text-align:center;max-width:260px;line-height:1.6;">Tu solicitud está pendiente de aprobación por el administrador. Te notificarán por correo cuando tengas acceso.</div>
+    <button class="login-btn-secondary" onclick="loginVolverCC()">← Volver</button>
+  </div>
+
+  <!-- PASO 5: Recuperación PIN -->
+  <div class="login-step" id="loginStepRecuperacion" style="display:none;">
+    <div style="font-size:36px;margin-bottom:4px;">🔑</div>
+    <div style="color:rgba(255,255,255,0.45);font-size:12.5px;text-align:center;max-width:260px;line-height:1.6;margin-bottom:4px;">Contacta al administrador para que restablezca tu PIN. Puedes escribirle indicando tu cédula registrada.</div>
+    <div id="loginRecupAdminInfo" style="background:rgba(26,76,232,0.15);border:1px solid rgba(26,76,232,0.3);border-radius:10px;padding:12px 20px;text-align:center;color:#93C5FD;font-size:13px;width:260px;">Cargando contacto admin…</div>
+    <button class="login-btn-secondary" style="margin-top:8px;" onclick="loginVolverPIN()">← Volver</button>
   </div>
 
   <div style="margin-top:28px;font-size:11.5px;color:rgba(255,255,255,0.2);">Panel Asesor Especializado · SURA</div>
@@ -1127,6 +1158,9 @@
       </button>
 
       <div class="nav-section">Configuración</div>
+      <button class="nav-item" id="navAdminBtn" onclick="navigate('admin')" data-label="Administración" style="display:none;">
+        <span class="icon">🛡️</span> Administración
+      </button>
       <button class="nav-item" onclick="navigate('configanio')" data-label="Config. por Año">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 4V2M16 4V2M3 9h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></span> Config. por Año
       </button>
@@ -4544,6 +4578,50 @@
         </style>
       </div>
 
+      <!-- ===== PANEL ADMINISTRACIÓN ===== -->
+      <div class="page" id="page-admin">
+        <div class="page-header">
+          <div class="page-title">🛡️ Administración de Usuarios</div>
+          <div class="page-sub">Gestiona los asesores que tienen acceso a la app</div>
+        </div>
+
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;">
+          <div class="stat-card blue"><div class="stat-label">Total usuarios</div><div class="stat-value" id="adminKpiTotal" style="font-size:24px;">0</div></div>
+          <div class="stat-card green"><div class="stat-label">Aprobados</div><div class="stat-value" id="adminKpiAprobados" style="font-size:24px;color:var(--green);">0</div></div>
+          <div class="stat-card amber"><div class="stat-label">Pendientes</div><div class="stat-value" id="adminKpiPendientes" style="font-size:24px;color:var(--amber);">0</div></div>
+          <div class="stat-card"><div class="stat-label">Rechazados</div><div class="stat-value" id="adminKpiRechazados" style="font-size:24px;color:var(--red);">0</div></div>
+        </div>
+
+        <!-- Acciones globales -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+          <button class="btn btn-primary" onclick="adminCargarUsuarios()">🔄 Actualizar lista</button>
+          <button class="btn btn-secondary" onclick="adminResetearPIN()">🔑 Restablecer PIN de asesor</button>
+        </div>
+
+        <!-- Tabla usuarios -->
+        <div style="overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px;">
+            <thead>
+              <tr style="background:var(--surface2);">
+                <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Nombre</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Cédula</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Correo</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Rol</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Estado</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Registro</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="adminUsuariosTabla">
+              <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-dim);">Cargando usuarios…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);" id="adminUsuariosCount"></div>
+      </div>
+
+
       <!-- ===== SINCRONIZACIÓN GITHUB ===== -->
       <div class="page" id="page-sync">
 
@@ -7053,6 +7131,7 @@ let modalTab = 'pbs';
 // NAVIGATION
 // =============================================
 const pageTitles = {
+  admin:        ['Administración de Usuarios', 'Aprobar, rechazar y gestionar accesos — Solo admin'],
   cotizaciones: ['Cotizaciones', 'Historial de cotizaciones generadas'],
   empresas:   ['Panel de Empresas', 'Base de datos · siniestralidad · ventas por empresa'],
   dashboard: ['Dashboard General', 'Resumen de desempeño · 2026'],
@@ -7096,6 +7175,17 @@ function toggleSidebar() {
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+function actualizarNombreSidebarUsuario() {
+  // Muestra el nombre del asesor logueado (desde _usuarioActual) en el sidebar
+  const el = document.getElementById('sidebarNombreAsesor');
+  if (!el) return;
+  const nombre = (_usuarioActual && _usuarioActual.nombre)
+    ? _usuarioActual.nombre
+    : (getState().config?.nombreAsesor || '').trim();
+  if (nombre) { el.textContent = nombre; el.style.display = ''; }
+  else { el.style.display = 'none'; }
 }
 
 function actualizarNombreSidebar() {
@@ -7299,8 +7389,9 @@ function navigate(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
-  document.querySelector(`[onclick="navigate('${page}')"]`).classList.add('active');
-  const [title, sub] = pageTitles[page];
+  const _navBtn = document.querySelector(`[onclick="navigate('${page}')"]`);
+  if (_navBtn) _navBtn.classList.add('active');
+  const [title, sub] = pageTitles[page] || [page, ''];
   document.getElementById('pageTitle').textContent = title;
   document.getElementById('pageSubtitle').textContent = sub;
   closeSidebar();
@@ -7327,6 +7418,7 @@ function refreshPage(page) {
   else if (page === 'pipeline') renderPipeline();
   else if (page === 'radar') { renderRadar(); iaActualizarEstadoPaneles(); }
   else if (page === 'sync') renderSync();
+  else if (page === 'admin') renderAdmin();
   else if (page === 'agente') renderAgente();
   else if (page === 'herramientas') renderHerramientas();
   else if (page === 'contactos') renderContactos();
@@ -18538,121 +18630,211 @@ async function migrarLocalStorageAFirebase() {
 }
 
 // =============================================
-// 🔐 SISTEMA DE LOGIN (CC + PIN)
 // =============================================
-const PIN_KEY        = 'sura_pin_v1';        // hash del PIN
-const PIN_CC_KEY     = 'sura_pin_cc_v1';     // hash de la CC
-const PIN_SESSION_KEY = 'sura_pin_session';
-let _pinBuffer = '';
-let _pinModo   = 'verificar'; // 'verificar' | 'crear' | 'confirmar'
-let _pinNuevo  = '';
-let _ccIngresada = ''; // CC validada en paso 1
+// \U0001f510 SISTEMA DE LOGIN MULTIUSUARIO (CC + PIN + Firestore)
+// =============================================
+const PIN_SESSION_KEY = 'sura_pin_session_v2';
+let _pinBuffer   = '';
+let _pinModo     = 'verificar'; // 'verificar' | 'crear' | 'confirmar'
+let _pinNuevo    = '';
+let _ccIngresada = '';           // CC validada en Firestore
+let _usuarioActual = null;       // objeto usuario de Firestore
 
+// Hash simple (igual al anterior para compatibilidad)
 function pinGetHash(val) {
   let h = 0;
   for (let i = 0; i < val.length; i++) { h = (Math.imul(31, h) + val.charCodeAt(i)) | 0; }
   return String(h);
 }
 
+// Sesión (8 horas) — guarda también la CC para restaurar UID al recargar
 function pinTieneSesion() {
   try {
     const s = JSON.parse(sessionStorage.getItem(PIN_SESSION_KEY) || 'null');
-    if (!s) return false;
-    return (Date.now() - s.ts) < 8 * 60 * 60 * 1000;
+    if (!s || !s.cc) return false;
+    if ((Date.now() - s.ts) >= 8 * 60 * 60 * 1000) return false;
+    _ccIngresada = s.cc;
+    return true;
   } catch { return false; }
 }
+function pinGuardarSesion(cc) {
+  try { sessionStorage.setItem(PIN_SESSION_KEY, JSON.stringify({ ts: Date.now(), cc })); } catch(e) {}
+  try { localStorage.setItem("sura_last_cc", cc); } catch(e) {}
+}
 
-function pinGuardarSesion() {
-  try { sessionStorage.setItem(PIN_SESSION_KEY, JSON.stringify({ ts: Date.now() })); } catch(e) {}
+// Helpers de navegación entre pasos
+function _loginMostrarPaso(paso) {
+  ['CC','PIN','Registro','Pendiente','Recuperacion'].forEach(p => {
+    const el = document.getElementById('loginStep' + p);
+    if (el) el.style.display = p === paso ? 'flex' : 'none';
+  });
+}
+function loginSetLabel(txt, color) {
+  const el = document.getElementById('pinLabel');
+  if (!el) return;
+  el.textContent = txt;
+  el.style.color = color || 'rgba(255,255,255,0.4)';
+  if (color) setTimeout(() => { el.style.color = 'rgba(255,255,255,0.4)'; }, 2000);
 }
 
 function pinMostrarPantalla() {
-  _pinBuffer  = '';
-  _ccIngresada = '';
-  _pinModo    = 'verificar';
-  // Siempre comenzar en paso 1 (CC)
-  document.getElementById('loginStepCC').style.display  = 'flex';
-  document.getElementById('loginStepPIN').style.display = 'none';
-  document.getElementById('pinLabel').textContent = 'Ingresa tu número de cédula';
-  document.getElementById('loginCC').value = '';
-  const label = document.getElementById('pinLabel');
-  label.style.color = 'rgba(255,255,255,0.4)';
+  _pinBuffer = ''; _ccIngresada = ''; _pinModo = 'verificar'; _usuarioActual = null;
+  _loginMostrarPaso('CC');
+  loginSetLabel('Ingresa tu número de cédula');
+  const inp = document.getElementById('loginCC');
+  if (inp) inp.value = '';
   pinActualizarDots();
   document.getElementById('pinScreen').style.display = 'flex';
-  setTimeout(() => document.getElementById('loginCC').focus(), 100);
+  setTimeout(() => inp && inp.focus(), 100);
 }
 
-function loginSiguiente() {
-  const cc = (document.getElementById('loginCC').value || '').trim().replace(/\D/g,'');
-  if (!cc || cc.length < 5) {
-    loginMostrarError('Ingresa un número de cédula válido', 'loginCC');
+// PASO 1 → consultar Firestore con la CC ingresada
+async function loginSiguiente() {
+  const cc = (document.getElementById('loginCC').value || '').trim().replace(/\D/g, '');
+  if (!cc || cc.length < 5) { loginSetLabel('Ingresa una cédula válida', '#EF4444'); return; }
+
+  loginSetLabel('Verificando…');
+  const btn = document.querySelector('#loginStepCC .login-btn-primary');
+  if (btn) btn.disabled = true;
+
+  // Esperar a que Firebase esté listo
+  if (!window.fbGetUsuario) {
+    await new Promise(r => document.addEventListener('fb-ready', r, { once: true }));
+  }
+
+  const usuario = await window.fbGetUsuario(cc);
+
+  if (btn) btn.disabled = false;
+
+  // Usuario no existe → ofrecer registro
+  if (!usuario) {
+    // Caso especial: primera vez — si NO existe NINGÚN usuario, el primero se convierte en admin
+    loginSetLabel('Cédula no registrada');
+    document.getElementById('regCC').value = cc;
+    _loginMostrarPaso('Registro');
+    loginSetLabel('Nueva cuenta — completa tus datos');
     return;
   }
-  const ccGuardada = localStorage.getItem(PIN_CC_KEY);
-  const pinGuardado = localStorage.getItem(PIN_KEY);
-  // Si no hay credenciales aún → modo creación, aceptar cualquier CC como nueva
-  if (!ccGuardada || !pinGuardado) {
-    _ccIngresada = cc;
-    // Guardar CC en este momento
-    localStorage.setItem(PIN_CC_KEY, pinGetHash(cc));
-    _pinModo = 'crear';
-    _pinBuffer = '';
-    document.getElementById('loginStepCC').style.display  = 'none';
-    document.getElementById('loginStepPIN').style.display = 'flex';
-    document.getElementById('pinLabel').textContent = 'Crea tu PIN de 4 dígitos';
-    pinActualizarDots();
+
+  // Usuario rechazado
+  if (usuario.estado === 'rechazado') {
+    loginSetLabel('Acceso rechazado por el administrador', '#EF4444');
     return;
   }
-  // Verificar CC
-  if (pinGetHash(cc) !== ccGuardada) {
-    loginMostrarError('Cédula no reconocida', 'loginCC');
+
+  // Usuario pendiente de aprobación
+  if (usuario.estado === 'pendiente') {
+    _loginMostrarPaso('Pendiente');
+    loginSetLabel('Solicitud pendiente de aprobación');
     return;
   }
-  _ccIngresada = cc;
-  _pinModo = 'verificar';
-  _pinBuffer = '';
-  document.getElementById('loginStepCC').style.display  = 'none';
-  document.getElementById('loginStepPIN').style.display = 'flex';
-  document.getElementById('pinLabel').textContent = 'Ingresa tu PIN de acceso';
+
+  // Usuario aprobado → ir al PIN
+  _ccIngresada  = cc;
+  _usuarioActual = usuario;
+  _pinModo      = usuario.pinHash ? 'verificar' : 'crear';
+  _pinBuffer    = '';
+  _loginMostrarPaso('PIN');
+  loginSetLabel(_pinModo === 'crear' ? 'Crea tu PIN de 4 dígitos' : 'Ingresa tu PIN de acceso');
   pinActualizarDots();
 }
 
 function loginVolverCC() {
-  _pinBuffer = '';
-  _ccIngresada = '';
-  _pinModo = 'verificar';
-  document.getElementById('loginStepCC').style.display  = 'flex';
-  document.getElementById('loginStepPIN').style.display = 'none';
-  document.getElementById('pinLabel').textContent = 'Ingresa tu número de cédula';
-  document.getElementById('loginCC').value = '';
+  _pinBuffer = ''; _ccIngresada = ''; _pinModo = 'verificar';
+  _loginMostrarPaso('CC');
+  loginSetLabel('Ingresa tu número de cédula');
+  const inp = document.getElementById('loginCC');
+  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 100); }
   pinActualizarDots();
-  setTimeout(() => document.getElementById('loginCC').focus(), 100);
+}
+function loginVolverPIN() {
+  _loginMostrarPaso('PIN');
+  loginSetLabel('Ingresa tu PIN de acceso');
 }
 
-function loginMostrarError(msg, inputId) {
-  const label = document.getElementById('pinLabel');
-  label.textContent = msg;
-  label.style.color = '#EF4444';
-  const inp = document.getElementById(inputId);
-  if (inp) { inp.style.borderColor='#EF4444'; setTimeout(()=>{ inp.style.borderColor=''; },1400); }
-  setTimeout(() => {
-    label.style.color = '';
-    label.textContent = inputId==='loginCC' ? 'Ingresa tu número de cédula' : (_pinModo==='crear'?'Crea tu PIN de 4 dígitos':_pinModo==='confirmar'?'Confirma tu PIN':'Ingresa tu PIN de acceso');
-  }, 1400);
+// PASO 3 → registro nuevo asesor
+async function loginEnviarSolicitud() {
+  const nombre = (document.getElementById('regNombre').value || '').trim();
+  const cc     = (document.getElementById('regCC').value     || '').trim().replace(/\D/g,'');
+  const email  = (document.getElementById('regEmail').value  || '').trim().toLowerCase();
+
+  if (!nombre || nombre.length < 3) { loginSetLabel('Ingresa tu nombre completo', '#EF4444'); return; }
+  if (!cc || cc.length < 5)         { loginSetLabel('Cédula inválida', '#EF4444'); return; }
+  if (!email.includes('@'))          { loginSetLabel('Correo inválido', '#EF4444'); return; }
+
+  loginSetLabel('Enviando solicitud…');
+  const btn = document.querySelector('#loginStepRegistro .login-btn-primary');
+  if (btn) btn.disabled = true;
+
+  // Verificar si es el primer usuario — se convierte en admin automáticamente
+  let esAdmin = false;
+  try {
+    const metaSnap = await window.fbGetUsuario('__meta__');
+    if (!metaSnap || !metaSnap.primerUsuarioCreado) esAdmin = true;
+  } catch(e) {}
+
+  const nuevoUsuario = {
+    cc, nombre, email,
+    rol: esAdmin ? 'admin' : 'asesor',
+    estado: esAdmin ? 'aprobado' : 'pendiente',
+    pinHash: '',
+    creadoEn: new Date().toISOString(),
+  };
+
+  const ok = await window.fbSetUsuario(cc, nuevoUsuario);
+  if (btn) btn.disabled = false;
+
+  if (!ok) { loginSetLabel('Error al enviar. Intenta de nuevo.', '#EF4444'); return; }
+
+  // Marcar que ya existe al menos un usuario
+  if (esAdmin) {
+    await window.fbSetUsuario('__meta__', { primerUsuarioCreado: true });
+    // Admin va directo a crear PIN
+    _ccIngresada = cc;
+    _usuarioActual = nuevoUsuario;
+    _pinModo = 'crear';
+    _pinBuffer = '';
+    _loginMostrarPaso('PIN');
+    loginSetLabel('Bienvenido admin — crea tu PIN');
+    pinActualizarDots();
+  } else {
+    _loginMostrarPaso('Pendiente');
+    loginSetLabel('Solicitud enviada correctamente');
+  }
 }
 
+// PASO 5 → recuperación — muestra contacto del admin
+async function loginMostrarRecuperacion() {
+  _loginMostrarPaso('Recuperacion');
+  loginSetLabel('Recuperación de PIN');
+  const infoEl = document.getElementById('loginRecupAdminInfo');
+  if (!infoEl) return;
+  try {
+    // Buscar el primer admin registrado
+    const meta = await window.fbGetUsuario('__meta__');
+    if (meta && meta.adminEmail) {
+      infoEl.innerHTML = `Escríbele al administrador:<br><strong style="color:#93C5FD;">${meta.adminEmail}</strong><br><span style="font-size:11px;opacity:.7;">Indica tu cédula y solicita restablecimiento de PIN</span>`;
+    } else {
+      infoEl.textContent = 'Contacta al administrador de tu equipo para restablecer tu PIN.';
+    }
+  } catch(e) { infoEl.textContent = 'Contacta al administrador para restablecer tu PIN.'; }
+}
+
+function loginMostrarRegistro() {
+  _loginMostrarPaso('Registro');
+  loginSetLabel('Nueva cuenta — completa tus datos');
+  const cc = (document.getElementById('loginCC').value || '').trim().replace(/\D/g,'');
+  if (cc) document.getElementById('regCC').value = cc;
+}
+
+// PIN: dígitos, borrar, dots
 function pinDigit(d) {
   if (_pinBuffer.length >= 4) return;
   _pinBuffer += d;
   pinActualizarDots();
   if (_pinBuffer.length === 4) setTimeout(pinVerificar, 120);
 }
-
-function pinBorrar() {
-  _pinBuffer = _pinBuffer.slice(0, -1);
-  pinActualizarDots();
-}
-
+function pinBorrar() { _pinBuffer = _pinBuffer.slice(0,-1); pinActualizarDots(); }
 function pinActualizarDots() {
   for (let i = 0; i < 4; i++) {
     const d = document.getElementById('pd' + i);
@@ -18660,36 +18842,34 @@ function pinActualizarDots() {
   }
 }
 
-function pinVerificar() {
-  const pinGuardado = localStorage.getItem(PIN_KEY);
-
+// Verificación / creación de PIN
+async function pinVerificar() {
   if (_pinModo === 'crear') {
-    _pinNuevo  = _pinBuffer;
-    _pinBuffer = '';
-    _pinModo   = 'confirmar';
-    document.getElementById('pinLabel').textContent = 'Confirma tu PIN';
-    pinActualizarDots();
-    return;
+    _pinNuevo = _pinBuffer; _pinBuffer = ''; _pinModo = 'confirmar';
+    loginSetLabel('Confirma tu PIN'); pinActualizarDots(); return;
   }
-
   if (_pinModo === 'confirmar') {
-    if (_pinBuffer === _pinNuevo) {
-      localStorage.setItem(PIN_KEY, pinGetHash(_pinBuffer));
-      pinGuardarSesion();
-      document.getElementById('pinScreen').style.display = 'none';
-      document.getElementById('pinLabel').textContent = 'Ingresa tu número de cédula';
-      pinOnLoginExitoso();
-    } else {
-      pinError('Los PINs no coinciden — intenta de nuevo');
-      _pinModo = 'crear';
-      _pinNuevo = '';
+    if (_pinBuffer !== _pinNuevo) {
+      pinError('Los PINs no coinciden'); _pinModo = 'crear'; _pinNuevo = ''; return;
     }
+    // Guardar pinHash en Firestore
+    const hash = pinGetHash(_pinBuffer);
+    await window.fbSetUsuario(_ccIngresada, { pinHash: hash });
+    // Actualizar adminEmail en meta si es admin
+    if (_usuarioActual && _usuarioActual.rol === 'admin' && _usuarioActual.email) {
+      await window.fbSetUsuario('__meta__', { primerUsuarioCreado: true, adminEmail: _usuarioActual.email });
+    }
+    pinGuardarSesion(_ccIngresada);
+    window.fbSetUID && window.fbSetUID(_ccIngresada);
+    document.getElementById('pinScreen').style.display = 'none';
+    pinOnLoginExitoso();
     return;
   }
-
   // Verificar PIN existente
-  if (pinGetHash(_pinBuffer) === pinGuardado) {
-    pinGuardarSesion();
+  if (!_usuarioActual) { pinError('Error interno — vuelve a ingresar tu cédula'); return; }
+  if (pinGetHash(_pinBuffer) === _usuarioActual.pinHash) {
+    pinGuardarSesion(_ccIngresada);
+    window.fbSetUID && window.fbSetUID(_ccIngresada);
     document.getElementById('pinScreen').style.display = 'none';
     pinOnLoginExitoso();
   } else {
@@ -18698,36 +18878,156 @@ function pinVerificar() {
 }
 
 function pinError(msg) {
-  _pinBuffer = '';
-  pinActualizarDots();
+  _pinBuffer = ''; pinActualizarDots();
   const label = document.getElementById('pinLabel');
   const dots  = document.getElementById('pinDots');
-  label.textContent = msg;
-  label.style.color = '#EF4444';
-  dots.classList.add('pin-shake');
+  if (label) { label.textContent = msg; label.style.color = '#EF4444'; }
+  if (dots) { dots.classList.add('pin-shake'); setTimeout(() => dots.classList.remove('pin-shake'), 400); }
   setTimeout(() => {
-    label.style.color = '';
-    label.textContent = _pinModo === 'crear' ? 'Crea tu PIN de 4 dígitos' : _pinModo === 'confirmar' ? 'Confirma tu PIN' : 'Ingresa tu PIN de acceso';
-    dots.classList.remove('pin-shake');
-  }, 1200);
+    if (label) { label.style.color = ''; label.textContent = _pinModo === 'crear' ? 'Crea tu PIN de 4 dígitos' : _pinModo === 'confirmar' ? 'Confirma tu PIN' : 'Ingresa tu PIN de acceso'; }
+  }, 1800);
 }
 
-// Cambiar PIN desde configuración (mantiene la CC, solo resetea el PIN)
+// Cambiar PIN desde configuración
 function cambiarPIN() {
-  localStorage.removeItem(PIN_KEY);
-  sessionStorage.removeItem(PIN_SESSION_KEY);
-  _pinModo   = 'verificar';
-  _pinBuffer = '';
-  _pinNuevo  = '';
-  _ccIngresada = '';
-  document.getElementById('loginStepCC').style.display  = 'flex';
-  document.getElementById('loginStepPIN').style.display = 'none';
-  document.getElementById('pinLabel').textContent = 'Ingresa tu cédula para cambiar PIN';
-  document.getElementById('loginCC').value = '';
-  document.getElementById('pinScreen').style.display = 'flex';
+  _pinModo = 'crear'; _pinBuffer = ''; _pinNuevo = '';
+  _loginMostrarPaso('PIN');
+  loginSetLabel('Crea tu nuevo PIN de 4 dígitos');
   pinActualizarDots();
-  setTimeout(() => document.getElementById('loginCC').focus(), 100);
+  document.getElementById('pinScreen').style.display = 'flex';
 }
+
+// =============================================
+// 🛡️ PANEL ADMINISTRACIÓN
+// =============================================
+
+// Mostrar/ocultar botón admin en sidebar según rol
+function adminActualizarNavBtn() {
+  const btn = document.getElementById('navAdminBtn');
+  if (!btn) return;
+  btn.style.display = (_usuarioActual && _usuarioActual.rol === 'admin') ? '' : 'none';
+}
+
+async function adminCargarUsuarios() {
+  const tbody = document.getElementById('adminUsuariosTabla');
+  const count = document.getElementById('adminUsuariosCount');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-dim);">Cargando…</td></tr>';
+
+  // Leer todos los usuarios vía getDocs en la colección 'usuarios'
+  let usuarios = [];
+  try {
+    const snap = await window.FB.getDocs(window.FB.collection(window.FB.db, 'usuarios'));
+    usuarios = snap.docs.map(d => d.data()).filter(u => u.cc && u.cc !== '__meta__');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red);">❌ Error al cargar usuarios</td></tr>'; return; }
+
+  // KPIs
+  const aprobados  = usuarios.filter(u => u.estado === 'aprobado').length;
+  const pendientes = usuarios.filter(u => u.estado === 'pendiente').length;
+  const rechazados = usuarios.filter(u => u.estado === 'rechazado').length;
+  document.getElementById('adminKpiTotal').textContent      = usuarios.length;
+  document.getElementById('adminKpiAprobados').textContent  = aprobados;
+  document.getElementById('adminKpiPendientes').textContent = pendientes;
+  document.getElementById('adminKpiRechazados').textContent = rechazados;
+
+  if (!usuarios.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-dim);">Sin usuarios registrados</td></tr>';
+    return;
+  }
+
+  // Ordenar: pendientes primero, luego aprobados, luego rechazados
+  const orden = { pendiente:0, aprobado:1, rechazado:2 };
+  usuarios.sort((a,b) => (orden[a.estado]||9) - (orden[b.estado]||9));
+
+  const estadoChip = {
+    aprobado:  '<span class="chip chip-green"  style="font-size:10px;">✅ Aprobado</span>',
+    pendiente: '<span class="chip chip-amber"  style="font-size:10px;">⏳ Pendiente</span>',
+    rechazado: '<span class="chip" style="font-size:10px;background:rgba(239,68,68,.15);color:var(--red);border-color:rgba(239,68,68,.3);">❌ Rechazado</span>',
+  };
+  const rolChip = {
+    admin:  '<span class="chip chip-purple" style="font-size:10px;">🛡️ Admin</span>',
+    asesor: '<span class="chip chip-blue"   style="font-size:10px;">Asesor</span>',
+  };
+
+  tbody.innerHTML = usuarios.map((u, i) => {
+    const bg = i%2===0 ? '' : 'rgba(255,255,255,0.015)';
+    const fecha = u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const esMiCuenta = u.cc === _ccIngresada;
+    const acciones = esMiCuenta
+      ? '<span style="font-size:11px;color:var(--text-dim);">Tu cuenta</span>'
+      : `
+        ${u.estado === 'pendiente'  ? `<button class="btn btn-secondary btn-sm" style="background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);" onclick="adminCambiarEstado('${u.cc}','aprobado')">Aprobar</button>` : ''}
+        ${u.estado === 'aprobado'   ? `<button class="btn btn-secondary btn-sm" style="background:rgba(245,158,11,.1);color:var(--amber);border-color:rgba(245,158,11,.3);" onclick="adminCambiarEstado('${u.cc}','pendiente')">Suspender</button>` : ''}
+        ${u.estado !== 'rechazado'  ? `<button class="btn btn-danger btn-sm" onclick="adminCambiarEstado('${u.cc}','rechazado')">Rechazar</button>` : ''}
+        ${u.estado === 'rechazado'  ? `<button class="btn btn-secondary btn-sm" onclick="adminCambiarEstado('${u.cc}','aprobado')">Restaurar</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="adminResetearPINde('${u.cc}','${(u.nombre||'').replace(/'/g,'')}')" title="Restablecer PIN">🔑</button>
+      `;
+    return `<tr style="background:${bg};border-top:1px solid var(--border);">
+      <td style="padding:10px 14px;font-weight:500;">${u.nombre || '—'}${esMiCuenta ? ' <span style=\"font-size:10px;color:var(--sura-lime);\">(tú)</span>' : ''}</td>
+      <td style="padding:10px 14px;font-family:var(--mono);font-size:12px;">${u.cc}</td>
+      <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${u.email||''}">${u.email || '—'}</td>
+      <td style="padding:10px 14px;">${rolChip[u.rol] || u.rol || '—'}</td>
+      <td style="padding:10px 14px;">${estadoChip[u.estado] || u.estado}</td>
+      <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);">${fecha}</td>
+      <td style="padding:10px 14px;white-space:nowrap;display:flex;gap:6px;flex-wrap:wrap;">${acciones}</td>
+    </tr>`;
+  }).join('');
+
+  if (count) count.textContent = `${usuarios.length} usuario(s) registrado(s)`;
+}
+
+async function adminCambiarEstado(cc, nuevoEstado) {
+  const labels = { aprobado:'aprobar', pendiente:'suspender', rechazado:'rechazar' };
+  if (!confirm(`¿Deseas ${labels[nuevoEstado] || nuevoEstado} al usuario ${cc}?`)) return;
+  const extra = nuevoEstado === 'aprobado' ? { aprobadoEn: new Date().toISOString(), aprobadoPor: _ccIngresada } : {};
+  const ok = await window.fbSetUsuario(cc, { estado: nuevoEstado, ...extra });
+  if (ok) { showToast(nuevoEstado === 'aprobado' ? '✅ Usuario aprobado' : nuevoEstado === 'rechazado' ? '❌ Usuario rechazado' : '⚠️ Usuario suspendido'); adminCargarUsuarios(); }
+  else showToast('❌ Error al actualizar. Intenta de nuevo.');
+}
+
+async function adminResetearPINde(cc, nombre) {
+  if (!confirm(`¿Restablecer el PIN de ${nombre || cc}? El usuario deberá crear un nuevo PIN al ingresar.`)) return;
+  const ok = await window.fbSetUsuario(cc, { pinHash: '' });
+  if (ok) showToast(`🔑 PIN de ${nombre || cc} restablecido`);
+  else showToast('❌ Error al restablecer PIN');
+}
+
+function adminResetearPIN() {
+  const cc = prompt('Ingresa la cédula del asesor cuyo PIN quieres restablecer:');
+  if (!cc || !cc.trim()) return;
+  adminResetearPINde(cc.trim().replace(/\D/g,''), cc.trim());
+}
+
+// Migrar usuario 'fran' existente como primer admin (ejecución única)
+async function _migrarUsuarioFran() {
+  if (!window.fbGetUsuario || !window.fbSetUsuario) return;
+  try {
+    const meta = await window.fbGetUsuario('__meta__');
+    if (meta && meta.primerUsuarioCreado) return; // ya migrado
+    // Verificar si existe el usuario 'fran' en datos (UID anterior)
+    // Crear el usuario admin con la CC real del asesor actual
+    const cc = _ccIngresada || localStorage.getItem('sura_last_cc') || '';
+    if (!cc) return;
+    const existe = await window.fbGetUsuario(cc);
+    if (!existe) {
+      await window.fbSetUsuario(cc, {
+        cc, nombre: 'Administrador', email: '', rol: 'admin',
+        estado: 'aprobado', pinHash: '',
+        creadoEn: new Date().toISOString(),
+        migrado: true,
+      });
+    }
+    await window.fbSetUsuario('__meta__', { primerUsuarioCreado: true });
+  } catch(e) { console.warn('_migrarUsuarioFran', e); }
+}
+
+function renderAdmin() {
+  if (!_usuarioActual || _usuarioActual.rol !== 'admin') {
+    navigate('dashboard'); return;
+  }
+  adminCargarUsuarios();
+}
+
 
 // =============================================
 // 🔥 ARRANQUE — esperar Firebase antes de init
@@ -18736,14 +19036,25 @@ function bootApp() {
   if (window.__APP_BOOTED__) return;
   window.__APP_BOOTED__ = true;
 
-  // Verificar PIN antes de mostrar la app
   if (!pinTieneSesion()) {
-    pinMostrarPantalla();
-    // No continúa — pinOnLoginExitoso() se encarga de inicializar tras el login
+    // Sin sesión activa — mostrar login
+    // Si Firebase ya está listo, mostrar directamente; si no, esperar
+    if (window.__FB_READY__) {
+      pinMostrarPantalla();
+    } else {
+      document.addEventListener('fb-ready', () => pinMostrarPantalla(), { once: true });
+    }
     return;
   }
 
-  // Hay sesión activa — esperar Firebase y arrancar
+  // Hay sesión activa — restaurar UID y arrancar
+  window.fbSetUID && window.fbSetUID(_ccIngresada);
+
+  // Restaurar objeto usuario desde Firestore en background (no bloquea)
+  if (window.fbGetUsuario && _ccIngresada) {
+    window.fbGetUsuario(_ccIngresada).then(u => { if (u) _usuarioActual = u; });
+  }
+
   _esperarFirebaseYArrancar();
 }
 
@@ -18957,6 +19268,11 @@ async function _esperarFirebaseYArrancar() {
     if (splash) splash.style.display = 'none';
   }
 
+  // Restaurar _usuarioActual si hay sesión pero no objeto usuario
+  if (!_usuarioActual && _ccIngresada && window.fbGetUsuario) {
+    try { _usuarioActual = await window.fbGetUsuario(_ccIngresada); } catch(e) {}
+  }
+
   // Si Firebase falló y __FB_CACHE__ sigue null → NO arrancar con datos vacíos
   // Dar opción de recargar
   if (!window.__FB_CACHE__) {
@@ -18995,8 +19311,11 @@ function _iniciarAppTrasLogin() {
   navigate('dashboard');
   checkMenuPulse();
   actualizarSidebarSync();
+  adminActualizarNavBtn();
+  actualizarNombreSidebarUsuario();
   setTimeout(checkAlertaBackup, 3000);
   setTimeout(renderTabsCustomWa, 500);
+  setTimeout(_migrarUsuarioFran, 2000);
   const badge = document.getElementById('fb-status-badge');
   if (badge) badge.style.display = '';
 }
