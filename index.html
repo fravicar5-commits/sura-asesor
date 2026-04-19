@@ -1114,6 +1114,51 @@
 
   <div style="margin-top:28px;font-size:11.5px;color:rgba(255,255,255,0.2);">Panel Asesor Especializado · SURA</div>
 </div>
+<!-- ===== MODAL VIGENCIA ADMIN ===== -->
+<div id="modalAdminVigencia" style="display:none;position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--surface1);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">🗓️ Gestionar Acceso</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Asesor: <strong id="mavNombre"></strong></div>
+    <input type="hidden" id="mavCC">
+
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px;">Tipo de acceso</label>
+      <select class="form-control" id="mavTipo" onchange="adminVigenciaTipoChange()">
+        <option value="meses">Por meses</option>
+        <option value="fecha">Hasta fecha específica</option>
+        <option value="ilimitado">Sin límite de tiempo</option>
+      </select>
+    </div>
+
+    <div id="mavRowMeses" style="margin-bottom:14px;">
+      <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px;">Duración</label>
+      <select class="form-control" id="mavMeses">
+        <option value="1">1 mes</option>
+        <option value="2">2 meses</option>
+        <option value="3">3 meses</option>
+        <option value="6">6 meses</option>
+        <option value="12">1 año</option>
+        <option value="24">2 años</option>
+      </select>
+    </div>
+
+    <div id="mavRowFecha" style="display:none;margin-bottom:14px;">
+      <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px;">Fecha de vencimiento</label>
+      <input type="date" class="form-control" id="mavFecha">
+    </div>
+
+    <div style="background:rgba(26,76,232,0.08);border:1px solid rgba(26,76,232,0.2);border-radius:8px;padding:12px;margin-bottom:20px;font-size:12px;color:var(--text-muted);line-height:1.6;">
+      ⚡ Al vencer la vigencia el acceso se suspende automáticamente. Puedes renovarlo en cualquier momento desde este panel.
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="adminGuardarVigencia()">✅ Confirmar acceso</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('modalAdminVigencia').style.display='none'">Cancelar</button>
+    </div>
+  </div>
+</div>
+<!-- ===== FIN MODAL VIGENCIA ADMIN ===== -->
+
 <!-- ===== FIN PANTALLA LOGIN ===== -->
 
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
@@ -4666,12 +4711,13 @@
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Correo</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Rol</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Estado</th>
+                <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Vigencia</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Registro</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Acciones</th>
               </tr>
             </thead>
             <tbody id="adminUsuariosTabla">
-              <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-dim);">Cargando usuarios…</td></tr>
+              <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-dim);">Cargando usuarios…</td></tr>
             </tbody>
           </table>
         </div>
@@ -18786,6 +18832,19 @@ async function loginSiguiente() {
     return;
   }
 
+  // Verificar vigencia si el usuario tiene fecha límite
+  if (usuario.vigenciaHasta) {
+    const hoy   = new Date(); hoy.setHours(0,0,0,0);
+    const vence = new Date(usuario.vigenciaHasta + 'T00:00:00');
+    if (vence < hoy) {
+      // Vigencia vencida → suspender y bloquear
+      await window.fbSetUsuario(cc, { estado: 'suspendido_vigencia' });
+      _loginMostrarPaso('CC');
+      loginSetLabel('Tu acceso venció el ' + vence.toLocaleDateString('es-CO',{day:'2-digit',month:'long',year:'numeric'}) + '. Contacta al administrador.', '#EF4444');
+      return;
+    }
+  }
+
   // Usuario aprobado → ir al PIN
   _ccIngresada  = cc;
   _usuarioActual = usuario;
@@ -18965,41 +19024,62 @@ function adminActualizarNavBtn() {
   btn.style.display = (_usuarioActual && _usuarioActual.rol === 'admin') ? '' : 'none';
 }
 
+// ── Helper: calcular estado de vigencia ──────────────────────────────────
+function adminGetVigencia(u) {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  if (!u.vigenciaHasta) return { label: 'Sin límite', color: 'var(--text-muted)', vencido: false, dias: null };
+  const vence = new Date(u.vigenciaHasta + 'T00:00:00');
+  const dias  = Math.ceil((vence - hoy) / 86400000);
+  if (dias < 0)   return { label: `Venció hace ${Math.abs(dias)}d`, color: 'var(--red)',   vencido: true,  dias };
+  if (dias === 0) return { label: 'Vence hoy',                      color: 'var(--red)',   vencido: false, dias };
+  if (dias <= 7)  return { label: `Vence en ${dias}d`,              color: 'var(--amber)', vencido: false, dias };
+  return { label: new Date(u.vigenciaHasta + 'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}), color: 'var(--green)', vencido: false, dias };
+}
+
 async function adminCargarUsuarios() {
   const tbody = document.getElementById('adminUsuariosTabla');
   const count = document.getElementById('adminUsuariosCount');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-dim);">Cargando…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-dim);">Cargando…</td></tr>';
 
-  // Leer todos los usuarios vía getDocs en la colección 'usuarios'
   let usuarios = [];
   try {
     const snap = await window.FB.getDocs(window.FB.collection(window.FB.db, 'usuarios'));
     usuarios = snap.docs.map(d => d.data()).filter(u => u.cc && u.cc !== '__meta__');
-  } catch(e) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red);">❌ Error al cargar usuarios</td></tr>'; return; }
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--red);">❌ Error al cargar usuarios</td></tr>'; return; }
 
-  // KPIs
+  // Auto-suspender por vigencia vencida
+  for (const u of usuarios) {
+    if (u.estado === 'aprobado' && u.vigenciaHasta) {
+      if (adminGetVigencia(u).vencido) {
+        await window.fbSetUsuario(u.cc, { estado: 'suspendido_vigencia' });
+        u.estado = 'suspendido_vigencia';
+      }
+    }
+  }
+
   const aprobados  = usuarios.filter(u => u.estado === 'aprobado').length;
   const pendientes = usuarios.filter(u => u.estado === 'pendiente').length;
+  const vencidos   = usuarios.filter(u => u.estado === 'suspendido_vigencia').length;
   const rechazados = usuarios.filter(u => u.estado === 'rechazado').length;
   document.getElementById('adminKpiTotal').textContent      = usuarios.length;
   document.getElementById('adminKpiAprobados').textContent  = aprobados;
   document.getElementById('adminKpiPendientes').textContent = pendientes;
-  document.getElementById('adminKpiRechazados').textContent = rechazados;
+  document.getElementById('adminKpiRechazados').textContent = rechazados + vencidos;
 
   if (!usuarios.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-dim);">Sin usuarios registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-dim);">Sin usuarios registrados</td></tr>';
     return;
   }
 
-  // Ordenar: pendientes primero, luego aprobados, luego rechazados
-  const orden = { pendiente:0, aprobado:1, rechazado:2 };
+  const orden = { pendiente:0, aprobado:1, suspendido_vigencia:2, rechazado:3 };
   usuarios.sort((a,b) => (orden[a.estado]||9) - (orden[b.estado]||9));
 
   const estadoChip = {
-    aprobado:  '<span class="chip chip-green"  style="font-size:10px;">✅ Aprobado</span>',
-    pendiente: '<span class="chip chip-amber"  style="font-size:10px;">⏳ Pendiente</span>',
-    rechazado: '<span class="chip" style="font-size:10px;background:rgba(239,68,68,.15);color:var(--red);border-color:rgba(239,68,68,.3);">❌ Rechazado</span>',
+    aprobado:            '<span class="chip chip-green" style="font-size:10px;">✅ Aprobado</span>',
+    pendiente:           '<span class="chip chip-amber" style="font-size:10px;">⏳ Pendiente</span>',
+    rechazado:           '<span class="chip" style="font-size:10px;background:rgba(239,68,68,.15);color:var(--red);border-color:rgba(239,68,68,.3);">❌ Rechazado</span>',
+    suspendido_vigencia: '<span class="chip" style="font-size:10px;background:rgba(245,158,11,.15);color:var(--amber);border-color:rgba(245,158,11,.4);">⏰ Vencido</span>',
   };
   const rolChip = {
     admin:  '<span class="chip chip-purple" style="font-size:10px;">🛡️ Admin</span>',
@@ -19007,30 +19087,115 @@ async function adminCargarUsuarios() {
   };
 
   tbody.innerHTML = usuarios.map((u, i) => {
-    const bg = i%2===0 ? '' : 'rgba(255,255,255,0.015)';
+    const bg   = i%2===0 ? '' : 'rgba(255,255,255,0.015)';
     const fecha = u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const vig   = adminGetVigencia(u);
     const esMiCuenta = u.cc === _ccIngresada;
+    const nomSafe    = (u.nombre||'').replace(/'/g,'');
+
+    const vigCell = u.rol === 'admin'
+      ? '<span style="font-size:11px;color:var(--text-dim);">Sin límite</span>'
+      : `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+           <span style="font-size:12px;color:${vig.color};font-weight:${vig.dias !== null && vig.dias <= 7 ? 700 : 400};">${vig.label}</span>
+           <button class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:10px;" onclick="adminEditarVigencia('${u.cc}','${nomSafe}','${u.vigenciaHasta||''}')">&#x270F;</button>
+         </div>`;
+
     const acciones = esMiCuenta
       ? '<span style="font-size:11px;color:var(--text-dim);">Tu cuenta</span>'
-      : `
-        ${u.estado === 'pendiente'  ? `<button class="btn btn-secondary btn-sm" style="background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);" onclick="adminCambiarEstado('${u.cc}','aprobado')">Aprobar</button>` : ''}
-        ${u.estado === 'aprobado'   ? `<button class="btn btn-secondary btn-sm" style="background:rgba(245,158,11,.1);color:var(--amber);border-color:rgba(245,158,11,.3);" onclick="adminCambiarEstado('${u.cc}','pendiente')">Suspender</button>` : ''}
-        ${u.estado !== 'rechazado'  ? `<button class="btn btn-danger btn-sm" onclick="adminCambiarEstado('${u.cc}','rechazado')">Rechazar</button>` : ''}
-        ${u.estado === 'rechazado'  ? `<button class="btn btn-secondary btn-sm" onclick="adminCambiarEstado('${u.cc}','aprobado')">Restaurar</button>` : ''}
-        <button class="btn btn-secondary btn-sm" onclick="adminResetearPINde('${u.cc}','${(u.nombre||'').replace(/'/g,'')}')" title="Restablecer PIN">🔑</button>
-      `;
+      : `<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          ${u.estado === 'pendiente'           ? `<button class="btn btn-secondary btn-sm" style="background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);" onclick="adminAprobarConVigencia('${u.cc}','${nomSafe}')">✅ Aprobar</button>` : ''}
+          ${u.estado === 'aprobado'            ? `<button class="btn btn-secondary btn-sm" style="background:rgba(245,158,11,.1);color:var(--amber);border-color:rgba(245,158,11,.3);" onclick="adminCambiarEstado('${u.cc}','pendiente')">⏸ Suspender</button>` : ''}
+          ${u.estado === 'suspendido_vigencia' ? `<button class="btn btn-secondary btn-sm" style="background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);" onclick="adminAprobarConVigencia('${u.cc}','${nomSafe}')">🔄 Renovar</button>` : ''}
+          ${u.estado === 'rechazado'           ? `<button class="btn btn-secondary btn-sm" onclick="adminAprobarConVigencia('${u.cc}','${nomSafe}')">Restaurar</button>` : ''}
+          ${u.estado !== 'rechazado'           ? `<button class="btn btn-danger btn-sm" onclick="adminCambiarEstado('${u.cc}','rechazado')" title="Rechazar">🚫</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="adminResetearPINde('${u.cc}','${nomSafe}')" title="Restablecer PIN">🔑</button>
+        </div>`;
+
     return `<tr style="background:${bg};border-top:1px solid var(--border);">
-      <td style="padding:10px 14px;font-weight:500;">${u.nombre || '—'}${esMiCuenta ? ' <span style=\"font-size:10px;color:var(--sura-lime);\">(tú)</span>' : ''}</td>
+      <td style="padding:10px 14px;font-weight:500;">${u.nombre||'—'}${esMiCuenta ? ' <span style=\"font-size:10px;color:var(--sura-lime);\">(útú)</span>' : ''}</td>
       <td style="padding:10px 14px;font-family:var(--mono);font-size:12px;">${u.cc}</td>
-      <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${u.email||''}">${u.email || '—'}</td>
-      <td style="padding:10px 14px;">${rolChip[u.rol] || u.rol || '—'}</td>
-      <td style="padding:10px 14px;">${estadoChip[u.estado] || u.estado}</td>
+      <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${u.email||''}">${u.email||'—'}</td>
+      <td style="padding:10px 14px;">${rolChip[u.rol]||u.rol||'—'}</td>
+      <td style="padding:10px 14px;">${estadoChip[u.estado]||u.estado}</td>
+      <td style="padding:10px 14px;">${vigCell}</td>
       <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);">${fecha}</td>
-      <td style="padding:10px 14px;white-space:nowrap;display:flex;gap:6px;flex-wrap:wrap;">${acciones}</td>
+      <td style="padding:10px 14px;">${acciones}</td>
     </tr>`;
   }).join('');
 
   if (count) count.textContent = `${usuarios.length} usuario(s) registrado(s)`;
+}
+// ── Aprobar/renovar con selección de vigencia ──────────────────────────────
+function adminAprobarConVigencia(cc, nombre) {
+  // Mostrar modal de vigencia
+  const modal = document.getElementById('modalAdminVigencia');
+  if (!modal) return;
+  document.getElementById('mavNombre').textContent  = nombre || cc;
+  document.getElementById('mavCC').value            = cc;
+  document.getElementById('mavFecha').value         = '';
+  document.getElementById('mavMeses').value         = '1';
+  document.getElementById('mavTipo').value          = 'meses';
+  adminVigenciaTipoChange();
+  modal.style.display = 'flex';
+}
+
+function adminVigenciaTipoChange() {
+  const tipo    = document.getElementById('mavTipo').value;
+  const rowMes  = document.getElementById('mavRowMeses');
+  const rowFech = document.getElementById('mavRowFecha');
+  if (rowMes)  rowMes.style.display  = tipo === 'meses'  ? '' : 'none';
+  if (rowFech) rowFech.style.display = tipo === 'fecha'   ? '' : 'none';
+  if (tipo === 'ilimitado') {
+    if (rowMes)  rowMes.style.display  = 'none';
+    if (rowFech) rowFech.style.display = 'none';
+  }
+}
+
+async function adminGuardarVigencia() {
+  const cc    = document.getElementById('mavCC').value;
+  const tipo  = document.getElementById('mavTipo').value;
+  let vigenciaHasta = null;
+
+  if (tipo === 'meses') {
+    const meses = parseInt(document.getElementById('mavMeses').value) || 1;
+    const hasta = new Date();
+    hasta.setMonth(hasta.getMonth() + meses);
+    vigenciaHasta = hasta.toISOString().slice(0, 10);
+  } else if (tipo === 'fecha') {
+    vigenciaHasta = document.getElementById('mavFecha').value;
+    if (!vigenciaHasta) { showToast('⚠️ Ingresa una fecha válida'); return; }
+  }
+  // tipo === 'ilimitado' → vigenciaHasta = null
+
+  const ok = await window.fbSetUsuario(cc, {
+    estado: 'aprobado',
+    vigenciaHasta,
+    aprobadoEn: new Date().toISOString(),
+    aprobadoPor: _ccIngresada,
+  });
+
+  if (ok) {
+    const fechaStr = vigenciaHasta
+      ? new Date(vigenciaHasta + 'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})
+      : 'sin límite';
+    showToast(`✅ Acceso aprobado hasta ${fechaStr}`);
+    document.getElementById('modalAdminVigencia').style.display = 'none';
+    adminCargarUsuarios();
+  } else {
+    showToast('❌ Error al guardar. Intenta de nuevo.');
+  }
+}
+
+function adminEditarVigencia(cc, nombre, vigActual) {
+  const modal = document.getElementById('modalAdminVigencia');
+  if (!modal) return;
+  document.getElementById('mavNombre').textContent = nombre || cc;
+  document.getElementById('mavCC').value           = cc;
+  document.getElementById('mavFecha').value        = vigActual || '';
+  document.getElementById('mavMeses').value        = '1';
+  document.getElementById('mavTipo').value         = vigActual ? 'fecha' : 'ilimitado';
+  adminVigenciaTipoChange();
+  modal.style.display = 'flex';
 }
 
 async function adminCambiarEstado(cc, nuevoEstado) {
