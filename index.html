@@ -867,9 +867,90 @@
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, db, UID, collection, getDocs };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, db, UID, collection, getDocs, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase };
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
+  // ── Migración datos de 'fran' → UID actual ───────────────────────────────
+  // Se ejecuta una sola vez cuando el nuevo UID no tiene datos pero 'fran' sí.
+  const UID_LEGADO = 'fran';
+  async function fbMigrarDesdeFran() {
+    if (UID === UID_LEGADO) return; // ya es el mismo, nada que migrar
+    const COLECCIONES = ['pagos','pipeline','actividades','cierres','configAnios',
+                         'productosExtra','empresas','cotizaciones','syncConfig',
+                         'plantillas','bdSiniestralidad','contactos'];
+    console.log(`[Migración] Copiando datos de '${UID_LEGADO}' → '${UID}'…`);
+
+    // 1. Migrar estado (chunked)
+    try {
+      const metaLeg = await getDoc(doc(db, 'estadoMeta', UID_LEGADO));
+      if (metaLeg.exists()) {
+        const meta = metaLeg.data().payload || {};
+        const totalChunks = meta.totalChunks || 0;
+        if (totalChunks > 0) {
+          // Leer chunks del legado
+          const chunkSnaps = await Promise.all(
+            Array.from({length: totalChunks}, (_, i) =>
+              getDoc(doc(db, 'estadoChunks', `${UID_LEGADO}_chunk_${i}`))
+            )
+          );
+          const ventas = chunkSnaps.flatMap(s => s.exists() ? (s.data().payload || []) : []);
+          // Escribir bajo el nuevo UID
+          await setDoc(doc(db, 'estadoMeta', UID), {
+            payload: { config: meta.config || {}, totalChunks, version: 2, updatedAt: Date.now(), migradoDesde: UID_LEGADO }
+          });
+          const CHUNK_SIZE = 200;
+          const writePromises = [];
+          for (let i = 0; i < totalChunks; i++) {
+            const chunk = ventas.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+            writePromises.push(setDoc(doc(db, 'estadoChunks', `${UID}_chunk_${i}`), { payload: chunk }));
+          }
+          await Promise.all(writePromises);
+          console.log(`[Migración] Estado: ${ventas.length} ventas migradas`);
+        }
+      } else {
+        // Intentar formato clásico
+        const classicSnap = await getDoc(doc(db, 'estado', UID_LEGADO));
+        if (classicSnap.exists()) {
+          await setDoc(doc(db, 'estado', UID), classicSnap.data());
+          console.log('[Migración] Estado clásico migrado');
+        }
+      }
+    } catch(e) { console.warn('[Migración] Error en estado:', e.message); }
+
+    // 2. Migrar colecciones simples
+    for (const col of COLECCIONES) {
+      try {
+        const snap = await getDoc(doc(db, col, UID_LEGADO));
+        if (snap.exists()) {
+          await setDoc(doc(db, col, UID), snap.data());
+          console.log(`[Migración] ${col} ✓`);
+        }
+      } catch(e) { console.warn(`[Migración] Error en ${col}:`, e.message); }
+    }
+
+    // 3. Migrar bdSiniestralidad (también tiene chunks)
+    try {
+      const bdMeta = await getDoc(doc(db, 'bdSiniestralidad', UID_LEGADO));
+      if (bdMeta.exists()) {
+        await setDoc(doc(db, 'bdSiniestralidad', UID), bdMeta.data());
+        // Intentar chunks también
+        const bd = bdMeta.data().payload || {};
+        const bdChunks = bd.totalChunks || 0;
+        for (let i = 0; i < bdChunks; i++) {
+          try {
+            const cs = await getDoc(doc(db, 'bdSinChunks', `${UID_LEGADO}_chunk_${i}`));
+            if (cs.exists()) await setDoc(doc(db, 'bdSinChunks', `${UID}_chunk_${i}`), cs.data());
+          } catch(_) {}
+        }
+        console.log('[Migración] bdSiniestralidad ✓');
+      }
+    } catch(e) { console.warn('[Migración] Error en bdSin:', e.message); }
+
+    // 4. Marcar migración completa en el registro de usuario
+    try { await fbSetUsuario(UID, { migradoDesde: UID_LEGADO, migradoEn: new Date().toISOString() }); } catch(_) {}
+    console.log('[Migración] ✅ Completada');
+  }
+
   async function cargarDatosFirebase() {
     const [
       stateData, pagosData, pipelineData, actividadesData,
@@ -19271,6 +19352,25 @@ async function _esperarFirebaseYArrancar() {
   // Restaurar _usuarioActual si hay sesión pero no objeto usuario
   if (!_usuarioActual && _ccIngresada && window.fbGetUsuario) {
     try { _usuarioActual = await window.fbGetUsuario(_ccIngresada); } catch(e) {}
+  }
+
+  // ── Migración automática desde UID legado 'fran' ──────────────────────────
+  // Si el cache cargó pero no tiene ventas, y 'fran' sí tiene datos → migrar y recargar
+  if (window.__FB_CACHE__ && window.FB?._migrarDesdeFran && _ccIngresada && _ccIngresada !== 'fran') {
+    const ventas = window.__FB_CACHE__.estado?.ventas || [];
+    if (ventas.length === 0) {
+      try {
+        const splash    = document.getElementById('fb-splash');
+        const splashMsg = document.getElementById('fb-splash-msg');
+        const splashSub = document.getElementById('fb-splash-sub');
+        if (splash) splash.style.display = 'flex';
+        if (splashMsg) splashMsg.textContent = '🔄 Migrando tus datos…';
+        if (splashSub) splashSub.textContent = 'Esto solo ocurre una vez · por favor espera';
+        await window.FB._migrarDesdeFran();
+        window.__FB_CACHE__ = await window.FB._cargarDatos();
+        if (splash) splash.style.display = 'none';
+      } catch(e) { console.warn('[Migración automática]', e.message); }
+    }
   }
 
   // Si Firebase falló y __FB_CACHE__ sigue null → NO arrancar con datos vacíos
