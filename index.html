@@ -982,47 +982,16 @@
   }
 
   async function arrancarApp() {
-    const splash    = document.getElementById('fb-splash');
-    const splashMsg = document.getElementById('fb-splash-msg');
-    const splashSub = document.getElementById('fb-splash-sub');
-    if (splash) splash.style.display = 'flex';
-
-    const MAX_INTENTOS = 3;
-    let intentos = 0;
-    let cacheOk = false;
-
-    while (intentos < MAX_INTENTOS && !cacheOk) {
-      intentos++;
-      try {
-        if (splashMsg) splashMsg.textContent = intentos > 1 ? `Reintentando… (${intentos}/${MAX_INTENTOS})` : 'Cargando tus datos…';
-        if (splashSub) splashSub.textContent = 'Conectando con Firebase · puede tomar unos segundos';
-        window.__FB_CACHE__ = await cargarDatosFirebase();
-        cacheOk = true;
-      } catch(e) {
-        console.warn(`Firebase intento ${intentos} falló:`, e);
-        if (intentos < MAX_INTENTOS) {
-          // Esperar antes del siguiente intento (backoff: 1.5s, 3s)
-          await new Promise(r => setTimeout(r, intentos * 1500));
-        }
-      }
+    // Solo verificar que Firebase SDK cargó correctamente y señalar que está listo.
+    // La carga real de datos ocurre DESPUÉS del login, cuando UID ya está establecido.
+    try {
+      // Ping de conexión: leer un documento que siempre existe (meta de usuarios)
+      await getDoc(doc(db, 'usuarios', '__meta__'));
+      console.log('[Firebase] Conexión verificada ✓');
+    } catch(e) {
+      // Si falla la conexión, igual señalamos ready (puede ser que el doc no exista)
+      console.warn('[Firebase] Ping falló (puede ser normal):', e.message);
     }
-
-    if (!cacheOk) {
-      // Todos los intentos fallaron → mostrar error con botón de recarga
-      console.error('Firebase falló después de', MAX_INTENTOS, 'intentos');
-      window.__FB_CACHE__ = null;
-      if (splashMsg) splashMsg.textContent = '⚠️ Sin conexión con Firebase';
-      if (splashSub) {
-        splashSub.innerHTML = `No se pudieron cargar tus datos. Verifica tu conexión e intenta de nuevo.<br>
-          <button onclick="location.reload()" style="margin-top:12px;padding:8px 20px;background:#1A4CE8;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;">🔄 Recargar página</button>`;
-      }
-      // Esperar 15s más antes de continuar (por si la red se recupera)
-      await new Promise(r => setTimeout(r, 15000));
-      // Último intento silencioso
-      try { window.__FB_CACHE__ = await cargarDatosFirebase(); } catch(e) {}
-    }
-
-    if (splash) splash.style.display = 'none';
     window.__FB_READY__ = true;
     document.dispatchEvent(new Event('fb-ready'));
   }
@@ -19330,39 +19299,67 @@ window.__FB_PROMISE__ = new Promise(resolve => {
 
 // Espera Firebase sin condición de carrera y luego inicia la app
 async function _esperarFirebaseYArrancar() {
-  if (!window.__FB_READY__ || !window.__FB_CACHE__) {
-    const splash    = document.getElementById('fb-splash');
-    const splashMsg = document.getElementById('fb-splash-msg');
-    const splashSub = document.getElementById('fb-splash-sub');
+  const splash    = document.getElementById('fb-splash');
+  const splashMsg = document.getElementById('fb-splash-msg');
+  const splashSub = document.getElementById('fb-splash-sub');
+
+  // 1. Esperar a que Firebase SDK esté listo (arrancarApp dispara 'fb-ready')
+  if (!window.__FB_READY__) {
     if (splash) splash.style.display = 'flex';
-    if (splashMsg) splashMsg.textContent = 'Cargando tus datos…';
-    if (splashSub) splashSub.textContent = 'Conectando con Firebase · puede tomar unos segundos';
-
-    // Mensaje progresivo si tarda más de 5s
-    const msgTimer = setTimeout(() => {
-      if (splashMsg) splashMsg.textContent = 'Todavía cargando…';
-      if (splashSub) splashSub.textContent = 'La conexión está tardando más de lo usual. Verifica tu internet.';
-    }, 5000);
-
-    await window.__FB_PROMISE__;
-    clearTimeout(msgTimer);
-    if (splash) splash.style.display = 'none';
+    if (splashMsg) splashMsg.textContent = 'Conectando con Firebase…';
+    if (splashSub) splashSub.textContent = 'Verificando conexión';
+    await new Promise(r => {
+      if (window.__FB_READY__) return r();
+      document.addEventListener('fb-ready', r, { once: true });
+      setTimeout(r, 10000); // timeout máximo 10s
+    });
   }
 
-  // Restaurar _usuarioActual si hay sesión pero no objeto usuario
+  // 2. Restaurar _usuarioActual si hay sesión activa (recarga de página)
   if (!_usuarioActual && _ccIngresada && window.fbGetUsuario) {
     try { _usuarioActual = await window.fbGetUsuario(_ccIngresada); } catch(e) {}
   }
 
-  // ── Migración automática desde UID legado 'fran' ──────────────────────────
-  // Si el cache cargó pero no tiene ventas, y 'fran' sí tiene datos → migrar y recargar
-  if (window.__FB_CACHE__ && window.FB?._migrarDesdeFran && _ccIngresada && _ccIngresada !== 'fran') {
+  // 3. Cargar datos desde Firestore con el UID correcto ya establecido
+  if (!window.__FB_CACHE__) {
+    if (splash) splash.style.display = 'flex';
+    if (splashMsg) splashMsg.textContent = 'Cargando tus datos…';
+    if (splashSub) splashSub.textContent = 'Conectando con Firebase · puede tomar unos segundos';
+    const msgTimer = setTimeout(() => {
+      if (splashMsg) splashMsg.textContent = 'Todavía cargando…';
+      if (splashSub) splashSub.textContent = 'La conexión está tardando. Verifica tu internet.';
+    }, 5000);
+    let intentos = 0;
+    while (intentos < 3 && !window.__FB_CACHE__) {
+      intentos++;
+      try {
+        window.__FB_CACHE__ = await window.FB._cargarDatos();
+      } catch(e) {
+        console.warn(`[Firebase] Intento ${intentos} falló:`, e.message);
+        if (intentos < 3) await new Promise(r => setTimeout(r, intentos * 1500));
+      }
+    }
+    clearTimeout(msgTimer);
+    if (splash) splash.style.display = 'none';
+  }
+
+  // 4. Si no hay cache aún → error de conexión
+  if (!window.__FB_CACHE__) {
+    if (splash) splash.style.display = 'flex';
+    if (splashMsg) splashMsg.textContent = '⚠️ No se pudieron cargar los datos';
+    if (splashSub) {
+      splashSub.innerHTML = `Firebase no respondió. Verifica tu conexión e intenta de nuevo.<br>
+        <button onclick="location.reload()" style="margin-top:14px;padding:10px 24px;background:#1A4CE8;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;">🔄 Recargar página</button>
+        <button onclick="window.__FB_CACHE__={estado:{},pagos:{},pipeline:[],actividades:[],cierres:{},configAnios:{},productosExtra:[],empresas:[],cotizaciones:[],syncConfig:{},plantillas:{},bdSiniestralidad:{trimestres:[],registros:[]},contactos:[]};document.getElementById('fb-splash').style.display='none';_iniciarAppTrasLogin();" style="margin-top:14px;margin-left:10px;padding:10px 24px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;">Continuar sin datos</button>`;
+    }
+    return;
+  }
+
+  // 5. Migración automática: si no hay ventas pero 'fran' sí tiene → migrar
+  if (_ccIngresada && _ccIngresada !== 'fran' && window.FB?._migrarDesdeFran) {
     const ventas = window.__FB_CACHE__.estado?.ventas || [];
     if (ventas.length === 0) {
       try {
-        const splash    = document.getElementById('fb-splash');
-        const splashMsg = document.getElementById('fb-splash-msg');
-        const splashSub = document.getElementById('fb-splash-sub');
         if (splash) splash.style.display = 'flex';
         if (splashMsg) splashMsg.textContent = '🔄 Migrando tus datos…';
         if (splashSub) splashSub.textContent = 'Esto solo ocurre una vez · por favor espera';
@@ -19371,22 +19368,6 @@ async function _esperarFirebaseYArrancar() {
         if (splash) splash.style.display = 'none';
       } catch(e) { console.warn('[Migración automática]', e.message); }
     }
-  }
-
-  // Si Firebase falló y __FB_CACHE__ sigue null → NO arrancar con datos vacíos
-  // Dar opción de recargar
-  if (!window.__FB_CACHE__) {
-    const splash    = document.getElementById('fb-splash');
-    const splashMsg = document.getElementById('fb-splash-msg');
-    const splashSub = document.getElementById('fb-splash-sub');
-    if (splash) splash.style.display = 'flex';
-    if (splashMsg) splashMsg.textContent = '⚠️ No se pudieron cargar los datos';
-    if (splashSub) {
-      splashSub.innerHTML = `Firebase no respondió. Verifica tu conexión a internet e intenta de nuevo.<br>
-        <button onclick="location.reload()" style="margin-top:14px;padding:10px 24px;background:#1A4CE8;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;">🔄 Recargar página</button>
-        <button onclick="window.__FB_CACHE__={estado:{},pagos:{},pipeline:[],actividades:[],cierres:{},configAnios:{},productosExtra:[],empresas:[],cotizaciones:[],syncConfig:{},plantillas:{},bdSiniestralidad:{trimestres:[],registros:[]},contactos:[]};document.getElementById('fb-splash').style.display='none';_iniciarAppTrasLogin();" style="margin-top:14px;margin-left:10px;padding:10px 24px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;">Continuar sin datos</button>`;
-    }
-    return; // No inicializar la app con datos vacíos
   }
 
   _iniciarAppTrasLogin();
