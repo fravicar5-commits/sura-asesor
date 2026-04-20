@@ -9381,22 +9381,29 @@ function calcDatosSPTI() {
 
 // Internal helper: update the Dcto and Prima Total fields given a resolved tarifa
 function _actualizarTotalYDcto(tarifa, periodicidad) {
-  let total, dctoLabel;
+  if (!tarifa || typeof tarifa !== 'object') return;
+  let total   = 0;
+  let dctoNum = 0;
   if (periodicidad === 'TRIMESTRAL') {
-    total = tarifa.trimestre;
-    dctoLabel = `Dcto: ${fmt(tarifa.dctoTrim)}`;
+    total   = Number(tarifa.trimestre)  || 0;
+    dctoNum = Number(tarifa.dctoTrim)   || 0;
   } else if (periodicidad === 'SEMESTRAL') {
-    total = tarifa.semestre;
-    dctoLabel = `Dcto: ${fmt(tarifa.dctoSem)}`;
+    total   = Number(tarifa.semestre)   || 0;
+    dctoNum = Number(tarifa.dctoSem)    || 0;
   } else if (periodicidad === 'ANUAL') {
-    total = tarifa.anual;
-    dctoLabel = `Dcto: ${fmt(tarifa.dctoAnual)}`;
+    total   = Number(tarifa.anual)      || 0;
+    dctoNum = Number(tarifa.dctoAnual)  || 0;
   } else {
-    total = tarifa.mensual;
-    dctoLabel = 'Sin descuento';
+    total   = Number(tarifa.mensual)    || 0;
+    dctoNum = 0;
   }
-  document.getElementById('vPrimaTotalSPTI').value = fmt(total);
-  document.getElementById('vDctoSPTI').value = dctoLabel;
+  const dctoLabel = dctoNum > 0
+    ? `Dcto: ${fmt(dctoNum)}`
+    : (periodicidad === 'MENSUAL' ? 'Sin descuento' : '—');
+  const elTotal = document.getElementById('vPrimaTotalSPTI');
+  const elDcto  = document.getElementById('vDctoSPTI');
+  if (elTotal) elTotal.value = total > 0 ? fmt(total) : '—';
+  if (elDcto)  elDcto.value  = dctoLabel;
 }
 
 function calcTotalSPTI() {
@@ -9419,10 +9426,35 @@ function calcTotalSPTI() {
   }
 }
 
-// Mark prima as manually edited
+// Mark prima as manually edited — still recalculate descuento from tariff table
 document.addEventListener('DOMContentLoaded', () => {
   const el = document.getElementById('vPrimaBaseSPTI');
-  if (el) el.addEventListener('input', () => { el.dataset.editado = '1'; calcTotalSPTI(); });
+  if (el) el.addEventListener('input', () => {
+    el.dataset.editado = '1';
+    // Prefer tariff-based descuento even when prima is manually overridden
+    const plan = document.getElementById('vPlanSPTI')?.value;
+    const per  = document.getElementById('vPeriodicidadSPTI')?.value;
+    const edad = parseInt(document.getElementById('vEdadSPTI')?.value) || 0;
+    const rango = getRangoEdadSPTI(edad);
+    if (plan && rango && SPTI_TARIFAS[plan]?.[rango]) {
+      // Update only dcto and total (preserve manually-set prima base)
+      const t = SPTI_TARIFAS[plan][rango];
+      const primaBase = parseFloat(el.value) || 0;
+      const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+      const total = per === 'MENSUAL' ? primaBase
+                  : per === 'TRIMESTRAL' ? t.trimestre
+                  : per === 'SEMESTRAL'  ? t.semestre
+                  : per === 'ANUAL'      ? t.anual
+                  : primaBase * (meses[per]||1);
+      const dctoNum = per === 'TRIMESTRAL' ? t.dctoTrim
+                    : per === 'SEMESTRAL'  ? t.dctoSem
+                    : per === 'ANUAL'      ? t.dctoAnual : 0;
+      document.getElementById('vPrimaTotalSPTI').value = fmt(total);
+      document.getElementById('vDctoSPTI').value = dctoNum > 0 ? `Dcto: ${fmt(dctoNum)}` : 'Sin descuento';
+    } else {
+      calcTotalSPTI();
+    }
+  });
 });
 
 // =============================================
