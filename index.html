@@ -5797,7 +5797,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">No. de Póliza</label>
-          <input type="text" class="form-control" id="vPolizaSPTI" placeholder="Número de póliza SPTI">
+          <input type="text" class="form-control" id="vPolizaSPTI" placeholder="Número de póliza SPTI" oninput="checkPolizaExiste(this.value,'SPTI','avisoPolizaSPTI')">
+          <div id="avisoPolizaSPTI" style="display:none;margin-top:5px;padding:7px 10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:6px;font-size:11.5px;color:var(--amber);">⚠️ Esta póliza ya tiene asegurados registrados — se agregará como asegurado adicional.</div>
         </div>
         <div class="form-group">
           <label class="form-label">Tipo Movimiento</label>
@@ -5906,7 +5907,8 @@
         <!-- Póliza y fechas -->
         <div class="form-group">
           <label class="form-label">No. de Póliza</label>
-          <input type="text" class="form-control" id="vPolizaSPD" placeholder="Número de póliza">
+          <input type="text" class="form-control" id="vPolizaSPD" placeholder="Número de póliza" oninput="checkPolizaExiste(this.value,'SPD','avisoPolizaSPD')">
+          <div id="avisoPolizaSPD" style="display:none;margin-top:5px;padding:7px 10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:6px;font-size:11.5px;color:var(--amber);">⚠️ Esta póliza ya tiene asegurados registrados — se agregará como asegurado adicional.</div>
         </div>
         <div class="form-group">
           <label class="form-label">Fecha de Venta</label>
@@ -6069,7 +6071,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">No. de Póliza</label>
-          <input type="text" class="form-control" id="vPolizaPSM" placeholder="Número de póliza">
+          <input type="text" class="form-control" id="vPolizaPSM" placeholder="Número de póliza" oninput="checkPolizaExiste(this.value,'PSM','avisoPolizaPSM')">
+          <div id="avisoPolizaPSM" style="display:none;margin-top:5px;padding:7px 10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:6px;font-size:11.5px;color:var(--amber);">⚠️ Esta póliza ya tiene asegurados registrados — se agregará como asegurado adicional.</div>
         </div>
         <div class="form-group">
           <label class="form-label">Tipo Movimiento</label>
@@ -6252,7 +6255,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">No. de Póliza / Contrato</label>
-          <input type="text" class="form-control" id="vPolizaPAC60" placeholder="Número de contrato">
+          <input type="text" class="form-control" id="vPolizaPAC60" placeholder="Número de contrato" oninput="checkPolizaExiste(this.value,'PAC60','avisoPolizaPAC60')">
+          <div id="avisoPolizaPAC60" style="display:none;margin-top:5px;padding:7px 10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:6px;font-size:11.5px;color:var(--amber);">⚠️ Esta póliza ya tiene asegurados registrados — se agregará como asegurado adicional.</div>
         </div>
         <div class="form-group">
           <label class="form-label">Tipo Movimiento</label>
@@ -7207,6 +7211,62 @@ function setState(s) {
   if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
   // Usar fbSetEstado (chunked) para superar el límite de 1MB de Firestore
   if (window.FB) window.FB.setEstado(s);
+  // Sincronizar BD de contactos automáticamente
+  if (s && s.ventas) syncContactosDesdeVentas(s.ventas);
+}
+
+// ── Sincronización automática BD Contactos desde ventas de VOLUNTARIOS ─────────
+// Solo sincroniza SPTI, SPD, PSM y PAC60 — PBS no va a BD Contactos
+// Hace upsert: agrega nuevos y rellena datos faltantes sin sobreescribir
+function syncContactosDesdeVentas(ventas) {
+  if (!ventas || !ventas.length) return;
+  const VOL_PRODS = ['SPTI','SPD','PSM','PAC60'];
+  const ventasVol = ventas.filter(v => VOL_PRODS.includes(v.producto) && v.tipo !== 'CANCELACION');
+  if (!ventasVol.length) return;
+
+  const contactos = getContactos();
+  // Índice por cédula normalizada para búsqueda rápida
+  const byDoc = new Map(contactos.map(c => [String(c.cedula||'').replace(/\D/g,''), c]));
+  let changed = false;
+
+  ventasVol.forEach(v => {
+    const nombre  = (v.tomadorNombre || v.nombre || '').trim();
+    const cedula  = String(v.tomadorDoc || v.doc || '').replace(/\D/g,'').trim();
+    const celular = String(v.tomadorTel || v.telefono || '').replace(/\D/g,'').trim();
+    const correo  = (v.tomadorCorreo || v.correo || '').trim().toLowerCase();
+    const ciudad  = (v.ciudad || '').trim();
+    const poliza  = (v.poliza || '').trim();
+    const producto = v.producto || '';
+
+    if (!cedula && !nombre) return; // sin datos mínimos, omitir
+    const key = cedula || nombre.toLowerCase().replace(/\s+/g, ' ');
+
+    if (byDoc.has(key)) {
+      // Contacto existe — completar solo campos vacíos, nunca sobreescribir
+      const c = byDoc.get(key);
+      let upd = false;
+      if (!c.celular && celular)  { c.celular  = celular;  upd = true; }
+      if (!c.correo  && correo)   { c.correo   = correo;   upd = true; }
+      if (!c.ciudad  && ciudad)   { c.ciudad   = ciudad;   upd = true; }
+      if (!c.nombre  && nombre)   { c.nombre   = nombre;   upd = true; }
+      if (!c.poliza  && poliza)   { c.poliza   = poliza;   upd = true; }
+      if (!c.producto && producto){ c.producto = producto; upd = true; }
+      if (upd) changed = true;
+    } else if (nombre || cedula) {
+      // Contacto nuevo
+      const nuevo = { cedula, nombre, celular, correo, ciudad, poliza, producto };
+      contactos.push(nuevo);
+      byDoc.set(key, nuevo);
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    // Guardar directamente sin llamar setContactos (evita loop)
+    if (window.__FB_CACHE__) window.__FB_CACHE__.contactos = contactos;
+    if (window.FB) window.FB.set('contactos', contactos);
+    try { localStorage.setItem('sura_contactos_v1', JSON.stringify(contactos)); } catch(e) {}
+  }
 }
 
 function initState() {
@@ -9244,6 +9304,20 @@ function getRangoEdadSPTI(edad) {
   if (e <= 50) return '41-50';
   if (e <= 59) return '51-59';
   return null; // fuera de rango
+}
+
+function checkPolizaExiste(polizaVal, producto, avisoId) {
+  const avisoEl = document.getElementById(avisoId);
+  if (!avisoEl) return;
+  const pol = String(polizaVal || '').trim().toUpperCase();
+  if (!pol) { avisoEl.style.display = 'none'; return; }
+  const state = getState();
+  const existe = state.ventas.some(v =>
+    v.producto === producto &&
+    v.tipo !== 'CANCELACION' &&
+    String(v.poliza || '').trim().toUpperCase() === pol
+  );
+  avisoEl.style.display = existe ? '' : 'none';
 }
 
 function calcDatosSPTI() {
@@ -12753,12 +12827,20 @@ function confirmarImportVol() {
   }
 
   // Detectar duplicados por póliza
-  const polizasExistentes = new Set(state.ventas.filter(v => v.poliza).map(v => String(v.poliza).trim().toUpperCase()));
+  // Clave de dedup = poliza + documento del asegurado
+  // Así una misma póliza con diferente asegurado no se bloquea
+  const claveExistente = new Set(
+    state.ventas
+      .filter(v => v.poliza)
+      .map(v => (String(v.poliza).trim().toUpperCase() + '|' + String(v.tomadorDoc||v.doc||'').replace(/\D/g,'')))
+  );
   let agregados = 0, duplicados = 0;
 
   _volImportData.forEach(v => {
     const polizaKey = String(v.poliza || '').trim().toUpperCase();
-    if (mode === 'add' && polizaKey && polizasExistentes.has(polizaKey)) {
+    const docKey    = String(v.tomadorDoc || v.doc || '').replace(/\D/g,'');
+    const claveKey  = polizaKey + '|' + docKey;
+    if (mode === 'add' && polizaKey && claveExistente.has(claveKey)) {
       duplicados++;
       return;
     }
@@ -12801,7 +12883,7 @@ function confirmarImportVol() {
       origenImport: true,
     });
 
-    if (polizaKey) polizasExistentes.add(polizaKey);
+    if (polizaKey) claveExistente.add(claveKey);
     agregados++;
   });
 
