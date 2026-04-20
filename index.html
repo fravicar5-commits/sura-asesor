@@ -5780,13 +5780,12 @@
 
     <!-- TAB: SPTI -->
     <div id="tabSPTI" style="display:none;">
-      <!-- Header info SPTI -->
       <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.2);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:var(--teal);">
-        💊 <strong>Salud Para Todos Integral (SPTI)</strong> — Planes Clásico y Preferencial · Edades 0 a 59 años
+        💊 <strong>Salud Para Todos Integral (SPTI)</strong> — Planes Clásico y Preferencial · Edades 0 a 59 años · Registro individual por asegurado
       </div>
 
+      <!-- Datos de la póliza -->
       <div class="form-grid" style="margin-bottom:16px;">
-        <!-- Fechas -->
         <div class="form-group">
           <label class="form-label">Fecha de Venta</label>
           <input type="date" class="form-control" id="vFechaSPTI">
@@ -5808,48 +5807,6 @@
             <option value="CANCELACION">Cancelación</option>
           </select>
         </div>
-
-        <!-- Datos personales -->
-        <div class="form-group">
-          <label class="form-label">Nombre Completo</label>
-          <input type="text" class="form-control" id="vNombreSPTI" placeholder="Nombre del asegurado">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tipo de Documento</label>
-          <select class="form-control" id="vTipoDocSPTI">
-            <option value="CC">CC — Cédula de Ciudadanía</option>
-            <option value="TI">TI — Tarjeta de Identidad</option>
-            <option value="CE">CE — Cédula de Extranjería</option>
-            <option value="PPT">PPT — Permiso de Protección Temporal</option>
-            <option value="PA">PA — Pasaporte</option>
-            <option value="PEP">PEP — Permiso Esp. de Permanencia</option>
-            <option value="NIT">NIT</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">No. Documento</label>
-          <input type="text" class="form-control" id="vDocSPTI" placeholder="Número de documento">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Fecha de Nacimiento</label>
-          <input type="date" class="form-control" id="vFechaNacSPTI" onchange="calcDatosSPTI()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Edad</label>
-          <input type="text" class="form-control" id="vEdadSPTI" readonly placeholder="Auto" style="background:var(--surface3);color:var(--sura-lime);font-weight:600;">
-        </div>
-
-        <!-- Contacto -->
-        <div class="form-group">
-          <label class="form-label">📱 Teléfono / WhatsApp</label>
-          <input type="tel" class="form-control" id="vTelSPTI" placeholder="3001234567">
-        </div>
-        <div class="form-group">
-          <label class="form-label">📧 Correo Electrónico</label>
-          <input type="email" class="form-control" id="vCorreoSPTI" placeholder="correo@ejemplo.com">
-        </div>
-
-        <!-- Plan y tarifas -->
         <div class="form-group">
           <label class="form-label">Plan</label>
           <select class="form-control" id="vPlanSPTI" onchange="calcDatosSPTI()">
@@ -5869,32 +5826,109 @@
         </div>
         <div class="form-group">
           <label class="form-label">Prima Mensual Base</label>
-          <input type="number" class="form-control" id="vPrimaBaseSPTI" placeholder="Auto según plan y edad" oninput="calcTotalSPTI()">
+          <input type="number" class="form-control" id="vPrimaBaseSPTI" placeholder="Auto según plan y edad">
         </div>
         <div class="form-group">
           <label class="form-label">Descuento Periodicidad</label>
           <input type="text" class="form-control" id="vDctoSPTI" readonly style="background:var(--surface3);color:var(--green);font-weight:600;" placeholder="—">
         </div>
-        <div class="form-group">
+        <div class="form-group" style="grid-column:span 2;">
           <label class="form-label">Prima Total a Cobrar</label>
           <input type="text" class="form-control" id="vPrimaTotalSPTI" readonly style="background:var(--surface3);color:var(--sura-lime);font-weight:700;font-size:15px;" placeholder="—">
         </div>
+      </div>
 
-        <!-- Notas -->
-        <div class="form-group" style="grid-column:1/-1;">
-          <label class="form-label">🏙️ Ciudad</label>
-          <input type="text" class="form-control" id="vCiudadSPTI" placeholder="Ciudad del asegurado" list="ciudadesList">
+      <!-- Resumen tarifario -->
+      <div id="sptiTarifaPreview" style="display:none;background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;border:1px solid var(--border);margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">📊 Resumen Tarifario</div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;overflow:hidden;" id="sptiTarifaDetalle"></div>
+      </div>
+
+      <!-- TOMADOR -->
+      <div style="border:1px solid rgba(6,182,212,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+          💳 TOMADOR <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien paga la póliza)</span>
         </div>
-        <div class="form-group" style="grid-column:1/-1;">
-          <label class="form-label">Notas / Observaciones</label>
-          <input type="text" class="form-control" id="vNotasSPTI" placeholder="Observaciones adicionales">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Nombre Completo</label>
+            <input type="text" class="form-control" id="vNombreSPTI" placeholder="Nombre del tomador">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de Documento</label>
+            <select class="form-control" id="vTipoDocSPTI">
+              <option value="CC">CC — Cédula de Ciudadanía</option>
+              <option value="TI">TI — Tarjeta de Identidad</option>
+              <option value="CE">CE — Cédula de Extranjería</option>
+              <option value="PPT">PPT — Permiso de Protección Temporal</option>
+              <option value="PA">PA — Pasaporte</option>
+              <option value="PEP">PEP — Permiso Esp. de Permanencia</option>
+              <option value="NIT">NIT</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">No. Documento</label>
+            <input type="text" class="form-control" id="vDocSPTI" placeholder="Número de documento">
+          </div>
+          <div class="form-group">
+            <label class="form-label">📱 Teléfono / WhatsApp</label>
+            <input type="tel" class="form-control" id="vTelSPTI" placeholder="3001234567">
+          </div>
+          <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">📧 Correo Electrónico</label>
+            <input type="email" class="form-control" id="vCorreoSPTI" placeholder="correo@ejemplo.com">
+          </div>
+          <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">🏙️ Ciudad</label>
+            <input type="text" class="form-control" id="vCiudadSPTI" placeholder="Ciudad" list="ciudadesList">
+          </div>
         </div>
       </div>
 
-      <!-- Preview tarifa -->
-      <div id="sptiTarifaPreview" style="display:none;background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border:1px solid var(--border);margin-bottom:4px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">📊 Resumen Tarifario</div>
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;overflow:hidden;" id="sptiTarifaDetalle"></div>
+      <!-- ASEGURADO -->
+      <div style="border:1px solid rgba(200,229,43,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--sura-lime);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          🏥 ASEGURADO <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien recibe el servicio · determina la tarifa)</span>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="vSptiAseguradoMismoTomador" onchange="sptiCopiarTomadorAsegurado()" style="accent-color:var(--sura-lime);">
+            Mismo que el tomador
+          </label>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Nombre Completo</label>
+            <input type="text" class="form-control" id="vAseguradoNombreSPTI" placeholder="Nombre del asegurado">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de Documento</label>
+            <select class="form-control" id="vAseguradoTipoDocSPTI">
+              <option value="CC">CC — Cédula de Ciudadanía</option>
+              <option value="TI">TI — Tarjeta de Identidad</option>
+              <option value="RC">RC — Registro Civil</option>
+              <option value="CE">CE — Cédula de Extranjería</option>
+              <option value="PPT">PPT — Permiso de Protección Temporal</option>
+              <option value="PA">PA — Pasaporte</option>
+              <option value="PEP">PEP — Permiso Esp. de Permanencia</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">No. Documento</label>
+            <input type="text" class="form-control" id="vAseguradoDocSPTI" placeholder="Número de documento">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha de Nacimiento</label>
+            <input type="date" class="form-control" id="vFechaNacSPTI" onchange="calcDatosSPTI()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Edad</label>
+            <input type="text" class="form-control" id="vEdadSPTI" readonly placeholder="Auto" style="background:var(--surface3);color:var(--sura-lime);font-weight:600;">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notas / Observaciones</label>
+        <input type="text" class="form-control" id="vNotasSPTI" placeholder="Observaciones adicionales">
       </div>
     </div>
 
@@ -8790,16 +8824,20 @@ function editarVenta(id) {
         if (s('vFechaExpSPTI'))   s('vFechaExpSPTI').value   = v.fechaExp   || '';
         if (s('vPolizaSPTI'))     s('vPolizaSPTI').value      = v.poliza     || '';
         if (s('vTipoSPTI'))       s('vTipoSPTI').value        = v.tipo       || 'NUEVO';
-        if (s('vNombreSPTI'))     s('vNombreSPTI').value      = v.nombre     || '';
-        if (s('vTipoDocSPTI'))    s('vTipoDocSPTI').value     = v.tipoDoc    || 'CC';
-        if (s('vDocSPTI'))        s('vDocSPTI').value         = v.doc        || '';
-        if (s('vFechaNacSPTI'))   s('vFechaNacSPTI').value    = v.fechaNac   || '';
-        if (s('vTelSPTI'))        s('vTelSPTI').value         = v.telefono   || '';
-        if (s('vCorreoSPTI'))     s('vCorreoSPTI').value      = v.correo     || '';
+        if (s('vNombreSPTI'))     s('vNombreSPTI').value      = v.tomadorNombre || v.nombre || '';
+        if (s('vTipoDocSPTI'))    s('vTipoDocSPTI').value     = v.tomadorTipoDoc || v.tipoDoc || 'CC';
+        if (s('vDocSPTI'))        s('vDocSPTI').value         = v.tomadorDoc  || v.doc     || '';
+        if (s('vTelSPTI'))        s('vTelSPTI').value         = v.tomadorTel  || v.telefono || '';
+        if (s('vCorreoSPTI'))     s('vCorreoSPTI').value      = v.tomadorCorreo || v.correo || '';
         if (s('vCiudadSPTI'))     s('vCiudadSPTI').value      = v.ciudad     || '';
         if (s('vNotasSPTI'))      s('vNotasSPTI').value       = v.notas      || '';
         if (s('vPlanSPTI') && v.plan)          s('vPlanSPTI').value        = v.plan;
         if (s('vPeriodicidadSPTI') && v.periodicidad) s('vPeriodicidadSPTI').value = v.periodicidad;
+        // Asegurado
+        if (s('vAseguradoNombreSPTI'))   s('vAseguradoNombreSPTI').value   = v.nombre || '';
+        if (s('vAseguradoTipoDocSPTI'))  s('vAseguradoTipoDocSPTI').value  = v.tipoDoc || 'CC';
+        if (s('vAseguradoDocSPTI'))      s('vAseguradoDocSPTI').value      = v.doc     || '';
+        if (s('vFechaNacSPTI'))          s('vFechaNacSPTI').value          = v.fechaNac || '';
         calcDatosSPTI();
 
       } else if (tab === 'spd') {
@@ -9156,7 +9194,8 @@ function openModal(id) {
   }
   if (id === 'modalVenta') {
     // Reset SPTI fields
-    ['vFechaSPTI','vFechaExpSPTI','vPolizaSPTI','vNombreSPTI','vDocSPTI','vFechaNacSPTI','vTelSPTI','vCorreoSPTI','vNotasSPTI'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    ['vFechaSPTI','vFechaExpSPTI','vPolizaSPTI','vNombreSPTI','vDocSPTI','vFechaNacSPTI','vTelSPTI','vCorreoSPTI','vNotasSPTI','vAseguradoNombreSPTI','vAseguradoDocSPTI'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+    const _chkSpti = document.getElementById('vSptiAseguradoMismoTomador'); if (_chkSpti) _chkSpti.checked = false;
     document.getElementById('vEdadSPTI').value = '';
     document.getElementById('vPlanSPTI').value = '';
     document.getElementById('vPeriodicidadSPTI').value = 'MENSUAL';
@@ -9320,6 +9359,27 @@ function checkPolizaExiste(polizaVal, producto, avisoId) {
   avisoEl.style.display = existe ? '' : 'none';
 }
 
+// Copiar datos del tomador al asegurado en SPTI
+function sptiCopiarTomadorAsegurado() {
+  const checked = document.getElementById('vSptiAseguradoMismoTomador')?.checked;
+  const fields  = document.getElementById('aseguradoFieldsSPTI');
+  if (checked) {
+    // Copiar nombre y doc del tomador
+    const nom = document.getElementById('vNombreSPTI')?.value || '';
+    const tdoc = document.getElementById('vTipoDocSPTI')?.value || 'CC';
+    const doc = document.getElementById('vDocSPTI')?.value || '';
+    if (document.getElementById('vAseguradoNombreSPTI')) document.getElementById('vAseguradoNombreSPTI').value = nom;
+    if (document.getElementById('vAseguradoTipoDocSPTI')) document.getElementById('vAseguradoTipoDocSPTI').value = tdoc;
+    if (document.getElementById('vAseguradoDocSPTI')) document.getElementById('vAseguradoDocSPTI').value = doc;
+    // Limpiar fecha nac para que el asesor la ingrese (la del tomador puede no aplicar)
+  } else {
+    if (document.getElementById('vAseguradoNombreSPTI')) document.getElementById('vAseguradoNombreSPTI').value = '';
+    if (document.getElementById('vAseguradoDocSPTI')) document.getElementById('vAseguradoDocSPTI').value = '';
+    if (document.getElementById('vFechaNacSPTI')) document.getElementById('vFechaNacSPTI').value = '';
+    if (document.getElementById('vEdadSPTI')) document.getElementById('vEdadSPTI').value = '';
+  }
+}
+
 function calcDatosSPTI() {
   // Calc age from fecha nac
   const fn = document.getElementById('vFechaNacSPTI').value;
@@ -9354,13 +9414,15 @@ function calcDatosSPTI() {
 
   const tarifa = SPTI_TARIFAS[plan][rangoEdad];
 
-  // Set prima base only if not manually edited
+  // Set prima base solo si no fue editada manualmente
   const primaBaseEl = document.getElementById('vPrimaBaseSPTI');
   if (!primaBaseEl.dataset.editado) {
+    _sptiSetProgramatico = true;          // bloquear listener antes de setear
     primaBaseEl.value = tarifa.mensual;
+    _sptiSetProgramatico = false;         // restaurar después
   }
 
-  // Update total and descuento using the resolved tarifa directly
+  // Siempre actualizar descuento y total desde la tabla tarifaria
   _actualizarTotalYDcto(tarifa, periodicidad);
 
   // Show full tariff preview cards
@@ -9426,33 +9488,27 @@ function calcTotalSPTI() {
   }
 }
 
-// Mark prima as manually edited — still recalculate descuento from tariff table
+// Listener prima base SPTI — distingue edición manual vs set programático
+let _sptiSetProgramatico = false; // flag: true cuando calcDatosSPTI setea el valor
 document.addEventListener('DOMContentLoaded', () => {
   const el = document.getElementById('vPrimaBaseSPTI');
-  if (el) el.addEventListener('input', () => {
+  if (!el) return;
+  el.addEventListener('input', () => {
+    if (_sptiSetProgramatico) return; // ignorar eventos de set programático
     el.dataset.editado = '1';
-    // Prefer tariff-based descuento even when prima is manually overridden
-    const plan = document.getElementById('vPlanSPTI')?.value;
-    const per  = document.getElementById('vPeriodicidadSPTI')?.value;
-    const edad = parseInt(document.getElementById('vEdadSPTI')?.value) || 0;
+    // Aun con prima editada, usar la tabla tarifaria para el descuento
+    const plan  = document.getElementById('vPlanSPTI')?.value;
+    const per   = document.getElementById('vPeriodicidadSPTI')?.value || 'MENSUAL';
+    const edad  = parseInt(document.getElementById('vEdadSPTI')?.value) || 0;
     const rango = getRangoEdadSPTI(edad);
     if (plan && rango && SPTI_TARIFAS[plan]?.[rango]) {
-      // Update only dcto and total (preserve manually-set prima base)
-      const t = SPTI_TARIFAS[plan][rango];
+      _actualizarTotalYDcto(SPTI_TARIFAS[plan][rango], per);
+    } else {
+      // Sin tarifa — calcular total simple sin descuento
       const primaBase = parseFloat(el.value) || 0;
       const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
-      const total = per === 'MENSUAL' ? primaBase
-                  : per === 'TRIMESTRAL' ? t.trimestre
-                  : per === 'SEMESTRAL'  ? t.semestre
-                  : per === 'ANUAL'      ? t.anual
-                  : primaBase * (meses[per]||1);
-      const dctoNum = per === 'TRIMESTRAL' ? t.dctoTrim
-                    : per === 'SEMESTRAL'  ? t.dctoSem
-                    : per === 'ANUAL'      ? t.dctoAnual : 0;
-      document.getElementById('vPrimaTotalSPTI').value = fmt(total);
-      document.getElementById('vDctoSPTI').value = dctoNum > 0 ? `Dcto: ${fmt(dctoNum)}` : 'Sin descuento';
-    } else {
-      calcTotalSPTI();
+      document.getElementById('vPrimaTotalSPTI').value = fmt(primaBase * (meses[per]||1));
+      document.getElementById('vDctoSPTI').value = per === 'MENSUAL' ? 'Sin descuento' : '(selecciona plan y edad)';
     }
   });
 });
@@ -10165,19 +10221,35 @@ function guardarVenta() {
     } else {
       primaTotalSinIVA = Math.round(primaTotal / IVA_FACTOR);
     }
+    const sptiTomadorNombre = document.getElementById('vNombreSPTI').value;
+    const sptiTomadorDoc    = document.getElementById('vDocSPTI').value;
+    const sptiTomadorTipoDoc= document.getElementById('vTipoDocSPTI').value;
+    const sptiTomadorTel    = document.getElementById('vTelSPTI').value;
+    const sptiTomadorCorreo = document.getElementById('vCorreoSPTI').value;
+    const sptiAsegNombre    = document.getElementById('vAseguradoNombreSPTI')?.value || sptiTomadorNombre;
+    const sptiAsegTipoDoc   = document.getElementById('vAseguradoTipoDocSPTI')?.value || sptiTomadorTipoDoc;
+    const sptiAsegDoc       = document.getElementById('vAseguradoDocSPTI')?.value || sptiTomadorDoc;
     state.ventas.push({
       id, producto: 'SPTI', fecha,
       mesComp: getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth()),
       fechaExp: document.getElementById('vFechaExpSPTI').value,
       poliza: document.getElementById('vPolizaSPTI').value,
       tipo: document.getElementById('vTipoSPTI').value,
-      nombre: document.getElementById('vNombreSPTI').value,
-      tipoDoc: document.getElementById('vTipoDocSPTI').value,
-      doc: document.getElementById('vDocSPTI').value,
+      // Tomador (quien paga)
+      tomadorNombre:  sptiTomadorNombre,
+      tomadorTipoDoc: sptiTomadorTipoDoc,
+      tomadorDoc:     sptiTomadorDoc,
+      tomadorTel:     sptiTomadorTel,
+      tomadorCorreo:  sptiTomadorCorreo,
+      // Asegurado (quien recibe el servicio — determina tarifa)
+      nombre:  sptiAsegNombre,
+      tipoDoc: sptiAsegTipoDoc,
+      doc:     sptiAsegDoc,
       fechaNac: document.getElementById('vFechaNacSPTI').value,
       edad: document.getElementById('vEdadSPTI').value,
-      telefono: document.getElementById('vTelSPTI').value,
-      correo: document.getElementById('vCorreoSPTI').value,
+      // Compatibilidad: nombre y telefono principal = tomador
+      telefono: sptiTomadorTel,
+      correo:   sptiTomadorCorreo,
       plan, periodicidad, prima: primaBase, primaTotal, primaTotalSinIVA, dcto: dctoNum,
       notas: document.getElementById('vNotasSPTI').value,
       ciudad: document.getElementById('vCiudadSPTI').value,
