@@ -8343,7 +8343,10 @@ function getVolComisionesSummary() {
     else if (v.producto === 'SPD') spdProy += com;
     else if (v.producto === 'PSM') psmProy += com;
     else if (v.producto === 'PAC60') pac60Proy += com;
-    if (pagos[v.id] && pagos[v.id].length > 0) real += com;
+    // Real cobrada: sumar p.comision de cada pago registrado (no la proyectada)
+    if (pagos[v.id] && pagos[v.id].length > 0) {
+      real += pagos[v.id].reduce((s, p) => s + (p.comision || 0), 0);
+    }
   });
   const totalProy = sptiProy + spdProy + psmProy + pac60Proy;
   return { sptiProy, spdProy, psmProy, pac60Proy, totalProy, real, pendiente: totalProy - real };
@@ -8394,6 +8397,8 @@ function renderVolComisiones() {
     const isPagado = !!(pagos[v.id] && pagos[v.id].length > 0);
     const com = calcVolComisionVenta(v);
     const comAnual = calcVolComisionAnual(v);
+    // Comisión real: suma de p.comision de cada pago registrado
+    const comReal = isPagado ? pagos[v.id].reduce((s, p) => s + (p.comision || 0), 0) : 0;
     const pct = v.producto==='SPTI' ? '7%' : '8%';
     const nombre = tc(v.tomadorNombre || v.nombre || '—');
     const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial' };
@@ -8417,7 +8422,7 @@ function renderVolComisiones() {
           : `<span class="chip chip-amber" style="font-size:10px;">⏳ Pendiente</span>`}
       </td>
       <td style="padding:9px 12px;text-align:right;font-family:var(--mono);color:${isPagado?'var(--green)':'var(--text-dim)'};font-weight:${isPagado?'700':'400'};">
-        ${isPagado ? fmt(com) : '—'}
+        ${isPagado ? fmt(comReal) : '—'}
       </td>
     </tr>`;
   }).join('');
