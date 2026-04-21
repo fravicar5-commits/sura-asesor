@@ -4059,16 +4059,12 @@
             <table style="font-size:12.5px;min-width:900px;width:100%;border-collapse:collapse;">
               <thead>
                 <tr style="background:var(--surface2);">
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Fecha Pago</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Cliente / Póliza</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Producto</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Cliente</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Documento</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Plan</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Periodo cubierto</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Prima</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Comisión</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Próx. Venc.</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Acciones</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Último Pago</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Pagos</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Total Prima</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Total Comisión</th>
                 </tr>
               </thead>
               <tbody id="historialPagosTabla"></tbody>
@@ -11999,36 +11995,66 @@ function renderHistorialPagos() {
 
   const tbody = document.getElementById('historialPagosTabla');
   if (!filas.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-dim);">Sin pagos registrados en este periodo</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-dim);">Sin pagos registrados en este periodo</td></tr>`;
     document.getElementById('historialPagosCount').textContent = '';
     return;
   }
 
+  // ── Agrupar por ventaId (cliente/póliza) ──────────────────────────────
   const prodChip = { SPTI:'chip-teal', SPD:'chip-purple', PSM:'chip-blue', PAC60:'chip-green' };
-  tbody.innerHTML = filas.map(({v, p, fechaPago}, i) => {
+  const grupos = new Map();
+  filas.forEach(({v, p, fechaPago}) => {
+    if (!grupos.has(v.id)) grupos.set(v.id, { v, pagos: [] });
+    grupos.get(v.id).pagos.push({ p, fechaPago });
+  });
+  // Cada grupo ya viene ordenado desc (filas ordenadas antes)
+  const gruposArr = Array.from(grupos.values());
+
+  tbody.innerHTML = gruposArr.map((g, i) => {
+    const { v, pagos: gpagos } = g;
     const rowBg = i%2===0 ? '' : 'rgba(255,255,255,0.015)';
     const nombre = tc(v.tomadorNombre || v.nombre || '—');
     const documento = v.doc || v.tomadorDoc || '—';
-    const fechaStr = fechaPago.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});
-    const desdeStr = p.periodoDesde ? new Date(p.periodoDesde+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'}) : '—';
-    const hastaStr = p.periodoHasta ? new Date(p.periodoHasta+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-    const planLabel = v.plan === 'PREFERENCIAL' ? 'Preferencial' : v.plan === 'CLASICO' ? 'Clásico' : (v.plan || '—');
-    return `<tr style="background:${rowBg};border-top:1px solid var(--border);">
-      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:nowrap;">${fechaStr}</td>
+    const ultimoFecha = gpagos[0].fechaPago.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});
+    const totalPrimaG = gpagos.reduce((s,x) => s+(x.p.prima||0),0);
+    const totalComG   = gpagos.reduce((s,x) => s+(x.p.comision||0),0);
+    const gid = `hpg_${v.id.replace(/[^a-z0-9]/gi,'_')}`;
+
+    // Detalle de cada pago individual (acordeón)
+    const detalleRows = gpagos.map(({p, fechaPago}) => {
+      const fStr   = fechaPago.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});
+      const desde  = p.periodoDesde ? new Date(p.periodoDesde+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'}) : '—';
+      const hasta  = p.periodoHasta ? new Date(p.periodoHasta+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      return `<tr style="background:rgba(26,76,232,0.04);border-top:1px solid var(--border);">
+        <td style="padding:6px 12px 6px 36px;font-family:var(--mono);font-size:11px;color:var(--text-muted);" colspan="2">📅 ${fStr}</td>
+        <td style="padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--text-muted);">Período: ${desde} → ${hasta}</td>
+        <td style="padding:6px 12px;text-align:center;"></td>
+        <td style="padding:6px 12px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--sura-lime);">${fmt(p.prima||0)}</td>
+        <td style="padding:6px 12px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--green);">
+          ${fmt(p.comision||0)}
+          <button class="btn btn-danger btn-sm" onclick="eliminarPagoIndividual('${v.id}','${p.id||''}')" title="Eliminar" style="margin-left:6px;padding:1px 5px;font-size:10px;">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `<tr style="background:${rowBg};border-top:1px solid var(--border);cursor:pointer;" onclick="document.getElementById('${gid}').style.display=document.getElementById('${gid}').style.display==='none'?'':'none'">
+      <td style="padding:10px 12px;">
+        <div style="font-weight:600;font-size:13px;">${nombre}</div>
+        <div style="font-size:10.5px;color:var(--text-muted);font-family:var(--mono);">${documento}</div>
+      </td>
       <td style="padding:10px 12px;"><span class="chip ${prodChip[v.producto]||'chip-blue'}" style="font-size:10px;">${v.producto}</span></td>
-      <td style="padding:10px 12px;font-weight:500;font-size:13px;">${nombre}</td>
-      <td style="padding:10px 12px;font-size:12px;font-family:var(--mono);color:var(--text-muted);">${documento}</td>
-      <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);">${planLabel}</td>
-      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--text-muted);">${desdeStr} → ${hastaStr}</td>
-      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;color:var(--sura-lime);">${fmt(p.prima||0)}</td>
-      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;color:var(--green);font-weight:700;">${fmt(p.comision||0)}</td>
-      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--teal);">${hastaStr}</td>
-      <td style="padding:10px 12px;white-space:nowrap;">
-        <button class="btn btn-danger btn-sm" onclick="eliminarPagoIndividual('${v.id}','${p.id||''}')" title="Eliminar este pago">🗑</button>
+      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:nowrap;">${ultimoFecha}</td>
+      <td style="padding:10px 12px;text-align:center;font-weight:700;font-size:13px;color:var(--sura-blue);">${gpagos.length} <span style="font-size:10px;color:var(--text-muted);font-weight:400;">▼</span></td>
+      <td style="padding:10px 12px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--sura-lime);font-weight:700;">${fmt(totalPrimaG)}</td>
+      <td style="padding:10px 12px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--green);font-weight:700;">${fmt(totalComG)}</td>
+    </tr>
+    <tr id="${gid}" style="display:none;">
+      <td colspan="6" style="padding:0;">
+        <table style="width:100%;border-collapse:collapse;">${detalleRows}</table>
       </td>
     </tr>`;
   }).join('');
-  document.getElementById('historialPagosCount').textContent = `Mostrando ${filas.length} pago(s) · ${polizasUnicas} póliza(s)`;
+  document.getElementById('historialPagosCount').textContent = `${gruposArr.length} cliente(s) · ${filas.length} pago(s) · ${polizasUnicas} póliza(s)`;
 }
 
 function eliminarPagoIndividual(ventaId, pagoId) {
@@ -14365,14 +14391,25 @@ async function importarCarteraSura(event) {
 
       // ── Deduplicar por cédula + póliza ────────────────────────────────
       // Cuando se importa con todos los períodos, SURA genera una fila por
-      // cada tramo de mora. Se conserva solo el registro con mayor diasCart
-      // (el más antiguo/urgente), que representa el estado real del cliente.
+      // cada tramo de mora. Se acumulan todos los recibos y se suma el saldo total.
       const dedupMap = new Map();
       _carteraSuraData.forEach(r => {
         const key = (r.cedula || r.nombre) + '|' + r.poliza;
         const existing = dedupMap.get(key);
-        if (!existing || r.diasCart > existing.diasCart) {
-          dedupMap.set(key, r);
+        if (!existing) {
+          // Primer recibo: guardar con lista de recibos y saldoTotal
+          dedupMap.set(key, { ...r, saldoTotal: r.saldo, recibos: [{ diasCart: r.diasCart, saldo: r.saldo, pagoMax: r.pagoMax }] });
+        } else {
+          // Recibos adicionales: acumular saldo y lista
+          existing.saldoTotal += r.saldo;
+          existing.recibos.push({ diasCart: r.diasCart, saldo: r.saldo, pagoMax: r.pagoMax });
+          // Conservar el diasCart mayor (más urgente) para urgencia y ordenamiento
+          if (r.diasCart > existing.diasCart) {
+            existing.diasCart = r.diasCart;
+            existing.diasCanc = r.diasCanc;
+            existing.pagoMax  = r.pagoMax;
+            existing.urgencia = r.urgencia;
+          }
         }
       });
       const totalAntes = _carteraSuraData.length;
@@ -14460,13 +14497,16 @@ function renderCarteraSuraTabla() {
     const telLimpio = r.telefono.replace(/\D/g,'');
 
     // ── Mensaje inteligente según días de cartera ──────────────────────────
-    // Calcular meses adeudados y saldo real (prima × meses)
-    const mesesMora   = r.diasCart > 0 ? Math.ceil(r.diasCart / 30) : 1;
-    // Usar saldo del reporte si está disponible y es válido, si no estimar desde la prima en BD
-    const saldoReal   = r.saldo > 0 ? r.saldo : 0;
-    const saldoFmt    = saldoReal > 0
-      ? '$' + saldoReal.toLocaleString('es-CO')
-      : `$${(mesesMora * 160812).toLocaleString('es-CO')}`; // fallback prima promedio SPTI
+    const saldoTotalCliente = r.saldoTotal > 0 ? r.saldoTotal : (r.saldo > 0 ? r.saldo : 0);
+    const saldoFmt = '$' + saldoTotalCliente.toLocaleString('es-CO');
+
+    // Detalle de recibos si hay más de uno
+    const recibosDetalle = (r.recibos && r.recibos.length > 1)
+      ? '\n\n📋 *Recibos pendientes:*\n' + r.recibos
+          .sort((a, b) => a.diasCart - b.diasCart)
+          .map(rb => `- ${rb.diasCart} días — $${rb.saldo.toLocaleString('es-CO')} · vence ${rb.pagoMax}`)
+          .join('\n')
+      : '';
 
     // 60+ días → riesgo de cancelación definitiva
     // 35-59 días → suspensión del servicio
@@ -14480,7 +14520,9 @@ function renderCarteraSuraTabla() {
 Hola *${r.primerNombre}* 👋
 Espero que tú y tu familia se encuentren muy bien.
 
-Queremos recordarte que tienes un saldo pendiente de *${saldoFmt}* correspondiente a ${r.diasCart} días de mora en tu *${r.solucion}* con fecha límite de pago el *${r.pagoMax}* ${consecuencia}. Para tu comodidad puedes realizar el pago en línea ingresando al siguiente link con tu número de documento:
+Queremos recordarte que tienes un saldo total pendiente de *${saldoFmt}* en tu *${r.solucion}* ${consecuencia}.${recibosDetalle}
+
+Para tu comodidad puedes realizar el pago en línea ingresando al siguiente link con tu número de documento:
 
 🔗 https://www.segurossura.com.co/paginas/pago-express.aspx/
 
@@ -14501,7 +14543,7 @@ Si ya realizaste el pago puedes omitir este mensaje. 😊`
       </td>
       <td style="padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--text-muted);">${r.poliza}</td>
       <td style="padding:8px 12px;font-size:11.5px;">${r.solucion}</td>
-      <td style="padding:8px 12px;text-align:right;font-weight:700;font-family:var(--mono);color:var(--amber);">$${r.saldo.toLocaleString('es-CO')}</td>
+      <td style="padding:8px 12px;text-align:right;font-weight:700;font-family:var(--mono);color:var(--amber);">$${(r.saldoTotal||r.saldo).toLocaleString('es-CO')}${r.recibos&&r.recibos.length>1?`<div style="font-size:9.5px;color:var(--text-muted);font-weight:400;">${r.recibos.length} recibos</div>`:''}</td>
       <td style="padding:8px 12px;text-align:center;font-family:var(--mono);font-size:12px;">${r.diasCart}</td>
       <td style="padding:8px 12px;text-align:center;">
         <span style="font-weight:700;color:${urg.color};font-family:var(--mono);">${r.diasCanc}</span>
