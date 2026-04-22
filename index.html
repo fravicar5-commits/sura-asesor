@@ -23132,11 +23132,11 @@ function wmGetRutasPorTipo() {
   const tipo = document.getElementById('wm_server_tipo')?.value
     || localStorage.getItem('wm_server_tipo') || 'auto';
   const MAP = {
-    wasend:      { status: ['/status','/health'],           send: '/send' },
+    wasend:      { status: ['/api/status','/status','/health'],  send: '/api/send' },
     wppconnect:  { status: ['/api/default/status-session','/api/session1/status-session'], send: '/api/default/send-message' },
-    baileys:     { status: ['/status','/session/status'],   send: '/session/send' },
+    baileys:     { status: ['/status','/session/status'],        send: '/session/send' },
     evolution:   { status: ['/instance/connectionState/default','/instance/fetchInstances'], send: '/message/sendText/default' },
-    auto:        { status: ['/status','/health','/ping','/session/status','/api/status','/wa/status','/api/default/status-session','/api/session1/status-session'], send: '/send' },
+    auto:        { status: ['/api/status','/status','/health','/ping','/session/status','/wa/status','/api/default/status-session','/api/session1/status-session'], send: '/api/send' },
   };
   return MAP[tipo] || MAP.auto;
 }
@@ -23602,22 +23602,55 @@ async function wmIniciarEnvio() {
     const tel = c.telefono.replace(/\D/g,'');
     const telFull = tel.startsWith('57') ? tel : '57' + tel;
 
-    try {
-      const sendPath = window._wmSendPath || '/send';
-      const r = await fetch(`${server}${sendPath}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: telFull, message: msg }),
-        signal: AbortSignal.timeout(70000)
-      });
-      const d = await r.json().catch(() => ({}));
-      if (r.ok && (d.success || d.sent || d.status === 'sent' || d.id)) {
-        ok++; wmLogLine(`✅ ${c.nombre} (${telFull})`, 'ok');
-      } else {
+    // Construir payloads en todos los formatos compatibles con WaSend/whatsapp-web.js
+    const chatId = `${telFull}@c.us`;
+    const sendPath = window._wmSendPath || '/send';
+
+    // Lista de payloads a intentar en orden, cubriendo todas las variantes conocidas
+    const payloads = [
+      { chatId, message: msg },                                // whatsapp-web.js estándar
+      { chatId, body: msg },                                   // variante con body
+      { phone: telFull, message: msg },                        // formato genérico
+      { number: telFull, message: msg },                       // variante number
+      { to: telFull, body: msg },                              // formato UltraMsg/WPPConnect
+      { to: chatId, body: msg },                               // con chatId en to
+      { recipient: chatId, message: msg },                     // variante recipient
+    ];
+
+    let enviado = false;
+    for (const payload of payloads) {
+      try {
+        const r = await fetch(`${server}${sendPath}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(70000)
+        });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && (d.success || d.sent || d.status === 'sent' || d.id || d.messageId)) {
+          ok++; wmLogLine(`✅ ${c.nombre} (${telFull})`, 'ok');
+          enviado = true; break;
+        }
+        // Si el error indica formato incorrecto, probar siguiente payload
+        const errMsg = (d.error || d.message || '').toLowerCase();
+        const isFormatErr = errMsg.includes('sin contacto') || errMsg.includes('contact') ||
+                            errMsg.includes('invalid') || errMsg.includes('inválido') ||
+                            errMsg.includes('not found') || errMsg.includes('no encontrado') ||
+                            errMsg.includes('required') || errMsg.includes('requerido');
+        if (isFormatErr) continue; // probar siguiente formato
+        // Error definitivo (no de formato)
         fail++; wmLogLine(`❌ ${c.nombre} — ${d.error || d.message || r.status}`, 'err');
+        enviado = true; break;
+      } catch(e) {
+        if (e.name === 'AbortError') {
+          fail++; wmLogLine(`❌ ${c.nombre} — Timeout (servidor tardó más de 70s)`, 'err');
+          enviado = true; break;
+        }
+        continue; // error de red, intentar siguiente payload
       }
-    } catch(e) {
-      fail++; wmLogLine(`❌ ${c.nombre} — ${e.message}`, 'err');
+    }
+    if (!enviado) {
+      fail++; wmLogLine(`❌ ${c.nombre} — Ningún formato de payload fue aceptado por el servidor`, 'err');
     }
 
     wmActualizarProgreso(ok, fail, total);
