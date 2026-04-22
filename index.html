@@ -23401,7 +23401,7 @@ async function wmVerificarServidor() {
     return;
   }
   if (dot) dot.style.background = 'var(--amber)';
-  if (txt) txt.textContent = 'Verificando...';
+  if (txt) txt.textContent = 'Verificando... (puede tardar ~60s si el servidor estaba dormido)';
 
   // Rutas según tipo de servidor configurado
   const rutasConfig = wmGetRutasPorTipo();
@@ -23422,12 +23422,22 @@ async function wmVerificarServidor() {
     '/instance/fetchInstances':         '/message/sendText/default',
   };
 
+  // Contador visual para mostrar progreso de espera
+  let verifyTick = 0;
+  const verifyTimer = setInterval(() => {
+    verifyTick++;
+    if (txt && txt.textContent.includes('Verificando')) {
+      txt.textContent = `Verificando... ${verifyTick}s (Render puede tardar hasta 60s en despertar)`;
+    }
+  }, 1000);
+
   for (const ruta of RUTAS_STATUS) {
     try {
       const r = await fetch(`${server}${ruta}`, {
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(70000),
         headers: { 'Accept': 'application/json' }
       });
+      clearInterval(verifyTimer);
 
       // Si responde (aunque sea 4xx) el servidor está vivo
       let d = {};
@@ -23452,6 +23462,7 @@ async function wmVerificarServidor() {
                           r.status === 200;
 
       if (isConnected && !d.qr) {
+        clearInterval(verifyTimer);
         if (dot) dot.style.background = 'var(--green)';
         if (txt) txt.textContent = `✅ Servidor activo · ruta: ${ruta}`;
         if (qrArea) qrArea.style.display = 'none';
@@ -23460,6 +23471,7 @@ async function wmVerificarServidor() {
       }
 
       if (d.qr) {
+        clearInterval(verifyTimer);
         if (dot) dot.style.background = 'var(--amber)';
         if (txt) txt.textContent = '📱 Escanea el QR para conectar WhatsApp';
         if (qrArea) qrArea.style.display = '';
@@ -23474,6 +23486,7 @@ async function wmVerificarServidor() {
 
       // Servidor responde pero estado desconocido — lo damos por activo
       if (r.status < 500) {
+        clearInterval(verifyTimer);
         if (dot) dot.style.background = 'var(--amber)';
         if (txt) txt.textContent = `⚠️ Servidor activo en ${ruta} — estado desconocido (${r.status})`;
         wmLogLine(`⚠️ Servidor responde en ${server}${ruta} con status ${r.status}`, 'warn');
@@ -23485,6 +23498,7 @@ async function wmVerificarServidor() {
       if (e.name === 'AbortError') continue;
       // Error de CORS: el servidor existe pero bloquea el fetch desde browser
       if (e.message.includes('NetworkError') || e.message.includes('Failed to fetch') || e.message.includes('CORS')) {
+        clearInterval(verifyTimer);
         if (dot) dot.style.background = 'var(--amber)';
         if (txt) txt.textContent = `⚠️ Servidor encontrado pero bloquea CORS en ${ruta} — puede funcionar igual`;
         wmLogLine(`⚠️ CORS bloqueado en ${server}${ruta} — el servidor existe`, 'warn');
@@ -23496,6 +23510,7 @@ async function wmVerificarServidor() {
   }
 
   // Ninguna ruta respondió
+  clearInterval(verifyTimer);
   if (dot) dot.style.background = 'var(--red)';
   if (txt) txt.textContent = '❌ Servidor no responde en ninguna ruta conocida — verifica la URL';
   wmLogLine(`❌ Sin respuesta en ${server} tras probar ${RUTAS_STATUS.length} rutas`, 'err');
@@ -23540,6 +23555,42 @@ async function wmIniciarEnvio() {
   const resumen = document.getElementById('wm_resumen');
   if (resumen) resumen.style.display = 'none';
 
+  // ── WAKE-UP: despertar servidor Render antes de enviar ───────────────────
+  const dot = document.getElementById('wm_status_dot');
+  const statusTxt = document.getElementById('wm_status_text');
+  wmLogLine('⏳ Despertando servidor (puede tardar hasta 60s en Render)...', 'info');
+  if (statusTxt) statusTxt.textContent = 'Despertando servidor...';
+  let wakeOk = false;
+  let wakeTick = 0;
+  const wakeTimer = setInterval(() => {
+    wakeTick++;
+    if (statusTxt) statusTxt.textContent = `Despertando servidor... ${wakeTick}s`;
+  }, 1000);
+  try {
+    const sendPath = window._wmSendPath || '/send';
+    const rutas = [sendPath, '/api/status', '/status', '/health', '/ping'];
+    for (const ruta of rutas) {
+      try {
+        const wr = await fetch(`${server}${ruta}`, {
+          signal: AbortSignal.timeout(70000),
+          headers: { 'Accept': 'application/json' }
+        });
+        if (wr.status < 500) { wakeOk = true; break; }
+      } catch(we) {
+        if (we.name !== 'AbortError') { wakeOk = true; break; } // CORS = servidor vivo
+      }
+    }
+  } catch(e) { /* continuar igual */ }
+  clearInterval(wakeTimer);
+  if (wakeOk) {
+    wmLogLine('✅ Servidor despierto. Iniciando envío...', 'ok');
+    if (statusTxt) statusTxt.textContent = '✅ Servidor activo';
+    if (dot) dot.style.background = 'var(--green)';
+  } else {
+    wmLogLine('⚠️ Servidor no respondió al wake-up — intentando enviar de todas formas', 'warn');
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   let ok = 0, fail = 0;
   const total = wmClientesSegmento.length;
   wmLogLine(`🚀 Iniciando envío a ${total} contactos vía ${server}`, 'info');
@@ -23557,7 +23608,7 @@ async function wmIniciarEnvio() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: telFull, message: msg }),
-        signal: AbortSignal.timeout(15000)
+        signal: AbortSignal.timeout(70000)
       });
       const d = await r.json().catch(() => ({}));
       if (r.ok && (d.success || d.sent || d.status === 'sent' || d.id)) {
@@ -23594,6 +23645,18 @@ function wmInit() {
   wmSetTab('sura');
   wmFiltrarClientes();
   wmVerificarServidor();
+
+  // ── KEEP-ALIVE: ping cada 14 min para evitar que Render duerma el servidor ──
+  if (window._wmKeepAliveInterval) clearInterval(window._wmKeepAliveInterval);
+  window._wmKeepAliveInterval = setInterval(async () => {
+    const server = wmGetServer();
+    if (!server) return;
+    try {
+      await fetch(`${server}/ping`, { signal: AbortSignal.timeout(10000) });
+    } catch(e) {
+      try { await fetch(`${server}/health`, { signal: AbortSignal.timeout(10000) }); } catch(e2) {}
+    }
+  }, 14 * 60 * 1000); // 14 minutos
 }
 
 
