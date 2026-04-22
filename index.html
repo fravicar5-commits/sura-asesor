@@ -5568,48 +5568,86 @@
 
       <!-- ===== MÓDULO ENVÍO MASIVO WHATSAPP ===== -->
       <div class="page" id="page-enviomasivo">
-        <div style="margin-bottom:20px;">
+        <div style="margin-bottom:16px;">
           <div class="section-title" style="margin-bottom:4px;">📲 Envío Masivo WhatsApp</div>
-          <div style="font-size:12px;color:var(--text-muted);">Selecciona un segmento de clientes · personaliza el mensaje · envía en lote · WaSend API</div>
+          <div style="font-size:12px;color:var(--text-muted);">Clientes SURA · importa Excel · pega números · envía en lote vía WaSend</div>
         </div>
 
-        <!-- Row: configuración + vista previa -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
 
-          <!-- Panel izquierdo: Configuración -->
+          <!-- PANEL IZQUIERDO -->
           <div style="display:flex;flex-direction:column;gap:16px;">
 
-            <!-- Segmento de clientes -->
+            <!-- 1 · ORIGEN DE CONTACTOS — tabs -->
             <div class="card">
-              <div class="card-title">1 · Segmento de clientes</div>
-              <div style="display:flex;flex-direction:column;gap:10px;">
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Filtrar por producto</label>
-                  <select class="form-control" id="wm_producto" onchange="wmFiltrarClientes()">
-                    <option value="todos">Todos los productos</option>
-                    <option value="pbs">PBS / EPS</option>
-                    <option value="spti">SPTI</option>
-                    <option value="spd">SPD</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Estado de cartera</label>
-                  <select class="form-control" id="wm_estado" onchange="wmFiltrarClientes()">
-                    <option value="todos">Todos</option>
-                    <option value="al_dia">Al día</option>
-                    <option value="mora">En mora</option>
-                    <option value="suspension">Riesgo suspensión</option>
-                  </select>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:13px;">
-                  <span style="color:var(--text-muted);">Clientes encontrados:</span>
-                  <span id="wm_count" style="font-weight:700;color:var(--primary);font-family:var(--mono);">0</span>
-                </div>
-                <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;" id="wm_lista_clientes"></div>
+              <div class="card-title" style="margin-bottom:12px;">1 · Origen de contactos</div>
+
+              <!-- Tabs -->
+              <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px;">
+                <button id="wm_tab_sura"   onclick="wmSetTab('sura')"   style="font-size:11.5px;padding:5px 12px;border-radius:6px;border:1px solid var(--sura-blue);background:rgba(26,76,232,0.15);color:var(--sura-blue);font-weight:600;cursor:pointer;">👥 Clientes SURA</button>
+                <button id="wm_tab_excel"  onclick="wmSetTab('excel')"  style="font-size:11.5px;padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">📥 Importar Excel</button>
+                <button id="wm_tab_manual" onclick="wmSetTab('manual')" style="font-size:11.5px;padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">✏️ Pegar números</button>
               </div>
+
+              <!-- Tab: Clientes SURA -->
+              <div id="wm_panel_sura">
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Filtrar por producto</label>
+                    <select class="form-control" id="wm_producto" onchange="wmFiltrarClientes()">
+                      <option value="todos">Todos los productos</option>
+                      <option value="PBS">PBS / EPS</option>
+                      <option value="SPTI">SPTI</option>
+                      <option value="SPD">SPD</option>
+                      <option value="PSM">Plan Modular</option>
+                      <option value="PAC60">Plan 60+</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Estado de cartera</label>
+                    <select class="form-control" id="wm_estado" onchange="wmFiltrarClientes()">
+                      <option value="todos">Todos</option>
+                      <option value="mora">Con pagos en mora (SPTI/SPD/PSM)</option>
+                      <option value="al_dia">Al día</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab: Importar Excel -->
+              <div id="wm_panel_excel" style="display:none;">
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+                  El archivo debe tener columnas <strong>telefono</strong> y <strong>nombre</strong> (también acepta: celular, cel, nombre, cliente).
+                </div>
+                <input type="file" id="wm_excel_input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="wmImportarExcel(event)">
+                <button class="btn btn-secondary" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('wm_excel_input').click()">
+                  📥 Seleccionar archivo Excel / CSV
+                </button>
+                <div id="wm_excel_status" style="font-size:12px;color:var(--text-muted);text-align:center;"></div>
+              </div>
+
+              <!-- Tab: Pegar números -->
+              <div id="wm_panel_manual" style="display:none;">
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">
+                  Pega números y nombres separados por coma o punto y coma, uno por línea.<br>
+                  <span style="color:var(--text-dim);">Ej: <em>3001234567, Juan Pérez</em> · o solo el número</span>
+                </div>
+                <textarea class="form-control" id="wm_manual_txt" rows="6"
+                  placeholder="3001234567, Juan Pérez&#10;3109876543, María López&#10;3205551234"></textarea>
+                <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="wmParsearManual()">
+                  ✅ Cargar números pegados
+                </button>
+              </div>
+
+              <!-- Contador siempre visible -->
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:13px;margin-top:12px;">
+                <span style="color:var(--text-muted);">Contactos cargados:</span>
+                <span id="wm_count" style="font-weight:700;color:var(--sura-blue);font-family:var(--mono);">0</span>
+              </div>
+              <div style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin-top:8px;" id="wm_lista_clientes"></div>
             </div>
 
-            <!-- Plantilla de mensaje -->
+            <!-- 2 · MENSAJE -->
             <div class="card">
               <div class="card-title">2 · Mensaje</div>
               <div style="display:flex;flex-direction:column;gap:10px;">
@@ -5621,7 +5659,6 @@
                     <option value="suspension">Aviso de suspensión</option>
                     <option value="bienvenida">Bienvenida / cobertura</option>
                     <option value="renovacion">Renovación voluntario</option>
-                    <option value="personalizado">Personalizado</option>
                   </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
@@ -5629,85 +5666,92 @@
                   <textarea class="form-control" id="wm_texto" rows="6" oninput="wmActualizarPreview()"
                     placeholder="Hola {nombre}, te escribimos de SURA..."></textarea>
                 </div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;" id="wm_vars_btns">
-                  <button class="btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="wmInsertarVar('{nombre}')">+ {nombre}</button>
-                  <button class="btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="wmInsertarVar('{producto}')">+ {producto}</button>
-                  <button class="btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="wmInsertarVar('{mora}')">+ {mora}</button>
-                  <button class="btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="wmInsertarVar('{fecha}')">+ {fecha}</button>
-                  <button class="btn-secondary" style="font-size:11px;padding:4px 8px;" onclick="wmInsertarVar('{asesor}')">+ {asesor}</button>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button class="btn btn-secondary btn-sm" onclick="wmInsertarVar('{nombre}')">+ {nombre}</button>
+                  <button class="btn btn-secondary btn-sm" onclick="wmInsertarVar('{producto}')">+ {producto}</button>
+                  <button class="btn btn-secondary btn-sm" onclick="wmInsertarVar('{mora}')">+ {mora}</button>
+                  <button class="btn btn-secondary btn-sm" onclick="wmInsertarVar('{fecha}')">+ {fecha}</button>
+                  <button class="btn btn-secondary btn-sm" onclick="wmInsertarVar('{asesor}')">+ {asesor}</button>
                 </div>
               </div>
             </div>
 
-            <!-- Delay entre mensajes -->
+            <!-- 3 · CONFIG ENVÍO -->
             <div class="card">
               <div class="card-title">3 · Configuración de envío</div>
               <div style="display:flex;flex-direction:column;gap:10px;">
                 <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">URL del servidor WaSend</label>
+                  <div style="display:flex;gap:8px;">
+                    <input type="text" class="form-control" id="wm_server_url"
+                      placeholder="https://tu-servidor.onrender.com"
+                      style="flex:1;"
+                      oninput="wmGuardarConfigServidor()">
+                    <button class="btn btn-secondary btn-sm" onclick="wmVerificarServidor()" style="white-space:nowrap;">🔄 Probar</button>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">La URL se guarda automáticamente en tu dispositivo.</div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">Delay entre mensajes (segundos)</label>
-                  <input type="number" class="form-control" id="wm_delay" value="3" min="1" max="60">
+                  <input type="number" class="form-control" id="wm_delay" value="5" min="1" max="60">
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);padding:8px;background:var(--surface2);border-radius:6px;">
-                  ⚠️ Un delay mínimo de 3s reduce el riesgo de bloqueo por WhatsApp. Recomendado: 5–10s para lotes grandes.
+                  ⚠️ Mínimo 3s entre mensajes. Recomendado 5–10s para lotes grandes.
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Panel derecho: Preview + envío -->
+          <!-- PANEL DERECHO -->
           <div style="display:flex;flex-direction:column;gap:16px;">
 
             <!-- Vista previa -->
             <div class="card">
               <div class="card-title">Vista previa del mensaje</div>
-              <div id="wm_preview_box" style="background:var(--surface2);border-radius:10px;padding:14px;font-size:13px;line-height:1.6;min-height:120px;color:var(--text);white-space:pre-wrap;border-left:3px solid var(--primary);">
-                <span style="color:var(--text-dim);font-style:italic;">El mensaje aparecerá aquí con datos del primer cliente del segmento...</span>
+              <div id="wm_preview_box" style="background:var(--surface2);border-radius:10px;padding:14px;font-size:13px;line-height:1.6;min-height:120px;color:var(--text);white-space:pre-wrap;border-left:3px solid var(--sura-blue);">
+                <span style="color:var(--text-dim);font-style:italic;">El mensaje aparecerá aquí con datos del primer contacto...</span>
               </div>
               <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn-secondary" style="font-size:12px;" onclick="wmCopiarPreview()">📋 Copiar preview</button>
-                <button class="btn-secondary" style="font-size:12px;" onclick="wmAbrirWAPreview()">👁️ Ver en WA</button>
+                <button class="btn btn-secondary btn-sm" onclick="wmCopiarPreview()">📋 Copiar preview</button>
+                <button class="btn btn-secondary btn-sm" onclick="wmAbrirWAPreview()">👁️ Ver en WA</button>
               </div>
             </div>
 
-            <!-- Estado del servidor -->
+            <!-- Estado servidor -->
             <div class="card" id="wm_server_card">
               <div class="card-title">Estado del servidor WaSend</div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <div id="wm_server_status" style="display:flex;align-items:center;gap:8px;font-size:13px;">
-                  <span id="wm_status_dot" style="width:10px;height:10px;border-radius:50%;background:var(--text-dim);display:inline-block;"></span>
-                  <span id="wm_status_text" style="color:var(--text-muted);">Verificando...</span>
+                <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                  <span id="wm_status_dot" style="width:10px;height:10px;border-radius:50%;background:var(--text-dim);display:inline-block;flex-shrink:0;"></span>
+                  <span id="wm_status_text" style="color:var(--text-muted);">Ingresa la URL del servidor y presiona Probar</span>
                 </div>
-                <button class="btn-secondary" style="font-size:12px;margin-left:auto;" onclick="wmVerificarServidor()">🔄 Verificar</button>
+                <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="wmVerificarServidor()">🔄 Verificar</button>
               </div>
               <div id="wm_qr_area" style="display:none;margin-top:12px;text-align:center;">
                 <div style="font-size:12px;color:var(--amber);margin-bottom:8px;">📱 Escanea el QR para conectar WhatsApp</div>
-                <img id="wm_qr_img" src="" alt="QR Code" style="max-width:200px;border-radius:8px;border:2px solid var(--border);">
+                <img id="wm_qr_img" src="" alt="QR" style="max-width:200px;border-radius:8px;border:2px solid var(--border);">
               </div>
             </div>
 
-            <!-- Log de envío -->
+            <!-- Progreso y log -->
             <div class="card">
               <div class="card-title">Progreso del envío</div>
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                 <div style="flex:1;background:var(--surface2);border-radius:20px;height:8px;overflow:hidden;">
-                  <div id="wm_progress_bar" style="width:0%;height:100%;background:var(--primary);border-radius:20px;transition:width .3s;"></div>
+                  <div id="wm_progress_bar" style="width:0%;height:100%;background:var(--sura-blue);border-radius:20px;transition:width .3s;"></div>
                 </div>
                 <span id="wm_progress_text" style="font-size:12px;font-family:var(--mono);color:var(--text-muted);white-space:nowrap;">0 / 0</span>
               </div>
               <div id="wm_log" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-family:var(--mono);"></div>
             </div>
 
-            <!-- Botones de acción -->
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn-primary" style="flex:1;" onclick="wmIniciarEnvio()" id="wm_btn_enviar">
-                📲 Iniciar Envío Masivo
-              </button>
-              <button class="btn-danger" style="flex:none;padding:10px 16px;" onclick="wmDetenerEnvio()" id="wm_btn_detener" style="display:none;">
-                ⏹ Detener
-              </button>
+            <!-- Botones -->
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-primary" style="flex:1;" onclick="wmIniciarEnvio()" id="wm_btn_enviar">📲 Iniciar Envío Masivo</button>
+              <button class="btn btn-danger" onclick="wmDetenerEnvio()" id="wm_btn_detener" style="display:none;padding:10px 16px;">⏹ Detener</button>
             </div>
 
-            <!-- Resumen post-envío -->
+            <!-- Resumen -->
             <div id="wm_resumen" style="display:none;" class="card">
               <div class="card-title">Resumen del lote</div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;">
@@ -5720,7 +5764,7 @@
                   <div style="font-size:11px;color:var(--text-muted);">Fallidos</div>
                 </div>
                 <div style="background:var(--surface2);border-radius:8px;padding:12px;">
-                  <div id="wm_res_total" style="font-size:22px;font-weight:700;color:var(--primary);">0</div>
+                  <div id="wm_res_total" style="font-size:22px;font-weight:700;color:var(--sura-blue);">0</div>
                   <div style="font-size:11px;color:var(--text-muted);">Total</div>
                 </div>
               </div>
@@ -7798,7 +7842,7 @@ function refreshPage(page) {
   else if (page === 'contactos') renderContactos();
   else if (page === 'accesos') renderAccesos();
   else if (page === 'segsocial') ssInitPage();
-  else if (page === 'enviomasivo') { wmFiltrarClientes(); wmVerificarServidor(); }
+  else if (page === 'enviomasivo') { wmInit(); }
   else if (page === 'actividad') renderActividad();
   else if (page === 'plantillas') { renderPlantillas(); iaActualizarEstadoPaneles(); }
   else if (page === 'radar') {} // radar ya fue manejado arriba
@@ -23045,62 +23089,93 @@ function histLimpiar() {
 // Solo necesitamos llamar bootApp cuando el DOM y el script estén listos.
 
 // =============================================
+// =============================================
 // MÓDULO ENVÍO MASIVO WHATSAPP — WaSend API
 // =============================================
-const WM_SERVER = 'https://wasend.onrender.com';
+
 let wmClientesSegmento = [];
 let wmEnviando = false;
-let wmDetener = false;
+let wmDetener  = false;
+let wmTabActual = 'sura';
+
+// URL configurable guardada en localStorage
+function wmGetServer() {
+  return (document.getElementById('wm_server_url')?.value || '').trim().replace(/\/$/, '')
+    || localStorage.getItem('wm_server_url') || '';
+}
+function wmGuardarConfigServidor() {
+  const url = document.getElementById('wm_server_url')?.value?.trim() || '';
+  try { localStorage.setItem('wm_server_url', url); } catch(e) {}
+}
+function wmCargarConfigServidor() {
+  const saved = localStorage.getItem('wm_server_url') || '';
+  const el = document.getElementById('wm_server_url');
+  if (el && saved) el.value = saved;
+}
 
 const WM_PLANTILLAS = {
-  cobro: `Hola {nombre} 👋, te recordamos que tienes un saldo pendiente en tu póliza *{producto}* con SURA.\n\nEl valor en mora es de *{mora}*. Para evitar la suspensión del servicio, te invitamos a regularizar tu pago antes del próximo corte.\n\n¿Necesitas información adicional? Con gusto te ayudamos. 🙏\n\n_{asesor}_`,
-  suspension: `Hola {nombre}, te informamos que tu póliza *{producto}* está en riesgo de *suspensión* por un saldo en mora de *{mora}*.\n\nFecha límite: *{fecha}*. Comunícate con nosotros de inmediato para evitar la interrupción de tu cobertura. 📋\n\n_{asesor}_ · SURA`,
-  bienvenida: `¡Hola {nombre}! 🎉 Bienvenido(a) a tu plan *{producto}* de SURA. Ya tienes cobertura activa.\n\nSoy {asesor}, tu asesor(a) de confianza. Cualquier duda o gestión, aquí estoy. 😊`,
-  renovacion: `Hola {nombre}, tu póliza *{producto}* está próxima a vencer. 🔔\n\nFecha de renovación: *{fecha}*. Renuévala a tiempo y mantén tu protección sin interrupciones.\n\nEscríbeme y con gusto te asesoro. 💪\n\n_{asesor}_`,
-  personalizado: ''
+  cobro:      `Hola {nombre} 👋, te recordamos que tienes un saldo pendiente en tu póliza *{producto}* con SURA.\n\nEl valor en mora es de *{mora}*. Para evitar la suspensión del servicio, te invitamos a regularizar tu pago.\n\n¿Necesitas información? Con gusto te ayudamos. 🙏\n\n_{asesor}_`,
+  suspension: `Hola {nombre}, tu póliza *{producto}* está en riesgo de *suspensión* por un saldo de *{mora}*.\n\nFecha límite: *{fecha}*. Comunícate con nosotros de inmediato. 📋\n\n_{asesor}_ · SURA`,
+  bienvenida: `¡Hola {nombre}! 🎉 Bienvenido(a) a tu plan *{producto}* de SURA. Ya tienes cobertura activa.\n\nSoy {asesor}, tu asesor de confianza. Cualquier duda, aquí estoy. 😊`,
+  renovacion: `Hola {nombre}, tu póliza *{producto}* está próxima a vencer. 🔔\n\nFecha: *{fecha}*. Renuévala y mantén tu protección.\n\n_{asesor}_`
 };
 
+// ── TABS ──────────────────────────────────────────────────────────────────
+function wmSetTab(tab) {
+  wmTabActual = tab;
+  ['sura','excel','manual'].forEach(t => {
+    const panel = document.getElementById('wm_panel_' + t);
+    const btn   = document.getElementById('wm_tab_' + t);
+    if (!panel || !btn) return;
+    const active = t === tab;
+    panel.style.display = active ? '' : 'none';
+    btn.style.background   = active ? 'rgba(26,76,232,0.15)' : 'none';
+    btn.style.borderColor  = active ? 'var(--sura-blue)'     : 'var(--border)';
+    btn.style.color        = active ? 'var(--sura-blue)'     : 'var(--text-muted)';
+    btn.style.fontWeight   = active ? '600' : '400';
+  });
+  if (tab === 'sura') wmFiltrarClientes();
+}
+
+// ── FUENTE: CLIENTES SURA ────────────────────────────────────────────────
 function wmFiltrarClientes() {
-  const producto = document.getElementById('wm_producto')?.value || 'todos';
-  const estadoFiltro = document.getElementById('wm_estado')?.value || 'todos';
+  const producto    = document.getElementById('wm_producto')?.value || 'todos';
+  const estadoFiltro = document.getElementById('wm_estado')?.value  || 'todos';
   const s = getState();
+  const pagos = getPagos ? getPagos() : {};
+  const ventas = (s.ventas || []);
   let clientes = [];
 
-  // Construir lista unificada de clientes con teléfono
-  const agregarClientes = (arr, prod) => {
-    (arr || []).forEach(c => {
-      const tel = (c.telefono || c.celular || c.tel || '').replace(/\s/g, '');
-      if (!tel) return;
-      // Calcular mora aproximada
-      let mora = 0;
-      if (c.cuota && c.periodoHasta) {
-        const hoy = new Date();
-        const hasta = new Date(c.periodoHasta);
-        if (hasta < hoy) {
-          const meses = Math.max(1, Math.round((hoy - hasta) / (30 * 24 * 3600 * 1000)));
-          mora = (parseFloat(c.cuota) || 0) * meses;
-        }
-      }
-      const enMora = mora > 0;
-      const enSuspension = enMora && mora >= (parseFloat(c.cuota) * 2 || 0);
+  ventas.forEach(v => {
+    if (producto !== 'todos' && v.producto !== producto) return;
+    const tel = (v.telefono || v.celular || v.tel || '').replace(/\s/g, '');
+    if (!tel || tel.length < 7) return;
 
-      if (estadoFiltro === 'mora' && !enMora) return;
-      if (estadoFiltro === 'al_dia' && enMora) return;
-      if (estadoFiltro === 'suspension' && !enSuspension) return;
+    // Calcular si tiene pagos en mora (SPTI/SPD/PSM)
+    const pagosList = pagos[v.id] || [];
+    const tienePago = pagosList.length > 0;
+    const enMora = !tienePago && ['SPTI','SPD','PSM','PAC60'].includes(v.producto);
 
-      clientes.push({
-        nombre: c.nombre || c.titular || 'Cliente',
-        telefono: tel,
-        producto: prod,
-        mora: mora > 0 ? `$${mora.toLocaleString('es-CO')}` : '$0',
-        cedula: c.cedula || c.nit || ''
-      });
+    if (estadoFiltro === 'mora'   && !enMora) return;
+    if (estadoFiltro === 'al_dia' && enMora) return;
+
+    // Calcular mora aproximada desde cartera SURA si disponible
+    let moraStr = '$0';
+    if (_carteraSuraData && _carteraSuraData.length) {
+      const match = _carteraSuraData.find(r =>
+        r.cedula && v.doc && r.cedula.replace(/\D/g,'') === v.doc.replace(/\D/g,'')
+      );
+      if (match) moraStr = '$' + (match.saldoTotal || match.saldo || 0).toLocaleString('es-CO');
+    }
+
+    clientes.push({
+      nombre:   (v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0],
+      telefono: tel,
+      producto: v.producto,
+      mora:     moraStr,
+      cedula:   v.doc || v.cedula || ''
     });
-  };
-
-  if (producto === 'todos' || producto === 'pbs') agregarClientes(s.pbs, 'PBS');
-  if (producto === 'todos' || producto === 'spti') agregarClientes(s.spti, 'SPTI');
-  if (producto === 'todos' || producto === 'spd') agregarClientes(s.spd, 'SPD');
+  });
 
   // Deduplicar por teléfono
   const seen = new Set();
@@ -23110,23 +23185,127 @@ function wmFiltrarClientes() {
     return true;
   });
 
-  const countEl = document.getElementById('wm_count');
-  if (countEl) countEl.textContent = wmClientesSegmento.length;
-
-  // Renderizar lista
-  const lista = document.getElementById('wm_lista_clientes');
-  if (lista) {
-    lista.innerHTML = wmClientesSegmento.slice(0, 50).map(c => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface2);border-radius:6px;font-size:12px;">
-        <span style="font-weight:600;">${c.nombre}</span>
-        <span style="color:var(--text-muted);font-family:var(--mono);">${c.telefono} · <span style="color:var(--primary);">${c.producto}</span></span>
-      </div>
-    `).join('') + (wmClientesSegmento.length > 50 ? `<div style="text-align:center;font-size:11px;color:var(--text-dim);padding:4px;">...y ${wmClientesSegmento.length - 50} más</div>` : '');
-  }
-
+  wmRenderizarLista();
   wmActualizarPreview();
 }
 
+// ── FUENTE: IMPORTAR EXCEL / CSV ─────────────────────────────────────────
+async function wmImportarExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('wm_excel_status');
+  if (statusEl) statusEl.textContent = 'Cargando...';
+
+  try {
+    // Usar SheetJS si disponible, si no intentar CSV
+    let rows = [];
+    if (file.name.endsWith('.csv')) {
+      const text = await file.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      const sep = lines[0].includes(';') ? ';' : ',';
+      const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/[^a-z]/g,''));
+      const telIdx  = headers.findIndex(h => ['telefono','celular','cel','phone','numero','tel'].includes(h));
+      const nomIdx  = headers.findIndex(h => ['nombre','cliente','name','contacto'].includes(h));
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(sep).map(c => c.trim().replace(/["\']/g,''));
+        const tel  = telIdx >= 0 ? cols[telIdx] : cols[0];
+        const nom  = nomIdx >= 0 ? cols[nomIdx] : ('Contacto ' + i);
+        if (tel && tel.replace(/\D/g,'').length >= 7) {
+          rows.push({ telefono: tel.replace(/\D/g,''), nombre: nom, producto: '—', mora: '$0', cedula: '' });
+        }
+      }
+    } else {
+      // XLSX via SheetJS (cargado desde CDN en el archivo)
+      const buf = await file.arrayBuffer();
+      let XLSX;
+      try { XLSX = window.XLSX; } catch(e) {}
+      if (!XLSX) {
+        // Intentar cargar SheetJS dinámicamente
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+        XLSX = window.XLSX;
+      }
+      const wb   = XLSX.read(buf, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      data.forEach((row, i) => {
+        const keys = Object.keys(row).map(k => k.toLowerCase().trim());
+        const getVal = (...names) => {
+          for (const n of names) {
+            const k = Object.keys(row).find(k2 => k2.toLowerCase().includes(n));
+            if (k && row[k]) return String(row[k]).trim();
+          }
+          return '';
+        };
+        const tel = getVal('telefono','celular','cel','phone','numero','tel').replace(/\D/g,'');
+        const nom = getVal('nombre','cliente','name','contacto') || ('Contacto ' + (i+1));
+        if (tel.length >= 7) {
+          rows.push({ telefono: tel, nombre: nom, producto: '—', mora: '$0', cedula: '' });
+        }
+      });
+    }
+
+    // Deduplicar
+    const seen = new Set();
+    wmClientesSegmento = rows.filter(r => {
+      if (seen.has(r.telefono)) return false;
+      seen.add(r.telefono); return true;
+    });
+
+    if (statusEl) statusEl.textContent = `✅ ${wmClientesSegmento.length} contactos cargados desde ${file.name}`;
+    wmRenderizarLista();
+    wmActualizarPreview();
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '❌ Error: ' + e.message;
+    console.error('wmImportarExcel:', e);
+  }
+  event.target.value = '';
+}
+
+// ── FUENTE: PEGAR NÚMEROS MANUAL ─────────────────────────────────────────
+function wmParsearManual() {
+  const raw = document.getElementById('wm_manual_txt')?.value || '';
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const resultado = [];
+  const seen = new Set();
+
+  lines.forEach((line, i) => {
+    const sep = line.includes(';') ? ';' : ',';
+    const parts = line.split(sep).map(p => p.trim());
+    const tel = parts[0].replace(/\D/g,'');
+    const nom = parts[1] || ('Contacto ' + (i+1));
+    if (tel.length >= 7 && !seen.has(tel)) {
+      seen.add(tel);
+      resultado.push({ telefono: tel, nombre: nom, producto: '—', mora: '$0', cedula: '' });
+    }
+  });
+
+  wmClientesSegmento = resultado;
+  wmRenderizarLista();
+  wmActualizarPreview();
+  showToast(`✅ ${resultado.length} contactos cargados`);
+}
+
+// ── RENDER LISTA ──────────────────────────────────────────────────────────
+function wmRenderizarLista() {
+  const countEl = document.getElementById('wm_count');
+  if (countEl) countEl.textContent = wmClientesSegmento.length;
+  const lista = document.getElementById('wm_lista_clientes');
+  if (!lista) return;
+  if (!wmClientesSegmento.length) { lista.innerHTML = ''; return; }
+  lista.innerHTML = wmClientesSegmento.slice(0, 60).map(c => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:var(--surface2);border-radius:6px;font-size:12px;">
+      <span style="font-weight:600;">${c.nombre}</span>
+      <span style="color:var(--text-muted);font-family:var(--mono);font-size:11px;">${c.telefono}${c.producto !== '—' ? ' · <span style="color:var(--sura-blue);">'+c.producto+'</span>' : ''}</span>
+    </div>
+  `).join('') + (wmClientesSegmento.length > 60 ? `<div style="text-align:center;font-size:11px;color:var(--text-dim);padding:4px;">…y ${wmClientesSegmento.length - 60} más</div>` : '');
+}
+
+// ── PLANTILLA / VARIABLES ─────────────────────────────────────────────────
 function wmCargarPlantilla() {
   const val = document.getElementById('wm_plantilla')?.value;
   if (!val || !WM_PLANTILLAS[val]) return;
@@ -23139,22 +23318,22 @@ function wmReemplazarVars(texto, cliente) {
   const asesor = s.config?.nombreAsesor || 'Tu asesor SURA';
   const hoy = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
   return texto
-    .replace(/{nombre}/g, cliente.nombre)
-    .replace(/{producto}/g, cliente.producto)
-    .replace(/{mora}/g, cliente.mora)
-    .replace(/{fecha}/g, hoy)
-    .replace(/{asesor}/g, asesor);
+    .replace(/{nombre}/g,   cliente.nombre   || 'Cliente')
+    .replace(/{producto}/g, cliente.producto || '—')
+    .replace(/{mora}/g,     cliente.mora     || '$0')
+    .replace(/{fecha}/g,    hoy)
+    .replace(/{asesor}/g,   asesor);
 }
 
 function wmActualizarPreview() {
   const texto = document.getElementById('wm_texto')?.value || '';
-  const box = document.getElementById('wm_preview_box');
+  const box   = document.getElementById('wm_preview_box');
   if (!box) return;
   if (!texto.trim()) {
-    box.innerHTML = '<span style="color:var(--text-dim);font-style:italic;">El mensaje aparecerá aquí con datos del primer cliente del segmento...</span>';
+    box.innerHTML = '<span style="color:var(--text-dim);font-style:italic;">El mensaje aparecerá aquí con datos del primer contacto...</span>';
     return;
   }
-  const cliente = wmClientesSegmento[0] || { nombre: 'Juan Pérez', producto: 'SPTI', mora: '$120.000', telefono: '3001234567' };
+  const cliente = wmClientesSegmento[0] || { nombre: 'Juan', producto: 'SPTI', mora: '$120.000', telefono: '3001234567' };
   box.textContent = wmReemplazarVars(texto, cliente);
 }
 
@@ -23164,8 +23343,7 @@ function wmInsertarVar(v) {
   const pos = txt.selectionStart;
   txt.value = txt.value.slice(0, pos) + v + txt.value.slice(txt.selectionEnd);
   txt.selectionStart = txt.selectionEnd = pos + v.length;
-  txt.focus();
-  wmActualizarPreview();
+  txt.focus(); wmActualizarPreview();
 }
 
 function wmCopiarPreview() {
@@ -23177,48 +23355,52 @@ function wmCopiarPreview() {
 function wmAbrirWAPreview() {
   const box = document.getElementById('wm_preview_box');
   const cliente = wmClientesSegmento[0];
-  if (!box || !cliente) { showToast('⚠️ Sin clientes en el segmento'); return; }
+  if (!box || !cliente) { showToast('⚠️ Sin contactos cargados'); return; }
   const tel = cliente.telefono.startsWith('57') ? cliente.telefono : '57' + cliente.telefono;
-  const url = `https://wa.me/${tel}?text=${encodeURIComponent(box.textContent)}`;
-  window.open(url, '_blank');
+  window.open(`https://wa.me/${tel}?text=${encodeURIComponent(box.textContent)}`, '_blank');
 }
 
+// ── SERVIDOR WASEND ───────────────────────────────────────────────────────
 async function wmVerificarServidor() {
+  const server = wmGetServer();
   const dot = document.getElementById('wm_status_dot');
   const txt = document.getElementById('wm_status_text');
   const qrArea = document.getElementById('wm_qr_area');
+  if (!server) {
+    if (dot) dot.style.background = 'var(--amber)';
+    if (txt) txt.textContent = '⚠️ Ingresa la URL del servidor primero';
+    return;
+  }
   if (dot) dot.style.background = 'var(--amber)';
   if (txt) txt.textContent = 'Verificando...';
   try {
-    const r = await fetch(`${WM_SERVER}/status`, { signal: AbortSignal.timeout(8000) });
+    const r = await fetch(`${server}/status`, { signal: AbortSignal.timeout(8000) });
     const d = await r.json();
-    if (d.ready || d.connected || d.status === 'connected') {
+    if (d.ready || d.connected || d.status === 'connected' || d.state === 'CONNECTED') {
       if (dot) dot.style.background = 'var(--green)';
       if (txt) txt.textContent = '✅ Conectado y listo';
       if (qrArea) qrArea.style.display = 'none';
     } else if (d.qr) {
       if (dot) dot.style.background = 'var(--amber)';
       if (txt) txt.textContent = '📱 Esperando escaneo de QR';
-      if (qrArea) { qrArea.style.display = ''; }
+      if (qrArea) qrArea.style.display = '';
       const qrImg = document.getElementById('wm_qr_img');
-      if (qrImg && d.qr) {
-        // d.qr puede ser URL o base64
-        qrImg.src = d.qr.startsWith('data:') ? d.qr : `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(d.qr)}`;
-      }
+      if (qrImg) qrImg.src = d.qr.startsWith('data:') ? d.qr : `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(d.qr)}`;
     } else {
       if (dot) dot.style.background = 'var(--red)';
-      if (txt) txt.textContent = '❌ No conectado';
+      if (txt) txt.textContent = '❌ Servidor responde pero WhatsApp no conectado';
     }
   } catch (e) {
     if (dot) dot.style.background = 'var(--red)';
-    if (txt) txt.textContent = '❌ Sin respuesta del servidor';
+    if (txt) txt.textContent = `❌ Sin respuesta — ${e.message.includes('abort') ? 'timeout' : 'verifca la URL'}`;
   }
 }
 
+// ── LOG Y PROGRESO ────────────────────────────────────────────────────────
 function wmLogLine(msg, tipo = 'info') {
   const log = document.getElementById('wm_log');
   if (!log) return;
-  const colors = { ok: 'var(--green)', err: 'var(--red)', info: 'var(--text-muted)', warn: 'var(--amber)' };
+  const colors = { ok:'var(--green)', err:'var(--red)', info:'var(--text-muted)', warn:'var(--amber)' };
   const line = document.createElement('div');
   line.style.cssText = `color:${colors[tipo]||colors.info};padding:2px 0;border-bottom:1px solid var(--border);`;
   line.textContent = `[${new Date().toLocaleTimeString('es-CO')}] ${msg}`;
@@ -23233,90 +23415,81 @@ function wmActualizarProgreso(ok, fail, total) {
   if (txt) txt.textContent = `${ok + fail} / ${total}`;
 }
 
+// ── ENVÍO ─────────────────────────────────────────────────────────────────
 async function wmIniciarEnvio() {
   if (wmEnviando) return;
-  const texto = document.getElementById('wm_texto')?.value?.trim();
-  const delay = parseInt(document.getElementById('wm_delay')?.value || '3') * 1000;
+  const server = wmGetServer();
+  const texto  = document.getElementById('wm_texto')?.value?.trim();
+  const delay  = parseInt(document.getElementById('wm_delay')?.value || '5') * 1000;
 
-  if (!texto) { showToast('⚠️ Escribe un mensaje antes de enviar'); return; }
-  if (wmClientesSegmento.length === 0) { showToast('⚠️ No hay clientes en el segmento'); return; }
+  if (!server)  { showToast('⚠️ Configura la URL del servidor WaSend'); return; }
+  if (!texto)   { showToast('⚠️ Escribe un mensaje antes de enviar');   return; }
+  if (!wmClientesSegmento.length) { showToast('⚠️ No hay contactos cargados'); return; }
+  if (!confirm(`¿Enviar a ${wmClientesSegmento.length} contacto(s) vía ${server}?`)) return;
 
-  const confirmMsg = `¿Enviar a ${wmClientesSegmento.length} cliente(s)?`;
-  if (!confirm(confirmMsg)) return;
-
-  wmEnviando = true;
-  wmDetener = false;
-  const btnEnviar = document.getElementById('wm_btn_enviar');
-  const btnDetener = document.getElementById('wm_btn_detener');
-  if (btnEnviar) btnEnviar.disabled = true;
-  if (btnDetener) btnDetener.style.display = '';
-
+  wmEnviando = true; wmDetener = false;
+  const btnEnv = document.getElementById('wm_btn_enviar');
+  const btnDet = document.getElementById('wm_btn_detener');
+  if (btnEnv) btnEnv.disabled = true;
+  if (btnDet) btnDet.style.display = '';
   const resumen = document.getElementById('wm_resumen');
   if (resumen) resumen.style.display = 'none';
 
   let ok = 0, fail = 0;
   const total = wmClientesSegmento.length;
-  wmLogLine(`🚀 Iniciando envío a ${total} clientes...`, 'info');
+  wmLogLine(`🚀 Iniciando envío a ${total} contactos vía ${server}`, 'info');
 
   for (let i = 0; i < wmClientesSegmento.length; i++) {
-    if (wmDetener) { wmLogLine('⏹ Envío detenido por el usuario', 'warn'); break; }
-    const c = wmClientesSegmento[i];
+    if (wmDetener) { wmLogLine('⏹ Detenido por el usuario', 'warn'); break; }
+    const c   = wmClientesSegmento[i];
     const msg = wmReemplazarVars(texto, c);
-    const tel = c.telefono.startsWith('57') ? c.telefono : '57' + c.telefono;
+    const tel = c.telefono.replace(/\D/g,'');
+    const telFull = tel.startsWith('57') ? tel : '57' + tel;
 
     try {
-      const r = await fetch(`${WM_SERVER}/send`, {
+      const r = await fetch(`${server}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: tel, message: msg }),
+        body: JSON.stringify({ phone: telFull, message: msg }),
         signal: AbortSignal.timeout(15000)
       });
-      const d = await r.json();
-      if (r.ok && (d.success || d.sent || d.status === 'sent')) {
-        ok++;
-        wmLogLine(`✅ ${c.nombre} (${tel})`, 'ok');
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && (d.success || d.sent || d.status === 'sent' || d.id)) {
+        ok++; wmLogLine(`✅ ${c.nombre} (${telFull})`, 'ok');
       } else {
-        fail++;
-        wmLogLine(`❌ ${c.nombre} (${tel}) — ${d.error || d.message || 'Error'}`, 'err');
+        fail++; wmLogLine(`❌ ${c.nombre} — ${d.error || d.message || r.status}`, 'err');
       }
-    } catch (e) {
-      fail++;
-      wmLogLine(`❌ ${c.nombre} (${tel}) — ${e.message}`, 'err');
+    } catch(e) {
+      fail++; wmLogLine(`❌ ${c.nombre} — ${e.message}`, 'err');
     }
 
     wmActualizarProgreso(ok, fail, total);
-    if (i < wmClientesSegmento.length - 1 && !wmDetener) {
-      await new Promise(res => setTimeout(res, delay));
-    }
+    if (i < total - 1 && !wmDetener) await new Promise(res => setTimeout(res, delay));
   }
 
-  // Mostrar resumen
   if (resumen) {
     resumen.style.display = '';
-    const resOk = document.getElementById('wm_res_ok');
-    const resFail = document.getElementById('wm_res_fail');
-    const resTotal = document.getElementById('wm_res_total');
-    if (resOk) resOk.textContent = ok;
-    if (resFail) resFail.textContent = fail;
-    if (resTotal) resTotal.textContent = total;
+    document.getElementById('wm_res_ok').textContent    = ok;
+    document.getElementById('wm_res_fail').textContent  = fail;
+    document.getElementById('wm_res_total').textContent = total;
   }
-  wmLogLine(`🏁 Lote finalizado: ${ok} enviados · ${fail} fallidos`, 'info');
+  wmLogLine(`🏁 Completado: ${ok} enviados · ${fail} fallidos`, 'info');
   showToast(`📲 Lote completado: ${ok}✅ ${fail}❌`);
-
   wmEnviando = false;
-  if (btnEnviar) btnEnviar.disabled = false;
-  if (btnDetener) btnDetener.style.display = 'none';
+  if (btnEnv) btnEnv.disabled = false;
+  if (btnDet) btnDet.style.display = 'none';
 }
 
-function wmDetenerEnvio() {
-  wmDetener = true;
-  showToast('⏹ Deteniendo envío...');
+function wmDetenerEnvio() { wmDetener = true; showToast('⏹ Deteniendo...'); }
+
+// Init al navegar a la página
+function wmInit() {
+  wmCargarConfigServidor();
+  wmSetTab('sura');
+  wmFiltrarClientes();
+  wmVerificarServidor();
 }
 
-// Auto-verificar servidor al entrar a la página
-const _wmOrigRefresh = typeof refreshPage === 'function' ? refreshPage : null;
-// Hook en refreshPage para verificar servidor al navegar
-const _wmRefreshOrig = window.refreshPage;
 
 bootApp();
 </script>
