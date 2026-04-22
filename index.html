@@ -5681,6 +5681,14 @@
               <div class="card-title">3 · Configuración de envío</div>
               <div style="display:flex;flex-direction:column;gap:10px;">
                 <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Tipo de servidor WhatsApp</label>
+                  <select class="form-control" id="wm_server_tipo" onchange="wmGuardarConfigServidor()" style="margin-bottom:8px;">
+                    <option value="auto">🔍 Auto-detectar (recomendado)</option>
+                    <option value="wasend">WaSend / whatsapp-web.js</option>
+                    <option value="wppconnect">WPPConnect</option>
+                    <option value="baileys">Baileys / MD</option>
+                    <option value="evolution">Evolution API</option>
+                  </select>
                   <label class="form-label">URL del servidor WaSend</label>
                   <div style="display:flex;gap:8px;">
                     <input type="text" class="form-control" id="wm_server_url"
@@ -23098,19 +23106,39 @@ let wmEnviando = false;
 let wmDetener  = false;
 let wmTabActual = 'sura';
 
-// URL configurable guardada en localStorage
 function wmGetServer() {
   return (document.getElementById('wm_server_url')?.value || '').trim().replace(/\/$/, '')
     || localStorage.getItem('wm_server_url') || '';
 }
 function wmGuardarConfigServidor() {
-  const url = document.getElementById('wm_server_url')?.value?.trim() || '';
-  try { localStorage.setItem('wm_server_url', url); } catch(e) {}
+  const url  = document.getElementById('wm_server_url')?.value?.trim() || '';
+  const tipo = document.getElementById('wm_server_tipo')?.value || 'auto';
+  try {
+    localStorage.setItem('wm_server_url', url);
+    localStorage.setItem('wm_server_tipo', tipo);
+  } catch(e) {}
 }
 function wmCargarConfigServidor() {
-  const saved = localStorage.getItem('wm_server_url') || '';
-  const el = document.getElementById('wm_server_url');
-  if (el && saved) el.value = saved;
+  const url  = localStorage.getItem('wm_server_url')  || '';
+  const tipo = localStorage.getItem('wm_server_tipo') || 'auto';
+  const urlEl  = document.getElementById('wm_server_url');
+  const tipoEl = document.getElementById('wm_server_tipo');
+  if (urlEl  && url)  urlEl.value  = url;
+  if (tipoEl && tipo) tipoEl.value = tipo;
+}
+
+// Rutas conocidas por tipo de servidor
+function wmGetRutasPorTipo() {
+  const tipo = document.getElementById('wm_server_tipo')?.value
+    || localStorage.getItem('wm_server_tipo') || 'auto';
+  const MAP = {
+    wasend:      { status: ['/status','/health'],           send: '/send' },
+    wppconnect:  { status: ['/api/default/status-session','/api/session1/status-session'], send: '/api/default/send-message' },
+    baileys:     { status: ['/status','/session/status'],   send: '/session/send' },
+    evolution:   { status: ['/instance/connectionState/default','/instance/fetchInstances'], send: '/message/sendText/default' },
+    auto:        { status: ['/status','/health','/ping','/session/status','/api/status','/wa/status','/api/default/status-session','/api/session1/status-session'], send: '/send' },
+  };
+  return MAP[tipo] || MAP.auto;
 }
 
 const WM_PLANTILLAS = {
@@ -23363,9 +23391,10 @@ function wmAbrirWAPreview() {
 // ── SERVIDOR WASEND ───────────────────────────────────────────────────────
 async function wmVerificarServidor() {
   const server = wmGetServer();
-  const dot = document.getElementById('wm_status_dot');
-  const txt = document.getElementById('wm_status_text');
+  const dot    = document.getElementById('wm_status_dot');
+  const txt    = document.getElementById('wm_status_text');
   const qrArea = document.getElementById('wm_qr_area');
+
   if (!server) {
     if (dot) dot.style.background = 'var(--amber)';
     if (txt) txt.textContent = '⚠️ Ingresa la URL del servidor primero';
@@ -23373,27 +23402,103 @@ async function wmVerificarServidor() {
   }
   if (dot) dot.style.background = 'var(--amber)';
   if (txt) txt.textContent = 'Verificando...';
-  try {
-    const r = await fetch(`${server}/status`, { signal: AbortSignal.timeout(8000) });
-    const d = await r.json();
-    if (d.ready || d.connected || d.status === 'connected' || d.state === 'CONNECTED') {
-      if (dot) dot.style.background = 'var(--green)';
-      if (txt) txt.textContent = '✅ Conectado y listo';
-      if (qrArea) qrArea.style.display = 'none';
-    } else if (d.qr) {
-      if (dot) dot.style.background = 'var(--amber)';
-      if (txt) txt.textContent = '📱 Esperando escaneo de QR';
-      if (qrArea) qrArea.style.display = '';
-      const qrImg = document.getElementById('wm_qr_img');
-      if (qrImg) qrImg.src = d.qr.startsWith('data:') ? d.qr : `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(d.qr)}`;
-    } else {
-      if (dot) dot.style.background = 'var(--red)';
-      if (txt) txt.textContent = '❌ Servidor responde pero WhatsApp no conectado';
+
+  // Rutas según tipo de servidor configurado
+  const rutasConfig = wmGetRutasPorTipo();
+  const RUTAS_STATUS = rutasConfig.status;
+  window._wmSendPath = rutasConfig.send; // default, se sobreescribe si se detecta mejor
+
+  // Mapa de ruta status → ruta send para auto-detect
+  const RUTAS_SEND = {
+    '/status':                          '/send',
+    '/health':                          '/send',
+    '/ping':                            '/send',
+    '/session/status':                  '/session/send',
+    '/api/status':                      '/api/send',
+    '/wa/status':                       '/wa/send',
+    '/api/default/status-session':      '/api/default/send-message',
+    '/api/session1/status-session':     '/api/session1/send-message',
+    '/instance/connectionState/default':'/message/sendText/default',
+    '/instance/fetchInstances':         '/message/sendText/default',
+  };
+
+  for (const ruta of RUTAS_STATUS) {
+    try {
+      const r = await fetch(`${server}${ruta}`, {
+        signal: AbortSignal.timeout(6000),
+        headers: { 'Accept': 'application/json' }
+      });
+
+      // Si responde (aunque sea 4xx) el servidor está vivo
+      let d = {};
+      const ct = r.headers.get('content-type') || '';
+      if (ct.includes('json')) {
+        try { d = await r.json(); } catch(e) {}
+      } else {
+        const body = await r.text().catch(() => '');
+        // "No se puede OBTENER" → ruta equivocada, probar la siguiente
+        if (body.includes('Cannot GET') || body.includes('No se puede OBTENER') || body.includes('Not Found')) continue;
+        // Si responde cualquier texto en ruta distinta, servidor activo pero ruta incorrecta
+        if (body.trim()) { d = { _raw: body }; }
+      }
+
+      // Guardar la ruta de envío que corresponde
+      window._wmSendPath = RUTAS_SEND[ruta] || '/send';
+
+      // Detectar estado
+      const isConnected = d.ready || d.connected || d.status === 'connected' ||
+                          d.state === 'CONNECTED' || d.state === 'READY' ||
+                          d.sessionStatus === 'inChat' || d.statusSession === 'isLogged' ||
+                          r.status === 200;
+
+      if (isConnected && !d.qr) {
+        if (dot) dot.style.background = 'var(--green)';
+        if (txt) txt.textContent = `✅ Servidor activo · ruta: ${ruta}`;
+        if (qrArea) qrArea.style.display = 'none';
+        wmLogLine(`✅ Servidor conectado en ${server}${ruta}`, 'ok');
+        return;
+      }
+
+      if (d.qr) {
+        if (dot) dot.style.background = 'var(--amber)';
+        if (txt) txt.textContent = '📱 Escanea el QR para conectar WhatsApp';
+        if (qrArea) qrArea.style.display = '';
+        const qrImg = document.getElementById('wm_qr_img');
+        if (qrImg && d.qr) {
+          qrImg.src = d.qr.startsWith('data:') ? d.qr
+            : `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(d.qr)}`;
+        }
+        wmLogLine(`📱 QR disponible en ${server}${ruta}`, 'warn');
+        return;
+      }
+
+      // Servidor responde pero estado desconocido — lo damos por activo
+      if (r.status < 500) {
+        if (dot) dot.style.background = 'var(--amber)';
+        if (txt) txt.textContent = `⚠️ Servidor activo en ${ruta} — estado desconocido (${r.status})`;
+        wmLogLine(`⚠️ Servidor responde en ${server}${ruta} con status ${r.status}`, 'warn');
+        return;
+      }
+
+    } catch(e) {
+      // timeout o CORS → probar siguiente ruta
+      if (e.name === 'AbortError') continue;
+      // Error de CORS: el servidor existe pero bloquea el fetch desde browser
+      if (e.message.includes('NetworkError') || e.message.includes('Failed to fetch') || e.message.includes('CORS')) {
+        if (dot) dot.style.background = 'var(--amber)';
+        if (txt) txt.textContent = `⚠️ Servidor encontrado pero bloquea CORS en ${ruta} — puede funcionar igual`;
+        wmLogLine(`⚠️ CORS bloqueado en ${server}${ruta} — el servidor existe`, 'warn');
+        window._wmSendPath = RUTAS_SEND[ruta] || '/send';
+        return;
+      }
+      continue;
     }
-  } catch (e) {
-    if (dot) dot.style.background = 'var(--red)';
-    if (txt) txt.textContent = `❌ Sin respuesta — ${e.message.includes('abort') ? 'timeout' : 'verifca la URL'}`;
   }
+
+  // Ninguna ruta respondió
+  if (dot) dot.style.background = 'var(--red)';
+  if (txt) txt.textContent = '❌ Servidor no responde en ninguna ruta conocida — verifica la URL';
+  wmLogLine(`❌ Sin respuesta en ${server} tras probar ${RUTAS_STATUS.length} rutas`, 'err');
 }
 
 // ── LOG Y PROGRESO ────────────────────────────────────────────────────────
@@ -23447,7 +23552,8 @@ async function wmIniciarEnvio() {
     const telFull = tel.startsWith('57') ? tel : '57' + tel;
 
     try {
-      const r = await fetch(`${server}/send`, {
+      const sendPath = window._wmSendPath || '/send';
+      const r = await fetch(`${server}${sendPath}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: telFull, message: msg }),
