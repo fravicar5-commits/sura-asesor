@@ -1477,19 +1477,19 @@
 
         <!-- Mapa de Colombia -->
         <div class="section-gap">
-          <div class="grid-2">
-            <div class="card">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-                <div class="card-title" style="margin-bottom:0;">🗺️ Distribución por Ciudad</div>
-                <div style="display:flex;gap:6px;">
-                  <button class="btn btn-secondary btn-sm" id="mapFiltroBtn" onclick="cycleMapFiltro()">PBS</button>
-                </div>
-              </div>
-              <svg id="colombiaMap" viewBox="0 0 340 400" style="width:100%;max-height:520px;"></svg>
+          <div class="card" style="padding:0;overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);">
+              <div class="card-title" style="margin-bottom:0;">🗺️ Distribución por Ciudad</div>
+              <button class="btn btn-secondary btn-sm" id="mapFiltroBtn" onclick="cycleMapFiltro()">PBS</button>
             </div>
-            <div class="card">
-              <div class="card-title" id="mapTablaTitle">📊 Ventas por Ciudad — PBS</div>
-              <div style="overflow-y:auto;max-height:320px;">
+            <div style="display:flex;min-height:560px;">
+              <!-- Mapa grande -->
+              <div style="flex:0 0 58%;border-right:1px solid var(--border);padding:16px;display:flex;align-items:center;justify-content:center;background:rgba(10,15,30,0.4);">
+                <svg id="colombiaMap" viewBox="55 35 415 445" style="width:100%;max-height:580px;display:block;"></svg>
+              </div>
+              <!-- Tabla lateral -->
+              <div style="flex:1;padding:16px;overflow-y:auto;">
+                <div class="card-title" id="mapTablaTitle" style="margin-bottom:12px;">📊 Ventas por Ciudad — PBS</div>
                 <table style="width:100%;font-size:12.5px;border-collapse:collapse;" id="mapTabla">
                   <thead><tr style="background:var(--surface2);">
                     <th style="padding:8px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Ciudad</th>
@@ -4369,12 +4369,23 @@
       <!-- ===== SIMULADOR PBS ===== -->
       <div class="page" id="page-simuladorpbs">
         <div class="alert alert-info" style="margin-bottom:20px;">
-          🧮 Calcula tu comisión PBS antes de visitar una empresa. Útil para priorizar visitas y estimar ingresos.
+          🧮 Calcula tu comisión PBS antes de visitar una empresa. Busca la empresa por NIT o nombre para cargar su siniestralidad automáticamente desde la BD.
         </div>
         <div class="grid-2">
           <div class="card">
             <div class="card-title">Datos de la Empresa</div>
             <div style="display:flex;flex-direction:column;gap:14px;">
+
+              <!-- Buscador empresa desde BD -->
+              <div class="form-group">
+                <label class="form-label">🔍 NIT o Nombre de empresa</label>
+                <input type="text" class="form-control" id="pbsSimNIT" placeholder="NIT o nombre de la empresa…" oninput="simPBSBuscarEmpresa()">
+                <!-- Dropdown resultados -->
+                <div id="pbsSimEmpresaPanel" style="display:none;margin-top:6px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;max-height:220px;overflow-y:auto;background:var(--surface2);"></div>
+                <!-- Info empresa seleccionada -->
+                <div id="pbsSimEmpresaInfo" style="display:none;margin-top:8px;padding:10px 12px;background:rgba(26,76,232,0.07);border-radius:var(--radius-sm);border:1px solid rgba(26,76,232,0.2);font-size:12px;"></div>
+              </div>
+
               <div class="form-group">
                 <label class="form-label">Mes de consulta</label>
                 <select class="form-control" id="pbsSimMes" onchange="renderSimPBS()">
@@ -4391,7 +4402,10 @@
                 <input type="number" class="form-control" id="pbsSimCot" placeholder="Ej: 25" min="1" oninput="renderSimPBS()">
               </div>
               <div class="form-group">
-                <label class="form-label">Siniestralidad</label>
+                <label class="form-label" style="display:flex;align-items:center;gap:8px;">
+                  Siniestralidad
+                  <span id="pbsSimSinBadge" style="display:none;font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(6,182,212,0.15);color:var(--teal);font-weight:600;">Auto-detectada ✓</span>
+                </label>
                 <select class="form-control" id="pbsSimSin" onchange="renderSimPBS()">
                   <option value="<=75%">≤ 75%</option>
                   <option value="76% - 90%">76% - 90%</option>
@@ -4406,10 +4420,8 @@
                 <label class="form-label">Beneficiarios a incluir</label>
                 <input type="number" class="form-control" id="pbsSimBenef" placeholder="0" min="0" value="0" oninput="renderSimPBS()">
               </div>
-              <div class="form-group">
-                <label class="form-label">Nombre empresa (opcional)</label>
-                <input type="text" class="form-control" id="pbsSimNombre" placeholder="Para guardar en notas">
-              </div>
+              <!-- Nombre empresa para historial (se rellena automáticamente al seleccionar) -->
+              <input type="hidden" id="pbsSimNombre" value="">
             </div>
           </div>
           <div class="card" id="pbsSimResultado">
@@ -13333,51 +13345,33 @@ function loadScript(src) {
 // =============================================
 // Coordenadas aproximadas en el viewBox 340x400 (lat/lon mapeadas)
 const CIUDADES_MAP = {
-  'Bogotá':       { x:185, y:198, alias:['BOGOTA','BOGOTÁ','BOGOTA D.C.','BOGOTÁ D.C.'] },
-  'Medellín':     { x:148, y:160, alias:['MEDELLIN','MEDELLÍN'] },
-  'Cali':         { x:130, y:225, alias:['CALI'] },
-  'Barranquilla': { x:168, y:75,  alias:['BARRANQUILLA'] },
-  'Cartagena':    { x:145, y:80,  alias:['CARTAGENA'] },
-  'Bucaramanga':  { x:192, y:140, alias:['BUCARAMANGA'] },
-  'Pereira':      { x:142, y:195, alias:['PEREIRA'] },
-  'Manizales':    { x:148, y:185, alias:['MANIZALES'] },
-  'Armenia':      { x:140, y:200, alias:['ARMENIA'] },
-  'Santa Marta':  { x:182, y:68,  alias:['SANTA MARTA'] },
-  'Cúcuta':       { x:210, y:120, alias:['CUCUTA','CÚCUTA'] },
-  'Ibagué':       { x:162, y:210, alias:['IBAGUE','IBAGUÉ'] },
-  'Villavicencio':{ x:205, y:215, alias:['VILLAVICENCIO'] },
-  'Pasto':        { x:140, y:268, alias:['PASTO'] },
-  'Montería':     { x:155, y:105, alias:['MONTERIA','MONTERÍA'] },
-  'Sincelejo':    { x:158, y:98,  alias:['SINCELEJO'] },
-  'Valledupar':   { x:193, y:87,  alias:['VALLEDUPAR'] },
-  'Neiva':        { x:172, y:235, alias:['NEIVA'] },
-  'Soledad':      { x:170, y:73,  alias:['SOLEDAD'] },
-  'Palmira':      { x:133, y:220, alias:['PALMIRA'] },
-  'Rionegro':     { x:153, y:160, alias:['RIONEGRO'] },
-  'Marinilla':    { x:155, y:163, alias:['MARINILLA'] },
-  'La Ceja':      { x:152, y:165, alias:['LA CEJA'] },
-  'Chia':         { x:183, y:193, alias:['CHIA','CHÍA'] },
-  'Galapa':       { x:165, y:77,  alias:['GALAPA'] },
-  'Malambo':      { x:172, y:78,  alias:['MALAMBO'] },
-  'Sabanagrande': { x:168, y:79,  alias:['SABANAGRANDE'] },
+  'Bogotá':       { x:213, y:273, alias:['BOGOTA','BOGOTÁ','BOGOTA D.C.','BOGOTÁ D.C.','SOACHA','CHIA','CHÍA','MADRID','FUNZA','MOSQUERA','ZIPAQUIRA','ZIPAQUIRÁ','FACATATIVA','FACATATIVÁ'] },
+  'Medellín':     { x:163, y:227, alias:['MEDELLIN','MEDELLÍN','RIONEGRO','MARINILLA','LA CEJA','BELLO','ITAGÜI','ITAGUI','ENVIGADO','SABANETA','CALDAS','LA ESTRELLA'] },
+  'Cali':         { x:131, y:312, alias:['CALI','PALMIRA','JAMUNDI','JAMUNDÍ','YUMBO','CANDELARIA','FLORIDA'] },
+  'Barranquilla': { x:189, y:84,  alias:['BARRANQUILLA','SOLEDAD','MALAMBO','GALAPA','SABANAGRANDE'] },
+  'Cartagena':    { x:165, y:102, alias:['CARTAGENA'] },
+  'Bucaramanga':  { x:246, y:200, alias:['BUCARAMANGA','FLORIDABLANCA','GIRON','GIRÓN','PIEDECUESTA'] },
+  'Pereira':      { x:159, y:270, alias:['PEREIRA','DOSQUEBRADAS'] },
+  'Manizales':    { x:165, y:262, alias:['MANIZALES','VILLAMARIA','VILLAMARÍA'] },
+  'Armenia':      { x:159, y:279, alias:['ARMENIA','CALARCA','CALARCÁ','CIRCASIA','MONTENEGRO'] },
+  'Santa Marta':  { x:209, y:77,  alias:['SANTA MARTA','CIENAGA','CIÉNAGA'] },
+  'Cúcuta':       { x:267, y:178, alias:['CUCUTA','CÚCUTA','LOS PATIOS','VILLA DEL ROSARIO','EL ZULIA'] },
+  'Ibagué':       { x:175, y:281, alias:['IBAGUE','IBAGUÉ'] },
+  'Villavicencio':{ x:228, y:290, alias:['VILLAVICENCIO','ACACIAS'] },
+  'Pasto':        { x:105, y:378, alias:['PASTO','IPIALES','TUMACO'] },
+  'Montería':     { x:153, y:151, alias:['MONTERIA','MONTERÍA'] },
+  'Sincelejo':    { x:169, y:135, alias:['SINCELEJO'] },
+  'Valledupar':   { x:242, y:100, alias:['VALLEDUPAR'] },
+  'Neiva':        { x:173, y:327, alias:['NEIVA'] },
+  'Urabá':        { x:127, y:177, alias:['URABA','URABÁ','APARTADO','APARTADÓ','TURBO'] },
+  'Tunja':        { x:238, y:248, alias:['TUNJA','SOGAMOSO','DUITAMA'] },
+  'Popayán':      { x:128, y:341, alias:['POPAYAN','POPAYÁN'] },
 };
 
-// Colombia simplified SVG path (outline)
-const COLOMBIA_PATH = `M168,42 L178,38 L190,40 L200,45 L208,50 L218,58 L222,68 L215,78 
-  L210,88 L215,100 L218,112 L214,122 L210,132 L212,142 L215,155 L208,165 
-  L205,178 L208,190 L210,205 L208,218 L205,230 L200,242 L195,255 L190,265 
-  L185,275 L178,282 L170,278 L162,270 L155,262 L148,268 L142,275 L136,268 
-  L132,258 L130,245 L128,232 L125,220 L122,208 L120,195 L118,182 L122,172 
-  L128,162 L132,152 L130,140 L128,128 L132,118 L138,108 L142,98 L140,88 
-  L138,78 L142,68 L148,60 L155,52 L162,46 Z`;
-
-const COLOMBIA_INTERIOR = `M148,75 L158,72 L168,70 L178,72 L185,78 L192,85 
-  L196,95 L192,108 L185,118 L178,128 L175,140 L172,152 L168,162 L162,172 
-  L158,182 L155,190 L152,198 L148,205 L145,212 L142,220 L140,228 L142,238 
-  L145,248 L148,255 L152,248 L155,240 L158,232 L162,222 L165,212 L168,202 
-  L172,192 L175,182 L178,172 L182,162 L185,152 L188,142 L190,132 L188,122 
-  L185,112 L182,102 L178,92 L172,82 L165,78 Z`;
-
+// Colombia SVG path — coordenadas geográficas reales proyectadas
+// lon -79.5°→-66.5° · lat -4.5°→12.8° → viewBox 40 30 430 460
+const COLOMBIA_PATH = `M 101.1,156.2 L 131.5,150.2 L 158.6,132.2 L 168.8,120.2 L 172.2,102.1 L 178.9,90.1 L 189.1,81.1 L 209.4,75.1 L 229.7,81.1 L 246.6,81.1 L 266.9,60.1 L 283.8,42.0 L 304.2,39.0 L 317.7,48.0 L 324.5,57.1 L 334.6,72.1 L 270.3,84.1 L 260.2,99.1 L 260.2,129.2 L 263.5,156.2 L 266.9,180.3 L 287.2,207.3 L 348.2,228.4 L 351.5,258.4 L 419.2,309.5 L 422.6,333.6 L 446.3,351.6 L 453.1,354.6 L 456.5,369.7 L 402.3,384.7 L 351.5,399.7 L 317.7,429.8 L 283.8,435.8 L 260.2,444.8 L 233.1,450.8 L 209.4,459.8 L 182.3,465.8 L 162.0,441.8 L 138.3,432.8 L 114.6,423.8 L 97.7,399.7 L 80.8,384.7 L 67.2,372.7 L 84.2,348.6 L 97.7,330.6 L 104.5,309.5 L 104.5,294.5 L 101.1,279.5 L 101.1,258.4 L 107.8,240.4 L 114.6,219.4 L 111.2,198.3 L 104.5,180.3 L 111.2,168.3 L 121.4,159.2 Z`;
+const COLOMBIA_INTERIOR = '';
 let mapFiltroActual = 'PBS';
 const mapFiltros = ['PBS', 'SPTI', 'SPD', 'PSM', 'PAC60', 'TODOS'];
 
@@ -13426,28 +13420,38 @@ function renderMapa() {
   const label = labels[mapFiltroActual] || mapFiltroActual;
 
   svg.innerHTML = `
+    <defs>
+      <filter id="mapGlow">
+        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
     <!-- Colombia background -->
-    <path d="${COLOMBIA_PATH}" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+    <path d="${COLOMBIA_PATH}" fill="rgba(26,76,232,0.06)" stroke="rgba(255,255,255,0.2)" stroke-width="1.8" stroke-linejoin="round"/>
+    <!-- Océano / fondo sutil -->
     <!-- Cities -->
     ${Object.entries(CIUDADES_MAP).map(([ciudad, pos]) => {
       const count = counts[ciudad] || 0;
       if (count === 0) {
-        return `<circle cx="${pos.x}" cy="${pos.y}" r="2.5" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
-                <text x="${pos.x}" y="${pos.y-5}" class="map-city-label" text-anchor="middle" style="font-size:7px;opacity:0.3">${ciudad.split(' ')[0]}</text>`;
+        return `<circle cx="${pos.x}" cy="${pos.y}" r="3" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
+                <text x="${pos.x}" y="${pos.y-6}" text-anchor="middle" style="font-size:8px;fill:rgba(255,255,255,0.25);font-family:var(--font);">${ciudad.split(' ')[0]}</text>`;
       }
-      const r = Math.max(7, Math.min(20, 7 + (count / maxCount) * 13));
-      const opacity = 0.6 + (count / maxCount) * 0.4;
+      const r = Math.max(10, Math.min(28, 10 + (count / maxCount) * 18));
+      const opacity = 0.65 + (count / maxCount) * 0.35;
       return `
-        <circle cx="${pos.x}" cy="${pos.y}" r="${r+4}" fill="${color}" opacity="0.1" class="map-city-dot"/>
-        <circle cx="${pos.x}" cy="${pos.y}" r="${r}" fill="${color}" opacity="${opacity}" stroke="white" stroke-width="1" class="map-city-dot" onclick="showCiudadDetail('${ciudad}')">
+        <circle cx="${pos.x}" cy="${pos.y}" r="${r+6}" fill="${color}" opacity="0.12"/>
+        <circle cx="${pos.x}" cy="${pos.y}" r="${r}" fill="${color}" opacity="${opacity}" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"
+          style="cursor:pointer;" onclick="showCiudadDetail('${ciudad}')" filter="url(#mapGlow)">
           <title>${ciudad}: ${count} venta(s)</title>
         </circle>
-        <text x="${pos.x}" y="${pos.y}" class="map-city-count" style="font-size:${r>10?9:7}px">${count}</text>
-        <text x="${pos.x}" y="${pos.y+r+8}" class="map-city-label" text-anchor="middle">${ciudad.length > 10 ? ciudad.split(' ')[0] : ciudad}</text>
+        <text x="${pos.x}" y="${pos.y+0.4}" text-anchor="middle" dominant-baseline="middle"
+          style="font-size:${r>16?11:9}px;fill:white;font-weight:700;font-family:var(--font);pointer-events:none;">${count}</text>
+        <text x="${pos.x}" y="${pos.y+r+11}" text-anchor="middle"
+          style="font-size:9px;fill:rgba(255,255,255,0.85);font-family:var(--font);font-weight:600;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${ciudad.length > 10 ? ciudad.split(' ')[0] : ciudad}</text>
       `;
     }).join('')}
-    <!-- Title -->
-    <text x="170" y="390" text-anchor="middle" style="font-size:9px;fill:rgba(255,255,255,0.3);font-family:var(--font);">${total} venta(s) · ${label}</text>
+    <!-- Footer -->
+    <text x="255" y="480" text-anchor="middle" style="font-size:10px;fill:rgba(255,255,255,0.25);font-family:var(--font);">${total} venta(s) · ${label}</text>
   `;
 
   // Render table
@@ -14125,6 +14129,147 @@ function guardarSimulacionPBS() {
   renderSimPBS();
   showToast('✅ Simulación guardada');
 }
+
+// =============================================
+// SIMULADOR PBS — Búsqueda empresa desde BD
+// =============================================
+function simPBSBuscarEmpresa() {
+  const q = (document.getElementById('pbsSimNIT')?.value || '').trim();
+  const panel = document.getElementById('pbsSimEmpresaPanel');
+  const info  = document.getElementById('pbsSimEmpresaInfo');
+  const badge = document.getElementById('pbsSimSinBadge');
+  if (!panel || !info) return;
+
+  if (q.length < 2) {
+    panel.style.display = 'none';
+    info.style.display  = 'none';
+    if (badge) badge.style.display = 'none';
+    return;
+  }
+
+  const bdSin = getBDSin();
+  const registros = bdSin.registros || [];
+
+  if (!registros.length) {
+    panel.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--amber);">⚠️ BD de siniestralidad no cargada. Ve a <strong>Empresas</strong> e importa el archivo.</div>';
+    panel.style.display = '';
+    return;
+  }
+
+  const qNit  = q.replace(/\D/g, '');
+  const qNorm = bdNormalizar(q);
+
+  const encontrados = registros.filter(r => {
+    const nitMatch    = qNit.length >= 2 && r.nit && r.nit.replace(/\D/g,'').includes(qNit);
+    const nombreMatch = qNorm.length >= 2 && r.nombre && bdNormalizar(r.nombre).includes(qNorm);
+    return nitMatch || nombreMatch;
+  }).slice(0, 30);
+
+  if (!encontrados.length) {
+    panel.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);">Sin coincidencias en la BD.</div>';
+    panel.style.display = '';
+    return;
+  }
+
+  // Agrupar por NIT
+  const porNit = new Map();
+  encontrados.forEach(r => {
+    const key = r.nit ? r.nit.replace(/\D/g,'') : bdNormalizar(r.nombre);
+    if (!porNit.has(key)) porNit.set(key, { r0: r, registros: [] });
+    porNit.get(key).registros.push(r);
+  });
+
+  const sinColor = s => s?.includes('91')?'var(--red)':s?.includes('76')?'var(--amber)':'var(--green)';
+
+  panel.innerHTML = Array.from(porNit.values()).map(({ r0, registros: regs }) => {
+    const dataStr = encodeURIComponent(JSON.stringify({ nombre: r0.nombre, nit: r0.nit, registros: regs }));
+    const ciudades = regs.map(r => `<span style="font-size:10px;color:${sinColor(r.sinCat)};margin-right:6px;">🏙️${r.ciudad||'?'} ${r.sinPct!==''&&r.sinPct!==undefined?r.sinPct+'%':'—'}</span>`).join('');
+    return `<div style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);"
+      onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''"
+      onclick="simPBSSeleccionarEmpresa(decodeURIComponent('${dataStr}'))">
+      <div style="font-weight:600;font-size:12.5px;">${r0.nombre}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">NIT: ${r0.nit||'—'} &nbsp;${ciudades}</div>
+    </div>`;
+  }).join('');
+  panel.style.display = '';
+}
+
+function simPBSSeleccionarEmpresa(dataStr) {
+  const data = typeof dataStr === 'string' ? JSON.parse(dataStr) : dataStr;
+  const panel = document.getElementById('pbsSimEmpresaPanel');
+  const info  = document.getElementById('pbsSimEmpresaInfo');
+  const badge = document.getElementById('pbsSimSinBadge');
+  const sinEl = document.getElementById('pbsSimSin');
+  const nomEl = document.getElementById('pbsSimNombre');
+  const nitEl = document.getElementById('pbsSimNIT');
+
+  if (panel) panel.style.display = 'none';
+  if (nitEl) nitEl.value = data.nombre + (data.nit ? ' · ' + data.nit : '');
+  if (nomEl) nomEl.value = data.nombre;
+
+  const regs = data.registros || [];
+  const sinColor = s => s?.includes('91')?'var(--red)':s?.includes('76')?'var(--amber)':'var(--green)';
+  const sinBg    = s => s?.includes('91')?'rgba(239,68,68,0.1)':s?.includes('76')?'rgba(245,158,11,0.1)':'rgba(34,197,94,0.1)';
+
+  // Seleccionar la siniestralidad de mayor prioridad
+  // Prioridad: la más baja (≤75% paga mejor comisión)
+  const sinPrioridad = { '<=75%': 3, '76% - 90%': 2, '>=91% EXCEPCIONADA': 1, '>=91% NO AGIL': 0 };
+  const mejorReg = regs.reduce((best, r) => {
+    return (sinPrioridad[r.sinCat]||0) > (sinPrioridad[best?.sinCat]||0) ? r : best;
+  }, regs[0]);
+
+  if (mejorReg?.sinCat && sinEl) {
+    const match = Array.from(sinEl.options).find(o => o.value === mejorReg.sinCat);
+    if (match) { sinEl.value = mejorReg.sinCat; if (badge) badge.style.display = ''; }
+  }
+
+  // Trimestre vigente
+  const mesActual = new Date().getMonth();
+  const MESES_TRIM = {11:'T1',0:'T1',1:'T1',2:'T2',3:'T2',4:'T2',5:'T3',6:'T3',7:'T3',8:'T4',9:'T4',10:'T4'};
+  const trimObj = SURA_TRIMESTRES.find(t => t.id === MESES_TRIM[mesActual]);
+  const trimLabel = trimObj ? trimObj.label : '—';
+
+  const ciudadesHtml = regs.map(r =>
+    `<div style="display:inline-block;padding:6px 10px;border-radius:8px;background:${sinBg(r.sinCat)};border:1px solid ${sinColor(r.sinCat)}44;margin:3px;">
+      <div style="font-size:10px;color:var(--text-muted);">🏙️ ${r.ciudad||'Sin ciudad'}</div>
+      <div style="font-weight:700;font-family:var(--mono);color:${sinColor(r.sinCat)};font-size:14px;">${r.sinPct!==''&&r.sinPct!==undefined?r.sinPct+'%':'—'}</div>
+      <div style="font-size:10px;color:${sinColor(r.sinCat)};">${r.sinCat||'—'}</div>
+    </div>`
+  ).join('');
+
+  if (info) {
+    info.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+        <span style="font-weight:700;font-size:13px;">🏢 ${data.nombre}</span>
+        <span style="font-size:11px;color:var(--text-muted);">NIT: ${data.nit||'—'}</span>
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(6,182,212,0.12);color:var(--teal);">📅 ${trimLabel}</span>
+        <button style="margin-left:auto;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;" onclick="simPBSLimpiarEmpresa()">✕ Cambiar</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">${ciudadesHtml}</div>
+      ${regs.length > 1 ? '<div style="margin-top:6px;font-size:11px;color:var(--text-muted);">⚠️ Empresa con múltiples ciudades — se usó la siniestralidad más baja (mejor comisión). Ajusta si necesitas otra ciudad.</div>' : ''}
+    `;
+    info.style.display = '';
+  }
+  renderSimPBS();
+}
+
+function simPBSLimpiarEmpresa() {
+  ['pbsSimEmpresaPanel','pbsSimEmpresaInfo','pbsSimSinBadge'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const nitEl = document.getElementById('pbsSimNIT');
+  const nomEl = document.getElementById('pbsSimNombre');
+  if (nitEl) nitEl.value = '';
+  if (nomEl) nomEl.value = '';
+}
+
+// Cerrar panel al hacer click fuera
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('pbsSimEmpresaPanel');
+  const input = document.getElementById('pbsSimNIT');
+  if (panel && input && !panel.contains(e.target) && e.target !== input) panel.style.display = 'none';
+}, true);
 
 // =============================================
 // BUSCADOR GLOBAL
