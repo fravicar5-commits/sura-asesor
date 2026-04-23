@@ -6318,7 +6318,7 @@
     <!-- TAB: Plan Salud Modular (PSM) -->
     <div id="tabPSM" style="display:none;">
       <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.25);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:var(--teal);">
-        🧩 <strong>Plan Salud Modular</strong> — Ramo Familiar · Negocio Nuevo · Asesor Dependiente · Edad asegurable: 0–64 años · Copago único <strong>$30.000</strong>
+        🧩 <strong>Plan Salud Modular</strong> — Ramo Familiar · Negocio Nuevo · Asesor Dependiente · Edad asegurable: 0–64 años · Copago único <strong>$30.000</strong> · El módulo EMD es un anexo opcional
       </div>
 
       <!-- Fechas y póliza -->
@@ -6420,6 +6420,19 @@
           </div>
         </div>
 
+        <!-- Anexo Atención Domiciliaria (chkEMD) -->
+        <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="chkEMD" onchange="calcDatosPSM()" style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;">
+            <span style="font-size:16px;">🏠</span>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);">Atención Domiciliaria</div>
+              <div style="font-size:10.5px;color:var(--text-muted);">Hospitalización domiciliaria ilimitada · tarifa fija por cualquier rango de edad</div>
+            </div>
+          </div>
+          <span id="psmPrecioEMD" style="font-family:var(--mono);font-weight:600;color:var(--text-muted);font-size:13px;">—</span>
+        </div>
+
         <!-- Anexo Alto Costo -->
         <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;" id="rowAltoCosto">
           <div style="display:flex;align-items:center;gap:10px;">
@@ -6459,18 +6472,17 @@
           <span id="psmPrecioMaternidad" style="font-family:var(--mono);font-weight:600;color:var(--text-muted);font-size:13px;">—</span>
         </div>
 
-        <!-- Anexo Atención Domiciliaria -->
-        <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <input type="checkbox" id="chkDomiciliaria" onchange="calcDatosPSM()" style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;">
-            <span style="font-size:16px;">🏠</span>
-            <div>
-              <div style="font-size:13px;font-weight:600;color:var(--text);">Atención Domiciliaria</div>
-              <div style="font-size:10.5px;color:var(--text-muted);">Hospitalización domiciliaria ilimitada</div>
-            </div>
-          </div>
-          <span id="psmPrecioDomiciliaria" style="font-family:var(--mono);font-weight:600;color:var(--text-muted);font-size:13px;">—</span>
-        </div>
+      </div>
+
+      <!-- Periodicidad PSM -->
+      <div class="form-group" style="margin-bottom:14px;">
+        <label class="form-label">Periodicidad de Pago</label>
+        <select class="form-control" id="vPeriodicidadPSM" onchange="calcDatosPSM()">
+          <option value="MENSUAL">Mensual</option>
+          <option value="TRIMESTRAL">Trimestral (3 meses)</option>
+          <option value="SEMESTRAL">Semestral (6 meses)</option>
+          <option value="ANUAL">Anual (12 meses)</option>
+        </select>
       </div>
 
       <!-- Resumen de prima y comisión -->
@@ -6479,7 +6491,7 @@
         <div id="psmDesglose" style="margin-bottom:10px;"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
           <div style="background:var(--surface3);border-radius:6px;padding:10px;text-align:center;">
-            <div style="font-size:9.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">Prima Mensual Total</div>
+            <div style="font-size:9.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">Prima Total (<span id="psmPerLabel">Mensual</span>)</div>
             <div style="font-size:15px;font-weight:700;color:var(--sura-lime);" id="psmPrimaTotal">—</div>
           </div>
           <div style="background:var(--surface3);border-radius:6px;padding:10px;text-align:center;">
@@ -6502,7 +6514,7 @@
     <!-- TAB: Plan Complementario 60+ (PAC60) -->
     <div id="tabPAC60" style="display:none;">
       <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:var(--green);">
-        👴 <strong>Plan Complementario 60+</strong> · EPS SURA · Edad ingreso: <strong>60–79 años</strong> · Periodicidad mensual · Comisión: <strong>5%</strong> · IVA 5% incluido en tarifa
+        👴 <strong>Plan Complementario 60+</strong> · EPS SURA · Edad ingreso: <strong>60–79 años</strong> · Comisión: <strong>5%</strong> · IVA 5% incluido en tarifa
       </div>
 
       <!-- Fechas y póliza -->
@@ -6614,13 +6626,24 @@
         </div>
       </div>
 
+      <!-- Periodicidad PAC60 -->
+      <div class="form-group" style="margin-bottom:14px;">
+        <label class="form-label">Periodicidad de Pago</label>
+        <select class="form-control" id="vPeriodicidadPAC60" onchange="calcDatosPAC60()">
+          <option value="MENSUAL">Mensual</option>
+          <option value="TRIMESTRAL">Trimestral (3 meses)</option>
+          <option value="SEMESTRAL">Semestral (6 meses)</option>
+          <option value="ANUAL">Anual (12 meses)</option>
+        </select>
+      </div>
+
       <!-- Resumen -->
       <div id="pac60Resumen" style="display:none;background:var(--surface2);border-radius:var(--radius-sm);padding:14px;border:1px solid rgba(34,197,94,0.3);margin-bottom:14px;">
         <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;">📊 Resumen Plan 60+</div>
         <div id="pac60Desglose" style="margin-bottom:10px;"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;">
           <div style="background:var(--surface3);border-radius:6px;padding:10px;text-align:center;">
-            <div style="font-size:9.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">Prima Mensual (c/IVA)</div>
+            <div style="font-size:9.5px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">Prima Total (<span id="pac60PerLabel">Mensual</span>)</div>
             <div style="font-size:15px;font-weight:700;color:var(--sura-lime);" id="pac60PrimaTotal">—</div>
           </div>
           <div style="background:var(--surface3);border-radius:6px;padding:10px;text-align:center;">
@@ -9111,7 +9134,7 @@ function editarVenta(id) {
         if (s('chkAltoCosto'))  s('chkAltoCosto').checked  = modulos.includes('Alto Costo');
         if (s('chkCirugia'))    s('chkCirugia').checked    = modulos.includes('Cirugía Ambulatoria');
         if (s('chkMaternidad')) s('chkMaternidad').checked = modulos.includes('Maternidad');
-        if (s('chkDomiciliaria')) s('chkDomiciliaria').checked = modulos.includes('Atención Domiciliaria');
+        if (s('chkEMD')) s('chkEMD').checked = modulos.includes('EMD') || modulos.includes('Atención Domiciliaria');
         calcDatosPSM();
 
       } else if (tab === 'pac60') {
@@ -9485,7 +9508,7 @@ function openModal(id) {
     document.getElementById('vFechaPSM').value = today;
     document.getElementById('vEdadPSM').value = '';
     document.getElementById('vRangoPSM').value = '';
-    ['chkAltoCosto','chkCirugia','chkMaternidad','chkDomiciliaria'].forEach(cid => {
+    ['chkAltoCosto','chkCirugia','chkMaternidad','chkEMD'].forEach(cid => {
       const el = document.getElementById(cid); if (el) el.checked = false;
     });
     document.getElementById('psmResumen').style.display = 'none';
@@ -9832,13 +9855,24 @@ function calcDatosPSM() {
 
   // 2. Get module prices for this range
   const k = rango.key;
-  const pBasico     = (PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k]) * PSM_IVA;
+  const pBasico     = PSM_TARIFAS.basico[k] * PSM_IVA;
+  const pEMD        = PSM_TARIFAS.emd[k] * PSM_IVA;
   const pCirugia    = PSM_TARIFAS.cirugia[k] * PSM_IVA;
   const pMaternidad = PSM_TARIFAS.maternidad[k] * PSM_IVA;
   const pAltoCosto  = PSM_TARIFAS.altoCosto[k] * PSM_IVA;
 
-  // Show individual prices on module rows
+  // Periodicidad
+  const periPSM = document.getElementById('vPeriodicidadPSM')?.value || 'MENSUAL';
+  const periMult = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+  const mult = periMult[periPSM] || 1;
+  const periLabels = { MENSUAL:'Mensual', TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' };
+  const perLabel = periLabels[periPSM] || 'Mensual';
+  const perLabelEl = document.getElementById('psmPerLabel');
+  if (perLabelEl) perLabelEl.textContent = perLabel;
+
+  // Show individual prices on module rows (precio unitario mensual)
   document.getElementById('psmPrecioBasico').textContent = fmt(Math.round(pBasico));
+  document.getElementById('psmPrecioEMD').textContent    = fmt(Math.round(pEMD));
   document.getElementById('psmPrecioCirugia').textContent = pCirugia > 0 ? fmt(Math.round(pCirugia)) : '—';
   document.getElementById('psmPrecioAltoCosto').textContent = pAltoCosto > 0 ? fmt(Math.round(pAltoCosto)) : '—';
 
@@ -9856,48 +9890,54 @@ function calcDatosPSM() {
     rowMat.style.pointerEvents = '';
     document.getElementById('psmPrecioMaternidad').textContent = fmt(Math.round(pMaternidad));
   }
-  document.getElementById('psmPrecioDomiciliaria').textContent = 'Incluido en Básico';
+  // psmPrecioDomiciliaria eliminado — domiciliaria usa psmPrecioEMD
 
-  // 3. Calc total
-  let total = pBasico;
+  // 3. Calc total mensual base
+  let totalMensual = pBasico;
   const modulosSeleccionados = ['Básico'];
-  const desglose = [{ nombre: 'Módulo Básico + EMD', valor: pBasico }];
+  const desglose = [{ nombre: 'Módulo Básico', valor: pBasico }];
 
+  if (document.getElementById('chkEMD')?.checked) {
+    totalMensual += pEMD;
+    modulosSeleccionados.push('EMD');
+    desglose.push({ nombre: 'EMD', valor: pEMD });
+  }
   if (document.getElementById('chkAltoCosto').checked) {
-    total += pAltoCosto;
+    totalMensual += pAltoCosto;
     modulosSeleccionados.push('Alto Costo');
     desglose.push({ nombre: 'Alto Costo', valor: pAltoCosto });
   }
   if (document.getElementById('chkCirugia').checked) {
-    total += pCirugia;
+    totalMensual += pCirugia;
     modulosSeleccionados.push('Cirugía Ambulatoria');
     desglose.push({ nombre: 'Cirugía Ambulatoria', valor: pCirugia });
   }
   if (matDisponible && document.getElementById('chkMaternidad').checked) {
-    total += pMaternidad;
+    totalMensual += pMaternidad;
     modulosSeleccionados.push('Maternidad');
     desglose.push({ nombre: 'Maternidad', valor: pMaternidad });
   }
-  if (document.getElementById('chkDomiciliaria').checked) {
-    modulosSeleccionados.push('Atención Domiciliaria');
-    desglose.push({ nombre: 'Atención Domiciliaria', valor: 0, nota: 'Incluida en Básico' });
-  }
+  // (Atención Domiciliaria usa chkEMD — ver arriba)
 
-  // 4. Calc commission: 12% if ≤50, 6% if >50
+  // 4. Aplicar multiplicador de periodicidad
+  const total = Math.round(totalMensual * mult);
+
+  // 5. Calc commission: 12% if ≤50, 6% if >50
   const comPct = edadNum <= 50 ? 0.12 : 0.06;
-  const comision = total * comPct;
+  const comision = Math.round(total * comPct);
 
-  // 5. Show summary
+  // 6. Show summary
   document.getElementById('psmResumen').style.display = '';
-  document.getElementById('psmPrimaTotal').textContent = fmt(Math.round(total));
-  document.getElementById('psmComision').textContent = fmt(Math.round(comision)) + ` (${edadNum<=50?'12':'6'}%)`;
+  document.getElementById('psmPrimaTotal').innerHTML = fmt(total)
+    + (mult > 1 ? ` <span style="font-size:10px;color:var(--text-muted);">(${fmt(Math.round(totalMensual))}/mes × ${mult})</span>` : '');
+  document.getElementById('psmComision').textContent = fmt(comision) + ` (${edadNum<=50?'12':'6'}%)`;
 
   document.getElementById('psmDesglose').innerHTML = desglose.map(d => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
       <span style="color:var(--text-muted);">🧩 ${d.nombre}</span>
       <span style="font-family:var(--mono);color:var(--text);font-weight:600;">${d.nota ? `<span style="color:var(--text-dim);font-size:11px;">${d.nota}</span>` : fmt(Math.round(d.valor))}</span>
     </div>
-  `).join('');
+  `).join('') + (mult > 1 ? `<div style="padding:5px 0;font-size:11.5px;color:var(--teal);">× ${mult} meses (${perLabel}) = <strong>${fmt(total)}</strong></div>` : '');
 }
 
 // =============================================
@@ -9957,12 +9997,23 @@ function calcDatosPAC60() {
 
   const tarifas = PAC60_TARIFAS[rango];
   const conAnexo = document.getElementById('chkAnexoPAC60').checked;
-  const prima = conAnexo ? tarifas.conAnexo : tarifas.sinAnexo;
+  const primaMensual = conAnexo ? tarifas.conAnexo : tarifas.sinAnexo;
   const diferencia = tarifas.conAnexo - tarifas.sinAnexo;
-  const comision = Math.round(prima * PAC60_COM_PCT);
   const planLabel = conAnexo ? '60+ Con Anexo' : '60+ Sin Anexo';
 
-  // Show individual prices
+  // Periodicidad
+  const periPAC = document.getElementById('vPeriodicidadPAC60')?.value || 'MENSUAL';
+  const periMult = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+  const mult = periMult[periPAC] || 1;
+  const periLabels = { MENSUAL:'Mensual', TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' };
+  const perLabel = periLabels[periPAC] || 'Mensual';
+  const perLabelEl = document.getElementById('pac60PerLabel');
+  if (perLabelEl) perLabelEl.textContent = perLabel;
+
+  const prima = Math.round(primaMensual * mult);
+  const comision = Math.round(prima * PAC60_COM_PCT);
+
+  // Show individual prices (siempre mensuales como referencia)
   document.getElementById('pac60PrecioBase').textContent = fmt(tarifas.sinAnexo);
   document.getElementById('pac60PrecioAnexo').textContent = conAnexo
     ? `+ ${fmt(diferencia)}`
@@ -9970,7 +10021,8 @@ function calcDatosPAC60() {
 
   // Show summary
   document.getElementById('pac60Resumen').style.display = '';
-  document.getElementById('pac60PrimaTotal').textContent = fmt(prima);
+  document.getElementById('pac60PrimaTotal').innerHTML = fmt(prima)
+    + (mult > 1 ? ` <span style="font-size:10px;color:var(--text-muted);">(${fmt(primaMensual)}/mes × ${mult})</span>` : '');
   document.getElementById('pac60Comision').textContent = fmt(comision);
   document.getElementById('pac60PlanLabel').textContent = planLabel;
 
@@ -9985,7 +10037,7 @@ function calcDatosPAC60() {
       <span style="color:var(--text-muted);">🌿 ${d.nombre}</span>
       <span style="font-family:var(--mono);color:var(--text);font-weight:600;">${fmt(d.valor)}</span>
     </div>
-  `).join('');
+  `).join('') + (mult > 1 ? `<div style="padding:5px 0;font-size:11.5px;color:var(--green);">× ${mult} meses (${perLabel}) = <strong>${fmt(prima)}</strong></div>` : '');
 }
 
 function calcEdadSPD(quien) {
@@ -10498,16 +10550,21 @@ function guardarVenta() {
     const rango = getRangoPSM(edadNum);
     if (!rango) return alert('La edad del asegurado está fuera del rango asegurable (0–64 años)');
     const k = rango.key;
-    // Calc total with IVA
-    let primaMensual = (PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k]) * PSM_IVA;
+    // Periodicidad
+    const periPSM = document.getElementById('vPeriodicidadPSM')?.value || 'MENSUAL';
+    const periMultPSM = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+    const multPSM = periMultPSM[periPSM] || 1;
+    // Calc total mensual con IVA
+    let primaMensualBase = PSM_TARIFAS.basico[k] * PSM_IVA;
     const modulosArr = ['Básico'];
-    if (document.getElementById('chkAltoCosto').checked) { primaMensual += PSM_TARIFAS.altoCosto[k] * PSM_IVA; modulosArr.push('Alto Costo'); }
-    if (document.getElementById('chkCirugia').checked) { primaMensual += PSM_TARIFAS.cirugia[k] * PSM_IVA; modulosArr.push('Cirugía Ambulatoria'); }
-    if (document.getElementById('chkMaternidad').checked && edadNum >= 15 && edadNum <= 45) { primaMensual += PSM_TARIFAS.maternidad[k] * PSM_IVA; modulosArr.push('Maternidad'); }
-    if (document.getElementById('chkDomiciliaria').checked) modulosArr.push('Atención Domiciliaria');
-    primaMensual = Math.round(primaMensual);
+    if (document.getElementById('chkEMD')?.checked) { primaMensualBase += PSM_TARIFAS.emd[k] * PSM_IVA; modulosArr.push('Atención Domiciliaria'); }
+    if (document.getElementById('chkAltoCosto').checked) { primaMensualBase += PSM_TARIFAS.altoCosto[k] * PSM_IVA; modulosArr.push('Alto Costo'); }
+    if (document.getElementById('chkCirugia').checked) { primaMensualBase += PSM_TARIFAS.cirugia[k] * PSM_IVA; modulosArr.push('Cirugía Ambulatoria'); }
+    if (document.getElementById('chkMaternidad').checked && edadNum >= 15 && edadNum <= 45) { primaMensualBase += PSM_TARIFAS.maternidad[k] * PSM_IVA; modulosArr.push('Maternidad'); }
+    const primaMensual = Math.round(primaMensualBase);
+    const primaTotal   = Math.round(primaMensualBase * multPSM);
     const comPct = edadNum <= 50 ? 0.12 : 0.06;
-    const comision = Math.round(primaMensual * comPct);
+    const comision = Math.round(primaTotal * comPct);
     const empNombrePSM = document.getElementById('vEmpresaPSM').value;
     const ciudadPSM = document.getElementById('vCiudadPSM').value;
     state.ventas.push({
@@ -10527,9 +10584,10 @@ function guardarVenta() {
       correo: document.getElementById('vCorreoPSM').value,
       ciudad: ciudadPSM,
       empresa: empNombrePSM,
+      periodicidad: periPSM,
       prima: primaMensual,
-      primaTotal: primaMensual,
-      primaTotalSinIVA: Math.round(primaMensual / PSM_IVA), // PSM IVA 5%
+      primaTotal: primaTotal,
+      primaTotalSinIVA: Math.round(primaTotal / PSM_IVA),
       notas: document.getElementById('vNotasPSM').value,
       comision,
       ramo: 'FAMILIAR',
@@ -10549,7 +10607,11 @@ function guardarVenta() {
     const rango = getRangoPAC60(edadNum);
     if (!rango) return alert('Rango de edad no válido para este plan');
     const conAnexo = document.getElementById('chkAnexoPAC60').checked;
-    const prima = conAnexo ? PAC60_TARIFAS[rango].conAnexo : PAC60_TARIFAS[rango].sinAnexo;
+    const periPAC = document.getElementById('vPeriodicidadPAC60')?.value || 'MENSUAL';
+    const periMultPAC = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+    const multPAC = periMultPAC[periPAC] || 1;
+    const primaMensualPAC = conAnexo ? PAC60_TARIFAS[rango].conAnexo : PAC60_TARIFAS[rango].sinAnexo;
+    const prima = Math.round(primaMensualPAC * multPAC);
     const comision = Math.round(prima * PAC60_COM_PCT);
     const planLabel = conAnexo ? '60+ Con Anexo' : '60+ Sin Anexo';
     state.ventas.push({
@@ -10570,7 +10632,9 @@ function guardarVenta() {
       correo: document.getElementById('vCorreoPAC60').value,
       ciudad: document.getElementById('vCiudadPAC60').value,
       notas: document.getElementById('vNotasPAC60').value,
-      prima, primaTotal: prima,
+      periodicidad: periPAC,
+      prima: primaMensualPAC,
+      primaTotal: prima,
       primaTotalSinIVA: Math.round(prima / 1.05),
       comision,
       comPct: 5,
