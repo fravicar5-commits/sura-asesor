@@ -6326,7 +6326,7 @@
     <!-- TAB: Plan Salud Modular (PSM) -->
     <div id="tabPSM" style="display:none;">
       <div style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.25);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:var(--teal);">
-        🧩 <strong>Plan Salud Modular</strong> — Ramo Familiar · Negocio Nuevo · Asesor Dependiente · Edad asegurable: 0–64 años · Copago único <strong>$30.000</strong> · El módulo EMD es un anexo opcional
+        🧩 <strong>Plan Salud Modular</strong> — Ramo Familiar · Negocio Nuevo · Asesor Dependiente · Edad asegurable: 0–64 años · Copago único <strong>$30.000</strong> · EMD es un <strong>anexo opcional</strong> que suma al Módulo Básico
       </div>
 
       <!-- Fechas y póliza -->
@@ -6428,14 +6428,14 @@
           </div>
         </div>
 
-        <!-- Anexo Atención Domiciliaria (chkEMD) -->
+        <!-- Anexo EMD — Emergencias Médicas Domiciliarias (chkEMD) -->
         <div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <input type="checkbox" id="chkEMD" onchange="calcDatosPSM()" style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer;">
-            <span style="font-size:16px;">🏠</span>
+            <span style="font-size:16px;">🚑</span>
             <div>
-              <div style="font-size:13px;font-weight:600;color:var(--text);">Atención Domiciliaria</div>
-              <div style="font-size:10.5px;color:var(--text-muted);">Hospitalización domiciliaria ilimitada · tarifa fija por cualquier rango de edad</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);">EMD — Emergencias Médicas Domiciliarias</div>
+              <div style="font-size:10.5px;color:var(--text-muted);">Atención de urgencias en domicilio · tarifa fija sin importar la edad · anexo opcional</div>
             </div>
           </div>
           <span id="psmPrecioEMD" style="font-family:var(--mono);font-weight:600;color:var(--text-muted);font-size:13px;">—</span>
@@ -17236,34 +17236,37 @@ function renderCotizadorPersonas() {
       const rango = getRangoPSM(edad);
       if (rango) {
         const k = rango.key;
-        const pBasico = Math.round((PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k]) * PSM_IVA);
+        const pBasico = Math.round(PSM_TARIFAS.basico[k] * PSM_IVA);
+        const pEMD = Math.round(PSM_TARIFAS.emd[k] * PSM_IVA);
         const pCirugia = Math.round(PSM_TARIFAS.cirugia[k] * PSM_IVA);
         const pMat = (edad>=15&&edad<=45) ? Math.round(PSM_TARIFAS.maternidad[k] * PSM_IVA) : 0;
         const pAlto = Math.round(PSM_TARIFAS.altoCosto[k] * PSM_IVA);
         const pBasicoShow = cotConIVA ? pBasico : Math.round(pBasico/IVA_FACTOR);
         const mods = p.modulosExtra || [];
         let totalMods = pBasico;
+        if (mods.includes('EMD')) totalMods += pEMD;
         if (mods.includes('Alto Costo')) totalMods += pAlto;
         if (mods.includes('Cirugía')) totalMods += pCirugia;
         if (mods.includes('Maternidad') && edad>=15&&edad<=45) totalMods += pMat;
         const totalShow = cotConIVA ? totalMods : Math.round(totalMods/IVA_FACTOR);
 
         const modRows = [
-          { key:'Alto Costo',  val: pAlto,   disponible: true },
-          { key:'Cirugía',     val: pCirugia, disponible: true },
-          { key:'Maternidad',  val: pMat,    disponible: edad>=15&&edad<=45 },
+          { key:'EMD',        label:'EMD — Emergencias Médicas Domiciliarias', val: pEMD,    disponible: true },
+          { key:'Alto Costo', label:'Alto Costo',  val: pAlto,   disponible: true },
+          { key:'Cirugía',    label:'Cirugía Ambulatoria', val: pCirugia, disponible: true },
+          { key:'Maternidad', label:'Maternidad',  val: pMat,    disponible: edad>=15&&edad<=45 },
         ];
         tarifasHTML = `<div style="margin-top:10px;border-radius:8px;padding:12px;background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.2);">
           <div style="font-size:10.5px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🧩 Plan Modular · Rango ${k} años</div>
           <div style="background:var(--surface3);border-radius:6px;padding:8px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:12px;font-weight:600;">🏥 Módulo Básico + EMD <span style="font-size:10px;color:var(--text-muted);">(incluido siempre)</span></span>
+            <span style="font-size:12px;font-weight:600;">🩺 Módulo Básico <span style="font-size:10px;color:var(--text-muted);">(incluido siempre)</span></span>
             <span style="font-family:var(--mono);font-weight:700;color:var(--teal);">${fmt(cotConIVA?pBasico:Math.round(pBasico/IVA_FACTOR))}/mes</span>
           </div>
           ${modRows.map(m => `
             <div style="border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;background:${mods.includes(m.key)?'rgba(6,182,212,0.1)':'var(--surface3)'};border:1px solid ${mods.includes(m.key)?'rgba(6,182,212,0.3)':'transparent'};${!m.disponible?'opacity:.4;pointer-events:none;':'cursor:pointer;'}" onclick="cotizadorToggleModulo('${p.id}','${m.key}',${!mods.includes(m.key)})">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;">
                 <input type="checkbox" ${mods.includes(m.key)?'checked':''} onclick="event.stopPropagation();cotizadorToggleModulo('${p.id}','${m.key}',this.checked)" style="accent-color:var(--teal);width:14px;height:14px;" ${!m.disponible?'disabled':''}>
-                ➕ ${m.key} ${!m.disponible?'<span style="font-size:10px;color:var(--text-dim);">(no aplica esta edad)</span>':''}
+                ➕ ${m.label} ${!m.disponible?'<span style="font-size:10px;color:var(--text-dim);">(no aplica esta edad)</span>':''}
               </label>
               <span style="font-family:var(--mono);font-weight:600;color:${mods.includes(m.key)?'var(--teal)':'var(--text-muted)'};">${m.val>0?'+'+fmt(cotConIVA?m.val:Math.round(m.val/IVA_FACTOR)):''}</span>
             </div>`).join('')}
@@ -17397,8 +17400,9 @@ function cotizadorCalcPrima(p) {
     const rango = getRangoPSM(edad);
     if (!rango) return 0;
     const k = rango.key;
-    let total = (PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k]) * PSM_IVA;
+    let total = PSM_TARIFAS.basico[k] * PSM_IVA;
     const mods = p.modulosExtra || [];
+    if (mods.includes('EMD')) total += PSM_TARIFAS.emd[k] * PSM_IVA;
     if (mods.includes('Alto Costo')) total += PSM_TARIFAS.altoCosto[k] * PSM_IVA;
     if (mods.includes('Cirugía')) total += PSM_TARIFAS.cirugia[k] * PSM_IVA;
     if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) total += PSM_TARIFAS.maternidad[k] * PSM_IVA;
@@ -17892,8 +17896,9 @@ function cotizadorImprimir() {
       const rango = getRangoPSM(edad);
       if (!rango) return 0;
       const k = rango.key;
-      let total = PSM_TARIFAS.basico[k] + PSM_TARIFAS.emd[k];
+      let total = PSM_TARIFAS.basico[k];
       const mods = p.modulosExtra || [];
+      if (mods.includes('EMD')) total += PSM_TARIFAS.emd[k];
       if (mods.includes('Alto Costo')) total += PSM_TARIFAS.altoCosto[k];
       if (mods.includes('Cirugía')) total += PSM_TARIFAS.cirugia[k];
       if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) total += PSM_TARIFAS.maternidad[k];
