@@ -29,6 +29,13 @@
     --radius: 14px;
     --radius-sm: 8px;
     --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --map-bg: rgba(10,15,30,0.4);
+    --map-path-fill: rgba(26,76,232,0.06);
+    --map-path-stroke: rgba(255,255,255,0.2);
+    --map-dot-fill: rgba(255,255,255,0.08);
+    --map-dot-stroke: rgba(255,255,255,0.18);
+    --map-label-color: rgba(255,255,255,0.25);
+    --map-footer-color: rgba(255,255,255,0.25);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -61,6 +68,7 @@
     --pink: #DB2777;
     --shadow: 0 4px 24px rgba(26,76,232,0.1);
   }
+  body.theme-light { --map-bg: #E8EFF8; --map-path-fill: rgba(26,76,232,0.07); --map-path-stroke: rgba(26,76,232,0.25); --map-dot-fill: rgba(26,76,232,0.12); --map-dot-stroke: rgba(26,76,232,0.3); --map-label-color: rgba(15,30,60,0.4); --map-footer-color: rgba(15,30,60,0.3); }
   body.theme-light .sidebar  { box-shadow: 2px 0 12px rgba(26,76,232,0.08); }
   body.theme-light .topbar   { box-shadow: 0 1px 8px rgba(26,76,232,0.08); }
   body.theme-light .card, body.theme-light .stat-card, body.theme-light .modal { box-shadow: 0 2px 12px rgba(26,76,232,0.07); }
@@ -1485,10 +1493,10 @@
               <div class="card-title" style="margin-bottom:0;">🗺️ Distribución por Ciudad</div>
               <button class="btn btn-secondary btn-sm" id="mapFiltroBtn" onclick="cycleMapFiltro()">PBS</button>
             </div>
-            <div style="display:flex;min-height:560px;">
+            <div style="display:flex;min-height:420px;">
               <!-- Mapa grande -->
-              <div style="flex:0 0 58%;border-right:1px solid var(--border);padding:16px;display:flex;align-items:center;justify-content:center;background:rgba(10,15,30,0.4);">
-                <svg id="colombiaMap" viewBox="55 35 415 445" style="width:100%;max-height:580px;display:block;"></svg>
+              <div id="mapContainer" style="flex:0 0 58%;border-right:1px solid var(--border);padding:16px;display:flex;align-items:center;justify-content:center;background:var(--map-bg,rgba(10,15,30,0.4));">
+                <svg id="colombiaMap" viewBox="55 35 415 445" style="width:100%;max-height:440px;display:block;"></svg>
               </div>
               <!-- Tabla lateral -->
               <div style="flex:1;padding:16px;overflow-y:auto;">
@@ -13712,14 +13720,14 @@ function renderMapa() {
       </filter>
     </defs>
     <!-- Colombia background -->
-    <path d="${COLOMBIA_PATH}" fill="rgba(26,76,232,0.06)" stroke="rgba(255,255,255,0.2)" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="${COLOMBIA_PATH}" fill="var(--map-path-fill)" stroke="var(--map-path-stroke)" stroke-width="1.8" stroke-linejoin="round"/>
     <!-- Océano / fondo sutil -->
     <!-- Cities -->
     ${Object.entries(CIUDADES_MAP).map(([ciudad, pos]) => {
       const count = counts[ciudad] || 0;
       if (count === 0) {
-        return `<circle cx="${pos.x}" cy="${pos.y}" r="3" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
-                <text x="${pos.x}" y="${pos.y-6}" text-anchor="middle" style="font-size:8px;fill:rgba(255,255,255,0.25);font-family:var(--font);">${ciudad.split(' ')[0]}</text>`;
+        return `<circle cx="${pos.x}" cy="${pos.y}" r="3" fill="var(--map-dot-fill)" stroke="var(--map-dot-stroke)" stroke-width="0.8"/>
+                <text x="${pos.x}" y="${pos.y-6}" text-anchor="middle" style="font-size:8px;fill:var(--map-label-color);font-family:var(--font);">${ciudad.split(' ')[0]}</text>`;
       }
       const r = Math.max(10, Math.min(28, 10 + (count / maxCount) * 18));
       const opacity = 0.65 + (count / maxCount) * 0.35;
@@ -13736,7 +13744,7 @@ function renderMapa() {
       `;
     }).join('')}
     <!-- Footer -->
-    <text x="255" y="480" text-anchor="middle" style="font-size:10px;fill:rgba(255,255,255,0.25);font-family:var(--font);">${total} venta(s) · ${label}</text>
+    <text x="255" y="480" text-anchor="middle" style="font-size:10px;fill:var(--map-footer-color);font-family:var(--font);">${total} venta(s) · ${label}</text>
   `;
 
   // Render table
