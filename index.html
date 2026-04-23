@@ -17956,11 +17956,16 @@ function cotizadorImprimir() {
     return COBERTURAS[p.producto] || [];
   }
 
-  // Build coverage tables per product
+  // Build coverage tables — una sola tabla por combinación única de producto+plan
+  // Clave: para SPTI distingue Clásico vs Preferencial; para los demás basta el producto
   const productosEnCot = [...new Set(cotPersonas.map(p => p.producto).filter(Boolean))];
+  const planesVistos = new Set();
   let coberturasTables = cotPersonas.filter(p => cotizadorCalcPrima(p) > 0).map(p => {
     const prod = p.producto;
     const subtipo = prod === 'SPTI' ? ((p.plan||'').toLowerCase().includes('prefer') ? 'Preferencial' : 'Clásico') : '';
+    const claveUnica = subtipo ? `${prod}_${subtipo}` : prod;
+    if (planesVistos.has(claveUnica)) return ''; // ya se renderizó esta combinación
+    planesVistos.add(claveUnica);
     const planLabel = subtipo ? `${COT_LABELS[prod]||prod} — ${subtipo}` : (COT_LABELS[prod]||prod);
     const cobList = getCoberturasPlan(p);
     const rows = (cobList || []).map(([cob, aplica, val]) =>
