@@ -7336,15 +7336,19 @@
 
 <!-- MODAL: Panel Registro en SURA -->
 <div class="modal-overlay" id="modalRegistroSura">
-  <div class="modal" style="width:520px;">
+  <div class="modal" style="width:600px;max-width:98vw;">
     <div class="modal-header" style="background:linear-gradient(135deg,rgba(26,76,232,0.15),rgba(26,76,232,0.05));border-bottom:1px solid rgba(26,76,232,0.2);">
       <div>
         <div class="modal-title" style="color:var(--sura-blue);">🏥 Registrar en sistema SURA</div>
-        <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Copia cada dato en el orden que lo pide el portal · toca para copiar</div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;" id="suraRegSubtitulo">Copia cada dato en el orden que lo pide el portal · toca para copiar</div>
       </div>
       <button class="modal-close" onclick="closeModal('modalRegistroSura')">×</button>
     </div>
-    <div style="padding:20px;display:flex;flex-direction:column;gap:10px;" id="suraRegCampos">
+    <!-- Tabs persona (cotizante + beneficiarios) -->
+    <div id="suraRegTabsWrap" style="display:none;padding:12px 20px 0;border-bottom:1px solid var(--border);display:none;">
+      <div id="suraRegTabs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;" id="suraRegCampos">
     </div>
     <div style="padding:0 20px 16px;">
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">📌 Cuando SURA te dé el número de radicado, guárdalo aquí:</div>
@@ -10758,6 +10762,12 @@ function toggleRegistradoSistema(id) {
     abrirPanelRegistroSura(id);
   } else {
     v.registradoSistema = false;
+    // Desmarcar también beneficiarios vinculados
+    state.ventas.forEach(ben => {
+      if (ben.cotizanteId === id && ben.tipo === 'BENEFICIARIO') {
+        ben.registradoSistema = false;
+      }
+    });
     setState(state);
     refreshPage(currentPage);
     showToast('○ Desmarcado como registrado en SURA');
@@ -10765,33 +10775,129 @@ function toggleRegistradoSistema(id) {
 }
 
 let _suraRegVentaId = null;
+let _suraRegPersonaIdx = 0; // 0 = cotizante, 1+ = beneficiarios
 
 function abrirPanelRegistroSura(ventaId) {
   const state = getState();
   const v = state.ventas.find(x => x.id === ventaId);
   if (!v || v.producto !== 'PBS' || v.tipo === 'BENEFICIARIO') return;
   _suraRegVentaId = ventaId;
+  _suraRegPersonaIdx = 0;
 
-  const nombre = v.nombre || '—';
-  const doc    = v.doc || '—';
-  const nit    = v.nit || '—';
-  const empresa = v.empresa || '—';
+  // Recopilar beneficiarios guardados en la venta (array embebido)
+  const bens = (v.beneficiarios || []).filter(b => b.nombre || b.doc);
+
+  // Construir tabs si hay beneficiarios
+  const tabsWrap = document.getElementById('suraRegTabsWrap');
+  const tabsEl   = document.getElementById('suraRegTabs');
+  const subtitulo = document.getElementById('suraRegSubtitulo');
+
+  if (bens.length > 0) {
+    tabsWrap.style.display = 'block';
+    const personas = [
+      { label: '👤 Cotizante', idx: 0 },
+      ...bens.map((b, i) => ({ label: `👨‍👩‍👧 ${b.nombre ? b.nombre.split(' ')[0] : 'Beneficiario ' + (i+1)}`, idx: i+1 }))
+    ];
+    tabsEl.innerHTML = personas.map(p => `
+      <button onclick="suraRegCambiarPersona(${p.idx})" id="suraTab_${p.idx}"
+        style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;
+               background:${p.idx===0?'var(--sura-blue)':'var(--surface2)'};
+               color:${p.idx===0?'white':'var(--text-muted)'};">
+        ${p.label}
+      </button>`).join('');
+    subtitulo.textContent = `${bens.length + 1} persona${bens.length > 0 ? 's' : ''} · selecciona cada una y copia sus datos en SURA`;
+  } else {
+    tabsWrap.style.display = 'none';
+    subtitulo.textContent = 'Copia cada dato en el orden que lo pide el portal · toca para copiar';
+  }
+
+  // Pre-llenar radicado si ya existe
+  const inp = document.getElementById('suraRegRadicado');
+  if (inp) inp.value = v.formulario || '';
+
+  // Renderizar datos del cotizante (índice 0)
+  suraRegRenderPersona(v, bens, 0);
+
+  openModal('modalRegistroSura');
+}
+
+function suraRegCambiarPersona(idx) {
+  _suraRegPersonaIdx = idx;
+  // Actualizar estilos de tabs
+  const state = getState();
+  const v = state.ventas.find(x => x.id === _suraRegVentaId);
+  if (!v) return;
+  const bens = (v.beneficiarios || []).filter(b => b.nombre || b.doc);
+  const total = bens.length + 1;
+  for (let i = 0; i < total; i++) {
+    const tab = document.getElementById('suraTab_' + i);
+    if (!tab) continue;
+    tab.style.background = i === idx ? 'var(--sura-blue)' : 'var(--surface2)';
+    tab.style.color      = i === idx ? 'white' : 'var(--text-muted)';
+  }
+  suraRegRenderPersona(v, bens, idx);
+}
+
+function suraRegRenderPersona(v, bens, idx) {
+  // Datos de la persona seleccionada
+  let nombre, doc, tipoDoc, nit, empresa;
+  if (idx === 0) {
+    nombre  = v.nombre  || '—';
+    doc     = v.doc     || '—';
+    tipoDoc = v.tipoDoc || 'CC';
+    nit     = v.nit     || '—';
+    empresa = v.empresa || '—';
+  } else {
+    const b = bens[idx - 1];
+    nombre  = b.nombre  || '—';
+    doc     = b.doc     || '—';
+    tipoDoc = b.tipoDoc || 'CC';
+    // Beneficiarios heredan empresa/NIT del cotizante
+    nit     = v.nit     || '—';
+    empresa = v.empresa || '—';
+  }
+
+  const esCotizante = idx === 0;
   const radicado = v.formulario || '';
+  const yaReg = v.registradoSistema;
 
   // Campos en el orden exacto del portal SURA
   const campos = [
-    { paso: '1', label: 'Cédula del afiliado', valor: doc, icono: '🪪', hint: 'El portal valida primero si ya está registrado' },
-    { paso: '2', label: 'Nombre completo', valor: nombre, icono: '👤', hint: 'Se confirma después de validar la cédula' },
-    { paso: '3', label: 'NIT empresa', valor: nit, icono: '🏢', hint: 'El sistema busca la empresa automáticamente' },
-    { paso: '4', label: 'Nombre empresa', valor: empresa, icono: '📋', hint: 'Solo si el NIT no está en BD de SURA' },
+    { paso: '1', label: tipoDoc + ' del ' + (esCotizante ? 'afiliado' : 'beneficiario'), valor: doc, icono: '🪪', hint: 'El portal valida primero si ya está registrado' },
+    { paso: '2', label: 'Nombre completo', valor: nombre, icono: '👤', hint: 'Se confirma después de validar el documento' },
+    ...( esCotizante ? [
+      { paso: '3', label: 'NIT empresa', valor: nit, icono: '🏢', hint: 'El sistema busca la empresa automáticamente' },
+      { paso: '4', label: 'Nombre empresa', valor: empresa, icono: '📋', hint: 'Solo si el NIT no está en BD de SURA' },
+    ] : [
+      { paso: '3', label: 'NIT empresa (del cotizante)', valor: nit, icono: '🏢', hint: 'Se asocia a la misma empresa del cotizante' },
+    ]),
   ];
 
   const cont = document.getElementById('suraRegCampos');
   if (!cont) return;
 
-  cont.innerHTML = campos.map(c => `
+  cont.innerHTML = '';
+
+  // Banner ya registrado
+  if (yaReg) {
+    cont.innerHTML += `
+      <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--green);font-weight:600;">
+        ✅ Esta venta ya fue marcada como registrada en SURA${radicado ? ' · Radicado: ' + radicado : ''}
+      </div>`;
+  }
+
+  // Indicador de persona actual
+  if (bens.length > 0) {
+    cont.innerHTML += `
+      <div style="background:rgba(26,76,232,0.08);border:1px solid rgba(26,76,232,0.18);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--sura-blue);font-weight:600;">
+        ${esCotizante ? '👤 Datos del <strong>Cotizante</strong>' : `👨‍👩‍👧 Datos del <strong>Beneficiario ${idx}</strong> de ${bens.length}`}
+        <span style="font-size:10.5px;font-weight:400;color:var(--text-muted);margin-left:8px;">Usa las pestañas arriba para cambiar de persona</span>
+      </div>`;
+  }
+
+  cont.innerHTML += campos.map(c => `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:border-color .15s;"
-      onclick="copiarDatoSura('${c.valor}', this)"
+      onclick="copiarDatoSura('${(c.valor||'').replace(/'/g,"\\'")}', this)"
       title="Toca para copiar">
       <div style="width:24px;height:24px;border-radius:50%;background:rgba(26,76,232,0.15);color:var(--sura-blue);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${c.paso}</div>
       <div style="flex:1;min-width:0;">
@@ -10802,21 +10908,6 @@ function abrirPanelRegistroSura(ventaId) {
       <div class="sura-copy-badge" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;background:rgba(26,76,232,0.1);color:var(--sura-blue);flex-shrink:0;white-space:nowrap;">📋 Copiar</div>
     </div>
   `).join('');
-
-  // Pre-llenar radicado si ya existe
-  const inp = document.getElementById('suraRegRadicado');
-  if (inp) inp.value = radicado;
-
-  // Indicar si ya estaba registrado
-  const yaReg = v.registradoSistema;
-  if (yaReg) {
-    cont.insertAdjacentHTML('afterbegin', `
-      <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--green);font-weight:600;">
-        ✅ Esta venta ya fue marcada como registrada en SURA${radicado ? ' · Radicado: ' + radicado : ''}
-      </div>`);
-  }
-
-  openModal('modalRegistroSura');
 }
 
 function copiarDatoSura(valor, el) {
@@ -10861,10 +10952,18 @@ function marcarRegistradoSura() {
   if (!v) return;
   if (radicado) v.formulario = radicado;
   v.registradoSistema = true;
+  // Marcar también los beneficiarios vinculados como registrados
+  s.ventas.forEach(ben => {
+    if (ben.cotizanteId === _suraRegVentaId && ben.tipo === 'BENEFICIARIO') {
+      ben.registradoSistema = true;
+      if (radicado) ben.formulario = radicado;
+    }
+  });
   setState(s);
   closeModal('modalRegistroSura');
   refreshPage(currentPage);
-  showToast('✅ Venta marcada como registrada en SURA' + (radicado ? ' · Radicado: ' + radicado : ''));
+  const nBens = s.ventas.filter(b => b.cotizanteId === _suraRegVentaId && b.tipo === 'BENEFICIARIO').length;
+  showToast('✅ Registrado en SURA' + (nBens > 0 ? ` · cotizante + ${nBens} beneficiario${nBens > 1 ? 's' : ''}` : '') + (radicado ? ' · Radicado: ' + radicado : ''));
 }
 
 // ── Ver notas de un registro ──────────────────────────────────────
@@ -10942,6 +11041,17 @@ function renderPlantillaPBS() {
     const estadoColor = v.estado === 'AGIL' ? 'var(--green)' : v.estado === 'NO AGIL' ? 'var(--amber)' : 'var(--text-muted)';
     const rowBg = i%2===0 ? '' : 'style="background:rgba(255,255,255,0.02)"';
     const notasTip = (v.notas||'').replace(/"/g,'&quot;');
+    // Contar beneficiarios vinculados a este cotizante
+    const nBens = v.tipo !== 'BENEFICIARIO' ? state.ventas.filter(b => b.cotizanteId === v.id && b.tipo === 'BENEFICIARIO').length : 0;
+    const bensRegistrados = nBens > 0 ? state.ventas.filter(b => b.cotizanteId === v.id && b.tipo === 'BENEFICIARIO' && b.registradoSistema).length : 0;
+    const bensBadge = nBens > 0
+      ? `<span title="${bensRegistrados}/${nBens} beneficiarios registrados en SURA"
+           style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;
+                  background:${bensRegistrados===nBens?'rgba(34,197,94,0.15)':'rgba(245,158,11,0.15)'};
+                  color:${bensRegistrados===nBens?'var(--green)':'var(--amber)'};">
+           👨‍👩‍👧${bensRegistrados}/${nBens}
+         </span>`
+      : '';
     return `<tr ${rowBg}>
       <td style="color:var(--text-dim);font-family:var(--mono);padding:8px 12px;">${i+1}</td>
       <td style="font-family:var(--mono);white-space:nowrap;padding:8px 12px;">${fechaFmt}</td>
@@ -10960,9 +11070,11 @@ function renderPlantillaPBS() {
       <td style="font-family:var(--mono);font-size:11.5px;padding:8px 12px;">${v.nit||'—'}</td>
       <td style="font-family:var(--mono);font-size:11.5px;white-space:nowrap;padding:8px 12px;">${cobFmt}</td>
       <td style="padding:8px 12px;white-space:nowrap;">
-        ${v.registradoSistema
-          ? `<span title="Registrado en sistema" style="font-size:15px;cursor:pointer;" onclick="toggleRegistradoSistema('${v.id}')">✅</span>`
-          : `<button class="btn btn-sm" onclick="toggleRegistradoSistema('${v.id}')" title="Marcar registrado" style="background:rgba(34,197,94,0.1);color:var(--text-dim);border:1px solid rgba(34,197,94,0.2);padding:3px 6px;font-size:12px;">○</button>`}
+        ${v.tipo === 'BENEFICIARIO'
+          ? `<span title="Beneficiario — se registra junto al cotizante" style="font-size:12px;color:var(--text-dim);">↳ Ben.</span>`
+          : v.registradoSistema
+            ? `<span title="Registrado en SURA · click para abrir panel" style="font-size:15px;cursor:pointer;" onclick="abrirPanelRegistroSura('${v.id}')">✅</span>${bensBadge}`
+            : `<button class="btn btn-sm" onclick="toggleRegistradoSistema('${v.id}')" title="Marcar como registrado en SURA${nBens>0?' (incluye '+nBens+' beneficiario'+(nBens>1?'s':'')+')':''}" style="background:rgba(34,197,94,0.1);color:var(--text-dim);border:1px solid rgba(34,197,94,0.2);padding:3px 6px;font-size:12px;">○</button>${bensBadge}`}
         ${v.notas ? `<button class="btn btn-sm" onclick="verNotas('${v.id}')" title="${notasTip}" style="background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25);padding:3px 6px;font-size:12px;">📝</button>` : ''}
         <button class="btn btn-secondary btn-sm" onclick="editarVenta('${v.id}')" title="Editar">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="eliminarVentaDesdeTabla('${v.id}')" title="Eliminar">🗑</button>
