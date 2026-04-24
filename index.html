@@ -5698,6 +5698,21 @@
                   <button class="btn btn-secondary btn-sm" onclick="wmInsertarVar('{fecha}')">+ {fecha}</button>
                   <button class="btn btn-secondary btn-sm" onclick="wmInsertarVar('{asesor}')">+ {asesor}</button>
                 </div>
+                <!-- Adjunto opcional -->
+                <div style="border:1px dashed var(--border-hover);border-radius:8px;padding:12px;">
+                  <div style="font-size:11.5px;font-weight:600;color:var(--text-muted);margin-bottom:8px;">📎 Adjunto opcional (imagen o PDF)</div>
+                  <input type="file" id="wm_adjunto_input" accept="image/*,.pdf"
+                    style="display:none;" onchange="wmCargarAdjunto(event)">
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('wm_adjunto_input').click()">
+                      📁 Seleccionar archivo
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="wm_adjunto_quitar"
+                      style="display:none;color:var(--red);border-color:rgba(240,82,82,0.3);"
+                      onclick="wmQuitarAdjunto()">× Quitar</button>
+                  </div>
+                  <div id="wm_adjunto_info" style="font-size:11.5px;color:var(--text-muted);margin-top:6px;"></div>
+                </div>
               </div>
             </div>
 
@@ -23329,6 +23344,18 @@ function wmGuardarConfigServidor() {
     localStorage.setItem('wm_server_tipo', tipo);
   } catch(e) {}
 }
+// ── UTILIDADES ────────────────────────────────────────────────────────────
+// Normaliza cualquier número colombiano a formato 57XXXXXXXXXX (10 dígitos locales)
+function wmNormalizarTel(raw) {
+  let t = String(raw).replace(/\D/g, '');
+  if (t.startsWith('57') && t.length === 12) return t;      // ya tiene prefijo
+  if (t.startsWith('57') && t.length > 12)  t = t.slice(2); // quitar 57 y re-evaluar
+  if (t.startsWith('0'))                     t = t.slice(1); // quitar 0 inicial
+  if (t.length === 10) return '57' + t;                      // celular colombiano
+  if (t.length === 7)  return '57' + t;                      // fijo sin área
+  return '57' + t;                                           // fallback
+}
+
 function wmCargarConfigServidor() {
   const url  = localStorage.getItem('wm_server_url')  || '';
   const tipo = localStorage.getItem('wm_server_tipo') || 'auto';
@@ -23409,7 +23436,7 @@ function wmFiltrarClientes() {
 
     clientes.push({
       nombre:   (v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0],
-      telefono: tel,
+      telefono: wmNormalizarTel(tel),
       producto: v.producto,
       mora:     moraStr,
       cedula:   v.doc || v.cedula || ''
@@ -23450,7 +23477,7 @@ async function wmImportarExcel(event) {
         const tel  = telIdx >= 0 ? cols[telIdx] : cols[0];
         const nom  = nomIdx >= 0 ? cols[nomIdx] : ('Contacto ' + i);
         if (tel && tel.replace(/\D/g,'').length >= 7) {
-          rows.push({ telefono: tel.replace(/\D/g,''), nombre: nom, producto: '—', mora: '$0', cedula: '' });
+          rows.push({ telefono: wmNormalizarTel(tel.replace(/\D/g,'')), nombre: nom, producto: '—', mora: '$0', cedula: '' });
         }
       }
     } else {
@@ -23483,7 +23510,7 @@ async function wmImportarExcel(event) {
         const tel = getVal('telefono','celular','cel','phone','numero','tel').replace(/\D/g,'');
         const nom = getVal('nombre','cliente','name','contacto') || ('Contacto ' + (i+1));
         if (tel.length >= 7) {
-          rows.push({ telefono: tel, nombre: nom, producto: '—', mora: '$0', cedula: '' });
+          rows.push({ telefono: wmNormalizarTel(tel), nombre: nom, producto: '—', mora: '$0', cedula: '' });
         }
       });
     }
@@ -23519,7 +23546,7 @@ function wmParsearManual() {
     const nom = parts[1] || ('Contacto ' + (i+1));
     if (tel.length >= 7 && !seen.has(tel)) {
       seen.add(tel);
-      resultado.push({ telefono: tel, nombre: nom, producto: '—', mora: '$0', cedula: '' });
+      resultado.push({ telefono: wmNormalizarTel(tel), nombre: nom, producto: '—', mora: '$0', cedula: '' });
     }
   });
 
@@ -23530,18 +23557,31 @@ function wmParsearManual() {
 }
 
 // ── RENDER LISTA ──────────────────────────────────────────────────────────
+function wmEliminarContacto(idx) {
+  wmClientesSegmento.splice(idx, 1);
+  wmRenderizarLista();
+  wmActualizarPreview();
+}
+
 function wmRenderizarLista() {
   const countEl = document.getElementById('wm_count');
   if (countEl) countEl.textContent = wmClientesSegmento.length;
   const lista = document.getElementById('wm_lista_clientes');
   if (!lista) return;
   if (!wmClientesSegmento.length) { lista.innerHTML = ''; return; }
-  lista.innerHTML = wmClientesSegmento.slice(0, 60).map(c => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:var(--surface2);border-radius:6px;font-size:12px;">
-      <span style="font-weight:600;">${c.nombre}</span>
-      <span style="color:var(--text-muted);font-family:var(--mono);font-size:11px;">${c.telefono}${c.producto !== '—' ? ' · <span style="color:var(--sura-blue);">'+c.producto+'</span>' : ''}</span>
+  const MAX_VISIBLE = 60;
+  lista.innerHTML = wmClientesSegmento.slice(0, MAX_VISIBLE).map((c, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px 5px 10px;background:var(--surface2);border-radius:6px;font-size:12px;gap:6px;">
+      <span style="font-weight:600;min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nombre}</span>
+      <span style="color:var(--text-muted);font-family:var(--mono);font-size:11px;flex:1;">
+        ${c.telefono}${c.producto !== '—' ? ` · <span style="color:var(--sura-blue);">${c.producto}</span>` : ''}
+      </span>
+      <button onclick="wmEliminarContacto(${i})" title="Eliminar contacto"
+        style="background:rgba(240,82,82,0.12);border:none;color:var(--red);border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0;display:flex;align-items:center;justify-content:center;">×</button>
     </div>
-  `).join('') + (wmClientesSegmento.length > 60 ? `<div style="text-align:center;font-size:11px;color:var(--text-dim);padding:4px;">…y ${wmClientesSegmento.length - 60} más</div>` : '');
+  `).join('') + (wmClientesSegmento.length > MAX_VISIBLE
+    ? `<div style="text-align:center;font-size:11px;color:var(--text-dim);padding:4px;">…y ${wmClientesSegmento.length - MAX_VISIBLE} más (los primeros ${MAX_VISIBLE} se muestran)</div>`
+    : '');
 }
 
 // ── PLANTILLA / VARIABLES ─────────────────────────────────────────────────
@@ -23746,6 +23786,49 @@ function wmActualizarProgreso(ok, fail, total) {
   if (txt) txt.textContent = `${ok + fail} / ${total}`;
 }
 
+// ── ADJUNTO ───────────────────────────────────────────────────────────────
+let _wmAdjunto = null; // { base64, mimeType, fileName, dataUrl }
+
+function wmCargarAdjunto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const MAX_MB = 10;
+  if (file.size > MAX_MB * 1024 * 1024) {
+    showToast(`⚠️ El archivo supera los ${MAX_MB} MB`);
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    const base64  = dataUrl.split(',')[1];
+    _wmAdjunto = { base64, mimeType: file.type, fileName: file.name, dataUrl };
+    const info = document.getElementById('wm_adjunto_info');
+    const quitar = document.getElementById('wm_adjunto_quitar');
+    if (info) {
+      const isImg = file.type.startsWith('image/');
+      info.innerHTML = isImg
+        ? `<img src="${dataUrl}" style="max-height:60px;border-radius:4px;margin-top:4px;"> <span style="margin-left:6px;">📄 ${file.name} · ${(file.size/1024).toFixed(0)} KB</span>`
+        : `📄 ${file.name} · ${(file.size/1024).toFixed(0)} KB`;
+    }
+    if (quitar) quitar.style.display = '';
+    showToast('📎 Adjunto cargado: ' + file.name);
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function wmQuitarAdjunto() {
+  _wmAdjunto = null;
+  const info   = document.getElementById('wm_adjunto_info');
+  const quitar = document.getElementById('wm_adjunto_quitar');
+  const input  = document.getElementById('wm_adjunto_input');
+  if (info)   info.innerHTML = '';
+  if (quitar) quitar.style.display = 'none';
+  if (input)  input.value = '';
+  showToast('📎 Adjunto eliminado');
+}
+
 // ── ENVÍO ─────────────────────────────────────────────────────────────────
 async function wmIniciarEnvio() {
   if (wmEnviando) return;
@@ -23816,17 +23899,32 @@ async function wmIniciarEnvio() {
     // Construir payloads en todos los formatos compatibles con WaSend/whatsapp-web.js
     const chatId = `${telFull}@c.us`;
     const sendPath = window._wmSendPath || '/send';
+    const adj = _wmAdjunto;
 
     // Lista de payloads a intentar en orden, cubriendo todas las variantes conocidas
-    const payloads = [
-      { chatId, message: msg },                                // whatsapp-web.js estándar
-      { chatId, body: msg },                                   // variante con body
-      { phone: telFull, message: msg },                        // formato genérico
-      { number: telFull, message: msg },                       // variante number
-      { to: telFull, body: msg },                              // formato UltraMsg/WPPConnect
-      { to: chatId, body: msg },                               // con chatId en to
-      { recipient: chatId, message: msg },                     // variante recipient
-    ];
+    let payloads;
+    if (adj) {
+      // Con adjunto: incluir base64 + mediaType en todas las variantes
+      const mediaType = adj.mimeType.startsWith('image/') ? 'image' : 'document';
+      payloads = [
+        { chatId, message: msg, base64: adj.base64, fileName: adj.fileName, mediaType },
+        { chatId, body: msg, base64: adj.base64, filename: adj.fileName, type: mediaType },
+        { phone: telFull, message: msg, base64: adj.base64, fileName: adj.fileName, mediaType },
+        { number: telFull, message: msg, base64: adj.base64, filename: adj.fileName },
+        { to: telFull, body: msg, media: adj.dataUrl, filename: adj.fileName },
+        { chatId, caption: msg, image: adj.base64, filename: adj.fileName },
+      ];
+    } else {
+      payloads = [
+        { chatId, message: msg },                                // whatsapp-web.js estándar
+        { chatId, body: msg },                                   // variante con body
+        { phone: telFull, message: msg },                        // formato genérico
+        { number: telFull, message: msg },                       // variante number
+        { to: telFull, body: msg },                              // formato UltraMsg/WPPConnect
+        { to: chatId, body: msg },                               // con chatId en to
+        { recipient: chatId, message: msg },                     // variante recipient
+      ];
+    }
 
     let enviado = false;
     for (const payload of payloads) {
