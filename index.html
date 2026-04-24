@@ -5779,6 +5779,15 @@
                 <div style="font-size:12px;color:var(--amber);margin-bottom:8px;">📱 Escanea el QR para conectar WhatsApp</div>
                 <img id="wm_qr_img" src="" alt="QR" style="max-width:200px;border-radius:8px;border:2px solid var(--border);">
               </div>
+              <!-- 🔬 Panel de diagnóstico -->
+              <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+                <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🔬 Diagnóstico de envío</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                  <input type="text" id="wm_diag_numero" class="form-control" placeholder="Número destino (ej: 573008514699)" style="flex:1;font-size:12px;">
+                  <button class="btn btn-secondary btn-sm" onclick="wmDiagnostico()" style="white-space:nowrap;">🧪 Probar envío</button>
+                </div>
+                <div id="wm_diag_resultado" style="font-size:11px;font-family:var(--mono);color:var(--text-muted);background:var(--surface2);border-radius:6px;padding:8px;display:none;max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;"></div>
+              </div>
             </div>
 
             <!-- Progreso y log -->
@@ -23344,6 +23353,56 @@ function wmGuardarConfigServidor() {
     localStorage.setItem('wm_server_tipo', tipo);
   } catch(e) {}
 }
+// ── DIAGNÓSTICO DE ENVÍO ──────────────────────────────────────────────────
+async function wmDiagnostico() {
+  const server = wmGetServer();
+  const resEl  = document.getElementById('wm_diag_resultado');
+  const numRaw = (document.getElementById('wm_diag_numero')?.value || '').trim();
+  if (!server) { showToast('⚠️ Configura la URL del servidor'); return; }
+  if (!numRaw) { showToast('⚠️ Ingresa un número destino'); return; }
+
+  const tel     = wmNormalizarTel(numRaw);
+  const chatId  = `${tel}@c.us`;
+  const msg     = 'Prueba diagnóstico SURA';
+  const paths   = ['/api/send', '/send', '/api/messages/send', '/message/sendText/default', '/session/send', '/api/default/send-message'];
+  const payloads = [
+    { label:'chatId+message',    body: { chatId, message: msg } },
+    { label:'chatId+body',       body: { chatId, body: msg } },
+    { label:'phone+message',     body: { phone: tel, message: msg } },
+    { label:'number+message',    body: { number: tel, message: msg } },
+    { label:'to+body',           body: { to: tel, body: msg } },
+    { label:'to(chatId)+body',   body: { to: chatId, body: msg } },
+  ];
+
+  if (resEl) { resEl.style.display = ''; resEl.textContent = `🔍 Probando ${tel}...\n`; }
+
+  for (const path of paths) {
+    for (const p of payloads) {
+      try {
+        const r = await fetch(`${server}${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(p.body),
+          signal: AbortSignal.timeout(12000)
+        });
+        let respText = '';
+        try { respText = JSON.stringify(await r.json()); } catch(e) { respText = await r.text().catch(() => ''); }
+        const line = `[${r.status}] ${path} | ${p.label}\n  → ${respText.slice(0,200)}\n`;
+        if (resEl) resEl.textContent += line;
+        if (r.ok) {
+          if (resEl) resEl.textContent += `\n✅ ÉXITO: path=${path}  payload=${p.label}\n`;
+          showToast(`✅ Formato encontrado: ${path} · ${p.label}`);
+          return;
+        }
+      } catch(e) {
+        const line = `[ERR] ${path} | ${p.label} → ${e.message.slice(0,80)}\n`;
+        if (resEl) resEl.textContent += line;
+      }
+    }
+  }
+  if (resEl) resEl.textContent += '\n❌ Ningún formato funcionó. Revisa los logs arriba para ver los errores del servidor.';
+}
+
 // ── UTILIDADES ────────────────────────────────────────────────────────────
 // Normaliza cualquier número colombiano a formato 57XXXXXXXXXX (10 dígitos locales)
 function wmNormalizarTel(raw) {
