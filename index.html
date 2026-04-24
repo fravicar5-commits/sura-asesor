@@ -5721,14 +5721,6 @@
               <div class="card-title">3 · Configuración de envío</div>
               <div style="display:flex;flex-direction:column;gap:10px;">
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Tipo de servidor WhatsApp</label>
-                  <select class="form-control" id="wm_server_tipo" onchange="wmGuardarConfigServidor()" style="margin-bottom:8px;">
-                    <option value="auto">🔍 Auto-detectar (recomendado)</option>
-                    <option value="wasend">WaSend / whatsapp-web.js</option>
-                    <option value="wppconnect">WPPConnect</option>
-                    <option value="baileys">Baileys / MD</option>
-                    <option value="evolution">Evolution API</option>
-                  </select>
                   <label class="form-label">URL del servidor WaSend</label>
                   <div style="display:flex;gap:8px;">
                     <input type="text" class="form-control" id="wm_server_url"
@@ -5737,14 +5729,22 @@
                       oninput="wmGuardarConfigServidor()">
                     <button class="btn btn-secondary btn-sm" onclick="wmVerificarServidor()" style="white-space:nowrap;">🔄 Probar</button>
                   </div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">La URL se guarda automáticamente en tu dispositivo.</div>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">Delay entre mensajes (segundos)</label>
-                  <input type="number" class="form-control" id="wm_delay" value="5" min="1" max="60">
+                  <label class="form-label">🔑 WhatsApp Token <span style="font-size:10.5px;color:var(--text-dim);font-weight:400;">(x-wa-token)</span></label>
+                  <input type="password" class="form-control" id="wm_wa_token"
+                    placeholder="EAAxxxxx... (token de Meta Business)"
+                    oninput="wmGuardarConfigServidor()">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">📱 Phone Number ID <span style="font-size:10.5px;color:var(--text-dim);font-weight:400;">(x-wa-phone)</span></label>
+                  <input type="text" class="form-control" id="wm_wa_phone"
+                    placeholder="123456789012345 (ID del número en Meta)"
+                    oninput="wmGuardarConfigServidor()">
+                  <div style="font-size:11px;color:var(--text-dim);margin-top:3px;">Encuéntralo en Meta Business → WhatsApp → Números de teléfono</div>
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);padding:8px;background:var(--surface2);border-radius:6px;">
-                  ⚠️ Mínimo 3s entre mensajes. Recomendado 5–10s para lotes grandes.
+                  ⚠️ El servidor agrega un delay aleatorio de 15–45s entre mensajes para evitar bloqueos de Meta.
                 </div>
               </div>
             </div>
@@ -23346,11 +23346,13 @@ function wmGetServer() {
     || localStorage.getItem('wm_server_url') || '';
 }
 function wmGuardarConfigServidor() {
-  const url  = document.getElementById('wm_server_url')?.value?.trim() || '';
-  const tipo = document.getElementById('wm_server_tipo')?.value || 'auto';
+  const url   = document.getElementById('wm_server_url')?.value?.trim() || '';
+  const token = document.getElementById('wm_wa_token')?.value?.trim()   || '';
+  const phone = document.getElementById('wm_wa_phone')?.value?.trim()   || '';
   try {
-    localStorage.setItem('wm_server_url', url);
-    localStorage.setItem('wm_server_tipo', tipo);
+    localStorage.setItem('wm_server_url',  url);
+    localStorage.setItem('wm_wa_token',    token);
+    localStorage.setItem('wm_wa_phone',    phone);
   } catch(e) {}
 }
 // ── DIAGNÓSTICO DE ENVÍO ──────────────────────────────────────────────────
@@ -23447,26 +23449,27 @@ function wmNormalizarTel(raw) {
 }
 
 function wmCargarConfigServidor() {
-  const url  = localStorage.getItem('wm_server_url')  || '';
-  const tipo = localStorage.getItem('wm_server_tipo') || 'auto';
-  const urlEl  = document.getElementById('wm_server_url');
-  const tipoEl = document.getElementById('wm_server_tipo');
-  if (urlEl  && url)  urlEl.value  = url;
-  if (tipoEl && tipo) tipoEl.value = tipo;
+  const url   = localStorage.getItem('wm_server_url')  || '';
+  const token = localStorage.getItem('wm_wa_token')    || '';
+  const phone = localStorage.getItem('wm_wa_phone')    || '';
+  const urlEl   = document.getElementById('wm_server_url');
+  const tokenEl = document.getElementById('wm_wa_token');
+  const phoneEl = document.getElementById('wm_wa_phone');
+  if (urlEl   && url)   urlEl.value   = url;
+  if (tokenEl && token) tokenEl.value = token;
+  if (phoneEl && phone) phoneEl.value = phone;
 }
 
 // Rutas conocidas por tipo de servidor
 function wmGetRutasPorTipo() {
-  const tipo = document.getElementById('wm_server_tipo')?.value
-    || localStorage.getItem('wm_server_tipo') || 'auto';
-  const MAP = {
-    wasend:      { status: ['/api/status','/status','/health'],  send: '/api/send' },
-    wppconnect:  { status: ['/api/default/status-session','/api/session1/status-session'], send: '/api/default/send-message' },
-    baileys:     { status: ['/status','/session/status'],        send: '/session/send' },
-    evolution:   { status: ['/instance/connectionState/default','/instance/fetchInstances'], send: '/message/sendText/default' },
-    auto:        { status: ['/api/status','/status','/health','/ping','/session/status','/wa/status','/api/default/status-session','/api/session1/status-session'], send: '/api/send' },
+  return { status: ['/api/status'], send: '/api/send' };
+}
+
+function wmGetCredentials() {
+  return {
+    token:   (document.getElementById('wm_wa_token')?.value || localStorage.getItem('wm_wa_token') || '').trim(),
+    phoneId: (document.getElementById('wm_wa_phone')?.value || localStorage.getItem('wm_wa_phone') || '').trim(),
   };
-  return MAP[tipo] || MAP.auto;
 }
 
 const WM_PLANTILLAS = {
@@ -23734,7 +23737,7 @@ async function wmVerificarServidor() {
   const server = wmGetServer();
   const dot    = document.getElementById('wm_status_dot');
   const txt    = document.getElementById('wm_status_text');
-  const qrArea = document.getElementById('wm_qr_area');
+  const { token, phoneId } = wmGetCredentials();
 
   if (!server) {
     if (dot) dot.style.background = 'var(--amber)';
@@ -23742,119 +23745,43 @@ async function wmVerificarServidor() {
     return;
   }
   if (dot) dot.style.background = 'var(--amber)';
-  if (txt) txt.textContent = 'Verificando... (puede tardar ~60s si el servidor estaba dormido)';
+  if (txt) txt.textContent = 'Verificando servidor...';
 
-  // Rutas según tipo de servidor configurado
-  const rutasConfig = wmGetRutasPorTipo();
-  const RUTAS_STATUS = rutasConfig.status;
-  window._wmSendPath = rutasConfig.send; // default, se sobreescribe si se detecta mejor
+  try {
+    const r = await fetch(`${server}/api/status`, {
+      signal: AbortSignal.timeout(70000),
+      headers: {
+        'Accept': 'application/json',
+        ...(token   ? { 'x-wa-token': token }   : {}),
+        ...(phoneId ? { 'x-wa-phone': phoneId } : {}),
+      }
+    });
+    let d = {};
+    try { d = await r.json(); } catch(e) {}
 
-  // Mapa de ruta status → ruta send para auto-detect
-  const RUTAS_SEND = {
-    '/status':                          '/send',
-    '/health':                          '/send',
-    '/ping':                            '/send',
-    '/session/status':                  '/session/send',
-    '/api/status':                      '/api/send',
-    '/wa/status':                       '/wa/send',
-    '/api/default/status-session':      '/api/default/send-message',
-    '/api/session1/status-session':     '/api/session1/send-message',
-    '/instance/connectionState/default':'/message/sendText/default',
-    '/instance/fetchInstances':         '/message/sendText/default',
-  };
-
-  // Contador visual para mostrar progreso de espera
-  let verifyTick = 0;
-  const verifyTimer = setInterval(() => {
-    verifyTick++;
-    if (txt && txt.textContent.includes('Verificando')) {
-      txt.textContent = `Verificando... ${verifyTick}s (Render puede tardar hasta 60s en despertar)`;
+    if (r.ok) {
+      if (dot) dot.style.background = 'var(--green)';
+      const phoneInfo = d.phoneId ? ` · Phone ID: ${d.phoneId}` : '';
+      if (txt) txt.textContent = `✅ Servidor activo · v${d.version || '?'}${phoneInfo}`;
+      wmLogLine(`✅ Servidor conectado en ${server}/api/status${phoneInfo}`, 'ok');
+      if (!token)   wmLogLine('⚠️ Falta el WhatsApp Token (x-wa-token)', 'warn');
+      if (!phoneId) wmLogLine('⚠️ Falta el Phone Number ID (x-wa-phone)', 'warn');
+    } else {
+      if (dot) dot.style.background = 'var(--amber)';
+      if (txt) txt.textContent = `⚠️ Servidor responde con status ${r.status}`;
+      wmLogLine(`⚠️ ${server}/api/status → ${r.status}`, 'warn');
     }
-  }, 1000);
-
-  for (const ruta of RUTAS_STATUS) {
-    try {
-      const r = await fetch(`${server}${ruta}`, {
-        signal: AbortSignal.timeout(70000),
-        headers: { 'Accept': 'application/json' }
-      });
-      clearInterval(verifyTimer);
-
-      // Si responde (aunque sea 4xx) el servidor está vivo
-      let d = {};
-      const ct = r.headers.get('content-type') || '';
-      if (ct.includes('json')) {
-        try { d = await r.json(); } catch(e) {}
-      } else {
-        const body = await r.text().catch(() => '');
-        // "No se puede OBTENER" → ruta equivocada, probar la siguiente
-        if (body.includes('Cannot GET') || body.includes('No se puede OBTENER') || body.includes('Not Found')) continue;
-        // Si responde cualquier texto en ruta distinta, servidor activo pero ruta incorrecta
-        if (body.trim()) { d = { _raw: body }; }
-      }
-
-      // Guardar la ruta de envío que corresponde
-      window._wmSendPath = RUTAS_SEND[ruta] || '/send';
-
-      // Detectar estado
-      const isConnected = d.ready || d.connected || d.status === 'connected' ||
-                          d.state === 'CONNECTED' || d.state === 'READY' ||
-                          d.sessionStatus === 'inChat' || d.statusSession === 'isLogged' ||
-                          r.status === 200;
-
-      if (isConnected && !d.qr) {
-        clearInterval(verifyTimer);
-        if (dot) dot.style.background = 'var(--green)';
-        if (txt) txt.textContent = `✅ Servidor activo · ruta: ${ruta}`;
-        if (qrArea) qrArea.style.display = 'none';
-        wmLogLine(`✅ Servidor conectado en ${server}${ruta}`, 'ok');
-        return;
-      }
-
-      if (d.qr) {
-        clearInterval(verifyTimer);
-        if (dot) dot.style.background = 'var(--amber)';
-        if (txt) txt.textContent = '📱 Escanea el QR para conectar WhatsApp';
-        if (qrArea) qrArea.style.display = '';
-        const qrImg = document.getElementById('wm_qr_img');
-        if (qrImg && d.qr) {
-          qrImg.src = d.qr.startsWith('data:') ? d.qr
-            : `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(d.qr)}`;
-        }
-        wmLogLine(`📱 QR disponible en ${server}${ruta}`, 'warn');
-        return;
-      }
-
-      // Servidor responde pero estado desconocido — lo damos por activo
-      if (r.status < 500) {
-        clearInterval(verifyTimer);
-        if (dot) dot.style.background = 'var(--amber)';
-        if (txt) txt.textContent = `⚠️ Servidor activo en ${ruta} — estado desconocido (${r.status})`;
-        wmLogLine(`⚠️ Servidor responde en ${server}${ruta} con status ${r.status}`, 'warn');
-        return;
-      }
-
-    } catch(e) {
-      // timeout o CORS → probar siguiente ruta
-      if (e.name === 'AbortError') continue;
-      // Error de CORS: el servidor existe pero bloquea el fetch desde browser
-      if (e.message.includes('NetworkError') || e.message.includes('Failed to fetch') || e.message.includes('CORS')) {
-        clearInterval(verifyTimer);
-        if (dot) dot.style.background = 'var(--amber)';
-        if (txt) txt.textContent = `⚠️ Servidor encontrado pero bloquea CORS en ${ruta} — puede funcionar igual`;
-        wmLogLine(`⚠️ CORS bloqueado en ${server}${ruta} — el servidor existe`, 'warn');
-        window._wmSendPath = RUTAS_SEND[ruta] || '/send';
-        return;
-      }
-      continue;
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      if (dot) dot.style.background = 'var(--red)';
+      if (txt) txt.textContent = '❌ Servidor no responde (timeout 70s) — puede estar dormido en Render';
+    } else {
+      // CORS o red — servidor existe
+      if (dot) dot.style.background = 'var(--amber)';
+      if (txt) txt.textContent = '⚠️ Servidor encontrado (posible CORS) — credenciales requeridas para enviar';
+      wmLogLine(`⚠️ CORS/red en ${server} — el servidor existe`, 'warn');
     }
   }
-
-  // Ninguna ruta respondió
-  clearInterval(verifyTimer);
-  if (dot) dot.style.background = 'var(--red)';
-  if (txt) txt.textContent = '❌ Servidor no responde en ninguna ruta conocida — verifica la URL';
-  wmLogLine(`❌ Sin respuesta en ${server} tras probar ${RUTAS_STATUS.length} rutas`, 'err');
 }
 
 // ── LOG Y PROGRESO ────────────────────────────────────────────────────────
@@ -23877,34 +23804,53 @@ function wmActualizarProgreso(ok, fail, total) {
 }
 
 // ── ADJUNTO ───────────────────────────────────────────────────────────────
-let _wmAdjunto = null; // { base64, mimeType, fileName, dataUrl }
+let _wmAdjunto = null; // { mediaId, mediaTipo, fileName, previewUrl }
 
 function wmCargarAdjunto(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const MAX_MB = 10;
-  if (file.size > MAX_MB * 1024 * 1024) {
-    showToast(`⚠️ El archivo supera los ${MAX_MB} MB`);
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('⚠️ El archivo supera los 10 MB');
     event.target.value = '';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const dataUrl = e.target.result;
-    const base64  = dataUrl.split(',')[1];
-    _wmAdjunto = { base64, mimeType: file.type, fileName: file.name, dataUrl };
-    const info = document.getElementById('wm_adjunto_info');
-    const quitar = document.getElementById('wm_adjunto_quitar');
+  const server = wmGetServer();
+  const { token, phoneId } = wmGetCredentials();
+  if (!server || !token || !phoneId) {
+    showToast('⚠️ Configura servidor, token y Phone ID antes de adjuntar');
+    event.target.value = '';
+    return;
+  }
+
+  const info   = document.getElementById('wm_adjunto_info');
+  const quitar = document.getElementById('wm_adjunto_quitar');
+  if (info) info.innerHTML = `<span style="color:var(--amber);">⏳ Subiendo a WhatsApp...</span>`;
+
+  const formData = new FormData();
+  formData.append('archivo', file, file.name);
+
+  fetch(`${server}/api/upload`, {
+    method: 'POST',
+    headers: { 'x-wa-token': token, 'x-wa-phone': phoneId },
+    body: formData,
+    signal: AbortSignal.timeout(60000)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.error) throw new Error(d.error);
+    _wmAdjunto = { mediaId: d.media_id, mediaTipo: d.tipo, fileName: d.nombre };
     if (info) {
-      const isImg = file.type.startsWith('image/');
-      info.innerHTML = isImg
-        ? `<img src="${dataUrl}" style="max-height:60px;border-radius:4px;margin-top:4px;"> <span style="margin-left:6px;">📄 ${file.name} · ${(file.size/1024).toFixed(0)} KB</span>`
-        : `📄 ${file.name} · ${(file.size/1024).toFixed(0)} KB`;
+      const isImg = d.tipo === 'image';
+      info.innerHTML = `<span style="color:var(--green);">✅ ${isImg ? '🖼️' : '📄'} ${d.nombre} subido correctamente · media_id: ${d.media_id}</span>`;
     }
     if (quitar) quitar.style.display = '';
-    showToast('📎 Adjunto cargado: ' + file.name);
-  };
-  reader.readAsDataURL(file);
+    showToast('📎 Adjunto listo: ' + d.nombre);
+  })
+  .catch(e => {
+    if (info) info.innerHTML = `<span style="color:var(--red);">❌ Error al subir: ${e.message}</span>`;
+    showToast('❌ Error subiendo adjunto: ' + e.message);
+    _wmAdjunto = null;
+  });
   event.target.value = '';
 }
 
@@ -23924,12 +23870,14 @@ async function wmIniciarEnvio() {
   if (wmEnviando) return;
   const server = wmGetServer();
   const texto  = document.getElementById('wm_texto')?.value?.trim();
-  const delay  = parseInt(document.getElementById('wm_delay')?.value || '5') * 1000;
+  const { token, phoneId } = wmGetCredentials();
 
-  if (!server)  { showToast('⚠️ Configura la URL del servidor WaSend'); return; }
-  if (!texto)   { showToast('⚠️ Escribe un mensaje antes de enviar');   return; }
+  if (!server)  { showToast('⚠️ Configura la URL del servidor'); return; }
+  if (!token)   { showToast('⚠️ Falta el WhatsApp Token (x-wa-token)'); return; }
+  if (!phoneId) { showToast('⚠️ Falta el Phone Number ID (x-wa-phone)'); return; }
+  if (!texto)   { showToast('⚠️ Escribe un mensaje antes de enviar'); return; }
   if (!wmClientesSegmento.length) { showToast('⚠️ No hay contactos cargados'); return; }
-  if (!confirm(`¿Enviar a ${wmClientesSegmento.length} contacto(s) vía ${server}?`)) return;
+  if (!confirm(`¿Enviar a ${wmClientesSegmento.length} contacto(s)?`)) return;
 
   wmEnviando = true; wmDetener = false;
   const btnEnv = document.getElementById('wm_btn_enviar');
@@ -23939,121 +23887,98 @@ async function wmIniciarEnvio() {
   const resumen = document.getElementById('wm_resumen');
   if (resumen) resumen.style.display = 'none';
 
-  // ── WAKE-UP: despertar servidor Render antes de enviar ───────────────────
-  const dot = document.getElementById('wm_status_dot');
+  const dot       = document.getElementById('wm_status_dot');
   const statusTxt = document.getElementById('wm_status_text');
-  wmLogLine('⏳ Despertando servidor (puede tardar hasta 60s en Render)...', 'info');
-  if (statusTxt) statusTxt.textContent = 'Despertando servidor...';
-  let wakeOk = false;
-  let wakeTick = 0;
-  const wakeTimer = setInterval(() => {
-    wakeTick++;
-    if (statusTxt) statusTxt.textContent = `Despertando servidor... ${wakeTick}s`;
-  }, 1000);
-  try {
-    const sendPath = window._wmSendPath || '/send';
-    const rutas = [sendPath, '/api/status', '/status', '/health', '/ping'];
-    for (const ruta of rutas) {
-      try {
-        const wr = await fetch(`${server}${ruta}`, {
-          signal: AbortSignal.timeout(70000),
-          headers: { 'Accept': 'application/json' }
-        });
-        if (wr.status < 500) { wakeOk = true; break; }
-      } catch(we) {
-        if (we.name !== 'AbortError') { wakeOk = true; break; } // CORS = servidor vivo
-      }
-    }
-  } catch(e) { /* continuar igual */ }
-  clearInterval(wakeTimer);
-  if (wakeOk) {
-    wmLogLine('✅ Servidor despierto. Iniciando envío...', 'ok');
-    if (statusTxt) statusTxt.textContent = '✅ Servidor activo';
-    if (dot) dot.style.background = 'var(--green)';
-  } else {
-    wmLogLine('⚠️ Servidor no respondió al wake-up — intentando enviar de todas formas', 'warn');
-  }
-  // ────────────────────────────────────────────────────────────────────────
-
+  const total     = wmClientesSegmento.length;
   let ok = 0, fail = 0;
-  const total = wmClientesSegmento.length;
-  wmLogLine(`🚀 Iniciando envío a ${total} contactos vía ${server}`, 'info');
 
-  for (let i = 0; i < wmClientesSegmento.length; i++) {
-    if (wmDetener) { wmLogLine('⏹ Detenido por el usuario', 'warn'); break; }
-    const c   = wmClientesSegmento[i];
-    const msg = wmReemplazarVars(texto, c);
-    const tel = c.telefono.replace(/\D/g,'');
-    const telFull = tel.startsWith('57') ? tel : '57' + tel;
+  // Convertir texto con {nombre} → {{nombre}} que usa el servidor
+  const mensajeServidor = texto
+    .replace(/\{nombre\}/g,   '{{nombre}}')
+    .replace(/\{producto\}/g, '{{telefono}}')  // mapeo best-effort
+    .replace(/\{mora\}/g,     '')
+    .replace(/\{fecha\}/g,    '')
+    .replace(/\{asesor\}/g,   '');
 
-    // Construir payloads en todos los formatos compatibles con WaSend/whatsapp-web.js
-    const chatId = `${telFull}@c.us`;
-    const sendPath = window._wmSendPath || '/send';
-    const adj = _wmAdjunto;
+  // Construir lista de contactos en el formato exacto que espera el servidor
+  const contactos = wmClientesSegmento.map(c => ({
+    telefono: wmNormalizarTel(c.telefono),
+    nombre:   c.nombre || 'Cliente',
+    name:     c.nombre || 'Cliente',   // alias por si el servidor usa 'name'
+  }));
 
-    // Lista de payloads a intentar en orden, cubriendo todas las variantes conocidas
-    let payloads;
-    if (adj) {
-      // Con adjunto: incluir base64 + mediaType en todas las variantes
-      const mediaType = adj.mimeType.startsWith('image/') ? 'image' : 'document';
-      payloads = [
-        { chatId, message: msg, base64: adj.base64, fileName: adj.fileName, mediaType },
-        { chatId, body: msg, base64: adj.base64, filename: adj.fileName, type: mediaType },
-        { phone: telFull, message: msg, base64: adj.base64, fileName: adj.fileName, mediaType },
-        { number: telFull, message: msg, base64: adj.base64, filename: adj.fileName },
-        { to: telFull, body: msg, media: adj.dataUrl, filename: adj.fileName },
-        { chatId, caption: msg, image: adj.base64, filename: adj.fileName },
-      ];
-    } else {
-      payloads = [
-        { chatId, message: msg },                                // whatsapp-web.js estándar
-        { chatId, body: msg },                                   // variante con body
-        { phone: telFull, message: msg },                        // formato genérico
-        { number: telFull, message: msg },                       // variante number
-        { to: telFull, body: msg },                              // formato UltraMsg/WPPConnect
-        { to: chatId, body: msg },                               // con chatId en to
-        { recipient: chatId, message: msg },                     // variante recipient
-      ];
+  wmLogLine(`🚀 Iniciando envío a ${total} contacto(s) vía ${server}`, 'info');
+  if (statusTxt) statusTxt.textContent = 'Enviando...';
+  if (dot) dot.style.background = 'var(--amber)';
+
+  // Payload para /api/send (SSE)
+  const payload = {
+    contactos,
+    mensaje: mensajeServidor,
+    ..._wmAdjunto ? { mediaId: _wmAdjunto.mediaId, mediaTipo: _wmAdjunto.mediaTipo } : {}
+  };
+
+  try {
+    const r = await fetch(`${server}/api/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'x-wa-token':    token,
+        'x-wa-phone':    phoneId,
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30 * 60 * 1000) // 30 min para lotes grandes
+    });
+
+    if (!r.ok) {
+      let errMsg = `Error ${r.status}`;
+      try { const d = await r.json(); errMsg = d.error || errMsg; } catch(e) {}
+      throw new Error(errMsg);
     }
 
-    let enviado = false;
-    for (const payload of payloads) {
-      try {
-        const r = await fetch(`${server}${sendPath}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(70000)
-        });
-        const d = await r.json().catch(() => ({}));
-        if (r.ok && (d.success || d.sent || d.status === 'sent' || d.id || d.messageId)) {
-          ok++; wmLogLine(`✅ ${c.nombre} (${telFull})`, 'ok');
-          enviado = true; break;
-        }
-        // Si el error indica formato incorrecto, probar siguiente payload
-        const errMsg = (d.error || d.message || '').toLowerCase();
-        const isFormatErr = errMsg.includes('sin contacto') || errMsg.includes('contact') ||
-                            errMsg.includes('invalid') || errMsg.includes('inválido') ||
-                            errMsg.includes('not found') || errMsg.includes('no encontrado') ||
-                            errMsg.includes('required') || errMsg.includes('requerido');
-        if (isFormatErr) continue; // probar siguiente formato
-        // Error definitivo (no de formato)
-        fail++; wmLogLine(`❌ ${c.nombre} — ${d.error || d.message || r.status}`, 'err');
-        enviado = true; break;
-      } catch(e) {
-        if (e.name === 'AbortError') {
-          fail++; wmLogLine(`❌ ${c.nombre} — Timeout (servidor tardó más de 70s)`, 'err');
-          enviado = true; break;
-        }
-        continue; // error de red, intentar siguiente payload
+    // Leer SSE (Server-Sent Events) línea por línea
+    const reader  = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      if (wmDetener) { wmLogLine('⏹ Detenido por el usuario', 'warn'); break; }
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // guardar línea incompleta
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const ev = JSON.parse(line.slice(6));
+
+          if (ev.tipo === 'done') {
+            wmLogLine(`🏁 Completado: ${ok} enviados · ${fail} fallidos`, 'info');
+            break;
+          }
+          if (ev.tipo === 'delay') {
+            wmLogLine(`⏳ Esperando ${ev.segundos}s antes del siguiente mensaje...`, 'info');
+            continue;
+          }
+          if (ev.status === 'sent') {
+            ok++;
+            wmLogLine(`✅ ${ev.nombre} (${ev.telefono})`, 'ok');
+          } else if (ev.status === 'error') {
+            fail++;
+            wmLogLine(`❌ ${ev.nombre} (${ev.telefono}) — ${ev.error}`, 'err');
+          }
+          wmActualizarProgreso(ok, fail, total);
+        } catch(e) { /* línea no JSON, ignorar */ }
       }
     }
-    if (!enviado) {
-      fail++; wmLogLine(`❌ ${c.nombre} — Ningún formato de payload fue aceptado por el servidor`, 'err');
-    }
 
-    wmActualizarProgreso(ok, fail, total);
-    if (i < total - 1 && !wmDetener) await new Promise(res => setTimeout(res, delay));
+  } catch(e) {
+    fail = total - ok;
+    wmLogLine(`❌ Error de conexión: ${e.message}`, 'err');
+    showToast('❌ Error: ' + e.message);
   }
 
   if (resumen) {
@@ -24064,6 +23989,8 @@ async function wmIniciarEnvio() {
   }
   wmLogLine(`🏁 Completado: ${ok} enviados · ${fail} fallidos`, 'info');
   showToast(`📲 Lote completado: ${ok}✅ ${fail}❌`);
+  if (dot)       dot.style.background    = ok > 0 ? 'var(--green)' : 'var(--red)';
+  if (statusTxt) statusTxt.textContent   = `✅ Completado: ${ok}/${total} enviados`;
   wmEnviando = false;
   if (btnEnv) btnEnv.disabled = false;
   if (btnDet) btnDet.style.display = 'none';
@@ -24082,13 +24009,18 @@ function wmInit() {
   if (window._wmKeepAliveInterval) clearInterval(window._wmKeepAliveInterval);
   window._wmKeepAliveInterval = setInterval(async () => {
     const server = wmGetServer();
+    const { token, phoneId } = wmGetCredentials();
     if (!server) return;
     try {
-      await fetch(`${server}/ping`, { signal: AbortSignal.timeout(10000) });
-    } catch(e) {
-      try { await fetch(`${server}/health`, { signal: AbortSignal.timeout(10000) }); } catch(e2) {}
-    }
-  }, 14 * 60 * 1000); // 14 minutos
+      await fetch(`${server}/api/status`, {
+        signal: AbortSignal.timeout(10000),
+        headers: {
+          ...(token   ? { 'x-wa-token': token }   : {}),
+          ...(phoneId ? { 'x-wa-phone': phoneId } : {}),
+        }
+      });
+    } catch(e) {}
+  }, 14 * 60 * 1000);
 }
 
 
