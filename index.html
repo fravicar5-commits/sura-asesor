@@ -23361,46 +23361,77 @@ async function wmDiagnostico() {
   if (!server) { showToast('⚠️ Configura la URL del servidor'); return; }
   if (!numRaw) { showToast('⚠️ Ingresa un número destino'); return; }
 
-  const tel     = wmNormalizarTel(numRaw);
-  const chatId  = `${tel}@c.us`;
-  const msg     = 'Prueba diagnóstico SURA';
-  const paths   = ['/api/send', '/send', '/api/messages/send', '/message/sendText/default', '/session/send', '/api/default/send-message'];
-  const payloads = [
-    { label:'chatId+message',    body: { chatId, message: msg } },
-    { label:'chatId+body',       body: { chatId, body: msg } },
-    { label:'phone+message',     body: { phone: tel, message: msg } },
-    { label:'number+message',    body: { number: tel, message: msg } },
-    { label:'to+body',           body: { to: tel, body: msg } },
-    { label:'to(chatId)+body',   body: { to: chatId, body: msg } },
-  ];
+  const tel    = wmNormalizarTel(numRaw);
+  const chatId = `${tel}@c.us`;
+  const msg    = 'Prueba diagnóstico SURA';
 
-  if (resEl) { resEl.style.display = ''; resEl.textContent = `🔍 Probando ${tel}...\n`; }
+  if (resEl) { resEl.style.display = ''; resEl.textContent = `🔍 Explorando servidor...\n`; }
 
-  for (const path of paths) {
-    for (const p of payloads) {
-      try {
-        const r = await fetch(`${server}${path}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(p.body),
-          signal: AbortSignal.timeout(12000)
-        });
-        let respText = '';
-        try { respText = JSON.stringify(await r.json()); } catch(e) { respText = await r.text().catch(() => ''); }
-        const line = `[${r.status}] ${path} | ${p.label}\n  → ${respText.slice(0,200)}\n`;
-        if (resEl) resEl.textContent += line;
-        if (r.ok) {
-          if (resEl) resEl.textContent += `\n✅ ÉXITO: path=${path}  payload=${p.label}\n`;
-          showToast(`✅ Formato encontrado: ${path} · ${p.label}`);
-          return;
-        }
-      } catch(e) {
-        const line = `[ERR] ${path} | ${p.label} → ${e.message.slice(0,80)}\n`;
-        if (resEl) resEl.textContent += line;
-      }
+  // ── Paso 1: descubrir rutas disponibles ────────────────────────────────
+  const rutasExplorer = ['/api/send', '/api/routes', '/api', '/', '/api/status', '/api/contacts', '/api/chats'];
+  if (resEl) resEl.textContent += '\n--- RUTAS DISPONIBLES ---\n';
+  for (const ruta of rutasExplorer) {
+    try {
+      const r = await fetch(`${server}${ruta}`, { signal: AbortSignal.timeout(6000), headers: { 'Accept': 'application/json' } });
+      let txt = '';
+      try { txt = JSON.stringify(await r.json()); } catch(e) { txt = (await r.text().catch(() => '')).slice(0, 300); }
+      if (resEl) resEl.textContent += `[${r.status}] GET ${ruta} → ${txt.slice(0,200)}\n`;
+    } catch(e) {
+      if (resEl) resEl.textContent += `[ERR] GET ${ruta} → ${e.message.slice(0,60)}\n`;
     }
   }
-  if (resEl) resEl.textContent += '\n❌ Ningún formato funcionó. Revisa los logs arriba para ver los errores del servidor.';
+
+  // ── Paso 2: enviar payload con TODOS los campos posibles a la vez ───────
+  if (resEl) resEl.textContent += '\n--- PAYLOAD COMPLETO (todos los campos) ---\n';
+  const payloadFull = {
+    // Identificadores de destino — todos los nombres posibles
+    chatId, phone: tel, number: tel, to: tel, recipient: chatId,
+    destination: tel, target: tel, jid: chatId, id: tel,
+    // Cuerpo del mensaje — todos los nombres posibles
+    message: msg, body: msg, text: msg, content: msg, caption: msg, msg,
+    // Extras comunes
+    session: 'default', instance: 'default', type: 'text',
+  };
+  try {
+    const r = await fetch(`${server}/api/send`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadFull), signal: AbortSignal.timeout(12000)
+    });
+    let txt = '';
+    try { txt = JSON.stringify(await r.json()); } catch(e) { txt = await r.text().catch(() => ''); }
+    if (resEl) resEl.textContent += `[${r.status}] POST /api/send (full) → ${txt.slice(0,400)}\n`;
+    if (r.ok) { showToast('✅ Payload completo funcionó'); return; }
+  } catch(e) {
+    if (resEl) resEl.textContent += `[ERR] POST /api/send (full) → ${e.message}\n`;
+  }
+
+  // ── Paso 3: intentar GET /api/contacts para ver formato de contacto ─────
+  if (resEl) resEl.textContent += '\n--- BUSCAR CAMPO "contactos" ---\n';
+  const payloadsContactos = [
+    { contactos: [{ chatId, message: msg }] },
+    { contactos: [tel], message: msg },
+    { contactos: [{ number: tel, message: msg }] },
+    { recipients: [tel], message: msg },
+    { numbers: [tel], message: msg },
+    { contacts: [tel], body: msg },
+    { to: [tel], message: msg },
+  ];
+  for (const p of payloadsContactos) {
+    try {
+      const r = await fetch(`${server}/api/send`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p), signal: AbortSignal.timeout(8000)
+      });
+      let txt = '';
+      try { txt = JSON.stringify(await r.json()); } catch(e) { txt = await r.text().catch(() => ''); }
+      if (resEl) resEl.textContent += `[${r.status}] ${JSON.stringify(p).slice(0,80)} → ${txt.slice(0,150)}\n`;
+      if (r.ok) { showToast('✅ Formato encontrado: ' + JSON.stringify(p).slice(0,60)); return; }
+    } catch(e) {
+      if (resEl) resEl.textContent += `[ERR] ${JSON.stringify(p).slice(0,60)} → ${e.message.slice(0,60)}\n`;
+    }
+  }
+
+  if (resEl) resEl.textContent += '\n⬆️ Comparte este resultado para identificar el formato exacto.';
 }
 
 // ── UTILIDADES ────────────────────────────────────────────────────────────
