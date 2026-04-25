@@ -1280,6 +1280,9 @@
       <button class="nav-item" onclick="navigate('segsocial')" data-label="Liquidador Seg. Social">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span> Liquidador Seg. Social
       </button>
+      <button class="nav-item" onclick="navigate('ips')" data-label="Buscador IPS SURA">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/><circle cx="17" cy="5" r="3"/><path d="M17 8v2M15.5 6.5l1 1"/></svg></span> IPS Cercanas
+      </button>
       <button class="nav-item" onclick="navigate('agente')" data-label="Asistente Clausulados">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><circle cx="9" cy="14" r="1.5"/><circle cx="15" cy="14" r="1.5"/><path d="M9 17.5h6"/></svg></span> Asistente Planes
       </button>
@@ -5191,6 +5194,12 @@
       </div>
 
 
+
+      <!-- ===== IPS CERCANAS SURA ===== -->
+      <div class="page" id="page-ips">
+        <div id="ips-root" style="max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:18px;"></div>
+      </div>
+
       <!-- ===== HERRAMIENTAS ===== -->
       <div class="page" id="page-herramientas">
         <div class="empty-state" style="padding:60px 0;">
@@ -7663,6 +7672,7 @@ const pageTitles = {
   config: ['Configuración', 'Presupuesto mensual y perfil'],
   sync:   ['🔄 Sincronización', 'Exportar · importar · GitHub · multi-dispositivo'],
   herramientas: ['🛠️ Herramientas', 'Proyección de comisiones · Alertas siniestralidad · Mensajes WhatsApp'],
+  ips:          ['🏥 IPS Cercanas SURA', 'Busca las IPS básicas y urgencias más cercanas a la dirección del afiliado'],
   agente: ['🤖 Asistente de Planes', 'Consulta los clausulados de SPTI · SPD · PSM · 60+'],
   segsocial: ['💼 Liquidador Seguridad Social', 'Empleados · Independientes · Aportes 2026'],
   contactos: ['BD Contactos', 'Base de datos de contactos y clientes'],
@@ -7923,6 +7933,7 @@ function refreshPage(page) {
   else if (page === 'admin') renderAdmin();
   else if (page === 'agente') renderAgente();
   else if (page === 'herramientas') renderHerramientas();
+  else if (page === 'ips') renderIPS();
   else if (page === 'contactos') renderContactos();
   else if (page === 'accesos') renderAccesos();
   else if (page === 'segsocial') ssInitPage();
@@ -20472,6 +20483,576 @@ async function pinOnLoginExitoso() {
 // =============================================
 
 let _waTab = 'bienvenida';
+
+// =============================================
+// IPS CERCANAS SURA — Buscador por dirección
+// =============================================
+
+const IPS_SURA_DB = {
+  'BOGOTÁ': {
+    basicas: [
+      { nombre:'IPS SURA Calle 100', dir:'Calle 100 # 19-61', tel:'(601) 307 5050', lat:4.6867, lng:-74.0492, barrio:'Chicó' },
+      { nombre:'IPS SURA Salitre', dir:'Cra 68B # 24-09', tel:'(601) 307 5050', lat:4.6509, lng:-74.0996, barrio:'Salitre' },
+      { nombre:'IPS SURA Usaquén', dir:'Cra 7 # 128-53', tel:'(601) 307 5050', lat:4.7057, lng:-74.0311, barrio:'Usaquén' },
+      { nombre:'IPS SURA Gran Estación', dir:'Av. Cra 60 # 20-16', tel:'(601) 307 5050', lat:4.6484, lng:-74.1046, barrio:'Gran Estación' },
+      { nombre:'IPS SURA Hayuelos', dir:'Calle 20 # 82-52', tel:'(601) 307 5050', lat:4.6561, lng:-74.1199, barrio:'Hayuelos' },
+      { nombre:'IPS SURA Santa Bárbara', dir:'Cra 15 # 119-43', tel:'(601) 307 5050', lat:4.6966, lng:-74.0430, barrio:'Santa Bárbara' },
+      { nombre:'IPS SURA Chapinero', dir:'Cra 13 # 54-25', tel:'(601) 307 5050', lat:4.6436, lng:-74.0617, barrio:'Chapinero' },
+      { nombre:'IPS SURA Kennedy', dir:'Cra 78J # 38-63 Sur', tel:'(601) 307 5050', lat:4.6264, lng:-74.1453, barrio:'Kennedy' },
+    ],
+    urgencias: [
+      { nombre:'Clínica SURA El Country', dir:'Cra 16 # 82-57', tel:'(601) 530 8000', lat:4.6728, lng:-74.0502, tipo:'Urgencias 24h' },
+      { nombre:'Fundación Santa Fe de Bogotá', dir:'Cra 7 # 117-15', tel:'(601) 629 0766', lat:4.6990, lng:-74.0357, tipo:'Urgencias 24h' },
+      { nombre:'Clínica del Country', dir:'Cra 16 # 82-57', tel:'(601) 530 8000', lat:4.6728, lng:-74.0502, tipo:'Urgencias 24h' },
+      { nombre:'Hospital de Bosa', dir:'Tv 78G # 63-09 Sur', tel:'(601) 780 0777', lat:4.5957, lng:-74.1811, tipo:'Urgencias 24h' },
+    ]
+  },
+  'MEDELLÍN': {
+    basicas: [
+      { nombre:'IPS SURA El Poblado', dir:'Cra 43A # 34-95', tel:'(604) 361 5100', lat:6.2060, lng:-75.5748, barrio:'El Poblado' },
+      { nombre:'IPS SURA Laureles', dir:'Cra 80 # 40-20', tel:'(604) 361 5100', lat:6.2494, lng:-75.5940, barrio:'Laureles' },
+      { nombre:'IPS SURA Belén', dir:'Cra 76 # 32A-31', tel:'(604) 361 5100', lat:6.2326, lng:-75.5932, barrio:'Belén' },
+      { nombre:'IPS SURA Envigado', dir:'Calle 36 Sur # 43B-04', tel:'(604) 361 5100', lat:6.1750, lng:-75.5926, barrio:'Envigado' },
+      { nombre:'IPS SURA Centro', dir:'Cra 52 # 45-45', tel:'(604) 361 5100', lat:6.2518, lng:-75.5688, barrio:'Centro' },
+      { nombre:'IPS SURA Bello', dir:'Cra 49 # 46-57', tel:'(604) 361 5100', lat:6.3388, lng:-75.5563, barrio:'Bello Centro' },
+      { nombre:'IPS SURA Itagüí', dir:'Calle 55 # 52-33', tel:'(604) 361 5100', lat:6.1844, lng:-75.5990, barrio:'Itagüí' },
+    ],
+    urgencias: [
+      { nombre:'Clínica Las Américas', dir:'Diagonal 75B # 2A-80', tel:'(604) 342 1010', lat:6.2403, lng:-75.6009, tipo:'Urgencias 24h' },
+      { nombre:'Clínica El Rosario', dir:'Calle 29C # 69-54', tel:'(604) 399 8900', lat:6.2302, lng:-75.6105, tipo:'Urgencias 24h' },
+      { nombre:'Hospital General de Medellín', dir:'Calle 24 # 48-30', tel:'(604) 385 9000', lat:6.2557, lng:-75.5731, tipo:'Urgencias 24h' },
+    ]
+  },
+  'CALI': {
+    basicas: [
+      { nombre:'IPS SURA Norte', dir:'Av. 6N # 23N-45', tel:'(602) 688 0800', lat:3.4690, lng:-76.5350, barrio:'Santa Mónica' },
+      { nombre:'IPS SURA Chipichape', dir:'Cra 9 # 49-38', tel:'(602) 688 0800', lat:3.4681, lng:-76.5423, barrio:'San Vicente' },
+      { nombre:'IPS SURA Ciudad Jardín', dir:'Av. 2N # 9N-24', tel:'(602) 688 0800', lat:3.4327, lng:-76.5329, barrio:'Ciudad Jardín' },
+      { nombre:'IPS SURA Sameco', dir:'Cra 1B # 70-39', tel:'(602) 688 0800', lat:3.4096, lng:-76.5281, barrio:'Sur' },
+    ],
+    urgencias: [
+      { nombre:'Clínica de Occidente', dir:'Calle 18N # 5N-34', tel:'(602) 665 6060', lat:3.4723, lng:-76.5347, tipo:'Urgencias 24h' },
+      { nombre:'Clínica Farallones', dir:'Cra 98 # 18-49', tel:'(602) 524 0515', lat:3.4451, lng:-76.5491, tipo:'Urgencias 24h' },
+      { nombre:'Centro Médico Imbanaco', dir:'Cra 38A # 5A-100', tel:'(602) 682 1000', lat:3.4371, lng:-76.5471, tipo:'Urgencias 24h' },
+    ]
+  },
+  'BARRANQUILLA': {
+    basicas: [
+      { nombre:'IPS SURA El Prado', dir:'Calle 72 # 57-43', tel:'(605) 360 8080', lat:10.9987, lng:-74.8072, barrio:'El Prado' },
+      { nombre:'IPS SURA Riomar', dir:'Cra 52 # 94-48', tel:'(605) 360 8080', lat:11.0210, lng:-74.8421, barrio:'Riomar' },
+      { nombre:'IPS SURA Sur', dir:'Cra 18 # 37-48 Sur', tel:'(605) 360 8080', lat:10.9623, lng:-74.8080, barrio:'Sur' },
+    ],
+    urgencias: [
+      { nombre:'Clínica General del Norte', dir:'Cra 52 # 75-120', tel:'(605) 350 6300', lat:11.0091, lng:-74.8261, tipo:'Urgencias 24h' },
+      { nombre:'Hospital Universitario CARI', dir:'Cra 14 # 22-65', tel:'(605) 330 5590', lat:10.9740, lng:-74.8003, tipo:'Urgencias 24h' },
+    ]
+  },
+  'BUCARAMANGA': {
+    basicas: [
+      { nombre:'IPS SURA Cabecera', dir:'Cra 35 # 54-30', tel:'(607) 632 7777', lat:7.1254, lng:-73.1198, barrio:'Cabecera' },
+      { nombre:'IPS SURA Centro', dir:'Cra 15 # 36-21', tel:'(607) 632 7777', lat:7.1163, lng:-73.1127, barrio:'Centro' },
+    ],
+    urgencias: [
+      { nombre:'Clínica FOSCAL', dir:'Autopista a Floridablanca', tel:'(607) 639 8000', lat:7.0882, lng:-73.1252, tipo:'Urgencias 24h' },
+      { nombre:'Clínica Chicamocha', dir:'Cra 9 # 49-10', tel:'(607) 657 0606', lat:7.1176, lng:-73.1219, tipo:'Urgencias 24h' },
+    ]
+  },
+  'CARTAGENA': {
+    basicas: [
+      { nombre:'IPS SURA Bocagrande', dir:'Cra 4 # 8-166 Bocagrande', tel:'(605) 693 0000', lat:10.3938, lng:-75.5499, barrio:'Bocagrande' },
+      { nombre:'IPS SURA Manga', dir:'Calle Real del Manga # 25-103', tel:'(605) 693 0000', lat:10.4082, lng:-75.5372, barrio:'Manga' },
+    ],
+    urgencias: [
+      { nombre:'Clínica Universitaria San Juan de Dios', dir:'Cra 5 # 29-71', tel:'(605) 660 0100', lat:10.4160, lng:-75.5299, tipo:'Urgencias 24h' },
+    ]
+  },
+  'MANIZALES': {
+    basicas: [
+      { nombre:'IPS SURA Cable', dir:'Cra 23 # 62-39', tel:'(606) 878 1111', lat:5.0710, lng:-75.5127, barrio:'El Cable' },
+    ],
+    urgencias: [
+      { nombre:'Clínica Versalles', dir:'Cra 23 # 64-64', tel:'(606) 878 3939', lat:5.0725, lng:-75.5122, tipo:'Urgencias 24h' },
+    ]
+  },
+  'PEREIRA': {
+    basicas: [
+      { nombre:'IPS SURA Álamos', dir:'Av. Belalcázar # 17-25', tel:'(606) 331 5151', lat:4.8143, lng:-75.6946, barrio:'Álamos' },
+    ],
+    urgencias: [
+      { nombre:'Clínica Comfamiliar Risaralda', dir:'Av. Circunvalar # 3-01', tel:'(606) 339 8800', lat:4.8082, lng:-75.6876, tipo:'Urgencias 24h' },
+    ]
+  },
+  'TUNJA': {
+    basicas: [
+      { nombre:'IPS SURA Tunja', dir:'Calle 20 # 10-66', tel:'(608) 740 5151', lat:5.5391, lng:-73.3578, barrio:'Centro' },
+    ],
+    urgencias: [
+      { nombre:'Clínica Medilaser Tunja', dir:'Cra 9 # 19-21', tel:'(608) 742 2626', lat:5.5348, lng:-73.3627, tipo:'Urgencias 24h' },
+    ]
+  },
+  'BOGOTA': null, // alias handled below
+};
+IPS_SURA_DB['BOGOTA'] = IPS_SURA_DB['BOGOTÁ'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IPS DB FIRESTORE — BD importada desde el extractor SURA
+// Se guarda en Firestore colección 'ipsDb' bajo el UID del asesor.
+// Estructura: { version, generado, red: { "MUNICIPIO": { basicas:[], urgencias:[] } } }
+// ─────────────────────────────────────────────────────────────────────────────
+let _ipsDbFirestore = null;   // cache en memoria para esta sesión
+
+/** Carga la BD de IPS desde Firestore (una sola vez por sesión) */
+async function ipsDbCargar() {
+  if (_ipsDbFirestore) return _ipsDbFirestore;
+  try {
+    const data = await window.FB.get('ipsDb', null);
+    if (data && data.red && Object.keys(data.red).length > 0) {
+      _ipsDbFirestore = data;
+      console.log(`[IPS DB] Cargada desde Firestore: ${Object.keys(data.red).length} municipios · generada ${data.generado||'?'}`);
+    }
+  } catch(e) { console.warn('[IPS DB] Error cargando desde Firestore:', e); }
+  return _ipsDbFirestore;
+}
+
+/** Guarda la BD de IPS en Firestore */
+async function ipsDbGuardar(jsonData) {
+  try {
+    await window.FB.set('ipsDb', jsonData);
+    _ipsDbFirestore = jsonData;
+    return true;
+  } catch(e) {
+    console.error('[IPS DB] Error guardando en Firestore:', e);
+    return false;
+  }
+}
+
+/**
+ * Busca una ciudad/municipio en la BD Firestore.
+ * Acepta nombre normalizado (sin tildes, mayúsculas).
+ * Retorna { basicas:[], urgencias:[] } o null.
+ */
+function ipsDbBuscarMunicipio(nombreNorm) {
+  if (!_ipsDbFirestore?.red) return null;
+  const red = _ipsDbFirestore.red;
+
+  // Búsqueda exacta primero
+  if (red[nombreNorm]) return red[nombreNorm];
+
+  // Búsqueda parcial: el municipio contiene el texto buscado o viceversa
+  const keys = Object.keys(red);
+  const match = keys.find(k => k.includes(nombreNorm) || nombreNorm.includes(k));
+  return match ? red[match] : null;
+}
+
+/** Normaliza un string para búsqueda en BD */
+function ipsNormKey(s) {
+  return (s||'').toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+
+// Distancia Haversine en km entre dos coordenadas
+function ipsHaversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Geocodificar dirección usando Nominatim (gratuito, sin API key)
+async function ipsGeocodificar(direccion, ciudad) {
+  const query = encodeURIComponent(`${direccion}, ${ciudad}, Colombia`);
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=co`, {
+      headers: { 'Accept-Language': 'es', 'User-Agent': 'SURA-App/1.0' },
+      signal: AbortSignal.timeout(8000)
+    });
+    const data = await r.json();
+    if (data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), display: data[0].display_name };
+  } catch(e) {}
+  return null;
+}
+
+// Normalizar nombre de ciudad para buscar en DB
+function ipsNormCiudad(c) {
+  return (c||'').toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+
+function renderIPS() {
+  const root = document.getElementById('ips-root');
+  if (!root) return;
+
+  // Cargar BD en segundo plano para tenerla lista al buscar
+  ipsDbCargar();
+
+  root.innerHTML = `
+    <!-- Buscador -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <span style="font-size:22px;">🏥</span>
+        <div>
+          <div style="font-size:15px;font-weight:700;">Buscador de IPS SURA</div>
+          <div style="font-size:12px;color:var(--text-muted);">Ingresa la dirección y ciudad del afiliado — te mostramos las IPS básicas más cercanas y la red de urgencias disponible</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:10px;">
+        <input type="text" class="form-control" id="ips_direccion"
+          placeholder="Ej: Calle 100 # 15-32, Bogotá  —  o solo el municipio: Amaga, Envigado, Itagüí..."
+          onkeydown="if(event.key==='Enter')ipsBuscar()"
+          style="font-size:14px;">
+        <button class="btn btn-primary" onclick="ipsBuscar()" style="white-space:nowrap;">
+          🔍 Buscar IPS
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+        <span style="font-size:11.5px;color:var(--text-muted);">Ciudad rápida:</span>
+        ${['Bogotá','Medellín','Cali','Barranquilla','Bucaramanga','Cartagena','Manizales','Pereira','Tunja'].map(c =>
+          `<button class="btn btn-secondary btn-sm" onclick="ipsCiudadRapida('${c}')" style="padding:3px 10px;font-size:11.5px;">${c}</button>`
+        ).join('')}
+      </div>
+      <div id="ips_geo_info" style="font-size:11px;color:var(--text-dim);margin-top:6px;"></div>
+    </div>
+
+    <!-- Resultado -->
+    <div id="ips_resultado" style="display:none;"></div>
+
+    <!-- Importar BD Firestore -->
+    <div class="card" style="border:1px solid rgba(26,76,232,0.2);background:rgba(26,76,232,0.03);" id="ips_import_card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">📥 Base de datos IPS · Firestore</div>
+          <div style="font-size:11.5px;color:var(--text-muted);" id="ips_db_status">⏳ Verificando BD en Firestore...</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.25);color:var(--sura-blue);
+              border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+              📂 Importar JSON
+              <input type="file" accept=".json" style="display:none;" onchange="ipsImportarJSON(this)">
+            </label>
+            <button class="btn btn-secondary" style="font-size:12px;padding:7px 14px;" onclick="ipsMostrarAyudaImport()">
+              ❓ ¿Cómo obtener el JSON?
+            </button>
+          </div>
+          <div id="ips_import_feedback" style="font-size:11px;"></div>
+        </div>
+      </div>
+      <div id="ips_ayuda_import" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);line-height:1.8;">
+        1. Descarga el <strong style="color:var(--text);">Extractor IPS SURA v5</strong> desde el chat donde lo generaste<br>
+        2. Completa las 2 fases: <em>IPS Básicas</em> (15 departamentos) + <em>Urgencias médicas</em> (15 departamentos)<br>
+        3. Al finalizar, haz clic en <strong style="color:var(--text);">⬇ Descargar .json</strong><br>
+        4. Vuelve aquí, haz clic en <strong style="color:var(--text);">📂 Importar JSON</strong> y selecciona el archivo<br>
+        5. La BD se sube a Firestore y queda disponible en todos tus dispositivos automáticamente ✅
+      </div>
+    </div>
+
+    <!-- Info general -->
+    <div class="card" style="border:1px solid rgba(6,182,212,0.2);background:rgba(6,182,212,0.04);">
+      <div style="font-size:12px;color:var(--teal);font-weight:700;margin-bottom:8px;">📋 Tipos de atención en red SURA PBS</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;font-size:12px;color:var(--text-muted);">
+        <div>🏥 <strong>IPS Básica</strong> — Consulta externa, laboratorio, terapias</div>
+        <div>🚨 <strong>Urgencias médicas</strong> — Atención 24h, emergencias</div>
+        <div>👶 <strong>Urgencias pediátricas</strong> — Según red disponible por ciudad</div>
+        <div>🤰 <strong>IPS maternas</strong> — Parto y urgencias obstétricas</div>
+        <div>🦷 <strong>Urgencias odontológicas</strong> — Por ciudad disponible</div>
+        <div>💊 <strong>Distribuidores medicamentos</strong> — Farmacias red SURA</div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--text-dim);">
+        📞 Línea de prestadores SURA: <strong style="color:var(--text);">#888</strong> desde celular · 
+        🌐 Directorio completo: <a href="https://www.epssura.com/dir-medico" target="_blank" style="color:var(--sura-blue);">epssura.com/dir-medico</a>
+      </div>
+    </div>
+  `;
+
+  // Verificar estado de la BD asíncronamente
+  ipsDbCargar().then(db => {
+    const statusEl = document.getElementById('ips_db_status');
+    if (!statusEl) return;
+    if (db && db.red) {
+      const munis = Object.keys(db.red).length;
+      const basN  = Object.values(db.red).reduce((s,m) => s + (m.basicas?.length||0), 0);
+      const urgN  = Object.values(db.red).reduce((s,m) => s + (m.urgencias?.length||0), 0);
+      statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> IPS básicas · <strong>${urgN}</strong> urgencias · generada ${db.generado||'?'}</span>`;
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--amber);">⚠️ Sin BD importada — los resultados usan datos de referencia (solo ciudades principales). Importa el JSON del extractor para cobertura completa.</span>`;
+    }
+  });
+}
+
+function ipsMostrarAyudaImport() {
+  const el = document.getElementById('ips_ayuda_import');
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function ipsImportarJSON(input) {
+  const fb = document.getElementById('ips_import_feedback');
+  const statusEl = document.getElementById('ips_db_status');
+  if (!input.files?.[0]) return;
+
+  if (fb) fb.innerHTML = '<span style="color:var(--text-muted);">⏳ Leyendo archivo...</span>';
+
+  const text = await input.files[0].text();
+  let json;
+  try { json = JSON.parse(text); } catch(e) {
+    if (fb) fb.innerHTML = '<span style="color:var(--red);">❌ Archivo JSON inválido</span>';
+    return;
+  }
+
+  if (!json.red || typeof json.red !== 'object') {
+    if (fb) fb.innerHTML = '<span style="color:var(--red);">❌ El JSON no tiene la estructura esperada (falta campo "red")</span>';
+    return;
+  }
+
+  const munis = Object.keys(json.red).length;
+  const basN  = Object.values(json.red).reduce((s,m) => s + (m.basicas?.length||0), 0);
+  const urgN  = Object.values(json.red).reduce((s,m) => s + (m.urgencias?.length||0), 0);
+
+  if (fb) fb.innerHTML = `<span style="color:var(--text-muted);">⏳ Subiendo a Firestore... (${munis} municipios)</span>`;
+
+  const ok = await ipsDbGuardar(json);
+  if (ok) {
+    if (fb) fb.innerHTML = `<span style="color:var(--green);">✅ BD guardada en Firestore</span>`;
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> IPS básicas · <strong>${urgN}</strong> urgencias · generada ${json.generado||'?'}</span>`;
+    showToast(`✅ BD IPS importada: ${munis} municipios · ${basN} básicas · ${urgN} urgencias`);
+  } else {
+    if (fb) fb.innerHTML = '<span style="color:var(--red);">❌ Error al guardar en Firestore — verifica tu conexión</span>';
+  }
+}
+
+function ipsCiudadRapida(ciudad) {
+  const inp = document.getElementById('ips_direccion');
+  if (inp) { inp.value = ciudad; inp.focus(); }
+}
+
+async function ipsBuscar() {
+  const inp   = document.getElementById('ips_direccion');
+  const geoEl = document.getElementById('ips_geo_info');
+  const resEl = document.getElementById('ips_resultado');
+  const raw   = (inp?.value || '').trim();
+  if (!raw) { showToast('⚠️ Ingresa una dirección o municipio'); return; }
+
+  if (geoEl) geoEl.textContent = '⏳ Buscando...';
+  if (resEl) { resEl.style.display='none'; resEl.innerHTML=''; }
+
+  // Cargar BD Firestore (usa caché si ya está en memoria)
+  await ipsDbCargar();
+
+  const rawNorm = ipsNormKey(raw);
+
+  // ── 1. Buscar en BD Firestore (cobertura completa) ───────────────────────
+  let dbMunicipio = ipsDbBuscarMunicipio(rawNorm);
+  let fuenteLabel = '';
+  let municipioLabel = '';
+
+  if (dbMunicipio) {
+    // Búsqueda directa por municipio en BD importada
+    municipioLabel = dbMunicipio.municipio || raw.toUpperCase();
+    fuenteLabel    = `📦 BD importada · ${municipioLabel}`;
+    if (geoEl) geoEl.textContent = `🏙️ ${municipioLabel} encontrado en BD (${dbMunicipio.basicas?.length||0} IPS básicas · ${dbMunicipio.urgencias?.length||0} urgencias)`;
+  }
+
+  // ── 2. Si no encontró directamente, intentar geocodificar y buscar por ciudad ──
+  let coords = null;
+  if (!dbMunicipio) {
+    // Intentar extraer ciudad del texto (ej: "Calle 5, Amaga" → "Amaga")
+    const partes = raw.split(',').map(s => s.trim());
+    for (const parte of [...partes].reverse()) {
+      const k = ipsNormKey(parte);
+      const res = ipsDbBuscarMunicipio(k);
+      if (res) { dbMunicipio = res; municipioLabel = res.municipio || parte.toUpperCase(); break; }
+    }
+
+    // Si aún no encontró, geocodificar
+    if (!dbMunicipio) {
+      if (geoEl) geoEl.textContent = '⏳ Geocodificando dirección...';
+      const ciudadParaGeo = partes[partes.length-1] || raw;
+      coords = await ipsGeocodificar(raw, ciudadParaGeo);
+      if (coords && geoEl) geoEl.textContent = `📍 ${coords.display.split(',').slice(0,3).join(',')}`;
+    }
+  }
+
+  // ── 3. Si BD Firestore no tiene el municipio, caer a BD estática ─────────
+  let basicasOrdenadas = [];
+  let urgenciasOrdenadas = [];
+  let usandoFallback = false;
+
+  if (dbMunicipio) {
+    // ── Fuente: BD Firestore ──
+    // basicas en BD tienen: { nombre, direccion, telefonos, codigo, horario, nivel, abierta }
+    // las mapeamos al formato que espera el render: { nombre, dir, tel, ... }
+    basicasOrdenadas = (dbMunicipio.basicas || []).map(b => ({
+      nombre: b.nombre, dir: b.direccion||'', tel: b.telefonos||'',
+      codigo: b.codigo||'', horario: b.horario||'', nivel: b.nivel||'',
+      lat: b.lat, lng: b.lng,
+    }));
+    urgenciasOrdenadas = (dbMunicipio.urgencias || []).map(u => ({
+      nombre: u.nombre, dir: u.direccion||'', tel: u.telefonos||'',
+      tipo: 'Urgencias 24h', lat: u.lat, lng: u.lng,
+    }));
+    fuenteLabel = `BD importada · ${municipioLabel}`;
+
+  } else {
+    // ── Fallback: BD estática (solo ciudades principales) ──
+    usandoFallback = true;
+    const ciudadesConocidas = Object.keys(IPS_SURA_DB).filter(k => k !== 'BOGOTA');
+    let ciudadDetectada = null;
+
+    for (const c of ciudadesConocidas) {
+      const alias = { 'BOGOTÁ':['BOGOTA','BOGOTÁ','SANTAFE'], 'MEDELLÍN':['MEDELLIN','MEDELLÍN'],
+        'CALI':['CALI'], 'BARRANQUILLA':['BARRANQUILLA'], 'BUCARAMANGA':['BUCARAMANGA'],
+        'CARTAGENA':['CARTAGENA'], 'MANIZALES':['MANIZALES'], 'PEREIRA':['PEREIRA'], 'TUNJA':['TUNJA'] };
+      if ((alias[c]||[c]).some(a => rawNorm.includes(ipsNormKey(a)))) { ciudadDetectada = c; break; }
+    }
+    if (!ciudadDetectada && coords) {
+      const latRef = {BOGOTÁ:[4.55,4.83],MEDELLÍN:[6.10,6.40],CALI:[3.32,3.55],BARRANQUILLA:[10.90,11.08],BUCARAMANGA:[7.05,7.18]};
+      for (const [c,[latMin,latMax]] of Object.entries(latRef)) {
+        if (coords.lat >= latMin && coords.lat <= latMax) { ciudadDetectada = c; break; }
+      }
+    }
+
+    const dbEst = ciudadDetectada ? IPS_SURA_DB[ciudadDetectada] : null;
+    if (!dbEst) {
+      // Sin resultados en ninguna fuente
+      resEl.style.display = '';
+      resEl.innerHTML = `
+        <div class="card" style="text-align:center;padding:32px;">
+          <div style="font-size:32px;margin-bottom:12px;">🔍</div>
+          <div style="font-weight:600;margin-bottom:8px;">Municipio no encontrado</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+            "${raw}" no está en la BD importada ni en los datos de referencia.<br>
+            ${_ipsDbFirestore ? `La BD tiene ${Object.keys(_ipsDbFirestore.red||{}).length} municipios — verifica el nombre exacto.` : 'Importa el JSON del extractor para acceder a todos los municipios.'}
+          </div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <a href="https://www.epssura.com/dir-medico" target="_blank" class="btn btn-primary" style="display:inline-flex;gap:8px;align-items:center;font-size:13px;">
+              🌐 Directorio oficial EPS SURA
+            </a>
+          </div>
+        </div>`;
+      if (geoEl) geoEl.textContent = '❌ No encontrado en ninguna fuente';
+      return;
+    }
+
+    municipioLabel  = ciudadDetectada;
+    fuenteLabel     = `Datos de referencia · ${ciudadDetectada}`;
+    basicasOrdenadas   = [...dbEst.basicas];
+    urgenciasOrdenadas = [...dbEst.urgencias];
+    if (geoEl) geoEl.textContent = `🏙️ Mostrando IPS de ${ciudadDetectada} (datos de referencia)`;
+  }
+
+  // Ordenar por distancia si tenemos coords y lat/lng en los datos
+  if (coords) {
+    const conDist = arr => arr
+      .map(x => x.lat ? { ...x, distKm: ipsHaversine(coords.lat, coords.lng, x.lat, x.lng) } : x)
+      .sort((a,b) => (a.distKm??999) - (b.distKm??999));
+    basicasOrdenadas   = conDist(basicasOrdenadas);
+    urgenciasOrdenadas = conDist(urgenciasOrdenadas);
+  }
+
+  const top3 = basicasOrdenadas.slice(0, 3);
+
+  // ── RENDER RESULTADOS ──────────────────────────────────────────────────────
+  resEl.style.display = '';
+  resEl.innerHTML = `
+    <!-- IPS Básicas -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">🏥</span>
+          <div>
+            <div style="font-size:14px;font-weight:700;">IPS Básicas${coords?' · más cercanas a la dirección':' · '+municipioLabel}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);">Consulta externa · Laboratorio · Terapias · Atención prioritaria</div>
+          </div>
+        </div>
+        ${usandoFallback ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,0.15);color:var(--amber);font-weight:700;">⚠️ Datos de referencia</span>` : `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">✅ BD actualizada</span>`}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${top3.length ? top3.map((ips,i) => `
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(6,182,212,0.3)':'var(--border)'};">
+            <div style="width:28px;height:28px;border-radius:50%;background:${i===0?'var(--teal)':'var(--surface3)'};color:${i===0?'white':'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">${i+1}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;font-weight:700;margin-bottom:3px;">${ips.nombre}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">📍 ${ips.dir}${ips.barrio?` · ${ips.barrio}`:''}</div>
+              <div style="display:flex;gap:12px;font-size:12px;flex-wrap:wrap;">
+                <span style="color:var(--teal);">📞 ${ips.tel}</span>
+                ${ips.distKm !== undefined ? `<span style="color:var(--sura-lime);font-weight:600;">~${ips.distKm<1?(ips.distKm*1000).toFixed(0)+'m':ips.distKm.toFixed(1)+'km'}</span>` : ''}
+                ${ips.nivel ? `<span style="color:var(--text-dim);font-size:11px;">Nivel ${ips.nivel}</span>` : ''}
+                ${i===0?`<span style="background:rgba(6,182,212,0.15);color:var(--teal);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:10px;">MÁS CERCANA</span>`:''}
+              </div>
+            </div>
+            <button onclick="ipsCopiarIPS('${ips.nombre.replace(/'/g,"\\'")}','${ips.dir.replace(/'/g,"\\'")}','${ips.tel}')" title="Copiar datos"
+              style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.2);color:var(--sura-blue);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+              📋 Copiar
+            </button>
+          </div>
+        `).join('') : '<div style="font-size:13px;color:var(--text-muted);padding:12px;">Sin IPS básicas registradas para este municipio.</div>'}
+      </div>
+      ${basicasOrdenadas.length > 3 ? `
+        <details style="margin-top:10px;">
+          <summary style="font-size:12px;color:var(--text-muted);cursor:pointer;">Ver ${basicasOrdenadas.length-3} IPS adicionales en ${municipioLabel}</summary>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+            ${basicasOrdenadas.slice(3).map(ips => `
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:6px;font-size:12px;">
+                <div style="flex:1;"><strong>${ips.nombre}</strong> · ${ips.dir}</div>
+                <span style="color:var(--teal);">${ips.tel}</span>
+                ${ips.distKm!==undefined?`<span style="color:var(--text-muted);">~${ips.distKm.toFixed(1)}km</span>`:''}
+              </div>`).join('')}
+          </div>
+        </details>` : ''}
+    </div>
+
+    <!-- Red de Urgencias -->
+    <div class="card" style="border:1px solid rgba(240,82,82,0.2);background:rgba(240,82,82,0.03);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="font-size:18px;">🚨</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;">Red de Urgencias · ${municipioLabel}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);">Atención 24 horas — emergencias médicas</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${urgenciasOrdenadas.length ? urgenciasOrdenadas.map((u,i) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(240,82,82,0.25)':'var(--border)'};">
+            <span style="font-size:16px;flex-shrink:0;">🏨</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;">${u.nombre}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);">📍 ${u.dir} · <span style="color:var(--red);">📞 ${u.tel}</span>
+              ${u.distKm!==undefined?` · <span style="color:var(--text-dim);">~${u.distKm<1?(u.distKm*1000).toFixed(0)+'m':u.distKm.toFixed(1)+'km'}</span>`:''}
+              </div>
+            </div>
+            <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(240,82,82,0.12);color:var(--red);white-space:nowrap;flex-shrink:0;">${u.tipo||'Urgencias 24h'}</span>
+          </div>
+        `).join('') : `<div style="font-size:13px;color:var(--text-muted);padding:12px;">Sin urgencias registradas para este municipio en la BD. Consulta el <a href="https://epsapps.suramericana.com/Semp/faces/homme/consultasDirectorios/urgenciasMedicasNocturnas/parametros.jspx" target="_blank" style="color:var(--sura-blue);">directorio oficial</a>.</div>`}
+      </div>
+      <div style="margin-top:12px;padding:8px 12px;background:rgba(240,82,82,0.06);border-radius:6px;font-size:11.5px;color:var(--text-muted);">
+        ⚠️ En urgencia el afiliado puede acudir a <strong>cualquier institución de la red</strong> sin autorización previa.
+        Notificar a SURA el primer día hábil siguiente al <strong>#888</strong>.
+      </div>
+    </div>
+
+    <!-- Directorio oficial -->
+    <div style="text-align:center;">
+      <a href="https://www.epssura.com/dir-medico" target="_blank"
+        class="btn btn-secondary" style="display:inline-flex;gap:8px;align-items:center;font-size:13px;">
+        🌐 Directorio médico completo en epssura.com
+      </a>
+    </div>
+  `;
+}
+
+function ipsCopiarIPS(nombre, dir, tel) {
+  const texto = `IPS SURA: ${nombre}\nDirección: ${dir}\nTeléfono: ${tel}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(texto).then(() => showToast('📋 IPS copiada al portapapeles'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = texto; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('📋 IPS copiada al portapapeles');
+  }
+}
 
 function renderHerramientas() {
   // Las herramientas se reorganizaron:
