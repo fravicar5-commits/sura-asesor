@@ -1032,6 +1032,11 @@
 </script>
 <!-- ===== FIN FIREBASE SDK ===== -->
 
+<!-- ===== LEAFLET ===== -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- ===== FIN LEAFLET ===== -->
+
 </head>
 <body>
 
@@ -20953,93 +20958,272 @@ async function ipsBuscar() {
 
   const top3 = basicasOrdenadas.slice(0, 3);
 
-  // ── RENDER RESULTADOS ──────────────────────────────────────────────────────
+  // ── RENDER RESULTADOS (layout 2 columnas: tarjetas | mapa) ──────────────
   resEl.style.display = '';
   resEl.innerHTML = `
-    <!-- IPS Básicas -->
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:18px;">🏥</span>
-          <div>
-            <div style="font-size:14px;font-weight:700;">IPS Básicas${coords?' · más cercanas a la dirección':' · '+municipioLabel}</div>
-            <div style="font-size:11.5px;color:var(--text-muted);">Consulta externa · Laboratorio · Terapias · Atención prioritaria</div>
-          </div>
-        </div>
-        ${usandoFallback ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,0.15);color:var(--amber);font-weight:700;">⚠️ Datos de referencia</span>` : `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">✅ BD actualizada</span>`}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        ${top3.length ? top3.map((ips,i) => `
-          <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(6,182,212,0.3)':'var(--border)'};">
-            <div style="width:28px;height:28px;border-radius:50%;background:${i===0?'var(--teal)':'var(--surface3)'};color:${i===0?'white':'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">${i+1}</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13.5px;font-weight:700;margin-bottom:3px;">${ips.nombre}</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">📍 ${ips.dir}${ips.barrio?` · ${ips.barrio}`:''}</div>
-              <div style="display:flex;gap:12px;font-size:12px;flex-wrap:wrap;">
-                <span style="color:var(--teal);">📞 ${ips.tel}</span>
-                ${ips.distKm !== undefined ? `<span style="color:var(--sura-lime);font-weight:600;">~${ips.distKm<1?(ips.distKm*1000).toFixed(0)+'m':ips.distKm.toFixed(1)+'km'}</span>` : ''}
-                ${ips.nivel ? `<span style="color:var(--text-dim);font-size:11px;">Nivel ${ips.nivel}</span>` : ''}
-                ${i===0?`<span style="background:rgba(6,182,212,0.15);color:var(--teal);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:10px;">MÁS CERCANA</span>`:''}
+    <!-- Wrapper 2 columnas -->
+    <div id="ips_layout" style="display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start;">
+
+      <!-- Columna izquierda: tarjetas -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- IPS Básicas -->
+        <div class="card" style="margin:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:18px;">🏥</span>
+              <div>
+                <div style="font-size:14px;font-weight:700;">IPS Básicas · ${municipioLabel}</div>
+                <div style="font-size:11.5px;color:var(--text-muted);">Consulta externa · Laboratorio · Terapias</div>
               </div>
             </div>
-            <button onclick="ipsCopiarIPS('${ips.nombre.replace(/'/g,"\\'")}','${ips.dir.replace(/'/g,"\\'")}','${ips.tel}')" title="Copiar datos"
-              style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.2);color:var(--sura-blue);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-              📋 Copiar
-            </button>
+            ${usandoFallback
+              ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,0.15);color:var(--amber);font-weight:700;">⚠️ Referencia</span>`
+              : `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">✅ BD actual</span>`}
           </div>
-        `).join('') : '<div style="font-size:13px;color:var(--text-muted);padding:12px;">Sin IPS básicas registradas para este municipio.</div>'}
-      </div>
-      ${basicasOrdenadas.length > 3 ? `
-        <details style="margin-top:10px;">
-          <summary style="font-size:12px;color:var(--text-muted);cursor:pointer;">Ver ${basicasOrdenadas.length-3} IPS adicionales en ${municipioLabel}</summary>
-          <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-            ${basicasOrdenadas.slice(3).map(ips => `
-              <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:6px;font-size:12px;">
-                <div style="flex:1;"><strong>${ips.nombre}</strong> · ${ips.dir}</div>
-                <span style="color:var(--teal);">${ips.tel}</span>
-                ${ips.distKm!==undefined?`<span style="color:var(--text-muted);">~${ips.distKm.toFixed(1)}km</span>`:''}
-              </div>`).join('')}
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${top3.length ? top3.map((ips,i) => `
+              <div class="ips-card-item" data-idx="${i}" data-tipo="basica"
+                style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(6,182,212,0.3)':'var(--border)'};cursor:pointer;transition:border-color .15s;"
+                onmouseenter="ipsMapHighlight('b${i}')" onmouseleave="ipsMapUnhighlight('b${i}')">
+                <div style="width:28px;height:28px;border-radius:50%;background:${i===0?'var(--teal)':'var(--surface3)'};color:${i===0?'white':'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">${i+1}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13.5px;font-weight:700;margin-bottom:3px;">${ips.nombre}</div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">📍 ${ips.dir}</div>
+                  <div style="display:flex;gap:12px;font-size:12px;flex-wrap:wrap;">
+                    <span style="color:var(--teal);">📞 ${ips.tel}</span>
+                    ${ips.distKm !== undefined ? `<span style="color:var(--sura-lime);font-weight:600;">~${ips.distKm<1?(ips.distKm*1000).toFixed(0)+'m':ips.distKm.toFixed(1)+'km'}</span>` : ''}
+                    ${ips.nivel ? `<span style="color:var(--text-dim);font-size:11px;">Nivel ${ips.nivel}</span>` : ''}
+                    ${i===0?`<span style="background:rgba(6,182,212,0.15);color:var(--teal);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:10px;">MÁS CERCANA</span>`:''}
+                  </div>
+                </div>
+                <button onclick="ipsCopiarIPS('${ips.nombre.replace(/'/g,"\\'")}','${ips.dir.replace(/'/g,"\\'")}','${ips.tel}')"
+                  style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.2);color:var(--sura-blue);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                  📋
+                </button>
+              </div>`).join('')
+            : '<div style="font-size:13px;color:var(--text-muted);padding:12px;">Sin IPS básicas registradas.</div>'}
           </div>
-        </details>` : ''}
-    </div>
+          ${basicasOrdenadas.length > 3 ? `
+            <details style="margin-top:10px;">
+              <summary style="font-size:12px;color:var(--text-muted);cursor:pointer;">Ver ${basicasOrdenadas.length-3} IPS adicionales</summary>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+                ${basicasOrdenadas.slice(3).map((ips,i) => `
+                  <div class="ips-card-item" data-idx="${i+3}" data-tipo="basica"
+                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:6px;font-size:12px;cursor:pointer;"
+                    onmouseenter="ipsMapHighlight('b${i+3}')" onmouseleave="ipsMapUnhighlight('b${i+3}')">
+                    <div style="flex:1;"><strong>${ips.nombre}</strong> · ${ips.dir}</div>
+                    <span style="color:var(--teal);">${ips.tel}</span>
+                    ${ips.distKm!==undefined?`<span style="color:var(--text-muted);">~${ips.distKm.toFixed(1)}km</span>`:''}
+                  </div>`).join('')}
+              </div>
+            </details>` : ''}
+        </div>
 
-    <!-- Red de Urgencias -->
-    <div class="card" style="border:1px solid rgba(240,82,82,0.2);background:rgba(240,82,82,0.03);">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <span style="font-size:18px;">🚨</span>
-        <div>
-          <div style="font-size:14px;font-weight:700;">Red de Urgencias · ${municipioLabel}</div>
-          <div style="font-size:11.5px;color:var(--text-muted);">Atención 24 horas — emergencias médicas</div>
+        <!-- Red de Urgencias -->
+        <div class="card" style="margin:0;border:1px solid rgba(240,82,82,0.2);background:rgba(240,82,82,0.03);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <span style="font-size:18px;">🚨</span>
+            <div>
+              <div style="font-size:14px;font-weight:700;">Urgencias · ${municipioLabel}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);">Atención 24 horas</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${urgenciasOrdenadas.length ? urgenciasOrdenadas.map((u,i) => `
+              <div class="ips-card-item" data-idx="${i}" data-tipo="urgencia"
+                style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(240,82,82,0.25)':'var(--border)'};cursor:pointer;"
+                onmouseenter="ipsMapHighlight('u${i}')" onmouseleave="ipsMapUnhighlight('u${i}')">
+                <span style="font-size:16px;flex-shrink:0;">🏨</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:600;">${u.nombre}</div>
+                  <div style="font-size:11.5px;color:var(--text-muted);">📍 ${u.dir} · <span style="color:var(--red);">📞 ${u.tel}</span>
+                  ${u.distKm!==undefined?` · <span style="color:var(--text-dim);">~${u.distKm<1?(u.distKm*1000).toFixed(0)+'m':u.distKm.toFixed(1)+'km'}</span>`:''}
+                  </div>
+                </div>
+                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(240,82,82,0.12);color:var(--red);white-space:nowrap;flex-shrink:0;">24h</span>
+              </div>`).join('')
+            : `<div style="font-size:13px;color:var(--text-muted);padding:12px;">Sin urgencias registradas — <a href="https://epsapps.suramericana.com/Semp/faces/homme/consultasDirectorios/urgenciasMedicasNocturnas/parametros.jspx" target="_blank" style="color:var(--sura-blue);">consulta directorio oficial</a>.</div>`}
+          </div>
+          <div style="margin-top:12px;padding:8px 12px;background:rgba(240,82,82,0.06);border-radius:6px;font-size:11.5px;color:var(--text-muted);">
+            ⚠️ En urgencia el afiliado puede acudir a <strong>cualquier institución de la red</strong> sin autorización previa. Notificar al <strong>#888</strong> el primer día hábil.
+          </div>
+        </div>
+
+        <div style="text-align:center;">
+          <a href="https://www.epssura.com/dir-medico" target="_blank"
+            class="btn btn-secondary" style="display:inline-flex;gap:8px;align-items:center;font-size:13px;">
+            🌐 Directorio completo epssura.com
+          </a>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        ${urgenciasOrdenadas.length ? urgenciasOrdenadas.map((u,i) => `
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(240,82,82,0.25)':'var(--border)'};">
-            <span style="font-size:16px;flex-shrink:0;">🏨</span>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:600;">${u.nombre}</div>
-              <div style="font-size:11.5px;color:var(--text-muted);">📍 ${u.dir} · <span style="color:var(--red);">📞 ${u.tel}</span>
-              ${u.distKm!==undefined?` · <span style="color:var(--text-dim);">~${u.distKm<1?(u.distKm*1000).toFixed(0)+'m':u.distKm.toFixed(1)+'km'}</span>`:''}
-              </div>
-            </div>
-            <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(240,82,82,0.12);color:var(--red);white-space:nowrap;flex-shrink:0;">${u.tipo||'Urgencias 24h'}</span>
-          </div>
-        `).join('') : `<div style="font-size:13px;color:var(--text-muted);padding:12px;">Sin urgencias registradas para este municipio en la BD. Consulta el <a href="https://epsapps.suramericana.com/Semp/faces/homme/consultasDirectorios/urgenciasMedicasNocturnas/parametros.jspx" target="_blank" style="color:var(--sura-blue);">directorio oficial</a>.</div>`}
-      </div>
-      <div style="margin-top:12px;padding:8px 12px;background:rgba(240,82,82,0.06);border-radius:6px;font-size:11.5px;color:var(--text-muted);">
-        ⚠️ En urgencia el afiliado puede acudir a <strong>cualquier institución de la red</strong> sin autorización previa.
-        Notificar a SURA el primer día hábil siguiente al <strong>#888</strong>.
-      </div>
-    </div>
 
-    <!-- Directorio oficial -->
-    <div style="text-align:center;">
-      <a href="https://www.epssura.com/dir-medico" target="_blank"
-        class="btn btn-secondary" style="display:inline-flex;gap:8px;align-items:center;font-size:13px;">
-        🌐 Directorio médico completo en epssura.com
-      </a>
-    </div>
+      <!-- Columna derecha: mapa sticky -->
+      <div style="position:sticky;top:80px;">
+        <div class="card" style="margin:0;padding:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:13px;font-weight:700;">📍 Mapa · ${municipioLabel}</div>
+            <div style="font-size:11px;color:var(--text-muted);" id="ips_map_status">⏳ Geocodificando...</div>
+          </div>
+          <!-- Leyenda -->
+          <div style="display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--text-muted);">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#0e7490;margin-right:4px;vertical-align:middle;"></span>IPS Básica</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626;margin-right:4px;vertical-align:middle;"></span>Urgencias</span>
+            ${coords ? `<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#7c3aed;margin-right:4px;vertical-align:middle;"></span>Dirección</span>` : ''}
+          </div>
+          <div id="ips_mapa" style="height:420px;border-radius:8px;overflow:hidden;background:var(--surface2);"></div>
+        </div>
+      </div>
+
+    </div><!-- fin grid -->
   `;
+
+  // Aplicar layout responsive si pantalla estrecha
+  ipsAjustarLayout();
+
+  // Iniciar geocodificación y construcción del mapa en background
+  ipsIniciarMapa(basicasOrdenadas, urgenciasOrdenadas, coords, municipioLabel);
+}
+
+// ── Ajuste responsive del grid ────────────────────────────────────────────
+function ipsAjustarLayout() {
+  const layout = document.getElementById('ips_layout');
+  if (!layout) return;
+  if (window.innerWidth < 860) {
+    layout.style.gridTemplateColumns = '1fr';
+  }
+  // Re-chequear al resize
+  const obs = new ResizeObserver(() => {
+    if (!document.getElementById('ips_layout')) { obs.disconnect(); return; }
+    document.getElementById('ips_layout').style.gridTemplateColumns =
+      window.innerWidth < 860 ? '1fr' : '1fr 380px';
+  });
+  obs.observe(document.body);
+}
+
+// ── Mapa Leaflet ──────────────────────────────────────────────────────────
+let _ipsMapInstance  = null;   // instancia Leaflet activa
+let _ipsMapMarkers   = {};     // { 'b0': marker, 'u0': marker, ... }
+
+async function ipsIniciarMapa(basicas, urgencias, coordsRef, municipio) {
+  const mapEl    = document.getElementById('ips_mapa');
+  const statusEl = document.getElementById('ips_map_status');
+  if (!mapEl) return;
+
+  // Destruir mapa anterior si existe
+  if (_ipsMapInstance) {
+    _ipsMapInstance.remove();
+    _ipsMapInstance = null;
+  }
+  _ipsMapMarkers = {};
+
+  // ── Inicializar mapa centrado en Colombia como placeholder ──
+  _ipsMapInstance = L.map('ips_mapa', { zoomControl: true, attributionControl: true });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://openstreetmap.org">OSM</a> © <a href="https://carto.com">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(_ipsMapInstance);
+
+  // Centro provisional: Colombia
+  _ipsMapInstance.setView([4.5, -74.0], 6);
+
+  // ── Iconos personalizados ──
+  const iconBasica = L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;border-radius:50%;background:#0e7490;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;color:white;font-weight:700;">🏥</div>`,
+    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
+  });
+  const iconUrgencia = L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;color:white;font-weight:700;">🚨</div>`,
+    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
+  });
+  const iconRef = L.divIcon({
+    className: '',
+    html: `<div style="width:24px;height:24px;border-radius:50%;background:#7c3aed;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;">📌</div>`,
+    iconSize: [24,24], iconAnchor: [12,12], popupAnchor: [0,-14],
+  });
+
+  // Agregar marcador de dirección de referencia si la tenemos
+  if (coordsRef) {
+    L.marker([coordsRef.lat, coordsRef.lng], { icon: iconRef })
+      .addTo(_ipsMapInstance)
+      .bindPopup(`<strong>📌 Dirección buscada</strong><br><span style="font-size:11px;">${coordsRef.display?.split(',').slice(0,2).join(',') || ''}</span>`);
+  }
+
+  // ── Geocodificar IPS y agregar marcadores ──
+  const allIPS = [
+    ...basicas.map((b,i)  => ({ ...b, _key: `b${i}`, _tipo: 'basica',    _icon: iconBasica }),),
+    ...urgencias.map((u,i) => ({ ...u, _key: `u${i}`, _tipo: 'urgencia', _icon: iconUrgencia })),
+  ];
+
+  const bounds = [];
+  if (coordsRef) bounds.push([coordsRef.lat, coordsRef.lng]);
+
+  let geocodificadas = 0;
+  const total = allIPS.length;
+
+  // Geocodificar en serie (respeta rate limit de Nominatim: 1 req/s)
+  for (const ips of allIPS) {
+    if (!document.getElementById('ips_mapa')) break; // usuario navegó a otra página
+
+    // Si ya tiene coords (de BD o de búsqueda anterior), usarlas directamente
+    let lat = ips.lat, lng = ips.lng;
+
+    if (!lat || !lng) {
+      const geo = await ipsGeocodificar(ips.dir, municipio);
+      if (geo) { lat = geo.lat; lng = geo.lng; }
+      // Pausa mínima entre requests a Nominatim
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    if (lat && lng && _ipsMapInstance) {
+      const marker = L.marker([lat, lng], { icon: ips._icon })
+        .addTo(_ipsMapInstance)
+        .bindPopup(`
+          <div style="min-width:180px;">
+            <strong style="font-size:13px;">${ips.nombre}</strong><br>
+            <span style="font-size:11px;color:#555;">📍 ${ips.dir}</span><br>
+            <span style="font-size:11px;color:#0e7490;">📞 ${ips.tel}</span>
+            ${ips.horario ? `<br><span style="font-size:10px;color:#777;">🕐 ${ips.horario.substring(0,60)}</span>` : ''}
+          </div>`);
+      _ipsMapMarkers[ips._key] = marker;
+      bounds.push([lat, lng]);
+      geocodificadas++;
+    }
+
+    // Actualizar estado y centrar mapa progresivamente
+    if (statusEl) statusEl.textContent = `⏳ ${geocodificadas}/${total} ubicadas`;
+    if (bounds.length > 0 && _ipsMapInstance) {
+      _ipsMapInstance.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+    }
+  }
+
+  if (statusEl) {
+    statusEl.textContent = geocodificadas > 0
+      ? `✅ ${geocodificadas} IPS en el mapa`
+      : '⚠️ No se pudieron ubicar — verifica las direcciones';
+  }
+
+  // Ajustar tamaño (necesario porque el contenedor puede cambiar de tamaño)
+  if (_ipsMapInstance) setTimeout(() => _ipsMapInstance.invalidateSize(), 200);
+}
+
+// ── Highlight de marcador al hover sobre tarjeta ─────────────────────────
+function ipsMapHighlight(key) {
+  const m = _ipsMapMarkers[key];
+  if (!m) return;
+  m.openPopup();
+  const el = m.getElement();
+  if (el) el.style.zIndex = 1000;
+}
+function ipsMapUnhighlight(key) {
+  const m = _ipsMapMarkers[key];
+  if (!m) return;
+  m.closePopup();
+  const el = m.getElement();
+  if (el) el.style.zIndex = '';
 }
 
 function ipsCopiarIPS(nombre, dir, tel) {
