@@ -898,8 +898,69 @@
     }
   }
 
+  // ── ipsDb: guardar en chunks (puede superar 1MB) ────────────────────────
+  const IPS_CHUNK_SIZE = 100; // municipios por chunk
+  async function fbSetIpsDb(valor) {
+    try {
+      const municipios = Object.keys(valor.red || {});
+      const totalChunks = Math.ceil(municipios.length / IPS_CHUNK_SIZE) || 1;
+      // Doc principal: metadata sin el red (para no superar 1MB)
+      await setDoc(doc(db, 'ipsDb', UID), {
+        payload: {
+          version: valor.version || 1,
+          generado: valor.generado || '',
+          totalBasicas: valor.totalBasicas || 0,
+          totalUrgencias: valor.totalUrgencias || 0,
+          totalMunicipios: municipios.length,
+          totalChunks,
+        }
+      });
+      // Chunks con porciones del objeto red
+      const promises = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const keys = municipios.slice(i * IPS_CHUNK_SIZE, (i + 1) * IPS_CHUNK_SIZE);
+        const chunk = {};
+        keys.forEach(k => { chunk[k] = valor.red[k]; });
+        promises.push(setDoc(doc(db, 'ipsDbChunks', `${UID}_chunk_${i}`), { payload: chunk }));
+      }
+      await Promise.all(promises);
+      // Borrar chunks sobrantes de importaciones anteriores
+      for (let i = totalChunks; i < totalChunks + 30; i++) {
+        try { await deleteDoc(doc(db, 'ipsDbChunks', `${UID}_chunk_${i}`)); } catch(_) { break; }
+      }
+      console.log(`[ipsDb] Guardada en ${totalChunks} chunk(s) · ${municipios.length} municipios`);
+      return true;
+    } catch(e) {
+      console.error('[ipsDb] fbSetIpsDb error', e);
+      return false;
+    }
+  }
+
+  async function fbGetIpsDb() {
+    try {
+      const snap = await getDoc(doc(db, 'ipsDb', UID));
+      if (!snap.exists()) return null;
+      const meta = snap.data().payload;
+      const totalChunks = meta.totalChunks || 0;
+      if (!totalChunks) return meta; // formato antiguo sin chunks
+      // Cargar todos los chunks en paralelo y reconstruir red
+      const chunkPromises = [];
+      for (let i = 0; i < totalChunks; i++) {
+        chunkPromises.push(getDoc(doc(db, 'ipsDbChunks', `${UID}_chunk_${i}`)));
+      }
+      const chunkSnaps = await Promise.all(chunkPromises);
+      const red = {};
+      chunkSnaps.forEach(s => { if (s.exists()) Object.assign(red, s.data().payload || {}); });
+      console.log(`[ipsDb] Cargada desde Firestore: ${Object.keys(red).length} municipios · generada ${meta.generado||'?'}`);
+      return { ...meta, red };
+    } catch(e) {
+      console.warn('[ipsDb] fbGetIpsDb error', e);
+      return null;
+    }
+  }
+
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, db, UID, collection, getDocs, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, db, UID, collection, getDocs, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase };
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
   // ── Migración datos de 'fran' → UID actual ───────────────────────────────
@@ -10284,6 +10345,9 @@ function onFechaChange() {
   } else {
     alertEl.style.display = 'none';
   }
+
+  // Recalcular comisión estimada — el mes de conteo cambia con la fecha
+  calcPreviewCom();
 }
 
 // =============================================
@@ -10318,13 +10382,64 @@ function getTramiteGrupo(tramite) {
 }
 
 function calcPreviewCom() {
-  const tipo = document.getElementById('vTipo').value;
-  const criterio = document.getElementById('vSiniestralidad').value;
+  const tipo      = document.getElementById('vTipo').value;
+  const criterio  = document.getElementById('vSiniestralidad').value;
   const cotizantes = parseInt(document.getElementById('vCotizantes').value) || 0;
-  const com = calcComision(tipo, criterio, cotizantes);
-  const rango = tipo === 'COTIZANTE' ? getRango(cotizantes).label : 'N/A';
-  const el = document.getElementById('comPreview');
-  el.innerHTML = `💰 Comisión estimada: <strong style="color:var(--green)">${fmt(com)}</strong> · Rango: <strong>${rango}</strong>`;
+  const fechaStr  = document.getElementById('vFecha').value;
+  const el        = document.getElementById('comPreview');
+
+  if (tipo === 'BENEFICIARIO') {
+    el.innerHTML = `💰 Comisión estimada: <strong style="color:var(--green)">${fmt(10000)}</strong> · Tipo: <strong>Beneficiario</strong>`;
+    return;
+  }
+
+  // ── Determinar mes de conteo (mes calendario de la fecha ingresada) ──
+  // Las ventas cuentan para el mes en que se hacen, independiente del mes compensado
+  let mesConteo = new Date().getMonth(); // fallback: mes actual
+  let anioConteo = new Date().getFullYear();
+  if (fechaStr) {
+    const d = new Date(fechaStr + 'T12:00:00');
+    mesConteo  = d.getMonth();
+    anioConteo = d.getFullYear();
+  }
+
+  // ── Acumulado de cotizantes BD en ese mes de conteo ──
+  // Solo cotizantes tipo COTIZANTE ya guardados en ese mes calendario
+  const s = getState();
+  const ventasMesConteo = (s.ventas || []).filter(v => {
+    if (v.producto !== 'PBS' || v.tipo !== 'COTIZANTE') return false;
+    if (!v.fecha) return false;
+    const vd = new Date(v.fecha + 'T12:00:00');
+    return vd.getMonth() === mesConteo && vd.getFullYear() === anioConteo;
+  });
+  const cotizantesAcumMes = ventasMesConteo.length;
+
+  // ── Rango con acumulado + esta venta ──
+  // La comisión de esta venta se calcula con el rango que tendrás
+  // después de registrarla (acumulado + cotizantes de esta empresa)
+  const cotizantesTotalesConEsta = cotizantesAcumMes + cotizantes;
+  const rangoConEsta  = getRango(cotizantesTotalesConEsta);
+  const rangoSinEsta  = getRango(cotizantesAcumMes);
+
+  const row = COM_TABLE[criterio] || COM_TABLE['<=75%'];
+  const com = row[rangoConEsta.n - 1] || 0;
+
+  // ── Mostrar contexto de progreso ──
+  const subeRango = rangoConEsta.n > rangoSinEsta.n;
+  const alertaRango = subeRango
+    ? `<span style="color:var(--amber);font-weight:700;"> ⬆ Sube a ${rangoConEsta.label}</span>`
+    : '';
+
+  const mesNombre = MESES_ES ? MESES_ES[mesConteo + 1] || MESES[mesConteo] : MESES[mesConteo];
+
+  el.innerHTML = `
+    💰 Comisión estimada: <strong style="color:var(--green)">${fmt(com)}</strong>
+    · Rango: <strong>${rangoConEsta.label}</strong>${alertaRango}<br>
+    <span style="font-size:11px;color:var(--text-muted);">
+      Acumulado ${mesNombre}: <strong>${cotizantesAcumMes}</strong> cot. ya registrados
+      + <strong>${cotizantes}</strong> esta empresa = <strong>${cotizantesTotalesConEsta}</strong> total
+      ${fechaStr ? '' : ' · <em>Ingresa la fecha para el mes de conteo exacto</em>'}
+    </span>`;
 }
 
 function guardarVenta() {
@@ -10485,11 +10600,32 @@ function guardarVenta() {
   if (modalTab === 'pbs') {
     const fecha = document.getElementById('vFecha').value;
     if (!fecha) return alert('Ingresa la fecha');
-    const tipo = document.getElementById('vTipo').value;
-    const criterio = document.getElementById('vSiniestralidad').value;
+    const tipo      = document.getElementById('vTipo').value;
+    const criterio  = document.getElementById('vSiniestralidad').value;
     const cotizantes = parseInt(document.getElementById('vCotizantes').value) || 0;
-    const com = calcComision(tipo, criterio, cotizantes);
-    const rango = getRango(cotizantes).label;
+
+    // ── Comisión real según acumulado del mes de conteo ──────────────────
+    // Mes de conteo = mes calendario de la fecha (no el compensado)
+    let com, rango;
+    if (tipo === 'BENEFICIARIO') {
+      com   = 10000;
+      rango = 'N/A';
+    } else {
+      const dFecha = new Date(fecha + 'T12:00:00');
+      const mesConteoV  = dFecha.getMonth();
+      const anioConteoV = dFecha.getFullYear();
+      // Cotizantes ya guardados en ese mes (sin contar la venta actual)
+      const cotizAcumV = state.ventas.filter(v =>
+        v.producto === 'PBS' && v.tipo === 'COTIZANTE' && v.fecha &&
+        new Date(v.fecha + 'T12:00:00').getMonth()     === mesConteoV &&
+        new Date(v.fecha + 'T12:00:00').getFullYear()  === anioConteoV
+      ).length;
+      // Rango con acumulado + esta empresa
+      const rangoObj = getRango(cotizAcumV + cotizantes);
+      rango = rangoObj.label;
+      const row = COM_TABLE[criterio] || COM_TABLE['<=75%'];
+      com = row[rangoObj.n - 1] || 0;
+    }
     const tramite = document.getElementById('vTramite').value;
     const { mesComp } = calcMesCompensado(fecha);
     const fechaNac = document.getElementById('vFechaNac').value;
@@ -20610,21 +20746,20 @@ let _ipsDbFirestore = null;   // cache en memoria para esta sesión
 async function ipsDbCargar() {
   if (_ipsDbFirestore) return _ipsDbFirestore;
   try {
-    const data = await window.FB.get('ipsDb', null);
+    const data = await window.FB.getIpsDb();
     if (data && data.red && Object.keys(data.red).length > 0) {
       _ipsDbFirestore = data;
-      console.log(`[IPS DB] Cargada desde Firestore: ${Object.keys(data.red).length} municipios · generada ${data.generado||'?'}`);
     }
   } catch(e) { console.warn('[IPS DB] Error cargando desde Firestore:', e); }
   return _ipsDbFirestore;
 }
 
-/** Guarda la BD de IPS en Firestore */
+/** Guarda la BD de IPS en Firestore usando chunks */
 async function ipsDbGuardar(jsonData) {
   try {
-    await window.FB.set('ipsDb', jsonData);
-    _ipsDbFirestore = jsonData;
-    return true;
+    const ok = await window.FB.setIpsDb(jsonData);
+    if (ok) _ipsDbFirestore = jsonData;
+    return ok;
   } catch(e) {
     console.error('[IPS DB] Error guardando en Firestore:', e);
     return false;
@@ -20634,19 +20769,28 @@ async function ipsDbGuardar(jsonData) {
 /**
  * Busca una ciudad/municipio en la BD Firestore.
  * Acepta nombre normalizado (sin tildes, mayúsculas).
- * Retorna { basicas:[], urgencias:[] } o null.
+ * Retorna { basicas:[], urgencias:[], urgOdont:[] } o null.
  */
 function ipsDbBuscarMunicipio(nombreNorm) {
   if (!_ipsDbFirestore?.red) return null;
   const red = _ipsDbFirestore.red;
-
-  // Búsqueda exacta primero
   if (red[nombreNorm]) return red[nombreNorm];
-
-  // Búsqueda parcial: el municipio contiene el texto buscado o viceversa
   const keys = Object.keys(red);
   const match = keys.find(k => k.includes(nombreNorm) || nombreNorm.includes(k));
   return match ? red[match] : null;
+}
+
+/**
+ * Busca todos los municipios de un departamento.
+ * Retorna array de { municipio, basicas, urgencias, urgOdont } o []
+ */
+function ipsDbBuscarDepartamento(deptNorm) {
+  if (!_ipsDbFirestore?.red) return [];
+  const red = _ipsDbFirestore.red;
+  return Object.values(red).filter(m => {
+    const d = ipsNormKey(m.departamento || '');
+    return d === deptNorm || d.includes(deptNorm) || deptNorm.includes(d);
+  });
 }
 
 /** Normaliza un string para búsqueda en BD */
@@ -20777,10 +20921,11 @@ function renderIPS() {
     const statusEl = document.getElementById('ips_db_status');
     if (!statusEl) return;
     if (db && db.red) {
-      const munis = Object.keys(db.red).length;
-      const basN  = Object.values(db.red).reduce((s,m) => s + (m.basicas?.length||0), 0);
-      const urgN  = Object.values(db.red).reduce((s,m) => s + (m.urgencias?.length||0), 0);
-      statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> IPS básicas · <strong>${urgN}</strong> urgencias · generada ${db.generado||'?'}</span>`;
+      const munis  = Object.keys(db.red).length;
+      const basN   = Object.values(db.red).reduce((s,m) => s + (m.basicas?.length||0), 0);
+      const urgN   = Object.values(db.red).reduce((s,m) => s + (m.urgencias?.length||0), 0);
+      const odontN = Object.values(db.red).reduce((s,m) => s + (m.urgOdont?.length||0), 0);
+      statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> básicas · <strong>${urgN}</strong> urgencias · <strong>${odontN}</strong> odonto · generada ${db.generado||'?'}</span>`;
     } else {
       statusEl.innerHTML = `<span style="color:var(--amber);">⚠️ Sin BD importada — los resultados usan datos de referencia (solo ciudades principales). Importa el JSON del extractor para cobertura completa.</span>`;
     }
@@ -20811,17 +20956,18 @@ async function ipsImportarJSON(input) {
     return;
   }
 
-  const munis = Object.keys(json.red).length;
-  const basN  = Object.values(json.red).reduce((s,m) => s + (m.basicas?.length||0), 0);
-  const urgN  = Object.values(json.red).reduce((s,m) => s + (m.urgencias?.length||0), 0);
+  const munis  = Object.keys(json.red).length;
+  const basN   = Object.values(json.red).reduce((s,m) => s + (m.basicas?.length||0), 0);
+  const urgN   = Object.values(json.red).reduce((s,m) => s + (m.urgencias?.length||0), 0);
+  const odontN = Object.values(json.red).reduce((s,m) => s + (m.urgOdont?.length||0), 0);
 
   if (fb) fb.innerHTML = `<span style="color:var(--text-muted);">⏳ Subiendo a Firestore... (${munis} municipios)</span>`;
 
   const ok = await ipsDbGuardar(json);
   if (ok) {
     if (fb) fb.innerHTML = `<span style="color:var(--green);">✅ BD guardada en Firestore</span>`;
-    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> IPS básicas · <strong>${urgN}</strong> urgencias · generada ${json.generado||'?'}</span>`;
-    showToast(`✅ BD IPS importada: ${munis} municipios · ${basN} básicas · ${urgN} urgencias`);
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> básicas · <strong>${urgN}</strong> urgencias · <strong>${odontN}</strong> odonto · generada ${json.generado||'?'}</span>`;
+    showToast(`✅ BD IPS importada: ${munis} municipios · ${basN} básicas · ${urgN} urgencias · ${odontN} odonto`);
   } else {
     if (fb) fb.innerHTML = '<span style="color:var(--red);">❌ Error al guardar en Firestore — verifica tu conexión</span>';
   }
@@ -20849,14 +20995,40 @@ async function ipsBuscar() {
 
   // ── 1. Buscar en BD Firestore (cobertura completa) ───────────────────────
   let dbMunicipio = ipsDbBuscarMunicipio(rawNorm);
+  let dbDepartamento = null; // array de municipios si busca por depto
   let fuenteLabel = '';
   let municipioLabel = '';
+  let esBusquedaDept = false;
+
+  // Detectar si es búsqueda de departamento (sin municipio específico)
+  const DEPTOS_ALIAS = {
+    'ANTIOQUIA':['ANTIOQUIA'],'ATLANTICO':['ATLANTICO','ATLÁNTICO'],
+    'BOGOTA':['BOGOTA','BOGOTÁ','BOGOTA DC','BOGOTÁ DC'],
+    'BOLIVAR':['BOLIVAR','BOLÍVAR'],'BOYACA':['BOYACA','BOYACÁ'],
+    'CALDAS':['CALDAS'],'CAUCA':['CAUCA'],'CORDOBA':['CORDOBA','CÓRDOBA'],
+    'CUNDINAMARCA':['CUNDINAMARCA'],'MAGDALENA':['MAGDALENA'],
+    'NORTE DE SANTANDER':['NORTE DE SANTANDER','NORTE SANTANDER'],
+    'QUINDIO':['QUINDIO','QUINDÍO'],'RISARALDA':['RISARALDA'],
+    'SANTANDER':['SANTANDER'],'VALLE':['VALLE','VALLE DEL CAUCA'],
+  };
+  if (!dbMunicipio) {
+    for (const [dept, aliases] of Object.entries(DEPTOS_ALIAS)) {
+      if (aliases.some(a => rawNorm === ipsNormKey(a) || rawNorm.includes(ipsNormKey(a)))) {
+        dbDepartamento = ipsDbBuscarDepartamento(ipsNormKey(dept));
+        if (dbDepartamento.length > 0) {
+          esBusquedaDept = true;
+          municipioLabel = dept;
+          if (geoEl) geoEl.textContent = `🗺️ Departamento ${dept} — ${dbDepartamento.length} municipios en BD`;
+          break;
+        }
+      }
+    }
+  }
 
   if (dbMunicipio) {
-    // Búsqueda directa por municipio en BD importada
     municipioLabel = dbMunicipio.municipio || raw.toUpperCase();
     fuenteLabel    = `📦 BD importada · ${municipioLabel}`;
-    if (geoEl) geoEl.textContent = `🏙️ ${municipioLabel} encontrado en BD (${dbMunicipio.basicas?.length||0} IPS básicas · ${dbMunicipio.urgencias?.length||0} urgencias)`;
+    if (geoEl) geoEl.textContent = `🏙️ ${municipioLabel} — ${dbMunicipio.basicas?.length||0} IPS básicas · ${dbMunicipio.urgencias?.length||0} urgencias`;
   }
 
   // ── 2. Si no encontró directamente, intentar geocodificar y buscar por ciudad ──
@@ -20882,22 +21054,49 @@ async function ipsBuscar() {
   // ── 3. Si BD Firestore no tiene el municipio, caer a BD estática ─────────
   let basicasOrdenadas = [];
   let urgenciasOrdenadas = [];
+  let urgOdontOrdenadas = [];
   let usandoFallback = false;
 
-  if (dbMunicipio) {
+  if (dbMunicipio || esBusquedaDept) {
     // ── Fuente: BD Firestore ──
-    // basicas en BD tienen: { nombre, direccion, telefonos, codigo, horario, nivel, abierta }
-    // las mapeamos al formato que espera el render: { nombre, dir, tel, ... }
-    basicasOrdenadas = (dbMunicipio.basicas || []).map(b => ({
-      nombre: b.nombre, dir: b.direccion||'', tel: b.telefonos||'',
-      codigo: b.codigo||'', horario: b.horario||'', nivel: b.nivel||'',
-      lat: b.lat, lng: b.lng,
-    }));
-    urgenciasOrdenadas = (dbMunicipio.urgencias || []).map(u => ({
-      nombre: u.nombre, dir: u.direccion||'', tel: u.telefonos||'',
-      tipo: 'Urgencias 24h', lat: u.lat, lng: u.lng,
-    }));
-    fuenteLabel = `BD importada · ${municipioLabel}`;
+    if (esBusquedaDept && dbDepartamento) {
+      // Búsqueda por departamento: agregar todas las IPS de todos los municipios
+      basicasOrdenadas = dbDepartamento.flatMap(m =>
+        (m.basicas||[]).map(b => ({
+          nombre: b.nombre, dir: b.direccion||'', tel: b.telefonos||'',
+          codigo: b.codigo||'', horario: b.horario||'', nivel: b.nivel||'',
+          municipio: m.municipio, lat: b.lat, lng: b.lng,
+        }))
+      );
+      urgenciasOrdenadas = dbDepartamento.flatMap(m =>
+        (m.urgencias||[]).map(u => ({
+          nombre: u.nombre, dir: u.direccion||'', tel: u.telefonos||'',
+          tipo: 'Urgencias 24h', municipio: m.municipio, lat: u.lat, lng: u.lng,
+        }))
+      );
+      urgOdontOrdenadas = dbDepartamento.flatMap(m =>
+        (m.urgOdont||[]).map(o => ({
+          nombre: o.nombre, dir: o.direccion||'', tel: o.telefonos||'',
+          municipio: m.municipio, lat: o.lat, lng: o.lng,
+        }))
+      );
+      fuenteLabel = `BD importada · Dpto ${municipioLabel}`;
+    } else {
+      basicasOrdenadas = (dbMunicipio.basicas || []).map(b => ({
+        nombre: b.nombre, dir: b.direccion||'', tel: b.telefonos||'',
+        codigo: b.codigo||'', horario: b.horario||'', nivel: b.nivel||'',
+        lat: b.lat, lng: b.lng,
+      }));
+      urgenciasOrdenadas = (dbMunicipio.urgencias || []).map(u => ({
+        nombre: u.nombre, dir: u.direccion||'', tel: u.telefonos||'',
+        tipo: 'Urgencias 24h', lat: u.lat, lng: u.lng,
+      }));
+      urgOdontOrdenadas = (dbMunicipio.urgOdont || []).map(o => ({
+        nombre: o.nombre, dir: o.direccion||'', tel: o.telefonos||'',
+        lat: o.lat, lng: o.lng,
+      }));
+      fuenteLabel = `BD importada · ${municipioLabel}`;
+    }
 
   } else {
     // ── Fallback: BD estática (solo ciudades principales) ──
@@ -20954,9 +21153,12 @@ async function ipsBuscar() {
       .sort((a,b) => (a.distKm??999) - (b.distKm??999));
     basicasOrdenadas   = conDist(basicasOrdenadas);
     urgenciasOrdenadas = conDist(urgenciasOrdenadas);
+    urgOdontOrdenadas  = conDist(urgOdontOrdenadas);
   }
 
-  const top3 = basicasOrdenadas.slice(0, 3);
+  // En búsqueda por departamento mostrar top 10 básicas; por municipio top 3
+  const topN = esBusquedaDept ? 10 : 3;
+  const top3 = basicasOrdenadas.slice(0, topN);
 
   // ── RENDER RESULTADOS (layout 2 columnas: tarjetas | mapa) ──────────────
   resEl.style.display = '';
@@ -21050,6 +21252,36 @@ async function ipsBuscar() {
           </div>
         </div>
 
+        </div>
+
+        <!-- Urgencias Odontológicas -->
+        ${urgOdontOrdenadas.length ? `
+        <div class="card" style="margin:0;border:1px solid rgba(234,179,8,0.25);background:rgba(234,179,8,0.03);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <span style="font-size:18px;">🦷</span>
+            <div>
+              <div style="font-size:14px;font-weight:700;">Urgencias Odontológicas · ${municipioLabel}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);">Atención odontológica de urgencia</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${urgOdontOrdenadas.map((o,i) => `
+              <div class="ips-card-item" data-idx="${i}" data-tipo="urgodont"
+                style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(234,179,8,0.3)':'var(--border)'};cursor:pointer;"
+                onmouseenter="ipsMapHighlight('o${i}')" onmouseleave="ipsMapUnhighlight('o${i}')">
+                <span style="font-size:16px;flex-shrink:0;">🏥</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:600;">${o.nombre}</div>
+                  <div style="font-size:11.5px;color:var(--text-muted);">📍 ${o.dir} · <span style="color:#b45309;">📞 ${o.tel}</span>
+                  ${o.distKm!==undefined?` · <span style="color:var(--text-dim);">~${o.distKm<1?(o.distKm*1000).toFixed(0)+'m':o.distKm.toFixed(1)+'km'}</span>`:''}
+                  ${o.municipio?` · <span style="color:var(--text-dim);">${o.municipio}</span>`:''}
+                  </div>
+                </div>
+                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(234,179,8,0.15);color:#b45309;white-space:nowrap;flex-shrink:0;">Odonto</span>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
         <div style="text-align:center;">
           <a href="https://www.epssura.com/dir-medico" target="_blank"
             class="btn btn-secondary" style="display:inline-flex;gap:8px;align-items:center;font-size:13px;">
@@ -21066,9 +21298,10 @@ async function ipsBuscar() {
             <div style="font-size:11px;color:var(--text-muted);" id="ips_map_status">⏳ Geocodificando...</div>
           </div>
           <!-- Leyenda -->
-          <div style="display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--text-muted);">
+          <div style="display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;">
             <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#0e7490;margin-right:4px;vertical-align:middle;"></span>IPS Básica</span>
             <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626;margin-right:4px;vertical-align:middle;"></span>Urgencias</span>
+            ${urgOdontOrdenadas.length ? `<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d97706;margin-right:4px;vertical-align:middle;"></span>Odonto</span>` : ''}
             ${coords ? `<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#7c3aed;margin-right:4px;vertical-align:middle;"></span>Dirección</span>` : ''}
           </div>
           <div id="ips_mapa" style="height:420px;border-radius:8px;overflow:hidden;background:var(--surface2);"></div>
@@ -21082,7 +21315,7 @@ async function ipsBuscar() {
   ipsAjustarLayout();
 
   // Iniciar geocodificación y construcción del mapa en background
-  ipsIniciarMapa(basicasOrdenadas, urgenciasOrdenadas, coords, municipioLabel);
+  ipsIniciarMapa(basicasOrdenadas, urgenciasOrdenadas, urgOdontOrdenadas, coords, municipioLabel);
 }
 
 // ── Ajuste responsive del grid ────────────────────────────────────────────
@@ -21105,7 +21338,7 @@ function ipsAjustarLayout() {
 let _ipsMapInstance  = null;   // instancia Leaflet activa
 let _ipsMapMarkers   = {};     // { 'b0': marker, 'u0': marker, ... }
 
-async function ipsIniciarMapa(basicas, urgencias, coordsRef, municipio) {
+async function ipsIniciarMapa(basicas, urgencias, urgOdont, coordsRef, municipio) {
   const mapEl    = document.getElementById('ips_mapa');
   const statusEl = document.getElementById('ips_map_status');
   if (!mapEl) return;
@@ -21139,6 +21372,11 @@ async function ipsIniciarMapa(basicas, urgencias, coordsRef, municipio) {
     html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;color:white;font-weight:700;">🚨</div>`,
     iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
   });
+  const iconOdonto = L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;border-radius:50%;background:#d97706;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;color:white;font-weight:700;">🦷</div>`,
+    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
+  });
   const iconRef = L.divIcon({
     className: '',
     html: `<div style="width:24px;height:24px;border-radius:50%;background:#7c3aed;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;">📌</div>`,
@@ -21154,8 +21392,9 @@ async function ipsIniciarMapa(basicas, urgencias, coordsRef, municipio) {
 
   // ── Geocodificar IPS y agregar marcadores ──
   const allIPS = [
-    ...basicas.map((b,i)  => ({ ...b, _key: `b${i}`, _tipo: 'basica',    _icon: iconBasica }),),
-    ...urgencias.map((u,i) => ({ ...u, _key: `u${i}`, _tipo: 'urgencia', _icon: iconUrgencia })),
+    ...basicas.map((b,i)    => ({ ...b, _key: `b${i}`, _tipo: 'basica',    _icon: iconBasica })),
+    ...urgencias.map((u,i)  => ({ ...u, _key: `u${i}`, _tipo: 'urgencia',  _icon: iconUrgencia })),
+    ...(urgOdont||[]).map((o,i) => ({ ...o, _key: `o${i}`, _tipo: 'odonto', _icon: iconOdonto })),
   ];
 
   const bounds = [];
