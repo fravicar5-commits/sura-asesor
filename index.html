@@ -1317,6 +1317,9 @@
       <button class="nav-item" id="navRadar" onclick="navigate('radar')" data-label="Radar de Clientes">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M3 12h2M19 12h2M12 3v2M12 19v2"/><path d="M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/></svg></span> Radar de Clientes
       </button>
+      <button class="nav-item" onclick="navigate('cumpleanos')" data-label="Cumpleaños Clientes">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c0 0-4 4-4 7a4 4 0 0 0 8 0c0-3-4-7-4-7z"/><rect x="3" y="13" width="18" height="9" rx="2"/><path d="M3 13h18M7 13V9M12 13V9M17 13V9"/></svg></span> Cumpleaños Clientes
+      </button>
       <button class="nav-item" onclick="navigate('actividad')" data-label="Actividad Diaria">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span> Actividad Diaria
       </button>
@@ -1428,6 +1431,8 @@
         <div id="dashboardCierresBanner" class="alert alert-warning" style="display:none;margin-bottom:10px;"></div>
         <!-- Banner cartera -->
         <div id="dashboardCarteraBanner" class="alert alert-warning" style="display:none;margin-bottom:10px;background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:var(--red);"></div>
+        <!-- Banner cumpleaños -->
+        <div id="dashboardCumpleanosBanner" style="display:none;margin-bottom:10px;"></div>
         <!-- Resumen del día (colapsable) -->
         <div class="card" id="resumenDiaPanel" style="margin-bottom:16px;border-left:3px solid var(--sura-lime);padding:0;overflow:hidden;"></div>
 
@@ -3053,6 +3058,100 @@
           </table>
         </div>
       </div>
+
+      <!-- ===== CUMPLEAÑOS CLIENTES ===== -->
+      <div class="page" id="page-cumpleanos">
+
+        <!-- Banner cumpleaños hoy (se rellena con JS) -->
+        <div id="cumpleanosHoyBanner" style="display:none;margin-bottom:16px;"></div>
+
+        <!-- KPI cards -->
+        <div class="grid-4" style="margin-bottom:20px;" id="cumpleanosKpis"></div>
+
+        <!-- Filtros -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">🔍 Filtros</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Mes</label>
+              <select class="form-control" id="cumpMesFiltro" style="width:140px;" onchange="renderCumpleanos()">
+                <option value="">Todos los meses</option>
+                <option value="0">Enero</option><option value="1">Febrero</option>
+                <option value="2">Marzo</option><option value="3">Abril</option>
+                <option value="4">Mayo</option><option value="5">Junio</option>
+                <option value="6">Julio</option><option value="7">Agosto</option>
+                <option value="8">Septiembre</option><option value="9">Octubre</option>
+                <option value="10">Noviembre</option><option value="11">Diciembre</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Tipo de cliente</label>
+              <select class="form-control" id="cumpTipoFiltro" style="width:160px;" onchange="renderCumpleanos()">
+                <option value="">PBS + Voluntarios</option>
+                <option value="PBS">Solo PBS</option>
+                <option value="VOL">Solo Voluntarios</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Buscar nombre</label>
+              <input type="text" class="form-control" id="cumpBuscar" placeholder="Nombre del cliente…" style="width:220px;" oninput="renderCumpleanos()">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;">
+              <button class="btn btn-secondary btn-sm" onclick="cumpFiltroMesActual()">📅 Este mes</button>
+              <button class="btn btn-secondary btn-sm" onclick="cumpFiltroSemana()">📆 Esta semana</button>
+              <button class="btn btn-secondary btn-sm" onclick="cumpFiltroClear()">✕ Limpiar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mensaje de cumpleaños -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-title">💬 Mensaje de Felicitación</div>
+          <div style="margin-bottom:10px;font-size:12px;color:var(--text-muted);">
+            Usa <code style="background:var(--surface3);padding:2px 6px;border-radius:4px;">{nombre}</code> para insertar el nombre del cliente.
+          </div>
+          <textarea class="form-control" id="cumpMensaje" rows="4" style="resize:vertical;font-size:13.5px;"
+>🎂 ¡Feliz cumpleaños {nombre}! 🎉
+
+En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompañarte como asesor SURA y contar contigo como parte de mi cartera de clientes.
+
+¡Que sea un día lleno de alegría y muchos éxitos! 🥂</textarea>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="cumpResetMensaje()">↩ Restaurar predeterminado</button>
+            <button class="btn btn-primary btn-sm" onclick="cumpGuardarMensaje()">💾 Guardar mensaje</button>
+          </div>
+        </div>
+
+        <!-- Tabla de clientes con cumpleaños -->
+        <div class="card">
+          <div class="card-title" id="cumpTablaTitle">📋 Clientes con fecha de nacimiento registrada</div>
+          <div class="table-wrap">
+            <table style="font-size:13px;">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nombre</th>
+                  <th>Producto</th>
+                  <th>Fecha Nac.</th>
+                  <th>Cumpleaños</th>
+                  <th>Edad</th>
+                  <th>Días para su cumple</th>
+                  <th>Teléfono</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="cumpTableBody"></tbody>
+            </table>
+          </div>
+          <div id="cumpEmpty" style="display:none;text-align:center;padding:40px;color:var(--text-dim);">
+            <div style="font-size:32px;margin-bottom:10px;">🎂</div>
+            <div style="font-size:14px;">No hay clientes con fecha de nacimiento registrada para este filtro.</div>
+            <div style="font-size:12px;margin-top:6px;">Asegúrate de que el campo <strong>Fecha Nacimiento</strong> esté completo en PBS o Voluntarios.</div>
+          </div>
+        </div>
+
+      </div>
+      <!-- ===== FIN CUMPLEAÑOS ===== -->
 
       <!-- ===== CIERRES DE MES ===== -->
       <div class="page" id="page-cierres">
@@ -7767,6 +7866,7 @@ const pageTitles = {
   contactos: ['BD Contactos', 'Base de datos de contactos y clientes'],
   accesos: ['🌐 Mi Ecosistema', 'Accesos rápidos a portales y herramientas'],
   enviomasivo: ['📲 Envío Masivo WhatsApp', 'Envía mensajes personalizados a toda tu cartera · powered by WaSend'],
+  cumpleanos:  ['🎂 Cumpleaños Clientes', 'Recordatorio de cumpleaños PBS y Voluntarios · mensaje personalizado'],
 };
 
 function toggleSidebar() {
@@ -8036,6 +8136,7 @@ function refreshPage(page) {
   else if (page === 'plantilla') { navigate('plantilla-pbs'); return; } // legacy redirect
   else if (page === 'importar') initImportar();
   else if (page === 'cierres') renderCierres();
+  else if (page === 'cumpleanos') renderCumpleanos();
   else if (page === 'cotizaciones') renderCotizaciones();
   else if (page === 'empresas') { renderEmpresas(); renderBdSinEstado(); }
   else if (page === 'config') renderConfig();
@@ -8101,6 +8202,7 @@ function renderDashboard() {
   buildMonthSelector('monthSelectorDash', renderDashboard);
   checkCierresEnDashboard();
   checkCarteraEnDashboard();
+  cumpCheckDashboard();
   renderResumenDia();
   renderMapa();
 
@@ -25249,6 +25351,277 @@ function wmInit() {
   }, 14 * 60 * 1000);
 }
 
+
+// =============================================
+// CUMPLEAÑOS CLIENTES
+// =============================================
+
+const CUMP_MSG_KEY = 'sura_cump_mensaje_v1';
+const CUMP_MSG_DEFAULT = `🎂 ¡Feliz cumpleaños {nombre}! 🎉\n\nEn este día tan especial quiero enviarte mis mejores deseos. Es un honor acompañarte como asesor SURA y contar contigo como parte de mi cartera de clientes.\n\n¡Que sea un día lleno de alegría y muchos éxitos! 🥂`;
+
+function cumpGetMensaje() {
+  try { return localStorage.getItem(CUMP_MSG_KEY) || CUMP_MSG_DEFAULT; } catch(e) { return CUMP_MSG_DEFAULT; }
+}
+function cumpGuardarMensaje() {
+  const txt = document.getElementById('cumpMensaje')?.value || '';
+  try { localStorage.setItem(CUMP_MSG_KEY, txt); } catch(e) {}
+  showToast('💾 Mensaje guardado');
+}
+function cumpResetMensaje() {
+  const el = document.getElementById('cumpMensaje');
+  if (el) el.value = CUMP_MSG_DEFAULT;
+  try { localStorage.removeItem(CUMP_MSG_KEY); } catch(e) {}
+  showToast('↩ Mensaje restaurado');
+}
+
+function cumpFiltroMesActual() {
+  const sel = document.getElementById('cumpMesFiltro');
+  if (sel) sel.value = new Date().getMonth();
+  renderCumpleanos();
+}
+function cumpFiltroSemana() {
+  document.getElementById('cumpMesFiltro').value = '';
+  document.getElementById('cumpTipoFiltro').value = '';
+  document.getElementById('cumpBuscar').value = '__semana__';
+  renderCumpleanos();
+}
+function cumpFiltroClear() {
+  document.getElementById('cumpMesFiltro').value = '';
+  document.getElementById('cumpTipoFiltro').value = '';
+  document.getElementById('cumpBuscar').value = '';
+  renderCumpleanos();
+}
+
+// Construye lista única de clientes con fechaNac desde PBS + Voluntarios
+function cumpGetClientes() {
+  const s = getState();
+  const ventas = s.ventas || [];
+  const VOL = ['SPTI','SPD','PSM','PAC60'];
+  const seen = new Set(); // por doc normalizado para evitar duplicados
+  const clientes = [];
+
+  ventas.forEach(v => {
+    if (!v.fechaNac) return;
+    const isPBS = v.producto === 'PBS';
+    const isVol = VOL.includes(v.producto);
+    if (!isPBS && !isVol) return;
+
+    const nombre = (v.tomadorNombre || v.nombre || '').trim();
+    if (!nombre) return;
+
+    const docKey = String(v.tomadorDoc || v.doc || nombre).replace(/\D/g,'').trim() || nombre.toLowerCase();
+    if (seen.has(docKey)) return;
+    seen.add(docKey);
+
+    const tel = (v.tomadorTel || v.telefono || '').replace(/\D/g,'');
+    clientes.push({
+      nombre,
+      doc: v.tomadorDoc || v.doc || '',
+      fechaNac: v.fechaNac,
+      producto: isPBS ? 'PBS' : v.producto,
+      tipo: isPBS ? 'PBS' : 'VOL',
+      tel,
+    });
+  });
+
+  return clientes;
+}
+
+// Calcula días hasta el próximo cumpleaños (0 = hoy)
+function cumpDiasHasta(fechaNacStr) {
+  if (!fechaNacStr) return null;
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+  const nac = new Date(fechaNacStr + 'T12:00:00');
+  if (isNaN(nac)) return null;
+
+  let proximo = new Date(hoy.getFullYear(), nac.getMonth(), nac.getDate());
+  proximo.setHours(0,0,0,0);
+  if (proximo < hoy) proximo = new Date(hoy.getFullYear() + 1, nac.getMonth(), nac.getDate());
+  proximo.setHours(0,0,0,0);
+
+  return Math.round((proximo - hoy) / 86400000);
+}
+
+function cumpCalcEdad(fechaNacStr) {
+  if (!fechaNacStr) return null;
+  const nac = new Date(fechaNacStr + 'T12:00:00');
+  if (isNaN(nac)) return null;
+  const hoy = new Date();
+  let e = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) e--;
+  return e;
+}
+
+function renderCumpleanos() {
+  // Restaurar mensaje guardado
+  const msgEl = document.getElementById('cumpMensaje');
+  if (msgEl && !msgEl._cumpLoaded) {
+    msgEl.value = cumpGetMensaje();
+    msgEl._cumpLoaded = true;
+  }
+
+  const mesFiltro = document.getElementById('cumpMesFiltro')?.value;
+  const tipoFiltro = document.getElementById('cumpTipoFiltro')?.value;
+  const buscar = (document.getElementById('cumpBuscar')?.value || '').trim().toLowerCase();
+  const esSemana = buscar === '__semana__';
+  const buscarReal = esSemana ? '' : buscar;
+
+  const hoy = new Date();
+  const clientes = cumpGetClientes();
+
+  // Aplicar filtros
+  let lista = clientes.filter(c => {
+    if (!c.fechaNac) return false;
+    const nac = new Date(c.fechaNac + 'T12:00:00');
+    if (isNaN(nac)) return false;
+
+    if (mesFiltro !== '' && mesFiltro !== undefined && mesFiltro !== null) {
+      if (nac.getMonth() !== parseInt(mesFiltro)) return false;
+    }
+
+    if (tipoFiltro) {
+      if (c.tipo !== tipoFiltro) return false;
+    }
+
+    if (esSemana) {
+      const dias = cumpDiasHasta(c.fechaNac);
+      if (dias === null || dias > 7) return false;
+    }
+
+    if (buscarReal) {
+      if (!c.nombre.toLowerCase().includes(buscarReal)) return false;
+    }
+
+    return true;
+  });
+
+  // Ordenar por días para cumpleaños (primero los más próximos)
+  lista.sort((a, b) => {
+    const da = cumpDiasHasta(a.fechaNac) ?? 999;
+    const db = cumpDiasHasta(b.fechaNac) ?? 999;
+    return da - db;
+  });
+
+  // KPIs
+  const totalConFecha = clientes.length;
+  const hoy0 = clientes.filter(c => cumpDiasHasta(c.fechaNac) === 0).length;
+  const semana = clientes.filter(c => { const d = cumpDiasHasta(c.fechaNac); return d !== null && d <= 7 && d > 0; }).length;
+  const esteMes = clientes.filter(c => {
+    const nac = new Date(c.fechaNac + 'T12:00:00');
+    return nac.getMonth() === hoy.getMonth() && cumpDiasHasta(c.fechaNac) !== null;
+  }).length;
+  document.getElementById('cumpleanosKpis').innerHTML = `
+    <div class="stat-card pink"><div class="stat-label">🎂 Cumplen hoy</div><div class="stat-value" style="color:var(--pink);">${hoy0}</div><div class="stat-sub">Envía tu mensaje ahora</div></div>
+    <div class="stat-card amber"><div class="stat-label">📆 Próximos 7 días</div><div class="stat-value">${semana}</div><div class="stat-sub">Incluye el día de hoy</div></div>
+    <div class="stat-card blue"><div class="stat-label">📅 Este mes</div><div class="stat-value">${esteMes}</div><div class="stat-sub">${MESES[hoy.getMonth()]}</div></div>
+    <div class="stat-card green"><div class="stat-label">👥 Con fecha registrada</div><div class="stat-value">${totalConFecha}</div><div class="stat-sub">PBS + Voluntarios</div></div>
+  `;
+
+  // Banner cumpleaños hoy (también en el dashboard)
+  const banner = document.getElementById('cumpleanosHoyBanner');
+  const dashBanner = document.getElementById('dashboardCumpleanosBanner');
+  if (hoy0 > 0) {
+    const nombres = clientes.filter(c => cumpDiasHasta(c.fechaNac) === 0).map(c => c.nombre.split(' ')[0]).join(', ');
+    const html = `<div class="alert alert-info" style="background:rgba(236,72,153,0.1);border-color:rgba(236,72,153,0.3);color:var(--pink);">
+      🎂 <strong>¡Hoy cumplen años!</strong> ${nombres} — No olvides enviarles un mensaje de felicitación.
+      <button class="btn btn-sm" style="margin-left:12px;background:rgba(236,72,153,0.15);color:var(--pink);border:1px solid rgba(236,72,153,0.3);" onclick="navigate('cumpleanos')">Ver →</button>
+    </div>`;
+    if (banner) { banner.innerHTML = html; banner.style.display = ''; }
+    if (dashBanner) { dashBanner.innerHTML = html; dashBanner.style.display = ''; }
+  } else {
+    if (banner)     { banner.style.display = 'none'; }
+    if (dashBanner) { dashBanner.style.display = 'none'; }
+  }
+
+  // Título tabla
+  const titulo = document.getElementById('cumpTablaTitle');
+  if (titulo) titulo.textContent = `📋 ${lista.length} cliente${lista.length !== 1 ? 's' : ''} encontrado${lista.length !== 1 ? 's' : ''}`;
+
+  // Tabla
+  const tbody = document.getElementById('cumpTableBody');
+  const empty = document.getElementById('cumpEmpty');
+
+  if (!lista.length) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  tbody.innerHTML = lista.map((c, i) => {
+    const nac = new Date(c.fechaNac + 'T12:00:00');
+    const diaStr = isNaN(nac) ? '—' : `${nac.getDate()} ${MESES_CORTO[nac.getMonth()]}`;
+    const yearStr = isNaN(nac) ? '' : nac.getFullYear();
+    const edad = cumpCalcEdad(c.fechaNac);
+    const dias = cumpDiasHasta(c.fechaNac);
+    const esHoy = dias === 0;
+    const esMuy = dias !== null && dias <= 3 && dias > 0;
+
+    let diasChip = '—';
+    if (dias === 0) diasChip = `<span class="chip chip-pink" style="background:rgba(236,72,153,0.2);color:var(--pink);font-weight:700;">🎂 ¡HOY!</span>`;
+    else if (dias === 1) diasChip = `<span class="chip chip-amber">⚡ Mañana</span>`;
+    else if (dias !== null && dias <= 7) diasChip = `<span class="chip chip-amber">${dias} días</span>`;
+    else if (dias !== null) diasChip = `<span style="font-size:12px;color:var(--text-muted);">${dias} días</span>`;
+
+    const prodColor = c.tipo === 'PBS' ? 'chip-blue' : 'chip-teal';
+    const telStr = c.tel || '';
+    const telFmt = telStr ? telStr.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3') : '—';
+
+    const msgBase = cumpGetMensaje().replace('{nombre}', c.nombre.split(' ')[0] || c.nombre);
+    const msgEnc = encodeURIComponent(msgBase);
+    const waLink = telStr ? `https://wa.me/57${telStr}?text=${msgEnc}` : '';
+
+    return `<tr style="${esHoy ? 'background:rgba(236,72,153,0.06);' : esMuy ? 'background:rgba(245,158,11,0.04);' : ''}">
+      <td>${i+1}</td>
+      <td style="font-weight:600;">${c.nombre}</td>
+      <td><span class="chip ${prodColor}" style="font-size:10.5px;">${c.producto}</span></td>
+      <td style="font-family:var(--mono);font-size:12px;">${diaStr} <span style="color:var(--text-dim);font-size:11px;">${yearStr}</span></td>
+      <td style="font-weight:600;color:${esHoy ? 'var(--pink)' : 'var(--text)'};">${diaStr}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${edad !== null ? edad + (esHoy ? ' → ' + (edad+1) : '') + ' años' : '—'}</td>
+      <td>${diasChip}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${telFmt}</td>
+      <td>
+        ${waLink
+          ? `<a href="${waLink}" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--green);font-size:12px;font-weight:600;text-decoration:none;border:1px solid rgba(34,197,94,0.2);">
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+               Felicitar
+             </a>`
+          : `<span style="font-size:11px;color:var(--text-dim);">Sin teléfono</span>`
+        }
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// Exponer check de cumpleaños para el dashboard
+function cumpCheckDashboard() {
+  const clientes = cumpGetClientes();
+  const hoy0 = clientes.filter(c => cumpDiasHasta(c.fechaNac) === 0);
+  const semana = clientes.filter(c => { const d = cumpDiasHasta(c.fechaNac); return d !== null && d > 0 && d <= 7; });
+  const banner = document.getElementById('dashboardCumpleanosBanner');
+  if (!banner) return;
+  if (hoy0.length > 0) {
+    const nombres = hoy0.map(c => c.nombre.split(' ')[0]).join(', ');
+    banner.innerHTML = `<div class="alert alert-info" style="background:rgba(236,72,153,0.1);border-color:rgba(236,72,153,0.3);color:var(--pink);">
+      🎂 <strong>¡${hoy0.length} cliente${hoy0.length>1?'s':''} cumplen años hoy!</strong> ${nombres}
+      <button class="btn btn-sm" style="margin-left:12px;background:rgba(236,72,153,0.15);color:var(--pink);border:1px solid rgba(236,72,153,0.3);" onclick="navigate('cumpleanos')">Felicitar →</button>
+    </div>`;
+    banner.style.display = '';
+  } else if (semana.length > 0) {
+    banner.innerHTML = `<div class="alert alert-info" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:var(--amber);">
+      🎂 <strong>${semana.length} cliente${semana.length>1?'s cumplen':'cumple'} años esta semana.</strong>
+      <button class="btn btn-sm" style="margin-left:12px;background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25);" onclick="navigate('cumpleanos')">Ver →</button>
+    </div>`;
+    banner.style.display = '';
+  } else {
+    banner.style.display = 'none';
+  }
+}
 
 bootApp();
 </script>
