@@ -1771,6 +1771,26 @@
             </div>
           </div>
         </div>
+
+        <!-- ===== Recálculo masivo comisión + mesComp 2026 ===== -->
+        <div class="card" style="border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.04);margin-top:4px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:13px;font-weight:700;margin-bottom:4px;">🔄 Recalcular comisiones y mes compensado PBS 2026</div>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.7;">
+                Recalcula <strong>comisión</strong> (usando el acumulado real de cotizantes por mes) y <strong>mes compensado</strong>
+                de todas las ventas PBS de 2026 — aplica la lógica de rangos acumulados mes a mes.<br>
+                <span style="color:var(--amber);">⚠️ Esta acción modifica los valores guardados en Firestore. Se muestra un resumen antes de confirmar.</span>
+              </div>
+            </div>
+            <button class="btn btn-secondary" style="white-space:nowrap;flex-shrink:0;"
+              onclick="recalcularPBS2026()">
+              🔄 Recalcular PBS 2026
+            </button>
+          </div>
+          <div id="recalcPBSLog" style="display:none;margin-top:14px;"></div>
+        </div>
+
       </div>
 
       <!-- ===== VOLUNTARIOS ===== -->
@@ -6032,7 +6052,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Cotizantes Compensados Empresa</label>
-          <input type="number" class="form-control" id="vCotizantes" placeholder="0" min="0" onchange="calcPreviewCom()">
+          <input type="number" class="form-control" id="vCotizantes" placeholder="0" min="0" oninput="calcPreviewCom()" onchange="calcPreviewCom()">
         </div>
         <div class="form-group">
           <label class="form-label">Siniestralidad</label>
@@ -10350,10 +10370,169 @@ function onFechaChange() {
   calcPreviewCom();
 }
 
-// =============================================
-// EDAD Y ÁGIL AUTOMÁTICO
-// 18-40 años → ÁGIL | fuera → NO ÁGIL
-// =============================================
+// ── Recálculo masivo PBS 2026 ─────────────────────────────────────────────
+// Recalcula comision + mesComp de todas las ventas PBS del año 2026
+// usando la lógica correcta: acumulado de cotizantes por mes calendario
+async function recalcularPBS2026() {
+  const logEl = document.getElementById('recalcPBSLog');
+  logEl.style.display = 'block';
+  logEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted);">⏳ Analizando ventas PBS 2026...</div>`;
+
+  const s = getState();
+  const ventas = s.ventas || [];
+
+  // Solo PBS de 2026
+  const pbsVentas = ventas.filter(v =>
+    v.producto === 'PBS' &&
+    v.fecha &&
+    new Date(v.fecha + 'T12:00:00').getFullYear() === 2026
+  );
+
+  if (!pbsVentas.length) {
+    logEl.innerHTML = `<div class="alert alert-info" style="font-size:12px;">Sin ventas PBS de 2026 registradas.</div>`;
+    return;
+  }
+
+  // ── Calcular nuevos valores ──────────────────────────────────────────────
+  // Ordenar por fecha para respetar el orden de acumulación
+  const pbsOrdenadas = [...pbsVentas].sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  // Acumulador de cotizantes por mes (mes-anio → count)
+  // Se va llenando en orden cronológico
+  const acumPorMes = {};
+
+  // Mapa id → { comisionNueva, mesCompNuevo, comisionVieja, mesCompViejo, rangoNuevo }
+  const cambios = {};
+
+  for (const v of pbsOrdenadas) {
+    const d = new Date(v.fecha + 'T12:00:00');
+    const mesKey = `${d.getFullYear()}-${d.getMonth()}`; // "2026-0" = enero 2026
+
+    // Acumulado ANTES de contar esta venta
+    const acumAntes = acumPorMes[mesKey] || 0;
+
+    // Nuevo mesComp
+    const { mesComp: mesCompNuevo } = calcMesCompensado(v.fecha);
+
+    // Nueva comisión
+    let comisionNueva, rangoNuevo;
+    if (v.tipo === 'BENEFICIARIO') {
+      comisionNueva = 10000;
+      rangoNuevo    = 'N/A';
+    } else {
+      // Cotizantes de la empresa de esta venta
+      const cotizEmpresa = parseInt(v.cotizantes) || 0;
+      // Rango con acumulado + cotizantes de esta empresa
+      const rangoObj = getRango(acumAntes + cotizEmpresa);
+      rangoNuevo    = rangoObj.label;
+      const row     = COM_TABLE[v.criterio] || COM_TABLE['<=75%'];
+      comisionNueva = row[rangoObj.n - 1] || 0;
+
+      // Sumar al acumulado del mes (solo cotizantes, no beneficiarios)
+      acumPorMes[mesKey] = acumAntes + cotizEmpresa;
+    }
+
+    const comisionVieja = v.comision || 0;
+    const mesCompViejo  = v.mesComp  || '';
+
+    const cambioComision = comisionNueva !== comisionVieja;
+    const cambioMesComp  = mesCompNuevo  !== mesCompViejo;
+
+    if (cambioComision || cambioMesComp) {
+      cambios[v.id] = {
+        comisionVieja, comisionNueva,
+        mesCompViejo,  mesCompNuevo,
+        rangoNuevo,
+        nombre: v.nombre || '—',
+        fecha:  v.fecha,
+        tipo:   v.tipo,
+        cambioComision,
+        cambioMesComp,
+      };
+    }
+  }
+
+  const nCambios = Object.keys(cambios).length;
+
+  if (nCambios === 0) {
+    logEl.innerHTML = `<div class="alert alert-info" style="font-size:12px;">
+      ✅ Todas las <strong>${pbsVentas.length}</strong> ventas PBS 2026 ya tienen valores correctos. No hay nada que actualizar.
+    </div>`;
+    return;
+  }
+
+  // ── Mostrar resumen para confirmación ────────────────────────────────────
+  const filas = Object.values(cambios).slice(0, 30).map(c => `
+    <tr style="font-size:11px;">
+      <td style="padding:4px 8px;">${c.fecha}</td>
+      <td style="padding:4px 8px;">${c.tipo}</td>
+      <td style="padding:4px 8px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nombre}</td>
+      <td style="padding:4px 8px;text-align:right;${c.cambioComision?'color:var(--amber);font-weight:700;':''}">${fmt(c.comisionVieja)}</td>
+      <td style="padding:4px 8px;text-align:right;${c.cambioComision?'color:var(--green);font-weight:700;':''}">${fmt(c.comisionNueva)}</td>
+      <td style="padding:4px 8px;${c.cambioMesComp?'color:var(--amber);font-weight:700;':''}">${c.mesCompViejo||'—'}</td>
+      <td style="padding:4px 8px;${c.cambioMesComp?'color:var(--green);font-weight:700;':''}">${c.mesCompNuevo}</td>
+    </tr>`).join('');
+
+  logEl.innerHTML = `
+    <div style="font-size:12px;margin-bottom:10px;">
+      Se encontraron <strong style="color:var(--amber);">${nCambios}</strong> de ${pbsVentas.length} ventas PBS 2026 con valores a actualizar.
+      ${nCambios > 30 ? `<em>(mostrando primeras 30)</em>` : ''}
+    </div>
+    <div style="overflow-x:auto;border-radius:7px;border:1px solid var(--border);margin-bottom:12px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead style="background:var(--surface2);">
+          <tr style="font-size:10px;color:var(--text-muted);">
+            <th style="padding:6px 8px;text-align:left;">Fecha</th>
+            <th style="padding:6px 8px;text-align:left;">Tipo</th>
+            <th style="padding:6px 8px;text-align:left;">Nombre</th>
+            <th style="padding:6px 8px;text-align:right;">Com. anterior</th>
+            <th style="padding:6px 8px;text-align:right;">Com. nueva</th>
+            <th style="padding:6px 8px;text-align:left;">MesComp anterior</th>
+            <th style="padding:6px 8px;text-align:left;">MesComp nuevo</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-primary" onclick="confirmarRecalcPBS2026(${JSON.stringify(cambios).replace(/"/g,'&quot;')})">
+        ✅ Confirmar y guardar en Firestore
+      </button>
+      <button class="btn btn-secondary" onclick="document.getElementById('recalcPBSLog').style.display='none'">
+        Cancelar
+      </button>
+    </div>`;
+}
+
+async function confirmarRecalcPBS2026(cambios) {
+  const logEl = document.getElementById('recalcPBSLog');
+  logEl.innerHTML = `<div style="font-size:12px;color:var(--text-muted);">⏳ Aplicando cambios en Firestore...</div>`;
+
+  const s = getState();
+  let actualizadas = 0;
+
+  s.ventas = s.ventas.map(v => {
+    if (!cambios[v.id]) return v;
+    const c = cambios[v.id];
+    actualizadas++;
+    return {
+      ...v,
+      comision: c.comisionNueva,
+      mesComp:  c.mesCompNuevo,
+      rango:    c.rangoNuevo || v.rango,
+    };
+  });
+
+  setState(s);
+
+  logEl.innerHTML = `<div class="alert alert-info" style="font-size:12px;">
+    ✅ <strong>${actualizadas}</strong> ventas PBS 2026 actualizadas correctamente en Firestore.
+    <br><span style="color:var(--text-muted);">Comisión y mes compensado recalculados con rangos acumulados reales.</span>
+  </div>`;
+
+  // Refrescar la vista PBS
+  setTimeout(() => refreshPage('pbs'), 600);
+}
 function calcEdadAgil() {
   const fn = document.getElementById('vFechaNac').value;
   if (!fn) return;
@@ -10382,63 +10561,63 @@ function getTramiteGrupo(tramite) {
 }
 
 function calcPreviewCom() {
-  const tipo      = document.getElementById('vTipo').value;
-  const criterio  = document.getElementById('vSiniestralidad').value;
-  const cotizantes = parseInt(document.getElementById('vCotizantes').value) || 0;
-  const fechaStr  = document.getElementById('vFecha').value;
+  const tipo      = document.getElementById('vTipo')?.value || 'COTIZANTE';
+  const criterio  = document.getElementById('vSiniestralidad')?.value || '<=75%';
+  const cotizantes = parseInt(document.getElementById('vCotizantes')?.value) || 0;
+  const fechaStr  = document.getElementById('vFecha')?.value || '';
   const el        = document.getElementById('comPreview');
+  if (!el) return;
 
   if (tipo === 'BENEFICIARIO') {
     el.innerHTML = `💰 Comisión estimada: <strong style="color:var(--green)">${fmt(10000)}</strong> · Tipo: <strong>Beneficiario</strong>`;
     return;
   }
 
-  // ── Determinar mes de conteo (mes calendario de la fecha ingresada) ──
-  // Las ventas cuentan para el mes en que se hacen, independiente del mes compensado
-  let mesConteo = new Date().getMonth(); // fallback: mes actual
+  // ── Mes de conteo ──
+  let mesConteo  = new Date().getMonth();
   let anioConteo = new Date().getFullYear();
   if (fechaStr) {
     const d = new Date(fechaStr + 'T12:00:00');
-    mesConteo  = d.getMonth();
-    anioConteo = d.getFullYear();
+    if (!isNaN(d)) { mesConteo = d.getMonth(); anioConteo = d.getFullYear(); }
   }
 
-  // ── Acumulado de cotizantes BD en ese mes de conteo ──
-  // Solo cotizantes tipo COTIZANTE ya guardados en ese mes calendario
-  const s = getState();
-  const ventasMesConteo = (s.ventas || []).filter(v => {
-    if (v.producto !== 'PBS' || v.tipo !== 'COTIZANTE') return false;
-    if (!v.fecha) return false;
-    const vd = new Date(v.fecha + 'T12:00:00');
-    return vd.getMonth() === mesConteo && vd.getFullYear() === anioConteo;
-  });
-  const cotizantesAcumMes = ventasMesConteo.length;
+  // ── Acumulado de cotizantes del mes (con guard por si Firestore no está listo) ──
+  let cotizantesAcumMes = 0;
+  try {
+    const s = getState();
+    const ventasMes = (s.ventas || []).filter(v => {
+      if (v.producto !== 'PBS' || v.tipo !== 'COTIZANTE' || !v.fecha) return false;
+      const vd = new Date(v.fecha + 'T12:00:00');
+      return vd.getMonth() === mesConteo && vd.getFullYear() === anioConteo;
+    });
+    cotizantesAcumMes = ventasMes.length;
+  } catch(e) {
+    // Firestore aún no disponible — calculamos sin acumulado
+    cotizantesAcumMes = 0;
+  }
 
-  // ── Rango con acumulado + esta venta ──
-  // La comisión de esta venta se calcula con el rango que tendrás
-  // después de registrarla (acumulado + cotizantes de esta empresa)
-  const cotizantesTotalesConEsta = cotizantesAcumMes + cotizantes;
-  const rangoConEsta  = getRango(cotizantesTotalesConEsta);
-  const rangoSinEsta  = getRango(cotizantesAcumMes);
+  const cotizantesTotales = cotizantesAcumMes + cotizantes;
+  const rangoConEsta = getRango(cotizantesTotales);
+  const rangoSinEsta = getRango(cotizantesAcumMes);
 
   const row = COM_TABLE[criterio] || COM_TABLE['<=75%'];
   const com = row[rangoConEsta.n - 1] || 0;
 
-  // ── Mostrar contexto de progreso ──
-  const subeRango = rangoConEsta.n > rangoSinEsta.n;
+  const subeRango  = rangoConEsta.n > rangoSinEsta.n;
   const alertaRango = subeRango
     ? `<span style="color:var(--amber);font-weight:700;"> ⬆ Sube a ${rangoConEsta.label}</span>`
     : '';
 
-  const mesNombre = MESES_ES ? MESES_ES[mesConteo + 1] || MESES[mesConteo] : MESES[mesConteo];
+  const MESES_NOMBRES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesNombre = MESES_NOMBRES[mesConteo] || '';
 
   el.innerHTML = `
-    💰 Comisión estimada: <strong style="color:var(--green)">${fmt(com)}</strong>
+    💰 Comisión estimada: <strong style="color:var(--green);font-size:15px;">${fmt(com)}</strong>
     · Rango: <strong>${rangoConEsta.label}</strong>${alertaRango}<br>
     <span style="font-size:11px;color:var(--text-muted);">
-      Acumulado ${mesNombre}: <strong>${cotizantesAcumMes}</strong> cot. ya registrados
-      + <strong>${cotizantes}</strong> esta empresa = <strong>${cotizantesTotalesConEsta}</strong> total
-      ${fechaStr ? '' : ' · <em>Ingresa la fecha para el mes de conteo exacto</em>'}
+      Acumulado ${mesNombre}: <strong>${cotizantesAcumMes}</strong> cot. registrados
+      + <strong>${cotizantes}</strong> esta empresa = <strong>${cotizantesTotales}</strong> total
+      ${fechaStr ? '' : ' · <em style="color:var(--amber);">Ingresa la fecha para el mes exacto</em>'}
     </span>`;
 }
 
