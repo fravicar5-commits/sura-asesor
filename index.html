@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Asesor Especializado SURA — Panel de Gestión 2026</title>
+<title>Asesor Especializado SURA — Panel de Gestión</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap');
 
@@ -3171,13 +3171,13 @@
         <!-- ══════════ TAB PBS ══════════ -->
         <div id="importTabPBS">
           <div class="alert alert-info" style="margin-bottom:20px;">
-            📥 Importa tu archivo <strong>REPORTE_DE_VENTAS_SURA_2024.xlsx</strong> — el sistema leerá automáticamente la hoja <em>TABLERO DE REGISTRO</em> y cargará las ventas de 2026.
+            📥 Importa tu archivo <strong>REPORTE_DE_VENTAS_SURA.xlsx</strong> — el sistema leerá automáticamente la hoja <em>TABLERO DE REGISTRO</em> y cargará las ventas del año en curso.
           </div>
 
           <div class="card" style="margin-bottom:20px;">
             <div class="card-title">Paso 1 — Selecciona tu archivo Excel PBS</div>
             <div style="margin-bottom:16px;font-size:13px;color:var(--text-muted);">
-              El archivo debe contener la hoja <strong style="color:var(--text)">TABLERO DE REGISTRO</strong>. Solo se importarán registros del año 2026.
+              El archivo debe contener la hoja <strong style="color:var(--text)">TABLERO DE REGISTRO</strong>. Solo se importarán registros del año en curso.
             </div>
             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
               <label style="cursor:pointer;">
@@ -3190,7 +3190,7 @@
 
           <div id="importPreviewSection" style="display:none;">
             <div class="card" style="margin-bottom:20px;">
-              <div class="card-title">Paso 2 — Vista previa de registros 2026 encontrados</div>
+              <div class="card-title" id="importPreviewTitle">Paso 2 — Vista previa de registros encontrados</div>
               <div id="importStats" style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;"></div>
               <div class="table-wrap" style="max-height:360px;">
                 <table style="font-size:12px;">
@@ -3215,7 +3215,7 @@
                 </label>
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;">
                   <input type="radio" name="importMode" value="replace" style="accent-color:var(--sura-blue);">
-                  <div><strong>Reemplazar 2026</strong> — Borrar todos los datos PBS 2026 y cargar solo los del Excel</div>
+                  <div><strong>Reemplazar año actual</strong> — Borrar todos los datos PBS del año en curso y cargar solo los del Excel</div>
                 </label>
               </div>
             </div>
@@ -7756,7 +7756,7 @@ const pageTitles = {
   'plantilla-pbs': ['Plantilla PBS', 'Registro y gestión de afiliaciones EPS · exportable'],
   'plantilla-vol': ['Plantilla Voluntarios', 'Registro y gestión SPTI · SPD · Modular · 60+'],
   conciliacion: ['🔍 Conciliación PBS', 'Cruce ventas registradas vs informe previo SURA · detecta diferencias y no pagadas'],
-  importar: ['Importar desde Excel', 'Carga masiva desde tu archivo SURA 2026'],
+  importar: ['Importar desde Excel', 'Carga masiva desde tu archivo SURA'],
   cierres: ['Cierres de Mes', 'Fechas límite por tipo de trámite · alertas automáticas'],
   config: ['Configuración', 'Presupuesto mensual y perfil'],
   sync:   ['🔄 Sincronización', 'Exportar · importar · GitHub · multi-dispositivo'],
@@ -13981,7 +13981,7 @@ async function previewImport(event) {
         }
 
         const year = new Date(fechaStr).getFullYear();
-        if (year !== 2026) continue;
+        if (year !== new Date().getFullYear()) continue;
 
         const get = (idx) => {
           if (idx < 0 || idx >= row.length) return '';
@@ -14041,7 +14041,7 @@ async function previewImport(event) {
       const ben = _importData.filter(v => v.tipo === 'BENEFICIARIO').length;
       document.getElementById('importStats').innerHTML = `
         <div class="stat-card blue" style="padding:12px 16px;flex:1;min-width:120px;">
-          <div class="stat-label">Total 2026</div>
+          <div class="stat-label">Total ${new Date().getFullYear()}</div>
           <div class="stat-value" style="font-size:24px;">${_importData.length}</div>
         </div>
         <div class="stat-card green" style="padding:12px 16px;flex:1;min-width:120px;">
@@ -14091,10 +14091,11 @@ function confirmarImport() {
   const mode = document.querySelector('input[name="importMode"]:checked').value;
 
   if (mode === 'replace') {
-    // Remove all 2026 PBS entries
+    // Remove all PBS entries of the current import year
+    const _importAnio = new Date().getFullYear();
     state.ventas = state.ventas.filter(v => {
       const y = new Date(v.fecha).getFullYear();
-      return !(y === 2026 && v.producto === 'PBS');
+      return !(y === _importAnio && v.producto === 'PBS');
     });
     state.ventas.push(..._importData);
   } else {
@@ -14108,7 +14109,7 @@ function confirmarImport() {
   setState(state);
   _importData = [];
   document.getElementById('importPreviewSection').style.display = 'none';
-  if (mode === 'replace') showToast(`✅ Reemplazados con ${state.ventas.filter(v=>new Date(v.fecha).getFullYear()===2026&&v.producto==='PBS').length} registros 2026`);
+  if (mode === 'replace') { const _ay = new Date().getFullYear(); showToast(`✅ Reemplazados con ${state.ventas.filter(v=>new Date(v.fecha).getFullYear()===_ay&&v.producto==='PBS').length} registros ${_ay}`); }
   setTimeout(() => navigate('dashboard'), 1200);
 }
 
