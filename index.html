@@ -21201,7 +21201,8 @@ function renderIPS() {
       const basN   = Object.values(db.red).reduce((s,m) => s + (m.basicas?.length||0), 0);
       const urgN   = Object.values(db.red).reduce((s,m) => s + (m.urgencias?.length||0), 0);
       const odontN = Object.values(db.red).reduce((s,m) => s + (m.urgOdont?.length||0), 0);
-      statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> básicas · <strong>${urgN}</strong> urgencias · <strong>${odontN}</strong> odonto · generada ${db.generado||'?'}</span>`;
+      const ambulN = Object.values(db.red).reduce((s,m) => s + (m.ambulancias?.length||0), 0);
+      statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> básicas · <strong>${urgN}</strong> urgencias · <strong>${odontN}</strong> odonto · <strong>${ambulN}</strong> ambulancias · generada ${db.generado||'?'}</span>`;
     } else {
       statusEl.innerHTML = `<span style="color:var(--amber);">⚠️ Sin BD importada — los resultados usan datos de referencia (solo ciudades principales). Importa el JSON del extractor para cobertura completa.</span>`;
     }
@@ -21252,7 +21253,8 @@ async function ipsImportarJSON(input) {
   const urgN   = Object.values(json.red).reduce((s,m) => s + (m.urgencias?.length||0), 0);
   const odontN = Object.values(json.red).reduce((s,m) => s + (m.urgOdont?.length||0), 0);
 
-  if (fb) fb.innerHTML = `<span style="color:var(--text-muted);">⏳ Subiendo a Firestore... (${munis} municipios · ${basN} básicas · ${urgN} urgencias · ${odontN} odonto)</span>`;
+  const ambulN2 = Object.values(json.red).reduce((s,m) => s + (m.ambulancias?.length||0), 0);
+  if (fb) fb.innerHTML = `<span style="color:var(--text-muted);">⏳ Subiendo a Firestore... (${munis} municipios · ${basN} básicas · ${urgN} urgencias · ${odontN} odonto · ${ambulN2} ambulancias)</span>`;
 
   // ── 4. Guardar en Firestore con manejo de error detallado ───────────────────
   let ok = false;
@@ -21266,8 +21268,8 @@ async function ipsImportarJSON(input) {
 
   if (ok) {
     if (fb) fb.innerHTML = `<span style="color:var(--green);">✅ BD guardada en Firestore — usuario: ${uid}</span>`;
-    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> básicas · <strong>${urgN}</strong> urgencias · <strong>${odontN}</strong> odonto · generada ${json.generado||'?'}</span>`;
-    showToast(`✅ BD IPS importada: ${munis} municipios · ${basN} básicas · ${urgN} urgencias`);
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);">✅ BD cargada · <strong>${munis}</strong> municipios · <strong>${basN}</strong> básicas · <strong>${urgN}</strong> urgencias · <strong>${odontN}</strong> odonto · <strong>${ambulN2}</strong> ambulancias · generada ${json.generado||'?'}</span>`;
+    showToast(`✅ BD IPS importada: ${munis} municipios · ${basN} básicas · ${urgN} urgencias · ${ambulN2} ambulancias`);
   } else {
     // Diagnosticar causa del error
     let causa = 'Error desconocido';
@@ -21343,7 +21345,7 @@ async function ipsBuscar() {
   if (dbMunicipio) {
     municipioLabel = dbMunicipio.municipio || raw.toUpperCase();
     fuenteLabel    = `📦 BD importada · ${municipioLabel}`;
-    if (geoEl) geoEl.textContent = `🏙️ ${municipioLabel} — ${dbMunicipio.basicas?.length||0} IPS básicas · ${dbMunicipio.urgencias?.length||0} urgencias`;
+    if (geoEl) geoEl.textContent = `🏙️ ${municipioLabel} — ${dbMunicipio.basicas?.length||0} básicas · ${dbMunicipio.urgencias?.length||0} urgencias · ${dbMunicipio.ambulancias?.length||0} ambulancias`;
   }
 
   // ── 2. Si no encontró directamente, intentar geocodificar y buscar por ciudad ──
@@ -21370,6 +21372,7 @@ async function ipsBuscar() {
   let basicasOrdenadas = [];
   let urgenciasOrdenadas = [];
   let urgOdontOrdenadas = [];
+  let ambulanciasOrdenadas = [];
   let usandoFallback = false;
 
   if (dbMunicipio || esBusquedaDept) {
@@ -21395,6 +21398,12 @@ async function ipsBuscar() {
           municipio: m.municipio, lat: o.lat, lng: o.lng,
         }))
       );
+      ambulanciasOrdenadas = dbDepartamento.flatMap(m =>
+        (m.ambulancias||[]).map(a => ({
+          nombre: a.nombre, dir: a.direccion||'', tel: a.telefonos||'',
+          municipio: m.municipio, lat: a.lat, lng: a.lng,
+        }))
+      );
       fuenteLabel = `BD importada · Dpto ${municipioLabel}`;
     } else {
       basicasOrdenadas = (dbMunicipio.basicas || []).map(b => ({
@@ -21409,6 +21418,10 @@ async function ipsBuscar() {
       urgOdontOrdenadas = (dbMunicipio.urgOdont || []).map(o => ({
         nombre: o.nombre, dir: o.direccion||'', tel: o.telefonos||'',
         lat: o.lat, lng: o.lng,
+      }));
+      ambulanciasOrdenadas = (dbMunicipio.ambulancias || []).map(a => ({
+        nombre: a.nombre, dir: a.direccion||'', tel: a.telefonos||'',
+        lat: a.lat, lng: a.lng,
       }));
       fuenteLabel = `BD importada · ${municipioLabel}`;
     }
@@ -21466,9 +21479,10 @@ async function ipsBuscar() {
     const conDist = arr => arr
       .map(x => x.lat ? { ...x, distKm: ipsHaversine(coords.lat, coords.lng, x.lat, x.lng) } : x)
       .sort((a,b) => (a.distKm??999) - (b.distKm??999));
-    basicasOrdenadas   = conDist(basicasOrdenadas);
-    urgenciasOrdenadas = conDist(urgenciasOrdenadas);
-    urgOdontOrdenadas  = conDist(urgOdontOrdenadas);
+    basicasOrdenadas      = conDist(basicasOrdenadas);
+    urgenciasOrdenadas    = conDist(urgenciasOrdenadas);
+    urgOdontOrdenadas     = conDist(urgOdontOrdenadas);
+    ambulanciasOrdenadas  = conDist(ambulanciasOrdenadas);
   }
 
   // En búsqueda por departamento mostrar top 10 básicas; por municipio top 3
@@ -21477,16 +21491,69 @@ async function ipsBuscar() {
 
   // ── RENDER RESULTADOS (layout 2 columnas: tarjetas | mapa) ──────────────
   resEl.style.display = '';
+
+  // Helpers de renderizado
+  const ipsDistStr = km => km === undefined ? '' : `<span style="color:var(--sura-lime);font-weight:600;">~${km<1?(km*1000).toFixed(0)+'m':km.toFixed(1)+'km'}</span>`;
+
+  const ipsTarjeta = ({nombre,dir,tel,distKm,nivel,municipio}, i, tipo, accentColor, highlightFirst=true) => `
+    <div class="ips-card-item" data-idx="${i}" data-tipo="${tipo}"
+      style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);
+             border:1px solid ${highlightFirst&&i===0?accentColor:'var(--border)'};cursor:pointer;transition:border-color .15s;"
+      onmouseenter="ipsMapHighlight('${tipo[0]}${i}')" onmouseleave="ipsMapUnhighlight('${tipo[0]}${i}')">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:2px;">${nombre}</div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:3px;">📍 ${dir}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11.5px;">
+          <span style="color:${accentColor};">📞 ${tel}</span>
+          ${ipsDistStr(distKm)}
+          ${nivel?`<span style="color:var(--text-dim);font-size:10.5px;">Nivel ${nivel}</span>`:''}
+          ${municipio?`<span style="color:var(--text-dim);font-size:10.5px);">${municipio}</span>`:''}
+          ${highlightFirst&&i===0?`<span style="background:${accentColor}22;color:${accentColor};font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;">MÁS CERCANA</span>`:''}
+        </div>
+      </div>
+      <button onclick="ipsCopiarIPS('${nombre.replace(/[`']/g,'\'')}','${dir.replace(/[`']/g,'\'')}','${tel}')"
+        style="background:rgba(26,76,232,0.08);border:1px solid rgba(26,76,232,0.15);color:var(--sura-blue);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;flex-shrink:0;">📋</button>
+    </div>`;
+
+  const ipsSeccion = ({titulo, subtitulo, icon, accentColor, borde, bgCard, items, tipo, topN=3, badgeLabel='24h', showBadge=false, nota=''}) => {
+    if (!items.length) return '';
+    const top = items.slice(0, topN);
+    const resto = items.slice(topN);
+    return `
+      <div class="card" style="margin:0;border:1px solid ${borde};background:${bgCard};">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">${icon}</span>
+            <div>
+              <div style="font-size:14px;font-weight:700;">${titulo}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);">${subtitulo}</div>
+            </div>
+          </div>
+          <span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:${accentColor}18;color:${accentColor};font-weight:700;">${items.length} sede${items.length>1?'s':''}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${top.map((x,i) => ipsTarjeta(x, i, tipo, accentColor, true)).join('')}
+        </div>
+        ${resto.length ? `
+          <details style="margin-top:10px;">
+            <summary style="font-size:12px;color:var(--text-muted);cursor:pointer;user-select:none;">▶ Ver ${resto.length} ${titulo.split('·')[0].trim().toLowerCase()} adicional${resto.length>1?'es':''}</summary>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+              ${resto.map((x,i) => ipsTarjeta(x, i+topN, tipo, accentColor, false)).join('')}
+            </div>
+          </details>` : ''}
+        ${nota ? `<div style="margin-top:10px;padding:8px 12px;background:${accentColor}0d;border-radius:6px;font-size:11.5px;color:var(--text-muted);">${nota}</div>` : ''}
+      </div>`;
+  };
+
   resEl.innerHTML = `
-    <!-- Wrapper 2 columnas -->
     <div id="ips_layout" style="display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start;">
 
-      <!-- Columna izquierda: tarjetas -->
-      <div style="display:flex;flex-direction:column;gap:16px;">
+      <!-- Columna izquierda: 4 secciones -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
 
         <!-- IPS Básicas -->
         <div class="card" style="margin:0;">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:18px;">🏥</span>
               <div>
@@ -21494,110 +21561,62 @@ async function ipsBuscar() {
                 <div style="font-size:11.5px;color:var(--text-muted);">Consulta externa · Laboratorio · Terapias</div>
               </div>
             </div>
-            ${usandoFallback
-              ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,0.15);color:var(--amber);font-weight:700;">⚠️ Referencia</span>`
-              : `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">✅ BD actual</span>`}
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(6,182,212,0.12);color:var(--teal);font-weight:700;">${basicasOrdenadas.length} sedes</span>
+              ${usandoFallback
+                ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,0.15);color:var(--amber);font-weight:700;">⚠️ Referencia</span>`
+                : `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">✅ BD actual</span>`}
+            </div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            ${top3.length ? top3.map((ips,i) => `
-              <div class="ips-card-item" data-idx="${i}" data-tipo="basica"
-                style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(6,182,212,0.3)':'var(--border)'};cursor:pointer;transition:border-color .15s;"
-                onmouseenter="ipsMapHighlight('b${i}')" onmouseleave="ipsMapUnhighlight('b${i}')">
-                <div style="width:28px;height:28px;border-radius:50%;background:${i===0?'var(--teal)':'var(--surface3)'};color:${i===0?'white':'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">${i+1}</div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:13.5px;font-weight:700;margin-bottom:3px;">${ips.nombre}</div>
-                  <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">📍 ${ips.dir}</div>
-                  <div style="display:flex;gap:12px;font-size:12px;flex-wrap:wrap;">
-                    <span style="color:var(--teal);">📞 ${ips.tel}</span>
-                    ${ips.distKm !== undefined ? `<span style="color:var(--sura-lime);font-weight:600;">~${ips.distKm<1?(ips.distKm*1000).toFixed(0)+'m':ips.distKm.toFixed(1)+'km'}</span>` : ''}
-                    ${ips.nivel ? `<span style="color:var(--text-dim);font-size:11px;">Nivel ${ips.nivel}</span>` : ''}
-                    ${i===0?`<span style="background:rgba(6,182,212,0.15);color:var(--teal);font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:10px;">MÁS CERCANA</span>`:''}
-                  </div>
-                </div>
-                <button onclick="ipsCopiarIPS('${ips.nombre.replace(/'/g,"\\'")}','${ips.dir.replace(/'/g,"\\'")}','${ips.tel}')"
-                  style="background:rgba(26,76,232,0.1);border:1px solid rgba(26,76,232,0.2);color:var(--sura-blue);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-                  📋
-                </button>
-              </div>`).join('')
-            : '<div style="font-size:13px;color:var(--text-muted);padding:12px;">Sin IPS básicas registradas.</div>'}
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${basicasOrdenadas.slice(0,3).map((x,i) => ipsTarjeta(x,i,'basica','var(--teal)',true)).join('')
+              || '<div style="font-size:13px;color:var(--text-muted);padding:8px;">Sin IPS básicas registradas.</div>'}
           </div>
-          ${basicasOrdenadas.length > 3 ? `
+          ${basicasOrdenadas.length>3 ? `
             <details style="margin-top:10px;">
-              <summary style="font-size:12px;color:var(--text-muted);cursor:pointer;">Ver ${basicasOrdenadas.length-3} IPS adicionales</summary>
+              <summary style="font-size:12px;color:var(--text-muted);cursor:pointer;user-select:none;">▶ Ver ${basicasOrdenadas.length-3} IPS adicionales</summary>
               <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                ${basicasOrdenadas.slice(3).map((ips,i) => `
-                  <div class="ips-card-item" data-idx="${i+3}" data-tipo="basica"
-                    style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:6px;font-size:12px;cursor:pointer;"
-                    onmouseenter="ipsMapHighlight('b${i+3}')" onmouseleave="ipsMapUnhighlight('b${i+3}')">
-                    <div style="flex:1;"><strong>${ips.nombre}</strong> · ${ips.dir}</div>
-                    <span style="color:var(--teal);">${ips.tel}</span>
-                    ${ips.distKm!==undefined?`<span style="color:var(--text-muted);">~${ips.distKm.toFixed(1)}km</span>`:''}
-                  </div>`).join('')}
+                ${basicasOrdenadas.slice(3).map((x,i) => ipsTarjeta(x,i+3,'basica','var(--teal)',false)).join('')}
               </div>
             </details>` : ''}
         </div>
 
-        <!-- Red de Urgencias -->
-        <div class="card" style="margin:0;border:1px solid rgba(240,82,82,0.2);background:rgba(240,82,82,0.03);">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span style="font-size:18px;">🚨</span>
-            <div>
-              <div style="font-size:14px;font-weight:700;">Urgencias · ${municipioLabel}</div>
-              <div style="font-size:11.5px;color:var(--text-muted);">Atención 24 horas</div>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            ${urgenciasOrdenadas.length ? urgenciasOrdenadas.map((u,i) => `
-              <div class="ips-card-item" data-idx="${i}" data-tipo="urgencia"
-                style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(240,82,82,0.25)':'var(--border)'};cursor:pointer;"
-                onmouseenter="ipsMapHighlight('u${i}')" onmouseleave="ipsMapUnhighlight('u${i}')">
-                <span style="font-size:16px;flex-shrink:0;">🏨</span>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:13px;font-weight:600;">${u.nombre}</div>
-                  <div style="font-size:11.5px;color:var(--text-muted);">📍 ${u.dir} · <span style="color:var(--red);">📞 ${u.tel}</span>
-                  ${u.distKm!==undefined?` · <span style="color:var(--text-dim);">~${u.distKm<1?(u.distKm*1000).toFixed(0)+'m':u.distKm.toFixed(1)+'km'}</span>`:''}
-                  </div>
-                </div>
-                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(240,82,82,0.12);color:var(--red);white-space:nowrap;flex-shrink:0;">24h</span>
-              </div>`).join('')
-            : `<div style="font-size:13px;color:var(--text-muted);padding:12px;">Sin urgencias registradas — <a href="https://epsapps.suramericana.com/Semp/faces/homme/consultasDirectorios/urgenciasMedicasNocturnas/parametros.jspx" target="_blank" style="color:var(--sura-blue);">consulta directorio oficial</a>.</div>`}
-          </div>
-          <div style="margin-top:12px;padding:8px 12px;background:rgba(240,82,82,0.06);border-radius:6px;font-size:11.5px;color:var(--text-muted);">
-            ⚠️ En urgencia el afiliado puede acudir a <strong>cualquier institución de la red</strong> sin autorización previa. Notificar al <strong>#888</strong> el primer día hábil.
-          </div>
-        </div>
-
-        </div>
+        <!-- Urgencias Médicas -->
+        ${ipsSeccion({
+          titulo: `Urgencias Médicas · ${municipioLabel}`,
+          subtitulo: 'Atención 24 horas · Red hospitalaria SURA',
+          icon: '🚨', tipo: 'urgencia',
+          accentColor: '#dc2626',
+          borde: 'rgba(220,38,38,0.2)',
+          bgCard: 'rgba(220,38,38,0.03)',
+          items: urgenciasOrdenadas, topN: 3,
+          nota: '⚠️ En urgencia el afiliado puede acudir a <strong>cualquier institución de la red</strong> sin autorización previa. Notificar al <strong>#888</strong> el primer día hábil.'
+        })}
 
         <!-- Urgencias Odontológicas -->
-        ${urgOdontOrdenadas.length ? `
-        <div class="card" style="margin:0;border:1px solid rgba(234,179,8,0.25);background:rgba(234,179,8,0.03);">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span style="font-size:18px;">🦷</span>
-            <div>
-              <div style="font-size:14px;font-weight:700;">Urgencias Odontológicas · ${municipioLabel}</div>
-              <div style="font-size:11.5px;color:var(--text-muted);">Atención odontológica de urgencia</div>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            ${urgOdontOrdenadas.map((o,i) => `
-              <div class="ips-card-item" data-idx="${i}" data-tipo="urgodont"
-                style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid ${i===0?'rgba(234,179,8,0.3)':'var(--border)'};cursor:pointer;"
-                onmouseenter="ipsMapHighlight('o${i}')" onmouseleave="ipsMapUnhighlight('o${i}')">
-                <span style="font-size:16px;flex-shrink:0;">🏥</span>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:13px;font-weight:600;">${o.nombre}</div>
-                  <div style="font-size:11.5px;color:var(--text-muted);">📍 ${o.dir} · <span style="color:#b45309;">📞 ${o.tel}</span>
-                  ${o.distKm!==undefined?` · <span style="color:var(--text-dim);">~${o.distKm<1?(o.distKm*1000).toFixed(0)+'m':o.distKm.toFixed(1)+'km'}</span>`:''}
-                  ${o.municipio?` · <span style="color:var(--text-dim);">${o.municipio}</span>`:''}
-                  </div>
-                </div>
-                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(234,179,8,0.15);color:#b45309;white-space:nowrap;flex-shrink:0;">Odonto</span>
-              </div>`).join('')}
-          </div>
-        </div>` : ''}
+        ${ipsSeccion({
+          titulo: `Urgencias Odontológicas · ${municipioLabel}`,
+          subtitulo: 'Atención odontológica de urgencia',
+          icon: '🦷', tipo: 'urgodont',
+          accentColor: '#d97706',
+          borde: 'rgba(217,119,6,0.25)',
+          bgCard: 'rgba(217,119,6,0.03)',
+          items: urgOdontOrdenadas, topN: 3,
+        })}
 
-        <div style="text-align:center;">
+        <!-- Ambulancias -->
+        ${ipsSeccion({
+          titulo: `Ambulancias · ${municipioLabel}`,
+          subtitulo: 'Traslado medicalizado · Servicio terrestre y aéreo',
+          icon: '🚑', tipo: 'ambulancia',
+          accentColor: '#7c3aed',
+          borde: 'rgba(124,58,237,0.2)',
+          bgCard: 'rgba(124,58,237,0.03)',
+          items: ambulanciasOrdenadas, topN: 3,
+          nota: '🚑 El traslado en ambulancia es autorizado por SURA. En emergencia llama primero al <strong>123</strong> o al número de la clínica.'
+        })}
+
+        <div style="text-align:center;padding-top:4px;">
           <a href="https://www.epssura.com/dir-medico" target="_blank"
             class="btn btn-secondary" style="display:inline-flex;gap:8px;align-items:center;font-size:13px;">
             🌐 Directorio completo epssura.com
@@ -21612,14 +21631,14 @@ async function ipsBuscar() {
             <div style="font-size:13px;font-weight:700;">📍 Mapa · ${municipioLabel}</div>
             <div style="font-size:11px;color:var(--text-muted);" id="ips_map_status">⏳ Geocodificando...</div>
           </div>
-          <!-- Leyenda -->
-          <div style="display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;">
-            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#0e7490;margin-right:4px;vertical-align:middle;"></span>IPS Básica</span>
+          <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#0e7490;margin-right:4px;vertical-align:middle;"></span>Básica</span>
             <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dc2626;margin-right:4px;vertical-align:middle;"></span>Urgencias</span>
-            ${urgOdontOrdenadas.length ? `<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d97706;margin-right:4px;vertical-align:middle;"></span>Odonto</span>` : ''}
-            ${coords ? `<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#7c3aed;margin-right:4px;vertical-align:middle;"></span>Dirección</span>` : ''}
+            ${urgOdontOrdenadas.length?`<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d97706;margin-right:4px;vertical-align:middle;"></span>Odonto</span>`:''}
+            ${ambulanciasOrdenadas.length?`<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#7c3aed;margin-right:4px;vertical-align:middle;"></span>Ambulancia</span>`:''}
+            ${coords?`<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6366f1;margin-right:4px;vertical-align:middle;"></span>Dirección</span>`:''}
           </div>
-          <div id="ips_mapa" style="height:420px;border-radius:8px;overflow:hidden;background:var(--surface2);"></div>
+          <div id="ips_mapa" style="height:440px;border-radius:8px;overflow:hidden;background:var(--surface2);"></div>
         </div>
       </div>
 
@@ -21630,7 +21649,7 @@ async function ipsBuscar() {
   ipsAjustarLayout();
 
   // Iniciar geocodificación y construcción del mapa en background
-  ipsIniciarMapa(basicasOrdenadas, urgenciasOrdenadas, urgOdontOrdenadas, coords, municipioLabel);
+  ipsIniciarMapa(basicasOrdenadas, urgenciasOrdenadas, urgOdontOrdenadas, ambulanciasOrdenadas, coords, municipioLabel);
 }
 
 // ── Ajuste responsive del grid ────────────────────────────────────────────
@@ -21653,7 +21672,7 @@ function ipsAjustarLayout() {
 let _ipsMapInstance  = null;   // instancia Leaflet activa
 let _ipsMapMarkers   = {};     // { 'b0': marker, 'u0': marker, ... }
 
-async function ipsIniciarMapa(basicas, urgencias, urgOdont, coordsRef, municipio) {
+async function ipsIniciarMapa(basicas, urgencias, urgOdont, ambulancias, coordsRef, municipio) {
   const mapEl    = document.getElementById('ips_mapa');
   const statusEl = document.getElementById('ips_map_status');
   if (!mapEl) return;
@@ -21692,9 +21711,14 @@ async function ipsIniciarMapa(basicas, urgencias, urgOdont, coordsRef, municipio
     html: `<div style="width:28px;height:28px;border-radius:50%;background:#d97706;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;color:white;font-weight:700;">🦷</div>`,
     iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
   });
+  const iconAmbulancia = L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;border-radius:50%;background:#7c3aed;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;color:white;font-weight:700;">🚑</div>`,
+    iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
+  });
   const iconRef = L.divIcon({
     className: '',
-    html: `<div style="width:24px;height:24px;border-radius:50%;background:#7c3aed;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;">📌</div>`,
+    html: `<div style="width:24px;height:24px;border-radius:50%;background:#6366f1;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;">📌</div>`,
     iconSize: [24,24], iconAnchor: [12,12], popupAnchor: [0,-14],
   });
 
