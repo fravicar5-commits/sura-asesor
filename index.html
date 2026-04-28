@@ -7699,6 +7699,7 @@ function getVentasPBSCompensado(mesIdx, anio) {
   if (!ventana) return [];
   return state.ventas.filter(v => {
     if (v.producto !== 'PBS') return false;
+    if (v._importadoSura) return false; // excluir polizas importadas desde cartera SURA
     const d = new Date((v.fecha || '') + 'T12:00:00');
     return d >= ventana.inicio && d <= ventana.fin;
   });
@@ -8176,6 +8177,9 @@ function getMesKey(year, monthIdx) { return `${MESES[monthIdx].toUpperCase()}.${
 
 function getVentas2026(month) {
   return state.ventas.filter(v => {
+    // Excluir polizas importadas desde cartera SURA — son de años anteriores
+    // y no deben contar en KPIs ni conteos de producción del año actual
+    if (v._importadoSura) return false;
     // Fallback: si fecha está vacía o es inválida, usar fechaExp
     const fechaRef = v.fecha || v.fechaExp || '';
     if (!fechaRef) return false;
@@ -8212,8 +8216,8 @@ function renderDashboard() {
   const pbsVentas  = getVentasByProduct(selectedMonth, 'PBS').length;
   const sptiVentas = getVentasByProduct(selectedMonth, 'SPTI').length;
   const spdVentas  = getVentasByProduct(selectedMonth, 'SPD').length;
-  const psmVentasMes  = state.ventas.filter(v => v.producto==='PSM'  && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
-  const pac60VentasMes = state.ventas.filter(v => v.producto==='PAC60' && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
+  const psmVentasMes  = state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
+  const pac60VentasMes = state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
 
   const pbsPpto  = state.config.pbs[selectedMonth];
   const sptiPpto = state.config.spti[selectedMonth];
@@ -8225,8 +8229,8 @@ function renderDashboard() {
   const accPbs   = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'PBS').length, 0);
   const accSpti  = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'SPTI').length, 0);
   const accSpd   = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'SPD').length, 0);
-  const accPsm   = state.ventas.filter(v => v.producto==='PSM'  && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
-  const accPac60 = state.ventas.filter(v => v.producto==='PAC60' && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
+  const accPsm   = state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
+  const accPac60 = state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
   const accCom   = MESES.reduce((s,_,i) => s + calcMesComisionTotal(i), 0);
 
   // Fill KPI row 1 — ventas
@@ -9559,6 +9563,9 @@ function renderTabla() {
   }
 
   let ventas = [...state.ventas].reverse();
+  // Excluir pólizas importadas desde cartera SURA — son de años anteriores
+  // y se gestionan exclusivamente desde el módulo de cartera
+  ventas = ventas.filter(v => !v._importadoSura);
   if (filterAnio) ventas = ventas.filter(v => new Date(v.fecha).getFullYear() == filterAnio);
   if (filterMes) ventas = ventas.filter(v => MESES[new Date(v.fecha).getMonth()] === filterMes);
   if (filterProd) ventas = ventas.filter(v => v.producto === filterProd);
@@ -10695,6 +10702,7 @@ function calcPreviewCom() {
     const s = getState();
     const ventasMes = (s.ventas || []).filter(v => {
       if (v.producto !== 'PBS' || v.tipo !== 'COTIZANTE' || !v.fecha) return false;
+      if (v._importadoSura) return false; // excluir polizas importadas desde cartera SURA
       const vd = new Date(v.fecha + 'T12:00:00');
       return vd.getMonth() === mesConteo && vd.getFullYear() === anioConteo;
     });
@@ -12291,22 +12299,26 @@ function calcProxVencimiento(fechaExp, periodicidad, ventaId) {
   const intervalo = meses[periodicidad] || 1;
   const hoy = new Date(); hoy.setHours(0,0,0,0);
 
-  // Si hay pagos registrados, el ancla es el periodoHasta del último pago
+  // LOGICA SURA: el vencimiento ancla SIEMPRE al dia de expedicion.
+  // Se cuenta cuantos pagos hay para saber cuantos periodos han sido cubiertos,
+  // y se avanza ese numero de intervalos desde fechaExp para obtener
+  // el proximo vencimiento real. Esto es independiente de la fecha en que
+  // pago el cliente — el periodoHasta guardado no se usa como ancla.
+  const diaExp = new Date(fechaExp + 'T12:00:00');
+
+  // Contar pagos registrados (para saber cuantos periodos ya cubrió)
+  let nPagos = 0;
   if (ventaId) {
-    const ult = getUltimoPago(ventaId);
-    if (ult && ult.periodoHasta) {
-      const ancla = new Date(ult.periodoHasta + 'T12:00:00');
-      // El próximo vencimiento es ancla + 1 intervalo (ya es el futuro)
-      let venc = new Date(ancla);
-      // Si el ancla ya pasó, avanzar hasta el primer vencimiento futuro
-      while (venc <= hoy) venc.setMonth(venc.getMonth() + intervalo);
-      return venc;
-    }
+    const pagosVenta = getPagosVenta ? getPagosVenta(ventaId) : [];
+    nPagos = pagosVenta.length;
   }
 
-  // Sin pagos: partir desde fechaExp, avanzar hasta primer vencimiento futuro
-  let venc = new Date(fechaExp + 'T12:00:00');
-  while (venc <= hoy) venc.setMonth(venc.getMonth() + intervalo);
+  // El vencimiento del periodo N (contando desde 0) es: fechaExp + (N+1)*intervalo
+  // Con nPagos pagos, el proximo vencimiento a cubrir es: fechaExp + (nPagos+1)*intervalo
+  // Pero si ese vencimiento ya paso (hoy > venc), el cliente esta en mora —
+  // en ese caso devolvemos ese vencimiento vencido para que getCarteraEstado calcule mora.
+  let venc = new Date(diaExp);
+  venc.setMonth(venc.getMonth() + (nPagos + 1) * intervalo);
   return venc;
 }
 
@@ -12324,28 +12336,21 @@ function registrarPago(ventaId, fechaPago) {
   const venta = state.ventas.find(v => v.id === ventaId);
   if (!venta) return;
 
-  // Si se pasa fecha personalizada, calcular el próximo vencimiento desde esa fecha
-  // Si no, usar la lógica normal (ancla en último pago o fechaExp)
-  const fechaRef = fechaPago ? new Date(fechaPago + 'T12:00:00') : new Date();
-
-  // Calcular periodoHasta: fechaRef + intervalo
+  // LOGICA SURA: periodoHasta ancla al dia de expedicion.
+  // Contamos cuantos pagos YA existen ANTES de este nuevo pago para saber
+  // que periodo viene a cubrir. El pago N cubre el periodo N (base 0):
+  //   periodoDesde = fechaExp + N*intervalo
+  //   periodoHasta = fechaExp + (N+1)*intervalo
+  // La fecha real del pago se guarda en 'fecha' para historial y comisiones.
   const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
   const intervalo = meses[venta.periodicidad] || 1;
-
-  let periodoDesde, periodoHasta;
-  if (fechaPago) {
-    // Con fecha personalizada: el período arranca desde fechaPago
-    const hasta = new Date(fechaRef);
-    hasta.setMonth(hasta.getMonth() + intervalo);
-    periodoDesde = fechaPago;
-    periodoHasta = hasta.toISOString().slice(0,10);
-  } else {
-    // Sin fecha: usar lógica existente basada en último pago o fechaExp
-    const proxVenc = calcProxVencimiento(venta.fechaExp, venta.periodicidad, ventaId);
-    const prevVenc = proxVenc ? calcPrevVencimiento(proxVenc, venta.periodicidad) : null;
-    periodoDesde = prevVenc ? prevVenc.toISOString().slice(0,10) : venta.fechaExp;
-    periodoHasta = proxVenc ? proxVenc.toISOString().slice(0,10) : '';
-  }
+  const pagosExistentes = getPagosVenta(ventaId);
+  const nAntes = pagosExistentes.length; // cuantos pagos hay antes de este
+  const diaExp = new Date(venta.fechaExp + 'T12:00:00');
+  const desde = new Date(diaExp); desde.setMonth(desde.getMonth() + nAntes * intervalo);
+  const hasta = new Date(diaExp); hasta.setMonth(hasta.getMonth() + (nAntes + 1) * intervalo);
+  let periodoDesde = desde.toISOString().slice(0,10);
+  let periodoHasta = hasta.toISOString().slice(0,10);
 
   const COM_PCT = { SPTI:0.07, SPD:0.08, PSM:0.12, PAC60:0.05 };
   const prima    = venta.prima || 0;
@@ -12388,81 +12393,57 @@ function getCarteraEstado(v, pagos) {
   const hoy = new Date(); hoy.setHours(12,0,0,0);
   const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
   const intervalo = meses[v.periodicidad] || 1;
-  const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
-  if (!proxVenc) return null;
-  const prevVenc = calcPrevVencimiento(proxVenc, v.periodicidad);
-  const diffDias = Math.floor((proxVenc - hoy) / 86400000);
 
-  // ── Si hay pagos registrados, la mora se calcula desde periodoHasta del último pago ──
-  // Si hoy < periodoHasta → el período actual está pagado → al día o próximo
-  const ultimoPago = getUltimoPago(v.id);
-  if (ultimoPago && ultimoPago.periodoHasta) {
-    const hasta = new Date(ultimoPago.periodoHasta + 'T12:00:00');
-    if (hoy <= hasta) {
-      // Está dentro del período pagado — verificar si vence pronto
-      const diasParaVencer = Math.floor((hasta - hoy) / 86400000);
-      if (diasParaVencer <= 3) return { estado:'PROXIMO', dias:diasParaVencer, color:'var(--teal)', label:`🔵 Vence en ${diasParaVencer}d`, proxVenc: hasta, prevVenc };
-      return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc: hasta, prevVenc };
-    }
-    // Período pagado ya venció — calcular mora desde periodoHasta
-    const diasMora = Math.max(0, Math.floor((hoy - hasta) / 86400000));
-    // Para no-MENSUAL: gracia hasta fin del mes de periodoHasta
-    let diasEfectivos = diasMora;
-    if (intervalo > 1) {
-      const finGracia = new Date(hasta.getFullYear(), hasta.getMonth() + 1, 0, 12, 0, 0);
-      diasEfectivos = Math.max(0, Math.floor((hoy - finGracia) / 86400000));
-    }
-    if (diasEfectivos >= 60) {
-      const s = getState(); const idx = s.ventas.findIndex(x => x.id === v.id);
-      if (idx !== -1 && s.ventas[idx].tipo !== 'CANCELACION') {
-        s.ventas[idx].tipo = 'CANCELACION'; s.ventas[idx].motivoCancelacion = 'No pago — mora ≥60 días';
-        s.ventas[idx].fechaCancelacion = hoy.toISOString().slice(0,10); setState(s);
-      }
-      return { estado:'CANCELADO', dias:diasEfectivos, color:'#6b7280', label:'⛔ Cancelado (mora)', proxVenc, prevVenc };
-    }
-    if (diasEfectivos >= 35) return { estado:'SUSPENDIDO', dias:diasEfectivos, color:'var(--red)',   label:'🔴 Suspendido',  proxVenc, prevVenc };
-    if (diasEfectivos >= 31) return { estado:'MORA',       dias:diasEfectivos, color:'var(--amber)', label:'🟡 En mora',      proxVenc, prevVenc };
-    if (diasEfectivos >  0)  return { estado:'VENCIDO',    dias:diasEfectivos, color:'var(--amber)', label:`🟡 Vencido hace ${diasEfectivos}d`, proxVenc, prevVenc };
+  // LOGICA SURA: el vencimiento ancla al dia de expedicion.
+  // Con N pagos registrados el cliente cubre hasta: fechaExp + (N+1)*intervalo
+  // El proximo vencimiento a pagar es: fechaExp + (N+1)*intervalo
+  // Si hoy < proxVenc → al dia. Si hoy >= proxVenc → mora contada desde proxVenc.
+  const pagosVenta = getPagosVenta ? getPagosVenta(v.id) : [];
+  const nPagos = pagosVenta.length;
+
+  const diaExp = new Date(v.fechaExp + 'T12:00:00');
+
+  // proxVenc = vencimiento que el cliente debe pagar AHORA (el siguiente sin cubrir)
+  const proxVenc = new Date(diaExp);
+  proxVenc.setMonth(proxVenc.getMonth() + (nPagos + 1) * intervalo);
+
+  // prevVenc = el vencimiento anterior (inicio del periodo actual)
+  const prevVenc = new Date(diaExp);
+  prevVenc.setMonth(prevVenc.getMonth() + nPagos * intervalo);
+
+  const diasParaVencer = Math.floor((proxVenc - hoy) / 86400000);
+
+  // Al dia o proximo vencimiento
+  if (hoy < proxVenc) {
+    if (diasParaVencer <= 3) return { estado:'PROXIMO', dias:diasParaVencer, color:'var(--teal)', label:`🔵 Vence en ${diasParaVencer}d`, proxVenc, prevVenc };
     return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc, prevVenc };
   }
 
-  // ── Sin pagos registrados ────────────────────────────────────────────────
-  // El primer vencimiento real es fechaExp + 1 intervalo.
-  // Si hoy < primerVenc → el cliente está en su primer período → al día / próximo.
-  // Si hoy >= primerVenc → el cliente no pagó → calcular mora desde primerVenc.
-  const primerVenc = new Date(v.fechaExp + 'T12:00:00');
-  primerVenc.setMonth(primerVenc.getMonth() + intervalo);
+  // hoy >= proxVenc → cliente no ha pagado el periodo actual → mora
+  // Dias de mora contados desde proxVenc
+  const diasMora = Math.max(0, Math.floor((hoy - proxVenc) / 86400000));
 
-  if (hoy < primerVenc) {
-    // Dentro del primer período — aún no venció
-    const diasParaVencer = Math.floor((primerVenc - hoy) / 86400000);
-    if (diasParaVencer <= 3) return { estado:'PROXIMO', dias:diasParaVencer, color:'var(--teal)', label:`🔵 Vence en ${diasParaVencer}d`, proxVenc: primerVenc, prevVenc: new Date(v.fechaExp + 'T12:00:00') };
-    return { estado:'AL_DIA', dias:0, color:'var(--green)', label:'✅ Al día', proxVenc: primerVenc, prevVenc: new Date(v.fechaExp + 'T12:00:00') };
-  }
-
-  // Sin pagos y ya superó el primer vencimiento → calcular mora desde primerVenc
-  // MENSUAL: mora desde el día siguiente al vencimiento (sin período de gracia)
-  // TRIMESTRAL/SEMESTRAL/ANUAL: gracia hasta fin del mes del vencimiento
-  const diasDesdeVenc = Math.max(0, Math.floor((hoy - primerVenc) / 86400000));
-  let diasVencido = diasDesdeVenc;
+  // Para periodicidades largas (trimestral/semestral/anual): periodo de gracia
+  // hasta fin del mes del vencimiento
+  let diasEfectivos = diasMora;
   if (intervalo > 1) {
-    const finMesGracia = new Date(primerVenc.getFullYear(), primerVenc.getMonth() + 1, 0, 12, 0, 0);
-    diasVencido = Math.max(0, Math.floor((hoy - finMesGracia) / 86400000));
+    const finGracia = new Date(proxVenc.getFullYear(), proxVenc.getMonth() + 1, 0, 12, 0, 0);
+    diasEfectivos = Math.max(0, Math.floor((hoy - finGracia) / 86400000));
   }
 
-  if (diasVencido >= 60) {
+  if (diasEfectivos >= 60) {
     const s = getState(); const idx = s.ventas.findIndex(x => x.id === v.id);
     if (idx !== -1 && s.ventas[idx].tipo !== 'CANCELACION') {
       s.ventas[idx].tipo = 'CANCELACION'; s.ventas[idx].motivoCancelacion = 'No pago — mora ≥60 días';
       s.ventas[idx].fechaCancelacion = hoy.toISOString().slice(0,10); setState(s);
     }
-    return { estado:'CANCELADO', dias:diasVencido, color:'#6b7280', label:'⛔ Cancelado (mora)', proxVenc: primerVenc, prevVenc: new Date(v.fechaExp + 'T12:00:00') };
+    return { estado:'CANCELADO', dias:diasEfectivos, color:'#6b7280', label:'⛔ Cancelado (mora)', proxVenc, prevVenc };
   }
-  if (diasVencido >= 35) return { estado:'SUSPENDIDO', dias:diasVencido, color:'var(--red)',   label:'🔴 Suspendido',   proxVenc: primerVenc, prevVenc: new Date(v.fechaExp + 'T12:00:00') };
-  if (diasVencido >= 31) return { estado:'MORA',       dias:diasVencido, color:'var(--amber)', label:'🟡 En mora',       proxVenc: primerVenc, prevVenc: new Date(v.fechaExp + 'T12:00:00') };
-  if (diasVencido >  0)  return { estado:'VENCIDO',    dias:diasVencido, color:'var(--amber)', label:`🟡 Vencido hace ${diasVencido}d`, proxVenc: primerVenc, prevVenc: new Date(v.fechaExp + 'T12:00:00') };
-  // diasVencido === 0 pero hoy >= primerVenc: vence exactamente hoy
-  return { estado:'PROXIMO', dias:0, color:'var(--teal)', label:'🔵 Vence hoy', proxVenc: primerVenc, prevVenc: new Date(v.fechaExp + 'T12:00:00') };
+  if (diasEfectivos >= 35) return { estado:'SUSPENDIDO', dias:diasEfectivos, color:'var(--red)',   label:'🔴 Suspendido',  proxVenc, prevVenc };
+  if (diasEfectivos >= 31) return { estado:'MORA',       dias:diasEfectivos, color:'var(--amber)', label:'🟡 En mora',      proxVenc, prevVenc };
+  if (diasEfectivos >  0)  return { estado:'VENCIDO',    dias:diasEfectivos, color:'var(--amber)', label:`🟡 Vencido hace ${diasEfectivos}d`, proxVenc, prevVenc };
+  // diasEfectivos === 0 pero hoy >= proxVenc: vence exactamente hoy
+  return { estado:'PROXIMO', dias:0, color:'var(--teal)', label:'🔵 Vence hoy', proxVenc, prevVenc };
 }
 
 function calcPrimaAnual(v) {
@@ -12739,13 +12720,20 @@ function actualizarPreviewPago() {
   if (!venta) return;
   const fechaPago = document.getElementById('pagoFecha')?.value;
   if (!fechaPago) return;
-  const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
-  const intervalo = meses[venta.periodicidad] || 1;
-  const hasta = new Date(fechaPago + 'T12:00:00');
-  hasta.setMonth(hasta.getMonth() + intervalo);
+  // LOGICA SURA: el periodo que cubre ESTE pago se calcula desde fechaExp
+  // contando cuantos pagos ya hay registrados antes de este.
+  const mesesP = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+  const intervaloP = mesesP[venta.periodicidad] || 1;
+  const pagosActuales = getPagosVenta(_pagoVentaId);
+  const nP = pagosActuales.length;
+  const diaExpP = new Date(venta.fechaExp + 'T12:00:00');
+  const desdeP = new Date(diaExpP); desdeP.setMonth(desdeP.getMonth() + nP * intervaloP);
+  const hastaP = new Date(diaExpP); hastaP.setMonth(hastaP.getMonth() + (nP + 1) * intervaloP);
   const fmtD = d => d.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});
   const preview = document.getElementById('pagoPreviewPeriodo');
-  if (preview) preview.textContent = `Período cubierto: ${fmtD(new Date(fechaPago+'T12:00:00'))} → ${fmtD(hasta)} · Próx. venc: ${fmtD(hasta)}`;
+  if (preview) {
+    preview.textContent = `Pago: ${fmtD(new Date(fechaPago+'T12:00:00'))} · Cubre: ${fmtD(desdeP)} → ${fmtD(hastaP)} · Próx. venc (SURA): ${fmtD(hastaP)}`;
+  }
 }
 
 function renderHistorialPagoModal(ventaId) {
@@ -21840,7 +21828,7 @@ function renderProyeccionComisiones() {
   const ventana = getVentanaCompensado(mesIdx, anio);
 
   // Ventas PBS dentro de la ventana compensada
-  const ventasMes = getVentasPBSCompensado(mesIdx, anio);
+  const ventasMes = getVentasPBSCompensado(mesIdx, anio); // ya excluye _importadoSura
   const ventasCot = ventasMes.filter(v => v.tipo !== 'BENEFICIARIO');
   const ventasBen = ventasMes.filter(v => v.tipo === 'BENEFICIARIO');
 
@@ -22385,25 +22373,18 @@ function importarClienteDesdeCarteraSura(item) {
     }
   }
 
-  // ── Fecha de venta: derivar desde fechaExp restando 1 mes (periodicidad mensual por defecto)
-  // Esto evita que el registro aparezca sumando en el mes actual de importación.
-  // Si no se puede calcular, usar el primer día del mes de fechaExp como approximación.
-  let fechaVenta = '';
-  if (fechaExp) {
-    try {
-      const fe = new Date(fechaExp + 'T12:00:00');
-      fe.setMonth(fe.getMonth() - 1);
-      fechaVenta = fe.toISOString().slice(0,10);
-    } catch(_) { fechaVenta = fechaExp; }
-  }
-  // Si aun no tenemos fecha, usar una neutral (inicio del año actual) para no contaminar conteos
-  if (!fechaVenta) fechaVenta = new Date().getFullYear() + '-01-01';
+  // ── Fecha de venta: usar fecha neutral en año 2000 para que NUNCA
+  // aparezca en KPIs, conteos ni filtros del año actual o anteriores recientes.
+  // El mesComp se marca como 'IMPORTADO_SURA' — valor especial que los filtros
+  // de ventas y dashboard excluyen explícitamente.
+  // El asesor puede ver y gestionar la póliza en cartera, pero no contamina producción.
+  const fechaVenta = '2000-01-01';
 
   const nuevaVenta = {
     id,
     producto,
     fecha: fechaVenta,
-    mesComp: getMesKey(new Date(fechaVenta + 'T12:00:00').getFullYear(), new Date(fechaVenta + 'T12:00:00').getMonth()),
+    mesComp: 'IMPORTADO_SURA',
     fechaExp: fechaExp || fechaVenta,
     poliza: item.poliza || '',
     tipo: 'NUEVO',
