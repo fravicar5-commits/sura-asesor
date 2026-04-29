@@ -25448,9 +25448,15 @@ async function wmDiagnostico() {
     // Extras comunes
     session: 'default', instance: 'default', type: 'text',
   };
+  const { token: diagToken, phoneId: diagPhone } = wmGetCredentials();
+  const diagHeaders = {
+    'Content-Type': 'application/json',
+    ...(diagToken ? { 'x-wa-token': diagToken } : {}),
+    ...(diagPhone ? { 'x-wa-phone': diagPhone } : {}),
+  };
   try {
     const r = await fetch(`${server}/api/send`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: diagHeaders,
       body: JSON.stringify(payloadFull), signal: AbortSignal.timeout(12000)
     });
     let txt = '';
@@ -25475,7 +25481,7 @@ async function wmDiagnostico() {
   for (const p of payloadsContactos) {
     try {
       const r = await fetch(`${server}/api/send`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: diagHeaders,
         body: JSON.stringify(p), signal: AbortSignal.timeout(8000)
       });
       let txt = '';
@@ -25494,11 +25500,13 @@ async function wmDiagnostico() {
 // Normaliza cualquier número colombiano a formato 57XXXXXXXXXX (10 dígitos locales)
 function wmNormalizarTel(raw) {
   let t = String(raw).replace(/\D/g, '');
-  if (t.startsWith('57') && t.length === 12) return t;      // ya tiene prefijo
-  if (t.startsWith('57') && t.length > 12)  t = t.slice(2); // quitar 57 y re-evaluar
+  if (!t) return '';                                         // vacío → inválido
+  if (t.startsWith('57') && t.length === 12) return t;      // ya correcto
+  if (t.startsWith('57') && t.length > 12)  t = t.slice(2); // quitar 57 doble
   if (t.startsWith('0'))                     t = t.slice(1); // quitar 0 inicial
   if (t.length === 10) return '57' + t;                      // celular colombiano
   if (t.length === 7)  return '57' + t;                      // fijo sin área
+  if (t.length < 7)   return '';                             // número inválido
   return '57' + t;                                           // fallback
 }
 
@@ -25946,29 +25954,46 @@ async function wmIniciarEnvio() {
   const total     = wmClientesSegmento.length;
   let ok = 0, fail = 0;
 
-  // Convertir texto con {nombre} → {{nombre}} que usa el servidor
-  const mensajeServidor = texto
-    .replace(/\{nombre\}/g,   '{{nombre}}')
-    .replace(/\{producto\}/g, '{{telefono}}')  // mapeo best-effort
-    .replace(/\{mora\}/g,     '')
-    .replace(/\{fecha\}/g,    '')
-    .replace(/\{asesor\}/g,   '');
+  // Personalizar el mensaje por cliente usando wmReemplazarVars.
+  // Cada contacto lleva su 'texto' ya resuelto — así {nombre}, {producto},
+  // {mora}, {fecha} y {asesor} quedan correctos antes de llegar al servidor.
+  const contactos = wmClientesSegmento.map(c => {
+    const tel    = wmNormalizarTel(c.telefono);
+    if (!tel) return null; // filtrar números inválidos
+    const nombre = (c.nombre || 'Cliente').trim();
+    return {
+      telefono:   tel,
+      nombre,
+      name:       nombre,
+      // mensaje ya resuelto para este contacto — el servidor lo usa con {{nombre}}
+      // pero como mandamos el texto ya sustituido en 'nombre' el resultado es correcto
+    };
+  }).filter(Boolean);
 
-  // Construir lista de contactos en el formato exacto que espera el servidor
-  const contactos = wmClientesSegmento.map(c => ({
-    telefono: wmNormalizarTel(c.telefono),
-    nombre:   c.nombre || 'Cliente',
-    name:     c.nombre || 'Cliente',   // alias por si el servidor usa 'name'
-  }));
+  // Construir el mensaje resolviendo las variables del primer contacto como referencia;
+  // el servidor recibe 'mensaje' con {{nombre}} y sustituye nombre por contacto.nombre
+  // Para variables custom (producto, mora, asesor, fecha) las resolvemos por contacto
+  // y las enviamos en el campo 'textoPersonalizado' de cada contacto.
+  contactos.forEach((c, i) => {
+    const raw = wmClientesSegmento.filter(x => wmNormalizarTel(x.telefono) === c.telefono)[0] || {};
+    c.textoPersonalizado = wmReemplazarVars(texto, {
+      nombre: c.nombre, producto: raw.producto || '', mora: raw.mora || '$0',
+      telefono: c.telefono,
+    });
+  });
+  const mensajeServidor = '{{nombre}}'; // el servidor también aplica {{nombre}} como fallback
 
   wmLogLine(`🚀 Iniciando envío a ${total} contacto(s) vía ${server}`, 'info');
   if (statusTxt) statusTxt.textContent = 'Enviando...';
   if (dot) dot.style.background = 'var(--amber)';
 
   // Payload para /api/send (SSE)
+  // El servidor v2 usa contacto.textoPersonalizado si está presente;
+  // si no, usa 'mensaje' con {{nombre}} como fallback (compatibilidad v1).
   const payload = {
     contactos,
     mensaje: mensajeServidor,
+    usarTextoPersonalizado: true,   // indica al servidor v2 que use campo por contacto
     ..._wmAdjunto ? { mediaId: _wmAdjunto.mediaId, mediaTipo: _wmAdjunto.mediaTipo } : {}
   };
 
