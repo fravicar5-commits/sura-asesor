@@ -3665,7 +3665,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
 
         <!-- KPIs -->
-        <div class="grid-4" style="margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
           <div class="stat-card red">
             <div class="stat-label">🔴 Sin contacto crítico</div>
             <div class="stat-value" id="radarKpi0" style="color:var(--red);">0</div>
@@ -3681,6 +3681,11 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             <div class="stat-value" id="radarKpi2" style="color:var(--teal);">0</div>
             <div class="stat-sub">PBS sin ningún voluntario</div>
           </div>
+          <div class="stat-card" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.05);">
+            <div class="stat-label">🔥 Cartera en riesgo</div>
+            <div class="stat-value" id="radarKpi4" style="color:var(--red);">0</div>
+            <div class="stat-sub">Mora · suspensión · vence pronto</div>
+          </div>
           <div class="stat-card green">
             <div class="stat-label">✅ Contactados recientes</div>
             <div class="stat-value" id="radarKpi3" style="color:var(--green);">0</div>
@@ -3692,7 +3697,8 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         <div class="tab-pills" id="radarTabs">
           <button class="tab-pill active" onclick="setRadarTab('sincontacto', this)">📡 Sin Contacto</button>
           <button class="tab-pill" onclick="setRadarTab('cruzada', this)">🎯 Venta Cruzada</button>
-          <button class="tab-pill" onclick="setRadarTab('seguimiento', this)">🔔 Seguimientos Pendientes</button>
+          <button class="tab-pill" onclick="setRadarTab('riesgo', this)">🔥 Cartera en Riesgo</button>
+          <button class="tab-pill" onclick="setRadarTab('seguimiento', this)">🔔 Seguimientos</button>
         </div>
 
         <!-- TAB: Sin Contacto -->
@@ -3715,6 +3721,16 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             </div>
           </div>
           <div id="radarListaCruzada"></div>
+        </div>
+
+        <!-- TAB: Cartera en Riesgo -->
+        <div id="radarTabRiesgo" style="display:none;">
+          <div class="card" style="margin-bottom:12px;padding:12px 16px;background:rgba(239,68,68,0.05);border-color:rgba(239,68,68,0.2);">
+            <div style="font-size:12.5px;color:var(--text-muted);">
+              🔥 Pólizas voluntarias con <strong style="color:var(--red);">mora, suspensión o próximas a vencer</strong> que necesitan contacto urgente para evitar cancelación. Ordenadas por urgencia.
+            </div>
+          </div>
+          <div id="radarListaRiesgo"></div>
         </div>
 
         <!-- TAB: Seguimientos -->
@@ -4048,6 +4064,8 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
           <button id="ctTab-cancelados" class="tab-pill" onclick="switchCarteraTab('cancelados')" style="border-radius:8px 8px 0 0;">⛔ Cancelados</button>
           <button id="ctTab-sura" class="tab-pill" onclick="switchCarteraTab('sura')" style="border-radius:8px 8px 0 0;background:rgba(26,76,232,0.1);border-color:rgba(26,76,232,0.3);color:var(--sura-blue);">📥 Cartera SURA</button>
           <button id="ctTab-ia" class="tab-pill" onclick="switchCarteraTab('ia')" style="border-radius:8px 8px 0 0;background:rgba(168,85,247,0.1);border-color:rgba(168,85,247,0.3);color:var(--purple);">🤖 Análisis IA</button>
+          <button id="ctTab-persistencia" class="tab-pill" onclick="switchCarteraTab('persistencia')" style="border-radius:8px 8px 0 0;background:rgba(6,182,212,0.08);border-color:rgba(6,182,212,0.25);color:var(--teal);">📊 Persistencia</button>
+          <button id="ctTab-renovaciones" class="tab-pill" onclick="switchCarteraTab('renovaciones')" style="border-radius:8px 8px 0 0;background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);color:var(--green);">📅 Renovaciones</button>
         </div>
 
         <!-- Panel: Cartera Activa -->
@@ -4506,6 +4524,84 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
 
           </div><!-- /iaCarteraV2Contenido -->
         </div><!-- /ctPanel-ia -->
+
+        <!-- ===== PANEL: PERSISTENCIA ===== -->
+        <div id="ctPanel-persistencia" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-size:15px;font-weight:700;">📊 Persistencia de Cartera</div>
+              <div style="font-size:12px;color:var(--text-muted);">% de pólizas activas a los 3, 6 y 12 meses desde expedición · indicador clave de calidad de cartera SURA</div>
+            </div>
+            <select class="form-control" style="width:170px;" id="persProductoFiltro" onchange="renderPersistencia()">
+              <option value="">Todos los productos</option>
+              <option value="SPTI">Solo SPTI</option>
+              <option value="SPD">Solo SPD</option>
+              <option value="PSM">🧩 Solo Modular</option>
+              <option value="PAC60">👴 Solo 60+</option>
+            </select>
+          </div>
+          <!-- KPIs de persistencia -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;" id="persKpisGrid"></div>
+          <!-- Tabla por cohorte -->
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">📋 Cohortes por mes de expedición</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px;">Cada fila = mes en que se expidieron las pólizas. Las columnas muestran cuántas siguen activas a los 3, 6 y 12 meses.</div>
+            <div style="overflow-x:auto;border-radius:var(--radius-sm);border:1px solid var(--border);">
+              <table style="font-size:12.5px;min-width:700px;width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr style="background:var(--surface2);">
+                    <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Mes expedición</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Emitidas</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Activas hoy</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Persist. 3m</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Persist. 6m</th>
+                    <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Persist. 12m</th>
+                    <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Tendencia</th>
+                  </tr>
+                </thead>
+                <tbody id="persCohortesTabla"></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Nota explicativa -->
+          <div class="card" style="background:rgba(6,182,212,0.04);border-color:rgba(6,182,212,0.2);">
+            <div style="font-size:12.5px;color:var(--text-muted);line-height:1.7;">
+              <strong style="color:var(--teal);">¿Cómo interpretar?</strong><br>
+              · <strong>Persist. 3m ≥ 90%</strong> → excelente. Entre 75-90% → aceptable. Menor a 75% → revisar causas de cancelación temprana.<br>
+              · <strong>Persist. 6m ≥ 80%</strong> → cartera sana. Menor a 70% → clientes sin fidelización real.<br>
+              · <strong>Persist. 12m ≥ 70%</strong> → indicador de retención que SURA valora para rangos y bonificaciones.<br>
+              · Las pólizas <em>sin actividad de pago registrada</em> se cuentan como activas si no han sido canceladas.
+            </div>
+          </div>
+        </div><!-- /ctPanel-persistencia -->
+
+        <!-- ===== PANEL: RENOVACIONES ===== -->
+        <div id="ctPanel-renovaciones" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-size:15px;font-weight:700;">📅 Calendario de Renovaciones</div>
+              <div style="font-size:12px;color:var(--text-muted);">Pólizas que vencen en los próximos 30, 60 y 90 días · gestión proactiva antes de entrar en mora</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <select class="form-control" style="width:160px;" id="renovProductoFiltro" onchange="renderRenovaciones()">
+                <option value="">Todos los productos</option>
+                <option value="SPTI">Solo SPTI</option>
+                <option value="SPD">Solo SPD</option>
+                <option value="PSM">🧩 Solo Modular</option>
+                <option value="PAC60">👴 Solo 60+</option>
+              </select>
+              <select class="form-control" style="width:160px;" id="renovHorizonteFiltro" onchange="renderRenovaciones()">
+                <option value="30">Próximos 30 días</option>
+                <option value="60" selected>Próximos 60 días</option>
+                <option value="90">Próximos 90 días</option>
+              </select>
+            </div>
+          </div>
+          <!-- KPIs renovaciones -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;" id="renovKpisGrid"></div>
+          <!-- Lista agrupada por semana -->
+          <div id="renovLista"></div>
+        </div><!-- /ctPanel-renovaciones -->
 
       </div><!-- /page-cartera -->
 
@@ -12834,21 +12930,312 @@ function enviarWACartera(tel, nombre, estado) {
 // TABS DE CARTERA
 // =============================================
 function switchCarteraTab(tab) {
-  ['activa','pagos','cancelados','sura','ia'].forEach(t => {
-    document.getElementById(`ctPanel-${t}`).style.display = t === tab ? '' : 'none';
+  ['activa','pagos','cancelados','sura','ia','persistencia','renovaciones'].forEach(t => {
+    const panel = document.getElementById(`ctPanel-${t}`);
+    if (panel) panel.style.display = t === tab ? '' : 'none';
     const btn = document.getElementById(`ctTab-${t}`);
     if (btn) {
       btn.classList.toggle('active', t === tab);
       btn.style.borderBottom = t === tab ? '2px solid var(--sura-blue)' : '';
     }
   });
-  if (tab === 'pagos') renderHistorialPagos();
-  if (tab === 'cancelados') { renderCancelados(); renderDashboardCancelaciones(); }
+  if (tab === 'pagos')       renderHistorialPagos();
+  if (tab === 'cancelados')  { renderCancelados(); renderDashboardCancelaciones(); }
   if (tab === 'sura') {
     const btnSync = document.getElementById('btnSincronizarSura');
     if (btnSync) btnSync.style.display = _carteraSuraData?.length ? '' : 'none';
   }
-  if (tab === 'ia') iaCarteraV2Init();
+  if (tab === 'ia')           iaCarteraV2Init();
+  if (tab === 'persistencia') renderPersistencia();
+  if (tab === 'renovaciones') renderRenovaciones();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PANEL: PERSISTENCIA — % polizas activas a 3, 6 y 12 meses por cohorte
+// ═══════════════════════════════════════════════════════════════════════════
+function renderPersistencia() {
+  const state    = getState();
+  const pagos    = getPagos();
+  const filtroP  = document.getElementById('persProductoFiltro')?.value || '';
+  const PRODS    = ['SPTI','SPD','PSM','PAC60'];
+  const hoy      = new Date(); hoy.setHours(0,0,0,0);
+  const fmtPct   = p => p === null ? '<span style="color:var(--text-dim);">—</span>'
+                      : `<span style="font-weight:700;color:${p>=90?'var(--green)':p>=75?'var(--amber)':'var(--red)'};">${p.toFixed(1)}%</span>`;
+  const fmtMes   = d => d.toLocaleDateString('es-CO',{month:'short',year:'numeric'});
+
+  // Solo voluntarios no importados
+  const ventas = state.ventas.filter(v =>
+    PRODS.includes(v.producto) &&
+    !v._importadoSura &&
+    (!filtroP || v.producto === filtroP) &&
+    v.fechaExp
+  );
+
+  // Agrupar por mes de expedición (YYYY-MM)
+  const cohortes = {};
+  ventas.forEach(v => {
+    const dExp = new Date(v.fechaExp + 'T12:00:00');
+    if (isNaN(dExp)) return;
+    const key = v.fechaExp.slice(0,7); // YYYY-MM
+    if (!cohortes[key]) cohortes[key] = { key, dExp, polizas: [] };
+    cohortes[key].polizas.push(v);
+  });
+
+  const filas = Object.values(cohortes).sort((a,b) => b.key.localeCompare(a.key));
+
+  // Función: ¿estaba activa N meses después de la expedición?
+  const estabaActiva = (v, mesesDespues) => {
+    const dRef = new Date(v.fechaExp + 'T12:00:00');
+    dRef.setMonth(dRef.getMonth() + mesesDespues);
+    if (dRef > hoy) return null; // aún no ha pasado ese tiempo → dato pendiente
+    // Si está cancelada, ¿cuándo se canceló?
+    if (v.tipo === 'CANCELACION' && v.fechaCancelacion) {
+      const dCanc = new Date(v.fechaCancelacion + 'T12:00:00');
+      return dCanc > dRef; // estaba activa en dRef si se canceló después
+    }
+    return v.tipo !== 'CANCELACION'; // activa si no está cancelada
+  };
+
+  const pct = (activas, total) => total === 0 ? null : (activas / total) * 100;
+
+  // Calcular KPIs globales
+  let tot = 0, act = 0, sum3 = 0, cnt3 = 0, sum6 = 0, cnt6 = 0, sum12 = 0, cnt12 = 0;
+  filas.forEach(c => {
+    const n = c.polizas.length;
+    tot += n;
+    act += c.polizas.filter(v => v.tipo !== 'CANCELACION').length;
+    // 3m
+    const v3 = c.polizas.map(v => estabaActiva(v,3)).filter(x => x !== null);
+    if (v3.length) { sum3 += v3.filter(Boolean).length/v3.length*100; cnt3++; }
+    // 6m
+    const v6 = c.polizas.map(v => estabaActiva(v,6)).filter(x => x !== null);
+    if (v6.length) { sum6 += v6.filter(Boolean).length/v6.length*100; cnt6++; }
+    // 12m
+    const v12 = c.polizas.map(v => estabaActiva(v,12)).filter(x => x !== null);
+    if (v12.length) { sum12 += v12.filter(Boolean).length/v12.length*100; cnt12++; }
+  });
+
+  const pctGlobal3  = cnt3  ? sum3/cnt3   : null;
+  const pctGlobal6  = cnt6  ? sum6/cnt6   : null;
+  const pctGlobal12 = cnt12 ? sum12/cnt12 : null;
+  const pctActual   = tot   ? act/tot*100 : null;
+
+  // KPIs
+  const grid = document.getElementById('persKpisGrid');
+  if (grid) {
+    const kpiCard = (label, val, sub, color) =>
+      `<div class="stat-card" style="border-top:3px solid ${color};">
+        <div class="stat-label">${label}</div>
+        <div class="stat-value" style="color:${color};font-size:22px;">${val}</div>
+        <div class="stat-sub">${sub}</div>
+      </div>`;
+    grid.innerHTML =
+      kpiCard('📋 Total emitidas', tot, filtroP || 'todos los productos', 'var(--text-muted)') +
+      kpiCard('✅ Activas hoy', act, pctActual !== null ? pctActual.toFixed(1)+'% de retención' : '—', 'var(--green)') +
+      kpiCard('📍 Persistencia 3m', pctGlobal3 !== null ? pctGlobal3.toFixed(1)+'%' : '—',
+              pctGlobal3>=90?'🟢 Excelente':pctGlobal3>=75?'🟡 Aceptable':pctGlobal3!==null?'🔴 Revisar':'Sin datos suficientes',
+              pctGlobal3>=90?'var(--green)':pctGlobal3>=75?'var(--amber)':'var(--red)') +
+      kpiCard('📍 Persistencia 6m', pctGlobal6 !== null ? pctGlobal6.toFixed(1)+'%' : '—',
+              pctGlobal6>=80?'🟢 Cartera sana':pctGlobal6>=70?'🟡 En rango':pctGlobal6!==null?'🔴 Fidelización baja':'Sin datos suficientes',
+              pctGlobal6>=80?'var(--green)':pctGlobal6>=70?'var(--amber)':'var(--red)') +
+      kpiCard('📍 Persistencia 12m', pctGlobal12 !== null ? pctGlobal12.toFixed(1)+'%' : '—',
+              pctGlobal12>=70?'🟢 SURA lo valora':pctGlobal12>=60?'🟡 Mejorable':pctGlobal12!==null?'🔴 Riesgo de rango':'Sin datos suficientes',
+              pctGlobal12>=70?'var(--green)':pctGlobal12>=60?'var(--amber)':'var(--red)');
+  }
+
+  // Tabla de cohortes
+  const tbody = document.getElementById('persCohortesTabla');
+  if (!tbody) return;
+  if (!filas.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text-dim);">No hay pólizas voluntarias registradas${filtroP?' para '+filtroP:''}.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filas.map(c => {
+    const n    = c.polizas.length;
+    const actN = c.polizas.filter(v => v.tipo !== 'CANCELACION').length;
+
+    const calc = meses => {
+      const vals = c.polizas.map(v => estabaActiva(v, meses)).filter(x => x !== null);
+      if (!vals.length) return { pct: null, n: 0 };
+      return { pct: vals.filter(Boolean).length / vals.length * 100, n: vals.length };
+    };
+    const r3  = calc(3);
+    const r6  = calc(6);
+    const r12 = calc(12);
+
+    // Tendencia: comparar 3m vs 6m vs 12m para ver si sube o baja
+    const vals = [r3.pct, r6.pct, r12.pct].filter(x => x !== null);
+    let tendencia = '—';
+    if (vals.length >= 2) {
+      const diff = vals[vals.length-1] - vals[0];
+      tendencia = diff > 5 ? '📈 Sube' : diff < -5 ? '📉 Baja' : '➡️ Estable';
+    }
+
+    const pctBar = p => {
+      if (p === null) return '<span style="color:var(--text-dim);font-size:11px;">pendiente</span>';
+      const color = p>=90?'var(--green)':p>=75?'var(--amber)':'var(--red)';
+      return `<div style="display:flex;align-items:center;gap:6px;">
+        <div style="flex:1;height:6px;border-radius:3px;background:var(--surface3);min-width:60px;">
+          <div style="height:100%;border-radius:3px;background:${color};width:${Math.min(p,100).toFixed(0)}%;"></div>
+        </div>
+        <span style="font-size:12px;font-weight:700;color:${color};min-width:38px;">${p.toFixed(1)}%</span>
+      </div>`;
+    };
+
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:10px 12px;font-weight:600;">${fmtMes(c.dExp)}</td>
+      <td style="padding:10px 12px;text-align:center;">${n}</td>
+      <td style="padding:10px 12px;text-align:center;">
+        <span style="font-weight:700;color:${actN===n?'var(--green)':actN>n/2?'var(--amber)':'var(--red)'};">${actN}</span>
+        <span style="font-size:10.5px;color:var(--text-dim);"> / ${n}</span>
+      </td>
+      <td style="padding:10px 12px;">${pctBar(r3.pct)}</td>
+      <td style="padding:10px 12px;">${pctBar(r6.pct)}</td>
+      <td style="padding:10px 12px;">${pctBar(r12.pct)}</td>
+      <td style="padding:10px 12px;font-size:12px;">${tendencia}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PANEL: RENOVACIONES — calendario de vencimientos próximos
+// ═══════════════════════════════════════════════════════════════════════════
+function renderRenovaciones() {
+  const state    = getState();
+  const pagos    = getPagos();
+  const filtroP  = document.getElementById('renovProductoFiltro')?.value || '';
+  const horizonte = parseInt(document.getElementById('renovHorizonteFiltro')?.value || '60');
+  const PRODS    = ['SPTI','SPD','PSM','PAC60'];
+  const hoy      = new Date(); hoy.setHours(0,0,0,0);
+  const limite   = new Date(hoy); limite.setDate(limite.getDate() + horizonte);
+
+  const ventas = state.ventas.filter(v =>
+    PRODS.includes(v.producto) &&
+    v.tipo !== 'CANCELACION' &&
+    !v._importadoSura &&
+    (!filtroP || v.producto === filtroP) &&
+    v.fechaExp
+  );
+
+  // Calcular próximo vencimiento para cada póliza y filtrar las que caen en el horizonte
+  const conVenc = ventas
+    .map(v => {
+      const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
+      if (!proxVenc) return null;
+      const diasParaVencer = Math.floor((proxVenc - hoy) / 86400000);
+      if (diasParaVencer < 0 || diasParaVencer > horizonte) return null;
+      return { v, proxVenc, diasParaVencer };
+    })
+    .filter(Boolean)
+    .sort((a,b) => a.proxVenc - b.proxVenc);
+
+  // KPIs por tramo
+  const tramo1 = conVenc.filter(x => x.diasParaVencer <= 7);
+  const tramo2 = conVenc.filter(x => x.diasParaVencer > 7  && x.diasParaVencer <= 30);
+  const tramo3 = conVenc.filter(x => x.diasParaVencer > 30 && x.diasParaVencer <= horizonte);
+  const primaTotal = conVenc.reduce((s,x) => s + (x.v.prima||0), 0);
+
+  const kGrid = document.getElementById('renovKpisGrid');
+  if (kGrid) {
+    kGrid.innerHTML = `
+      <div class="stat-card" style="border-top:3px solid var(--red);">
+        <div class="stat-label">🔴 Vencen en 7 días</div>
+        <div class="stat-value" style="color:var(--red);">${tramo1.length}</div>
+        <div class="stat-sub">Contacto urgente</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid var(--amber);">
+        <div class="stat-label">🟡 Vencen en 8–30 días</div>
+        <div class="stat-value" style="color:var(--amber);">${tramo2.length}</div>
+        <div class="stat-sub">Gestión esta semana</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid var(--teal);">
+        <div class="stat-label">🔵 Vencen en 31–${horizonte} días</div>
+        <div class="stat-value" style="color:var(--teal);">${tramo3.length}</div>
+        <div class="stat-sub">Planificar contacto</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">💰 Prima en juego</div>
+        <div class="stat-value" style="color:var(--sura-lime);font-size:18px;">${fmt(primaTotal)}</div>
+        <div class="stat-sub">en ${horizonte} días</div>
+      </div>`;
+  }
+
+  const lista = document.getElementById('renovLista');
+  if (!lista) return;
+
+  if (!conVenc.length) {
+    lista.innerHTML = `<div class="empty-state"><div class="icon">🎉</div><div>No hay pólizas que venzan en los próximos ${horizonte} días${filtroP?' para '+filtroP:''}.</div></div>`;
+    return;
+  }
+
+  // Agrupar por semana
+  const semanas = {};
+  conVenc.forEach(x => {
+    const lunes = new Date(x.proxVenc);
+    lunes.setDate(lunes.getDate() - ((lunes.getDay()+6)%7)); // lunes de esa semana
+    const key = lunes.toISOString().slice(0,10);
+    if (!semanas[key]) semanas[key] = { lunes, items:[] };
+    semanas[key].items.push(x);
+  });
+
+  const PROD_COLOR = { SPTI:'var(--teal)', SPD:'var(--purple)', PSM:'var(--amber)', PAC60:'var(--green)' };
+  const fmtFecha = d => d.toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'short'});
+  const fmtSemana = d => {
+    const fin = new Date(d); fin.setDate(fin.getDate()+6);
+    return `Semana del ${d.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})} al ${fin.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}`;
+  };
+
+  lista.innerHTML = Object.values(semanas)
+    .sort((a,b) => a.lunes - b.lunes)
+    .map(sem => {
+      const primasSem = sem.items.reduce((s,x) => s + (x.v.prima||0), 0);
+      const cards = sem.items.map(x => {
+        const { v, proxVenc, diasParaVencer } = x;
+        const urgColor = diasParaVencer <= 7 ? 'var(--red)' : diasParaVencer <= 30 ? 'var(--amber)' : 'var(--teal)';
+        const waUrl = v.telefono ? `https://wa.me/57${v.telefono.replace(/\D/g,'')}` : '';
+        const msgWA = encodeURIComponent(`Hola ${v.nombre||''}, te recuerdo que tu plan ${v.producto||''} con SURA vence el ${fmtFecha(proxVenc)}. ¿Coordinamos el pago? — Tu asesor SURA`);
+        const pBruto = v.prima || 0;
+        const pIVA   = Math.round(pBruto * 1.19);
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 13px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);border-left:3px solid ${urgColor};">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">
+              <span style="font-size:13px;font-weight:700;">${v.nombre||'—'}</span>
+              <span style="font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:10px;background:${PROD_COLOR[v.producto]||'var(--teal)'}18;color:${PROD_COLOR[v.producto]||'var(--teal)'};">${v.producto||''}</span>
+              <span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:var(--surface3);color:var(--text-muted);">${v.periodicidad||''}</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">
+              📅 Vence: <strong style="color:${urgColor};">${fmtFecha(proxVenc)}</strong>
+              · <span style="color:${urgColor};font-weight:700;">en ${diasParaVencer} día${diasParaVencer!==1?'s':''}</span>
+              ${v.plan ? ` · ${v.plan}` : ''}
+              ${v.empresa ? ` · 🏢 ${v.empresa}` : ''}
+            </div>
+            <div style="font-size:11.5px;color:var(--text-muted);">
+              💰 Prima: <strong>${fmt(pBruto)}</strong> s/IVA · <strong>${fmt(pIVA)}</strong> c/IVA
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
+            ${waUrl ? `<a href="${waUrl}?text=${msgWA}" target="_blank"
+              style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:rgba(34,197,94,0.15);color:var(--green);font-size:11px;font-weight:700;text-decoration:none;border:1px solid rgba(34,197,94,0.3);">
+              📱 Recordar</a>` : ''}
+            <button onclick="abrirModalPago('${v.id}')"
+              style="padding:4px 10px;border-radius:6px;background:rgba(26,76,232,0.12);color:var(--sura-blue);font-size:11px;font-weight:700;border:1px solid rgba(26,76,232,0.25);cursor:pointer;">
+              💳 Registrar pago</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+          <div style="font-size:13px;font-weight:700;">${fmtSemana(sem.lunes)}</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="font-size:11.5px;color:var(--text-muted);">${sem.items.length} póliza${sem.items.length!==1?'s':''}</span>
+            <span style="font-size:11.5px;font-family:var(--mono);color:var(--sura-lime);">💰 ${fmt(primasSem)}</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">${cards}</div>
+      </div>`;
+    }).join('');
 }
 
 function renderHistorialPagos() {
@@ -19003,60 +19390,30 @@ function setRadarTab(tab, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('radarTabSincontacto').style.display = tab === 'sincontacto' ? '' : 'none';
   document.getElementById('radarTabCruzada').style.display     = tab === 'cruzada'      ? '' : 'none';
+  document.getElementById('radarTabRiesgo').style.display      = tab === 'riesgo'       ? '' : 'none';
   document.getElementById('radarTabSeguimiento').style.display = tab === 'seguimiento'  ? '' : 'none';
 }
 
 function renderRadar() {
-  const diasUmbral  = parseInt(document.getElementById('radarDiasFiltro')?.value  || 14);
+  const diasUmbral   = parseInt(document.getElementById('radarDiasFiltro')?.value || 14);
   const fuenteFiltro = document.getElementById('radarFuenteFiltro')?.value || '';
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const hoyStr = hoy.toISOString().split('T')[0];
 
   const state      = getState();
   const ventas     = state.ventas || [];
+  const pagos      = getPagos();
   const pipeline   = getPipeline();
   const actividades = getActividades();
 
-  // ── 1. Construir mapa de último contacto por nombre-clave ──────────
-  // key = nombre normalizado (lowercase, sin espacios extra)
   const normalize = s => (s || '').toLowerCase().replace(/\s+/g,' ').trim();
 
-  const ultimoContacto = {}; // key → { fecha, fuente, telefono, nombre, empresa, producto }
-  const clientesMeta   = {}; // key → full info
+  // ── MEJORA 1: último contacto = última ACTIVIDAD registrada (fuente real)
+  // Solo si no hay actividad, cae a fecha de venta/pipeline como fallback.
+  const ultimoContacto = {};
+  const clientesMeta   = {};
 
-  // Fuente: ventas PBS (fecha venta = punto de contacto inicial)
-  if (!fuenteFiltro || fuenteFiltro === 'ventas') {
-    ventas.filter(v => v.producto === 'PBS').forEach(v => {
-      const key = normalize(v.nombre);
-      if (!key) return;
-      const fecha = v.fecha || '';
-      if (!ultimoContacto[key] || fecha > ultimoContacto[key].fecha) {
-        ultimoContacto[key] = { fecha, fuente: 'PBS' };
-      }
-      if (!clientesMeta[key]) clientesMeta[key] = {
-        nombre: v.nombre, telefono: v.telefono || '', empresa: v.empresa || '',
-        producto: 'PBS', correo: v.correo || ''
-      };
-    });
-  }
-
-  // Fuente: pipeline (fechaRegistro)
-  if (!fuenteFiltro || fuenteFiltro === 'pipeline') {
-    pipeline.forEach(p => {
-      const key = normalize(p.nombre);
-      if (!key) return;
-      const fecha = p.fechaRegistro || p.fecha || '';
-      if (!ultimoContacto[key] || fecha > ultimoContacto[key].fecha) {
-        ultimoContacto[key] = { fecha, fuente: 'Pipeline' };
-      }
-      if (!clientesMeta[key]) clientesMeta[key] = {
-        nombre: p.nombre, telefono: p.telefono || '', empresa: p.empresa || '',
-        producto: 'Prospecto', correo: p.correo || ''
-      };
-    });
-  }
-
-  // Fuente: actividades (fecha actividad = contacto real)
+  // Fuente A: actividades (contacto real — máxima prioridad)
   if (!fuenteFiltro || fuenteFiltro === 'actividad') {
     actividades.forEach(a => {
       const key = normalize(a.cliente);
@@ -19066,37 +19423,82 @@ function renderRadar() {
         ultimoContacto[key] = { fecha, fuente: 'Actividad', tipo: a.tipo };
       }
       if (!clientesMeta[key]) clientesMeta[key] = {
-        nombre: a.cliente, telefono: a.telefono || '', empresa: '',
-        producto: '—', correo: ''
+        nombre: a.cliente, telefono: a.telefono || '', empresa: '', producto: '—', correo: ''
       };
     });
   }
 
-  // ── 2. Calcular días sin contacto ──────────────────────────────────
+  // Fuente B: ventas PBS — solo como fallback si no hay actividad más reciente
+  if (!fuenteFiltro || fuenteFiltro === 'ventas') {
+    ventas.filter(v => v.producto === 'PBS' && !v._importadoSura).forEach(v => {
+      const key = normalize(v.nombre);
+      if (!key) return;
+      const fecha = v.fecha || '';
+      // Solo actualiza si NO hay ya una actividad más reciente para este cliente
+      if (!ultimoContacto[key] || (ultimoContacto[key].fuente !== 'Actividad' && fecha > ultimoContacto[key].fecha)) {
+        ultimoContacto[key] = { fecha, fuente: 'PBS' };
+      }
+      if (!clientesMeta[key]) clientesMeta[key] = {
+        nombre: v.nombre, telefono: v.telefono || '', empresa: v.empresa || '',
+        producto: 'PBS', correo: v.correo || '', ventaId: v.id
+      };
+      // Siempre enriquecer meta si tenemos más datos
+      if (clientesMeta[key] && !clientesMeta[key].telefono && v.telefono)
+        clientesMeta[key].telefono = v.telefono;
+    });
+  }
+
+  // Fuente C: pipeline — fallback si no hay actividad ni venta
+  if (!fuenteFiltro || fuenteFiltro === 'pipeline') {
+    pipeline.forEach(p => {
+      const key = normalize(p.nombre);
+      if (!key) return;
+      const fecha = p.fechaRegistro || p.fecha || '';
+      if (!ultimoContacto[key] || (ultimoContacto[key].fuente === 'Pipeline' && fecha > ultimoContacto[key].fecha)) {
+        if (!ultimoContacto[key]) ultimoContacto[key] = { fecha, fuente: 'Pipeline' };
+      }
+      if (!clientesMeta[key]) clientesMeta[key] = {
+        nombre: p.nombre, telefono: p.telefono || '', empresa: p.empresa || '',
+        producto: 'Prospecto', correo: p.correo || ''
+      };
+    });
+  }
+
+  // ── Calcular días sin contacto ────────────────────────────────────────────
   const PRODUCTOS_VOL = ['SPTI','SPD','PSM','PAC60'];
   const clientesConVol = new Set(
     ventas.filter(v => PRODUCTOS_VOL.includes(v.producto)).map(v => normalize(v.nombre))
   );
 
   const resultados = Object.entries(ultimoContacto).map(([key, info]) => {
-    const meta    = clientesMeta[key] || {};
+    const meta     = clientesMeta[key] || {};
     const fechaUlt = info.fecha ? new Date(info.fecha + 'T12:00:00') : null;
     const diasSin  = fechaUlt ? Math.floor((hoy - fechaUlt) / 86400000) : 9999;
     const tieneVol = clientesConVol.has(key);
     return { key, diasSin, tieneVol, fuente: info.fuente, ...meta, fechaUlt: info.fecha };
   }).filter(c => c.diasSin >= 0);
 
-  // ── 3. KPIs ────────────────────────────────────────────────────────
+  // ── KPIs ──────────────────────────────────────────────────────────────────
   const criticos      = resultados.filter(c => c.diasSin >= diasUmbral * 2).length;
   const normales      = resultados.filter(c => c.diasSin >= diasUmbral && c.diasSin < diasUmbral * 2).length;
   const sinVoluntario = resultados.filter(c => !c.tieneVol && c.producto === 'PBS').length;
   const recientes     = resultados.filter(c => c.diasSin <= 7).length;
+
+  // ── MEJORA 3: KPI Cartera en riesgo ──────────────────────────────────────
+  const ventasVoluntarias = ventas.filter(v => PRODUCTOS_VOL.includes(v.producto) && v.tipo !== 'CANCELACION' && !v._importadoSura);
+  const enRiesgo = ventasVoluntarias.filter(v => {
+    const est = getCarteraEstado(v, pagos);
+    if (!est) return false;
+    return ['MORA','SUSPENDIDO','VENCIDO','PROXIMO'].includes(est.estado);
+  });
+
   document.getElementById('radarKpi0').textContent = criticos;
   document.getElementById('radarKpi1').textContent = normales;
   document.getElementById('radarKpi2').textContent = sinVoluntario;
   document.getElementById('radarKpi3').textContent = recientes;
+  document.getElementById('radarKpi4').textContent = enRiesgo.length;
 
-  // ── 4. Tab: Sin Contacto ───────────────────────────────────────────
+  // ── TAB 1: Sin Contacto ───────────────────────────────────────────────────
   const sinContacto = resultados
     .filter(c => c.diasSin >= diasUmbral)
     .sort((a,b) => b.diasSin - a.diasSin);
@@ -19106,74 +19508,154 @@ function renderRadar() {
     listaSC.innerHTML = `<div class="empty-state"><div class="icon">🎉</div><div>¡Todos tus clientes han sido contactados en los últimos ${diasUmbral} días!</div></div>`;
   } else {
     listaSC.innerHTML = sinContacto.map(c => {
-      const esCritico = c.diasSin >= diasUmbral * 2;
+      const esCritico   = c.diasSin >= diasUmbral * 2;
       const borderColor = esCritico ? 'var(--red)' : 'var(--amber)';
-      const badge = esCritico
+      const badge       = esCritico
         ? `<span class="chip chip-red" style="font-size:10px;">🔴 ${c.diasSin}d sin contacto</span>`
         : `<span class="chip chip-amber" style="font-size:10px;">🟡 ${c.diasSin}d sin contacto</span>`;
       const waUrl = c.telefono ? `https://wa.me/57${c.telefono.replace(/\D/g,'')}` : '';
       const iconFuente = { PBS:'🏥', Pipeline:'🎯', Actividad:'📝' }[c.fuente] || '📋';
+      // Fuente badge — distinguir si el último contacto es actividad real o solo fecha de venta
+      const fuenteNota = c.fuente === 'Actividad'
+        ? `<span style="color:var(--green);font-size:10.5px;">✅ Último contacto real</span>`
+        : `<span style="color:var(--text-dim);font-size:10.5px;">⚠️ Sin actividad registrada — últ. ref: fecha de venta</span>`;
       return `<div class="card" style="border-left:3px solid ${borderColor};margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
           <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:700;margin-bottom:3px;">${c.nombre || '—'}</div>
-            <div style="font-size:11.5px;color:var(--text-muted);">
+            <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">
               ${iconFuente} ${c.fuente}
               ${c.empresa ? ` · 🏢 ${c.empresa}` : ''}
-              ${c.fechaUlt ? ` · Último contacto: <strong>${new Date(c.fechaUlt+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}</strong>` : ' · Sin contacto registrado'}
+              ${c.fechaUlt ? ` · Último: <strong>${new Date(c.fechaUlt+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}</strong>` : ' · Sin fecha'}
             </div>
+            ${fuenteNota}
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             ${badge}
             ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);text-decoration:none;">📱 WhatsApp</a>` : ''}
-            <button class="btn btn-secondary btn-sm" onclick="radarRegistrarContacto('${c.nombre?.replace(/'/g,"\\'")||''}','${c.telefono||''}')">✏️ Registrar actividad</button>
+            <button class="btn btn-secondary btn-sm" onclick="radarRegistrarContacto('${(c.nombre||'').replace(/'/g,"\'")}','${c.telefono||''}')">✏️ Actividad</button>
           </div>
         </div>
       </div>`;
     }).join('');
   }
 
-  // ── 5. Tab: Venta Cruzada ──────────────────────────────────────────
+  // ── TAB 2: Venta Cruzada — MEJORA 2: priorización inteligente ────────────
+  // Segmentar por perfil: cotizante empresa > independiente con PAC > sin perfil
   const oportCruzada = resultados
     .filter(c => !c.tieneVol && c.producto === 'PBS')
-    .sort((a,b) => a.diasSin - b.diasSin);
+    .map(c => {
+      // Buscar venta PBS para enriquecer datos
+      const venta = ventas.find(v => v.producto === 'PBS' && normalize(v.nombre) === c.key);
+      const tipo  = venta?.tipo || '';
+      const plan  = venta?.plan || '';
+      // Score de prioridad: cotizante empresa = mayor oportunidad SPTI
+      let score = 0;
+      let productoSugerido = 'SPTI';
+      let razonSugerida = 'Amplía cobertura con Salud Para Todos Integral';
+      if (tipo === 'COTIZANTE') { score += 3; productoSugerido = 'SPTI'; razonSugerida = 'Cotizante activo — candidato ideal para SPTI'; }
+      if (tipo === 'BENEFICIARIO') { score += 1; productoSugerido = 'SPD'; razonSugerida = 'Beneficiario — considera Salud Para Dos (SPD)'; }
+      if (plan === 'PREFERENCIAL') { score += 2; }
+      if (c.empresa) { score += 1; }
+      if (c.diasSin <= 30) { score += 2; } // reciente = más probable el contacto
+      return { ...c, venta, tipo, plan, score, productoSugerido, razonSugerida };
+    })
+    .sort((a,b) => b.score - a.score || a.diasSin - b.diasSin);
 
+  const PROD_COLORS = { SPTI:'var(--teal)', SPD:'var(--purple)', PSM:'var(--amber)', PAC60:'var(--green)' };
   const listaVC = document.getElementById('radarListaCruzada');
   if (!oportCruzada.length) {
     listaVC.innerHTML = `<div class="empty-state"><div class="icon">🏆</div><div>¡Todos tus clientes PBS ya tienen al menos un producto voluntario!</div></div>`;
   } else {
     listaVC.innerHTML = oportCruzada.map(c => {
       const waBase = c.telefono ? `https://wa.me/57${c.telefono.replace(/\D/g,'')}` : '';
-      const msgWA = encodeURIComponent(`Hola ${c.nombre || ''}, como afiliado(a) de SURA quiero contarte sobre nuestros planes complementarios que amplían tu cobertura: Salud Para Todos Integral y Salud Para Dos. ¿Tienes unos minutos? — Tu asesor SURA`);
-      const waUrl = waBase ? `${waBase}?text=${msgWA}` : '';
-      const diasChip = c.diasSin <= 7
-        ? `<span class="chip chip-green" style="font-size:10px;">Contactado hace ${c.diasSin}d</span>`
-        : `<span class="chip chip-amber" style="font-size:10px;">Hace ${c.diasSin}d</span>`;
-      return `<div class="card" style="border-left:3px solid var(--teal);margin-bottom:10px;">
+      const msgWA  = encodeURIComponent(`Hola ${c.nombre||''}, como afiliado(a) de SURA quiero contarte sobre nuestros planes complementarios. Te puede interesar ${c.productoSugerido}. ¿Tienes unos minutos? — Tu asesor SURA`);
+      const waUrl  = waBase ? `${waBase}?text=${msgWA}` : '';
+      const prioColor = c.score >= 5 ? 'var(--teal)' : c.score >= 3 ? 'var(--amber)' : 'var(--text-muted)';
+      const prioBadge = c.score >= 5
+        ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(6,182,212,0.15);color:var(--teal);">⭐ Alta prioridad</span>`
+        : c.score >= 3
+        ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,0.12);color:var(--amber);">🔵 Media prioridad</span>`
+        : `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.06);color:var(--text-muted);">⚪ Baja prioridad</span>`;
+      return `<div class="card" style="border-left:3px solid ${prioColor};margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:700;margin-bottom:3px;">${c.nombre || '—'}</div>
-            <div style="font-size:11.5px;color:var(--text-muted);">
-              🏥 PBS · ${c.empresa ? `🏢 ${c.empresa}` : 'Sin empresa registrada'}
-              · <span style="color:var(--teal);font-weight:600;">Sin SPTI · Sin SPD · Sin Modular · Sin 60+</span>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap;">
+              <span style="font-size:14px;font-weight:700;">${c.nombre || '—'}</span>
+              ${prioBadge}
+            </div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">
+              🏥 PBS ${c.tipo ? `· ${c.tipo}` : ''} ${c.plan ? `· ${c.plan}` : ''}
+              ${c.empresa ? ` · 🏢 ${c.empresa}` : ''}
+            </div>
+            <div style="font-size:11.5px;color:${PROD_COLORS[c.productoSugerido]||'var(--teal)'};font-weight:600;">
+              💡 ${c.razonSugerida}
             </div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            ${diasChip}
-            ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:rgba(6,182,212,0.15);color:var(--teal);border:1px solid rgba(6,182,212,0.3);text-decoration:none;">💬 Ofrecer voluntario</a>` : ''}
-            <button class="btn btn-primary btn-sm" onclick="openModal('modalVenta');setTimeout(()=>{const pills=document.querySelectorAll('.tab-pill');if(pills[1])setModalTab('spti',pills[1]);},200)">⚡ Cotizar</button>
+            <span style="font-size:10.5px;color:var(--text-dim);">Último contacto: ${c.diasSin === 9999 ? 'nunca' : c.diasSin+'d'}</span>
+            ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:rgba(6,182,212,0.15);color:var(--teal);border:1px solid rgba(6,182,212,0.3);text-decoration:none;">💬 Ofrecer ${c.productoSugerido}</a>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="radarRegistrarContacto('${(c.nombre||'').replace(/'/g,"\'")}','${c.telefono||''}')">✏️ Actividad</button>
           </div>
         </div>
       </div>`;
     }).join('');
   }
 
-  // ── 6. Tab: Seguimientos Pendientes ───────────────────────────────
-  const en3dias = new Date(hoy); en3dias.setDate(en3dias.getDate() + 3);
-  const en3diasStr = en3dias.toISOString().split('T')[0];
+  // ── TAB 3: Cartera en Riesgo (NUEVA) ─────────────────────────────────────
+  const URGENCIA_ORD = { SUSPENDIDO:0, MORA:1, VENCIDO:2, PROXIMO:3 };
+  const enRiesgoDetalle = ventasVoluntarias
+    .map(v => ({ v, est: getCarteraEstado(v, pagos) }))
+    .filter(x => x.est && ['MORA','SUSPENDIDO','VENCIDO','PROXIMO'].includes(x.est.estado))
+    .sort((a,b) => (URGENCIA_ORD[a.est.estado]??9) - (URGENCIA_ORD[b.est.estado]??9) || b.est.dias - a.est.dias);
+
+  const listaR = document.getElementById('radarListaRiesgo');
+  if (!enRiesgoDetalle.length) {
+    listaR.innerHTML = `<div class="empty-state"><div class="icon">✅</div><div>¡Toda tu cartera voluntaria está al día!</div></div>`;
+  } else {
+    const EST_CFG = {
+      SUSPENDIDO: { color:'var(--red)',   label:'🔴 Suspendida',     msg:'Contáctalo hoy — riesgo de cancelación inminente' },
+      MORA:       { color:'var(--amber)', label:'🟡 En mora',        msg:'Gestionar pago antes de que pase a suspensión' },
+      VENCIDO:    { color:'var(--amber)', label:'🟠 Vencida',        msg:'Período vencido — confirmar si pagó o recordar' },
+      PROXIMO:    { color:'var(--teal)',  label:'🔵 Vence pronto',   msg:'Recordar al cliente antes del vencimiento' },
+    };
+    listaR.innerHTML = enRiesgoDetalle.map(({v, est}) => {
+      const cfg   = EST_CFG[est.estado] || {};
+      const key   = normalize(v.nombre);
+      const waUrl = v.telefono ? `https://wa.me/57${v.telefono.replace(/\D/g,'')}` : '';
+      const msgWA = encodeURIComponent(`Hola ${v.nombre||''}, te contacto por tu póliza ${v.producto||''} con SURA. ${cfg.msg||''}. ¿Podemos coordinar el pago? — Tu asesor SURA`);
+      const proxVencStr = est.proxVenc ? est.proxVenc.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      const ultimaAct   = actividades.filter(a => normalize(a.cliente) === key).sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
+      return `<div class="card" style="border-left:3px solid ${cfg.color};margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap;">
+              <span style="font-size:14px;font-weight:700;">${v.nombre || '—'}</span>
+              <span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;background:${cfg.color}18;color:${cfg.color};">${cfg.label}</span>
+              <span style="font-size:10.5px;padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--text-muted);">${v.producto||''}</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">
+              ${v.empresa ? `🏢 ${v.empresa} · ` : ''}📅 Próx. venc: <strong>${proxVencStr}</strong>
+              ${est.dias > 0 ? ` · <span style="color:${cfg.color};font-weight:600;">${est.dias} días</span>` : ''}
+            </div>
+            <div style="font-size:11.5px;color:${cfg.color};">💬 ${cfg.msg}</div>
+            ${ultimaAct ? `<div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;">Último contacto registrado: ${new Date(ultimaAct.fecha+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}</div>` : '<div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;">Sin actividad registrada</div>'}
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            ${waUrl ? `<a href="${waUrl}?text=${msgWA}" target="_blank" class="btn btn-sm" style="background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);text-decoration:none;">📱 WhatsApp</a>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="radarRegistrarContacto('${(v.nombre||'').replace(/'/g,"\'")}','${v.telefono||''}')">✏️ Actividad</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── TAB 4: Seguimientos Pendientes ────────────────────────────────────────
+  const en7dias    = new Date(hoy); en7dias.setDate(en7dias.getDate() + 7);
+  const en7diasStr = en7dias.toISOString().split('T')[0];
 
   const seguimientos = actividades
-    .filter(a => a.seguimiento && a.seguimiento >= hoyStr && a.seguimiento <= en3diasStr)
+    .filter(a => a.seguimiento && a.seguimiento >= hoyStr && a.seguimiento <= en7diasStr)
     .sort((a,b) => a.seguimiento.localeCompare(b.seguimiento));
 
   const vencidos = actividades
@@ -19181,39 +19663,38 @@ function renderRadar() {
     .sort((a,b) => a.seguimiento.localeCompare(b.seguimiento));
 
   const todosSegs = [...vencidos, ...seguimientos];
-  const listaS = document.getElementById('radarListaSeguimiento');
+  const listaS    = document.getElementById('radarListaSeguimiento');
 
   if (!todosSegs.length) {
-    listaS.innerHTML = `<div class="empty-state"><div class="icon">✅</div><div>No hay seguimientos pendientes en los próximos 3 días</div></div>`;
+    listaS.innerHTML = `<div class="empty-state"><div class="icon">✅</div><div>No hay seguimientos pendientes en los próximos 7 días</div></div>`;
   } else {
     listaS.innerHTML = todosSegs.map(a => {
-      const esVencido = a.seguimiento < hoyStr;
+      const esVencido   = a.seguimiento < hoyStr;
       const borderColor = esVencido ? 'var(--red)' : 'var(--amber)';
-      const badge = esVencido
+      const badge       = esVencido
         ? `<span class="chip chip-red" style="font-size:10px;">⚠️ Vencido ${new Date(a.seguimiento+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}</span>`
         : `<span class="chip chip-amber" style="font-size:10px;">🔔 ${new Date(a.seguimiento+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}</span>`;
-      const waUrl = a.telefono ? `https://wa.me/57${a.telefono.replace(/\D/g,'')}` : '';
+      const waUrl    = a.telefono ? `https://wa.me/57${a.telefono.replace(/\D/g,'')}` : '';
       const iconTipo = { LLAMADA:'📞', VISITA:'🏢', WHATSAPP:'💬', CORREO:'📧', REUNION:'🤝', SEGUIMIENTO:'🔄' }[a.tipo] || '📋';
       return `<div class="card" style="border-left:3px solid ${borderColor};margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
           <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:700;margin-bottom:3px;">${iconTipo} ${a.cliente || '—'}</div>
             <div style="font-size:11.5px;color:var(--text-muted);">
-              ${a.descripcion || ''}
-              ${a.notas ? ` · <em>${a.notas}</em>` : ''}
+              ${a.tipo || ''} ${a.empresa ? `· 🏢 ${a.empresa}` : ''}
+              ${a.notas ? `<br><span style="color:var(--text-dim);">${a.notas}</span>` : ''}
             </div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             ${badge}
             ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);text-decoration:none;">📱 WhatsApp</a>` : ''}
-            <button class="btn btn-secondary btn-sm" onclick="openModal('modalActividad');setTimeout(()=>{document.getElementById('aCliente').value='${(a.cliente||'').replace(/'/g,"\\'")}';document.getElementById('aTelefono').value='${a.telefono||''}';},150)">✏️ Registrar</button>
+            <button class="btn btn-secondary btn-sm" onclick="radarRegistrarContacto('${(a.cliente||'').replace(/'/g,"\'")}','${a.telefono||''}')">✏️ Actividad</button>
           </div>
         </div>
       </div>`;
     }).join('');
   }
 
-  // Mostrar tab activo
   setRadarTab(radarTabActual, document.querySelector(`#radarTabs .tab-pill.active`));
 }
 
