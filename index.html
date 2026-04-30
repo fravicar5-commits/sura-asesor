@@ -6017,21 +6017,22 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
               <div class="card-title">3 · Configuración de envío</div>
               <div style="display:flex;flex-direction:column;gap:10px;">
                 <div class="form-group" style="margin-bottom:0;">
-                  <label class="form-label">🌐 URL del servidor WaSend</label>
+                  <label class="form-label">URL del servidor WaSend</label>
                   <div style="display:flex;gap:8px;">
                     <input type="text" class="form-control" id="wm_server_url"
-                      placeholder="https://wasend.onrender.com"
+                      placeholder="https://tu-servidor.onrender.com"
                       style="flex:1;"
                       oninput="wmGuardarConfigServidor()">
-                    <button class="btn btn-secondary btn-sm" onclick="wmVerificarServidor()" style="white-space:nowrap;">🔄 Verificar</button>
+                    <button class="btn btn-secondary btn-sm" onclick="wmVerificarServidor()" style="white-space:nowrap;">🔄 Probar</button>
                   </div>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
                   <label class="form-label">⏱ Delay entre mensajes (segundos)</label>
-                  <input type="number" class="form-control" id="wm_delay_seg" value="5" min="2" max="60" oninput="wmGuardarConfigServidor()">
+                  <input type="number" class="form-control" id="wm_delay_seg"
+                    value="5" min="2" max="60" oninput="wmGuardarConfigServidor()">
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);padding:8px;background:var(--surface2);border-radius:6px;">
-                  ℹ️ Servidor whatsapp-web.js · sin token Meta · sin Phone ID. Escanea el QR una vez y la sesión persiste en Render.
+                  ℹ️ El servidor WaSend gestiona la autenticación internamente. No se requiere token ni Phone ID desde la app. Delay recomendado: 5–10s.
                 </div>
               </div>
             </div>
@@ -25386,112 +25387,357 @@ let wmEnviando = false;
 let wmDetener  = false;
 let wmTabActual = 'sura';
 
+function wmGetServer() {
+  return (document.getElementById('wm_server_url')?.value || '').trim().replace(/\/$/, '')
+    || localStorage.getItem('wm_server_url') || 'https://wasend.onrender.com';
+}
+function wmGuardarConfigServidor() {
+  const url   = document.getElementById('wm_server_url')?.value?.trim() || '';
+  const delay = document.getElementById('wm_delay_seg')?.value          || '5';
+  try {
+    if (url) localStorage.setItem('wm_server_url', url);
+    localStorage.setItem('wm_delay_seg', delay);
+  } catch(e) {}
+}
+// ── DIAGNÓSTICO DE ENVÍO ──────────────────────────────────────────────────
+async function wmDiagnostico() {
+  const server = wmGetServer();
+  const resEl  = document.getElementById('wm_diag_resultado');
+  const numRaw = (document.getElementById('wm_diag_numero')?.value || '').trim();
+  if (!server) { showToast('⚠️ Configura la URL del servidor'); return; }
+  if (!numRaw) { showToast('⚠️ Ingresa un número destino'); return; }
+
+  const tel    = wmNormalizarTel(numRaw);
+  const chatId = `${tel}@c.us`;
+  const msg    = 'Prueba diagnóstico SURA';
+
+  if (resEl) { resEl.style.display = ''; resEl.textContent = `🔍 Explorando servidor...\n`; }
+
+  // ── Paso 1: descubrir rutas disponibles ────────────────────────────────
+  const rutasExplorer = ['/api/send', '/api/routes', '/api', '/', '/api/status', '/api/contacts', '/api/chats'];
+  if (resEl) resEl.textContent += '\n--- RUTAS DISPONIBLES ---\n';
+  for (const ruta of rutasExplorer) {
+    try {
+      const r = await fetch(`${server}${ruta}`, { signal: AbortSignal.timeout(6000), headers: { 'Accept': 'application/json' } });
+      let txt = '';
+      try { txt = JSON.stringify(await r.json()); } catch(e) { txt = (await r.text().catch(() => '')).slice(0, 300); }
+      if (resEl) resEl.textContent += `[${r.status}] GET ${ruta} → ${txt.slice(0,200)}\n`;
+    } catch(e) {
+      if (resEl) resEl.textContent += `[ERR] GET ${ruta} → ${e.message.slice(0,60)}\n`;
+    }
+  }
+
+  // ── Paso 2: enviar payload con TODOS los campos posibles a la vez ───────
+  if (resEl) resEl.textContent += '\n--- PAYLOAD COMPLETO (todos los campos) ---\n';
+  const payloadFull = {
+    // Identificadores de destino — todos los nombres posibles
+    chatId, phone: tel, number: tel, to: tel, recipient: chatId,
+    destination: tel, target: tel, jid: chatId, id: tel,
+    // Cuerpo del mensaje — todos los nombres posibles
+    message: msg, body: msg, text: msg, content: msg, caption: msg, msg,
+    // Extras comunes
+    session: 'default', instance: 'default', type: 'text',
+  };
+  const diagHeaders = { 'Content-Type': 'application/json' };
+  try {
+    const r = await fetch(`${server}/api/send`, {
+      method: 'POST', headers: diagHeaders,
+      body: JSON.stringify(payloadFull), signal: AbortSignal.timeout(12000)
+    });
+    let txt = '';
+    try { txt = JSON.stringify(await r.json()); } catch(e) { txt = await r.text().catch(() => ''); }
+    if (resEl) resEl.textContent += `[${r.status}] POST /api/send (full) → ${txt.slice(0,400)}\n`;
+    if (r.ok) { showToast('✅ Payload completo funcionó'); return; }
+  } catch(e) {
+    if (resEl) resEl.textContent += `[ERR] POST /api/send (full) → ${e.message}\n`;
+  }
+
+  // ── Paso 3: intentar GET /api/contacts para ver formato de contacto ─────
+  if (resEl) resEl.textContent += '\n--- BUSCAR CAMPO "contactos" ---\n';
+  const payloadsContactos = [
+    { contactos: [{ chatId, message: msg }] },
+    { contactos: [tel], message: msg },
+    { contactos: [{ number: tel, message: msg }] },
+    { recipients: [tel], message: msg },
+    { numbers: [tel], message: msg },
+    { contacts: [tel], body: msg },
+    { to: [tel], message: msg },
+  ];
+  for (const p of payloadsContactos) {
+    try {
+      const r = await fetch(`${server}/api/send`, {
+        method: 'POST', headers: diagHeaders,
+        body: JSON.stringify(p), signal: AbortSignal.timeout(8000)
+      });
+      let txt = '';
+      try { txt = JSON.stringify(await r.json()); } catch(e) { txt = await r.text().catch(() => ''); }
+      if (resEl) resEl.textContent += `[${r.status}] ${JSON.stringify(p).slice(0,80)} → ${txt.slice(0,150)}\n`;
+      if (r.ok) { showToast('✅ Formato encontrado: ' + JSON.stringify(p).slice(0,60)); return; }
+    } catch(e) {
+      if (resEl) resEl.textContent += `[ERR] ${JSON.stringify(p).slice(0,60)} → ${e.message.slice(0,60)}\n`;
+    }
+  }
+
+  if (resEl) resEl.textContent += '\n⬆️ Comparte este resultado para identificar el formato exacto.';
+}
+
+// ── UTILIDADES ────────────────────────────────────────────────────────────
+// Normaliza cualquier número colombiano a formato 57XXXXXXXXXX (10 dígitos locales)
+function wmNormalizarTel(raw) {
+  let t = String(raw).replace(/\D/g, '');
+  if (!t) return '';                                         // vacío → inválido
+  if (t.startsWith('57') && t.length === 12) return t;      // ya correcto
+  if (t.startsWith('57') && t.length > 12)  t = t.slice(2); // quitar 57 doble
+  if (t.startsWith('0'))                     t = t.slice(1); // quitar 0 inicial
+  if (t.length === 10) return '57' + t;                      // celular colombiano
+  if (t.length === 7)  return '57' + t;                      // fijo sin área
+  if (t.length < 7)   return '';                             // número inválido
+  return '57' + t;                                           // fallback
+}
+
+function wmCargarConfigServidor() {
+  const url   = localStorage.getItem('wm_server_url') || 'https://wasend.onrender.com';
+  const delay = localStorage.getItem('wm_delay_seg')  || '5';
+  const urlEl   = document.getElementById('wm_server_url');
+  const delayEl = document.getElementById('wm_delay_seg');
+  if (urlEl)   urlEl.value   = url;
+  if (delayEl) delayEl.value = delay;
+}
+
+// Rutas conocidas por tipo de servidor
+function wmGetRutasPorTipo() {
+  return { status: ['/api/status'], send: '/api/send' };
+}
+
+function wmGetCredentials() {
+  return { token: '', phoneId: '' }; // WaSend gestiona auth internamente
+}
+
+const WM_PLANTILLAS = {
+  cobro:      `Hola {nombre} 👋, te recordamos que tienes un saldo pendiente en tu póliza *{producto}* con SURA.\n\nEl valor en mora es de *{mora}*. Para evitar la suspensión del servicio, te invitamos a regularizar tu pago.\n\n¿Necesitas información? Con gusto te ayudamos. 🙏\n\n_{asesor}_`,
+  suspension: `Hola {nombre}, tu póliza *{producto}* está en riesgo de *suspensión* por un saldo de *{mora}*.\n\nFecha límite: *{fecha}*. Comunícate con nosotros de inmediato. 📋\n\n_{asesor}_ · SURA`,
+  bienvenida: `¡Hola {nombre}! 🎉 Bienvenido(a) a tu plan *{producto}* de SURA. Ya tienes cobertura activa.\n\nSoy {asesor}, tu asesor de confianza. Cualquier duda, aquí estoy. 😊`,
+  renovacion: `Hola {nombre}, tu póliza *{producto}* está próxima a vencer. 🔔\n\nFecha: *{fecha}*. Renuévala y mantén tu protección.\n\n_{asesor}_`
+};
+
 // ── TABS ──────────────────────────────────────────────────────────────────
 function wmSetTab(tab) {
   wmTabActual = tab;
-  const tabs = { sura: 'wm_tab_sura', excel: 'wm_tab_excel', manual: 'wm_tab_manual' };
-  const panels = { sura: 'wm_panel_sura', excel: 'wm_panel_excel', manual: 'wm_panel_manual' };
-  Object.keys(tabs).forEach(t => {
-    const btn = document.getElementById(tabs[t]);
-    const pan = document.getElementById(panels[t]);
-    if (btn) {
-      if (t === tab) {
-        btn.style.background = 'rgba(26,76,232,0.15)';
-        btn.style.color = 'var(--sura-blue)';
-        btn.style.borderColor = 'var(--sura-blue)';
-        btn.style.fontWeight = '600';
-      } else {
-        btn.style.background = 'none';
-        btn.style.color = 'var(--text-muted)';
-        btn.style.borderColor = 'var(--border)';
-        btn.style.fontWeight = '400';
-      }
-    }
-    if (pan) pan.style.display = t === tab ? '' : 'none';
+  ['sura','excel','manual'].forEach(t => {
+    const panel = document.getElementById('wm_panel_' + t);
+    const btn   = document.getElementById('wm_tab_' + t);
+    if (!panel || !btn) return;
+    const active = t === tab;
+    panel.style.display = active ? '' : 'none';
+    btn.style.background   = active ? 'rgba(26,76,232,0.15)' : 'none';
+    btn.style.borderColor  = active ? 'var(--sura-blue)'     : 'var(--border)';
+    btn.style.color        = active ? 'var(--sura-blue)'     : 'var(--text-muted)';
+    btn.style.fontWeight   = active ? '600' : '400';
   });
+  if (tab === 'sura') wmFiltrarClientes();
 }
 
-// ── FILTRAR CLIENTES SURA ─────────────────────────────────────────────────
+// ── FUENTE: CLIENTES SURA ────────────────────────────────────────────────
 function wmFiltrarClientes() {
   const producto    = document.getElementById('wm_producto')?.value || 'todos';
-  const estadoFiltro= document.getElementById('wm_estado')?.value   || 'todos';
+  const estadoFiltro = document.getElementById('wm_estado')?.value  || 'todos';
   const s = getState();
-
-  const agregarClientes = (arr, prod) => {
-    (arr || []).forEach(c => {
-      const tel = (c.telefono || c.celular || c.tel || '').replace(/\s/g, '');
-      if (!tel) return;
-      let mora = 0;
-      if (c.cuota && c.periodoHasta) {
-        const hoy   = new Date();
-        const hasta = new Date(c.periodoHasta);
-        if (hasta < hoy) {
-          const meses = Math.max(1, Math.round((hoy - hasta) / (30 * 24 * 3600 * 1000)));
-          mora = (parseFloat(c.cuota) || 0) * meses;
-        }
-      }
-      const enMora       = mora > 0;
-      const cuota        = parseFloat(c.cuota) || 0;
-      const enSuspension = enMora && mora >= cuota * 2;
-      if (estadoFiltro === 'mora'       && !enMora)       return;
-      if (estadoFiltro === 'al_dia'     && enMora)        return;
-      if (estadoFiltro === 'suspension' && !enSuspension) return;
-      clientes.push({
-        nombre:   c.nombre || c.titular || 'Cliente',
-        telefono: tel,
-        producto: prod,
-        mora:     mora > 0 ? '$' + mora.toLocaleString('es-CO') : '$0',
-        cedula:   c.cedula || c.nit || ''
-      });
-    });
-  };
-
+  const pagos = getPagos ? getPagos() : {};
+  const ventas = (s.ventas || []);
   let clientes = [];
-  if (producto === 'todos' || producto === 'pbs')  agregarClientes(s.pbs,  'PBS');
-  if (producto === 'todos' || producto === 'spti') agregarClientes(s.spti, 'SPTI');
-  if (producto === 'todos' || producto === 'spd')  agregarClientes(s.spd,  'SPD');
+
+  ventas.forEach(v => {
+    if (producto !== 'todos' && v.producto !== producto) return;
+    const tel = (v.telefono || v.celular || v.tel || '').replace(/\s/g, '');
+    if (!tel || tel.length < 7) return;
+
+    // Calcular si tiene pagos en mora (SPTI/SPD/PSM)
+    const pagosList = pagos[v.id] || [];
+    const tienePago = pagosList.length > 0;
+    const enMora = !tienePago && ['SPTI','SPD','PSM','PAC60'].includes(v.producto);
+
+    if (estadoFiltro === 'mora'   && !enMora) return;
+    if (estadoFiltro === 'al_dia' && enMora) return;
+
+    // Calcular mora aproximada desde cartera SURA si disponible
+    let moraStr = '$0';
+    if (_carteraSuraData && _carteraSuraData.length) {
+      const match = _carteraSuraData.find(r =>
+        r.cedula && v.doc && r.cedula.replace(/\D/g,'') === v.doc.replace(/\D/g,'')
+      );
+      if (match) moraStr = '$' + (match.saldoTotal || match.saldo || 0).toLocaleString('es-CO');
+    }
+
+    clientes.push({
+      nombre:   (v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0],
+      telefono: wmNormalizarTel(tel),
+      producto: v.producto,
+      mora:     moraStr,
+      cedula:   v.doc || v.cedula || ''
+    });
+  });
 
   // Deduplicar por teléfono
   const seen = new Set();
   wmClientesSegmento = clientes.filter(c => {
     if (seen.has(c.telefono)) return false;
-    seen.add(c.telefono); return true;
+    seen.add(c.telefono);
+    return true;
   });
 
-  const countEl = document.getElementById('wm_count');
-  if (countEl) countEl.textContent = wmClientesSegmento.length;
-
-  const lista = document.getElementById('wm_lista_clientes');
-  if (lista) {
-    lista.innerHTML = wmClientesSegmento.slice(0, 60).map(c => `
-      <div style="display:flex;justify-content:space-between;align-items:center;
-                  padding:5px 10px;background:var(--surface2);border-radius:6px;font-size:12px;">
-        <span style="font-weight:600;">${c.nombre}</span>
-        <span style="color:var(--text-muted);font-family:var(--mono);">
-          ${c.telefono} · <span style="color:var(--primary);">${c.producto}</span>
-        </span>
-      </div>`).join('')
-      + (wmClientesSegmento.length > 60
-          ? `<div style="text-align:center;font-size:11px;color:var(--text-dim);padding:4px;">
-               ...y ${wmClientesSegmento.length - 60} más</div>` : '');
-  }
+  wmRenderizarLista();
   wmActualizarPreview();
 }
 
-// ── REEMPLAZAR VARIABLES EN MENSAJE ──────────────────────────────────────
+// ── FUENTE: IMPORTAR EXCEL / CSV ─────────────────────────────────────────
+async function wmImportarExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('wm_excel_status');
+  if (statusEl) statusEl.textContent = 'Cargando...';
+
+  try {
+    // Usar SheetJS si disponible, si no intentar CSV
+    let rows = [];
+    if (file.name.endsWith('.csv')) {
+      const text = await file.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      const sep = lines[0].includes(';') ? ';' : ',';
+      const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/[^a-z]/g,''));
+      const telIdx  = headers.findIndex(h => ['telefono','celular','cel','phone','numero','tel'].includes(h));
+      const nomIdx  = headers.findIndex(h => ['nombre','cliente','name','contacto'].includes(h));
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(sep).map(c => c.trim().replace(/["\']/g,''));
+        const tel  = telIdx >= 0 ? cols[telIdx] : cols[0];
+        const nom  = nomIdx >= 0 ? cols[nomIdx] : ('Contacto ' + i);
+        if (tel && tel.replace(/\D/g,'').length >= 7) {
+          rows.push({ telefono: wmNormalizarTel(tel.replace(/\D/g,'')), nombre: nom, producto: '—', mora: '$0', cedula: '' });
+        }
+      }
+    } else {
+      // XLSX via SheetJS (cargado desde CDN en el archivo)
+      const buf = await file.arrayBuffer();
+      let XLSX;
+      try { XLSX = window.XLSX; } catch(e) {}
+      if (!XLSX) {
+        // Intentar cargar SheetJS dinámicamente
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+        XLSX = window.XLSX;
+      }
+      const wb   = XLSX.read(buf, { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      data.forEach((row, i) => {
+        const keys = Object.keys(row).map(k => k.toLowerCase().trim());
+        const getVal = (...names) => {
+          for (const n of names) {
+            const k = Object.keys(row).find(k2 => k2.toLowerCase().includes(n));
+            if (k && row[k]) return String(row[k]).trim();
+          }
+          return '';
+        };
+        const tel = getVal('telefono','celular','cel','phone','numero','tel').replace(/\D/g,'');
+        const nom = getVal('nombre','cliente','name','contacto') || ('Contacto ' + (i+1));
+        if (tel.length >= 7) {
+          rows.push({ telefono: wmNormalizarTel(tel), nombre: nom, producto: '—', mora: '$0', cedula: '' });
+        }
+      });
+    }
+
+    // Deduplicar
+    const seen = new Set();
+    wmClientesSegmento = rows.filter(r => {
+      if (seen.has(r.telefono)) return false;
+      seen.add(r.telefono); return true;
+    });
+
+    if (statusEl) statusEl.textContent = `✅ ${wmClientesSegmento.length} contactos cargados desde ${file.name}`;
+    wmRenderizarLista();
+    wmActualizarPreview();
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '❌ Error: ' + e.message;
+    console.error('wmImportarExcel:', e);
+  }
+  event.target.value = '';
+}
+
+// ── FUENTE: PEGAR NÚMEROS MANUAL ─────────────────────────────────────────
+function wmParsearManual() {
+  const raw = document.getElementById('wm_manual_txt')?.value || '';
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const resultado = [];
+  const seen = new Set();
+
+  lines.forEach((line, i) => {
+    const sep = line.includes(';') ? ';' : ',';
+    const parts = line.split(sep).map(p => p.trim());
+    const tel = parts[0].replace(/\D/g,'');
+    const nom = parts[1] || ('Contacto ' + (i+1));
+    if (tel.length >= 7 && !seen.has(tel)) {
+      seen.add(tel);
+      resultado.push({ telefono: wmNormalizarTel(tel), nombre: nom, producto: '—', mora: '$0', cedula: '' });
+    }
+  });
+
+  wmClientesSegmento = resultado;
+  wmRenderizarLista();
+  wmActualizarPreview();
+  showToast(`✅ ${resultado.length} contactos cargados`);
+}
+
+// ── RENDER LISTA ──────────────────────────────────────────────────────────
+function wmEliminarContacto(idx) {
+  wmClientesSegmento.splice(idx, 1);
+  wmRenderizarLista();
+  wmActualizarPreview();
+}
+
+function wmRenderizarLista() {
+  const countEl = document.getElementById('wm_count');
+  if (countEl) countEl.textContent = wmClientesSegmento.length;
+  const lista = document.getElementById('wm_lista_clientes');
+  if (!lista) return;
+  if (!wmClientesSegmento.length) { lista.innerHTML = ''; return; }
+  const MAX_VISIBLE = 60;
+  lista.innerHTML = wmClientesSegmento.slice(0, MAX_VISIBLE).map((c, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px 5px 10px;background:var(--surface2);border-radius:6px;font-size:12px;gap:6px;">
+      <span style="font-weight:600;min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nombre}</span>
+      <span style="color:var(--text-muted);font-family:var(--mono);font-size:11px;flex:1;">
+        ${c.telefono}${c.producto !== '—' ? ` · <span style="color:var(--sura-blue);">${c.producto}</span>` : ''}
+      </span>
+      <button onclick="wmEliminarContacto(${i})" title="Eliminar contacto"
+        style="background:rgba(240,82,82,0.12);border:none;color:var(--red);border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0;display:flex;align-items:center;justify-content:center;">×</button>
+    </div>
+  `).join('') + (wmClientesSegmento.length > MAX_VISIBLE
+    ? `<div style="text-align:center;font-size:11px;color:var(--text-dim);padding:4px;">…y ${wmClientesSegmento.length - MAX_VISIBLE} más (los primeros ${MAX_VISIBLE} se muestran)</div>`
+    : '');
+}
+
+// ── PLANTILLA / VARIABLES ─────────────────────────────────────────────────
+function wmCargarPlantilla() {
+  const val = document.getElementById('wm_plantilla')?.value;
+  if (!val || !WM_PLANTILLAS[val]) return;
+  const txt = document.getElementById('wm_texto');
+  if (txt) { txt.value = WM_PLANTILLAS[val]; wmActualizarPreview(); }
+}
+
 function wmReemplazarVars(texto, cliente) {
-  const s     = getState();
-  const asesor= s.config?.nombreAsesor || 'Tu asesor SURA';
-  const hoy   = new Date().toLocaleDateString('es-CO', { day:'2-digit', month:'long', year:'numeric' });
+  const s = getState();
+  const asesor = s.config?.nombreAsesor || 'Tu asesor SURA';
+  const hoy = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
   return texto
-    .replace(/{nombre}/g,   cliente.nombre   || '')
-    .replace(/{producto}/g, cliente.producto || '')
+    .replace(/{nombre}/g,   cliente.nombre   || 'Cliente')
+    .replace(/{producto}/g, cliente.producto || '—')
     .replace(/{mora}/g,     cliente.mora     || '$0')
     .replace(/{fecha}/g,    hoy)
     .replace(/{asesor}/g,   asesor);
 }
 
-// ── PREVIEW ───────────────────────────────────────────────────────────────
 function wmActualizarPreview() {
   const texto = document.getElementById('wm_texto')?.value || '';
   const box   = document.getElementById('wm_preview_box');
@@ -25500,8 +25746,8 @@ function wmActualizarPreview() {
     box.innerHTML = '<span style="color:var(--text-dim);font-style:italic;">El mensaje aparecerá aquí con datos del primer contacto...</span>';
     return;
   }
-  const c = wmClientesSegmento[0] || { nombre: 'Juan Pérez', producto: 'SPTI', mora: '$120.000', telefono: '3001234567' };
-  box.textContent = wmReemplazarVars(texto, c);
+  const cliente = wmClientesSegmento[0] || { nombre: 'Juan', producto: 'SPTI', mora: '$120.000', telefono: '3001234567' };
+  box.textContent = wmReemplazarVars(texto, cliente);
 }
 
 function wmInsertarVar(v) {
@@ -25510,8 +25756,7 @@ function wmInsertarVar(v) {
   const pos = txt.selectionStart;
   txt.value = txt.value.slice(0, pos) + v + txt.value.slice(txt.selectionEnd);
   txt.selectionStart = txt.selectionEnd = pos + v.length;
-  txt.focus();
-  wmActualizarPreview();
+  txt.focus(); wmActualizarPreview();
 }
 
 function wmCopiarPreview() {
@@ -25521,11 +25766,64 @@ function wmCopiarPreview() {
 }
 
 function wmAbrirWAPreview() {
-  const box    = document.getElementById('wm_preview_box');
-  const cliente= wmClientesSegmento[0];
+  const box = document.getElementById('wm_preview_box');
+  const cliente = wmClientesSegmento[0];
   if (!box || !cliente) { showToast('⚠️ Sin contactos cargados'); return; }
-  const tel = wmNormalizarTel(cliente.telefono);
+  const tel = cliente.telefono.startsWith('57') ? cliente.telefono : '57' + cliente.telefono;
   window.open(`https://wa.me/${tel}?text=${encodeURIComponent(box.textContent)}`, '_blank');
+}
+
+// ── SERVIDOR WASEND ───────────────────────────────────────────────────────
+async function wmVerificarServidor() {
+  const server = wmGetServer();
+  const dot    = document.getElementById('wm_status_dot');
+  const txt    = document.getElementById('wm_status_text');
+  const qrArea = document.getElementById('wm_qr_area');
+
+  if (!server) {
+    if (dot) dot.style.background = 'var(--amber)';
+    if (txt) txt.textContent = '⚠️ Ingresa la URL del servidor';
+    return;
+  }
+  if (dot) dot.style.background = 'var(--amber)';
+  if (txt) txt.textContent = 'Verificando...';
+
+  // WaSend usa /api/status sin autenticación del cliente
+  try {
+    const r = await fetch(`${server}/api/status`, {
+      signal: AbortSignal.timeout(70000),
+      headers: { 'Accept': 'application/json' }
+    });
+    let d = {};
+    try { d = await r.json(); } catch(e) {}
+
+    if (r.ok && d.ok) {
+      if (dot) dot.style.background = 'var(--green)';
+      const v = d.version ? ` v${d.version}` : '';
+      const p = d.phoneId ? ` · 📱 ${d.phoneId}` : '';
+      if (txt) txt.textContent = `✅ Conectado${v}${p} — listo para enviar`;
+      if (qrArea) qrArea.style.display = 'none';
+      wmLogLine(`✅ Servidor activo: ${JSON.stringify(d)}`, 'ok');
+    } else if (r.ok) {
+      if (dot) dot.style.background = 'var(--amber)';
+      if (txt) txt.textContent = `⚠️ Servidor responde pero no está listo: ${JSON.stringify(d).slice(0,80)}`;
+      wmLogLine(`⚠️ Estado: ${JSON.stringify(d)}`, 'warn');
+    } else {
+      if (dot) dot.style.background = 'var(--red)';
+      if (txt) txt.textContent = `❌ Servidor respondió con error ${r.status}`;
+      wmLogLine(`❌ /api/status → ${r.status}`, 'err');
+    }
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      if (dot) dot.style.background = 'var(--red)';
+      if (txt) txt.textContent = '❌ Timeout — servidor dormido en Render (espera ~30s y reintenta)';
+    } else {
+      // Error de red/CORS — el servidor sí existe y responde desde el browser
+      if (dot) dot.style.background = 'var(--amber)';
+      if (txt) txt.textContent = '⚠️ Error de red — el servidor existe pero bloqueó este request';
+      wmLogLine(`⚠️ Error de red: ${e.message.slice(0,120)}`, 'warn');
+    }
+  }
 }
 
 // ── LOG Y PROGRESO ────────────────────────────────────────────────────────
@@ -25547,212 +25845,82 @@ function wmActualizarProgreso(ok, fail, total) {
   if (txt) txt.textContent = `${ok + fail} / ${total}`;
 }
 
-// ── CARGA DE PLANTILLA ────────────────────────────────────────────────────
-function wmCargarPlantilla() {
-  const val = document.getElementById('wm_plantilla')?.value;
-  if (!val || !WM_PLANTILLAS[val]) return;
-  const txt = document.getElementById('wm_texto');
-  if (txt) { txt.value = WM_PLANTILLAS[val]; wmActualizarPreview(); }
-}
+// ── ADJUNTO ───────────────────────────────────────────────────────────────
+let _wmAdjunto = null; // { mediaId, mediaTipo, fileName, previewUrl }
 
-
-function wmGetServer() {
-  return (document.getElementById('wm_server_url')?.value || '').trim().replace(/\/$/, '')
-    || localStorage.getItem('wm_server_url') || 'https://wasend.onrender.com';
-}
-
-function wmGuardarConfigServidor() {
-  const url   = document.getElementById('wm_server_url')?.value?.trim() || '';
-  const delay = document.getElementById('wm_delay_seg')?.value || '5';
-  try {
-    if (url) localStorage.setItem('wm_server_url', url);
-    localStorage.setItem('wm_delay_seg', delay);
-  } catch(e) {}
-}
-
-function wmCargarConfigServidor() {
-  const url   = localStorage.getItem('wm_server_url') || 'https://wasend.onrender.com';
-  const delay = localStorage.getItem('wm_delay_seg')  || '5';
-  const urlEl   = document.getElementById('wm_server_url');
-  const delayEl = document.getElementById('wm_delay_seg');
-  if (urlEl   && url)   urlEl.value   = url;
-  if (delayEl && delay) delayEl.value = delay;
-}
-
-// ── VERIFICAR SERVIDOR (whatsapp-web.js) ─────────────────────────────────
-async function wmVerificarServidor() {
-  const server = wmGetServer();
-  const dot    = document.getElementById('wm_status_dot');
-  const txt    = document.getElementById('wm_status_text');
-  const qrArea = document.getElementById('wm_qr_area');
-
-  if (!server) {
-    if (dot) dot.style.background = 'var(--amber)';
-    if (txt) txt.textContent = '⚠️ Ingresa la URL del servidor primero';
+function wmCargarAdjunto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('⚠️ El archivo supera los 10 MB');
+    event.target.value = '';
     return;
   }
-  if (dot) dot.style.background = 'var(--amber)';
-  if (txt) txt.textContent = 'Verificando...';
-
-  // Los endpoints de whatsapp-web.js que probamos en orden
-  const endpointsStatus = ['/status', '/api/status', '/health', '/ping', '/'];
-
-  for (const ep of endpointsStatus) {
-    try {
-      const r = await fetch(`${server}${ep}`, {
-        signal: AbortSignal.timeout(12000),
-        headers: { 'Accept': 'application/json' }
-      });
-
-      let d = {};
-      try { d = await r.json(); } catch(e) {}
-
-      if (r.ok) {
-        // Detectar si está conectado a WhatsApp
-        const connected = d.connected === true || d.status === 'connected'
-          || d.state === 'CONNECTED' || d.ready === true || d.authenticated === true;
-        const hasQr = !!(d.qr || d.qrCode || d.qr_code);
-
-        if (connected) {
-          if (dot) dot.style.background = 'var(--green)';
-          if (txt) txt.textContent = `✅ Conectado y listo · ${ep}`;
-          if (qrArea) qrArea.style.display = 'none';
-          wmLogLine(`✅ Servidor activo en ${server}${ep} · WhatsApp conectado`, 'ok');
-          return;
-        } else if (hasQr) {
-          if (dot) dot.style.background = 'var(--amber)';
-          if (txt) txt.textContent = '📱 Escanea el QR para conectar WhatsApp';
-          if (qrArea) qrArea.style.display = '';
-          const qrImg = document.getElementById('wm_qr_img');
-          const qrRaw = d.qr || d.qrCode || d.qr_code || '';
-          if (qrImg && qrRaw) {
-            qrImg.src = qrRaw.startsWith('data:') ? qrRaw
-              : `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrRaw)}`;
-          }
-          wmLogLine(`📱 QR disponible en ${server}${ep} — escanea con WhatsApp`, 'warn');
-          return;
-        } else {
-          // Servidor responde pero estado desconocido
-          if (dot) dot.style.background = 'var(--amber)';
-          if (txt) txt.textContent = `⚠️ Servidor responde (${ep}) · estado: ${JSON.stringify(d).slice(0,60)}`;
-          wmLogLine(`⚠️ ${server}${ep} → ${r.status} · ${JSON.stringify(d).slice(0,80)}`, 'warn');
-          return;
-        }
-      }
-      // Si 4xx/5xx, probar siguiente endpoint
-    } catch(e) {
-      if (e.name === 'AbortError') {
-        if (dot) dot.style.background = 'var(--red)';
-        if (txt) txt.textContent = '❌ Timeout — servidor puede estar dormido en Render (espera ~30s)';
-        wmLogLine(`❌ Timeout en ${server}${ep}`, 'err');
-        return;
-      }
-      // Error de red/CORS — servidor existe pero bloquea el request del browser
-      if (dot) dot.style.background = 'var(--amber)';
-      if (txt) txt.textContent = `⚠️ Error de red en ${ep} — revisa CORS en el servidor`;
-      wmLogLine(`⚠️ Error de red: ${e.message.slice(0,80)}`, 'warn');
-    }
-  }
-
-  if (dot) dot.style.background = 'var(--red)';
-  if (txt) txt.textContent = '❌ Ningún endpoint respondió correctamente';
-  wmLogLine('❌ No se pudo contactar el servidor en ningún endpoint', 'err');
-}
-
-// ── DIAGNÓSTICO ───────────────────────────────────────────────────────────
-async function wmDiagnostico() {
   const server = wmGetServer();
-  const resEl  = document.getElementById('wm_diag_resultado');
-  const numRaw = (document.getElementById('wm_diag_numero')?.value || '').trim();
-  if (!server) { showToast('⚠️ Configura la URL del servidor'); return; }
-  if (!numRaw) { showToast('⚠️ Ingresa un número destino'); return; }
-
-  const tel    = wmNormalizarTel(numRaw);
-  const chatId = `${tel}@c.us`;
-  const msg    = 'Prueba diagnóstico SURA';
-
-  if (resEl) { resEl.style.display = ''; resEl.textContent = `🔍 Explorando servidor ${server}...\n`; }
-
-  // Paso 1: descubrir endpoints
-  const rutas = ['/status', '/api/status', '/health', '/', '/send', '/api/send', '/message', '/api/message'];
-  if (resEl) resEl.textContent += '\n--- ENDPOINTS ---\n';
-  for (const ruta of rutas) {
-    try {
-      const r = await fetch(`${server}${ruta}`, { signal: AbortSignal.timeout(6000) });
-      let body = '';
-      try { body = JSON.stringify(await r.json()); } catch(e) { body = (await r.text().catch(() => '')).slice(0,200); }
-      if (resEl) resEl.textContent += `[${r.status}] GET ${ruta} → ${body.slice(0,150)}\n`;
-    } catch(e) {
-      if (resEl) resEl.textContent += `[ERR] GET ${ruta} → ${e.message.slice(0,60)}\n`;
-    }
+  const { token, phoneId } = wmGetCredentials();
+  if (!server || !token || !phoneId) {
+    showToast('⚠️ Configura servidor, token y Phone ID antes de adjuntar');
+    event.target.value = '';
+    return;
   }
 
-  // Paso 2: probar envío con todos los formatos posibles de whatsapp-web.js
-  if (resEl) resEl.textContent += '\n--- PAYLOADS DE ENVÍO ---\n';
-  const sendEndpoints = ['/send', '/api/send', '/message', '/api/message', '/api/sendMessage'];
-  const payloads = [
-    { chatId, message: msg },
-    { phone: tel, message: msg },
-    { number: tel, message: msg },
-    { to: chatId, body: msg },
-    { chatId, body: msg },
-  ];
-  for (const ep of sendEndpoints) {
-    for (const p of payloads) {
-      try {
-        const r = await fetch(`${server}${ep}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(p),
-          signal: AbortSignal.timeout(10000)
-        });
-        let body = '';
-        try { body = JSON.stringify(await r.json()); } catch(e) { body = (await r.text().catch(() => '')).slice(0,200); }
-        if (resEl) resEl.textContent += `[${r.status}] POST ${ep} ${JSON.stringify(p).slice(0,60)} → ${body.slice(0,120)}\n`;
-        if (r.ok) { showToast(`✅ Funciona: POST ${ep} con ${JSON.stringify(p).slice(0,50)}`); return; }
-      } catch(e) {
-        if (resEl) resEl.textContent += `[ERR] POST ${ep} → ${e.message.slice(0,60)}\n`;
-      }
+  const info   = document.getElementById('wm_adjunto_info');
+  const quitar = document.getElementById('wm_adjunto_quitar');
+  if (info) info.innerHTML = `<span style="color:var(--amber);">⏳ Subiendo a WhatsApp...</span>`;
+
+  const formData = new FormData();
+  formData.append('archivo', file, file.name);
+
+  fetch(`${server}/api/upload`, {
+    method: 'POST',
+    body: formData,
+    signal: AbortSignal.timeout(60000)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.error) throw new Error(d.error);
+    _wmAdjunto = { mediaId: d.media_id, mediaTipo: d.tipo, fileName: d.nombre };
+    if (info) {
+      const isImg = d.tipo === 'image';
+      info.innerHTML = `<span style="color:var(--green);">✅ ${isImg ? '🖼️' : '📄'} ${d.nombre} subido correctamente · media_id: ${d.media_id}</span>`;
     }
-  }
-  if (resEl) resEl.textContent += '\n⬆️ Comparte este resultado para identificar el endpoint correcto.';
+    if (quitar) quitar.style.display = '';
+    showToast('📎 Adjunto listo: ' + d.nombre);
+  })
+  .catch(e => {
+    if (info) info.innerHTML = `<span style="color:var(--red);">❌ Error al subir: ${e.message}</span>`;
+    showToast('❌ Error subiendo adjunto: ' + e.message);
+    _wmAdjunto = null;
+  });
+  event.target.value = '';
 }
 
-// ── NORMALIZACIÓN DE TELÉFONOS ────────────────────────────────────────────
-function wmNormalizarTel(raw) {
-  let t = String(raw).replace(/\D/g, '');
-  if (!t) return '';
-  if (t.startsWith('57') && t.length === 12) return t;
-  if (t.startsWith('57') && t.length > 12)  t = t.slice(2);
-  if (t.startsWith('0'))                     t = t.slice(1);
-  if (t.length === 10) return '57' + t;
-  if (t.length === 7)  return '57' + t;
-  if (t.length < 7)   return '';
-  return '57' + t;
+function wmQuitarAdjunto() {
+  _wmAdjunto = null;
+  const info   = document.getElementById('wm_adjunto_info');
+  const quitar = document.getElementById('wm_adjunto_quitar');
+  const input  = document.getElementById('wm_adjunto_input');
+  if (info)   info.innerHTML = '';
+  if (quitar) quitar.style.display = 'none';
+  if (input)  input.value = '';
+  showToast('📎 Adjunto eliminado');
 }
 
-function wmGetCredentials() { return { token: '', phoneId: '' }; } // legacy compat
-
-function wmGetRutasPorTipo() { return { status: ['/status', '/api/status'], send: '/send' }; }
-
-const WM_PLANTILLAS = {
-  cobro:      `Hola {nombre} 👋, te recordamos que tienes un saldo pendiente en tu póliza *{producto}* con SURA.\n\nEl valor en mora es de *{mora}*. Para evitar la suspensión del servicio, te invitamos a regularizar tu pago.\n\n¿Necesitas información? Con gusto te ayudamos. 🙏\n\n_{asesor}_`,
-  suspension: `Hola {nombre}, tu póliza *{producto}* está en riesgo de *suspensión* por un saldo de *{mora}*.\n\nFecha límite: *{fecha}*. Comunícate con nosotros de inmediato. 📋\n\n_{asesor}_ · SURA`,
-  bienvenida: `¡Hola {nombre}! 🎉 Bienvenido(a) a tu plan *{producto}* de SURA. Ya tienes cobertura activa.\n\nSoy {asesor}, tu asesor de confianza. Cualquier duda, aquí estoy. 😊`,
-  renovacion: `Hola {nombre}, tu póliza *{producto}* está próxima a vencer. 🔔\n\nFecha: *{fecha}*. Renuévala y mantén tu protección.\n\n_{asesor}_`
-};
-
-// ── INICIO DE ENVÍO ────────────────────────────────────────────────────────
+// ── ENVÍO ─────────────────────────────────────────────────────────────────
 async function wmIniciarEnvio() {
   if (wmEnviando) return;
   const server = wmGetServer();
   const texto  = document.getElementById('wm_texto')?.value?.trim();
-  const delay  = parseInt(document.getElementById('wm_delay_seg')?.value || '5') * 1000;
 
-  if (!server) { showToast('⚠️ Configura la URL del servidor'); return; }
-  if (!texto)  { showToast('⚠️ Escribe un mensaje antes de enviar'); return; }
+  if (!server)  { showToast('⚠️ Configura la URL del servidor'); return; }
+  if (!texto)   { showToast('⚠️ Escribe un mensaje antes de enviar'); return; }
   if (!wmClientesSegmento.length) { showToast('⚠️ No hay contactos cargados'); return; }
   if (!confirm(`¿Enviar a ${wmClientesSegmento.length} contacto(s)?`)) return;
+
+  const _wmDelay = parseInt(
+    document.getElementById('wm_delay_seg')?.value
+    || localStorage.getItem('wm_delay_seg') || '5'
+  ) * 1000;
 
   wmEnviando = true; wmDetener = false;
   const btnEnv = document.getElementById('wm_btn_enviar');
@@ -25767,94 +25935,120 @@ async function wmIniciarEnvio() {
   const total     = wmClientesSegmento.length;
   let ok = 0, fail = 0;
 
-  // Detectar el endpoint de envío correcto del servidor
-  const sendEndpoints = ['/send', '/api/send', '/message', '/api/message', '/api/sendMessage'];
-  let sendEndpoint = '/send'; // default whatsapp-web.js
+  // Personalizar el mensaje por cliente usando wmReemplazarVars.
+  // Cada contacto lleva su 'texto' ya resuelto — así {nombre}, {producto},
+  // {mora}, {fecha} y {asesor} quedan correctos antes de llegar al servidor.
+  const contactos = wmClientesSegmento.map(c => {
+    const tel    = wmNormalizarTel(c.telefono);
+    if (!tel) return null; // filtrar números inválidos
+    const nombre = (c.nombre || 'Cliente').trim();
+    return {
+      telefono:   tel,
+      nombre,
+      name:       nombre,
+      // mensaje ya resuelto para este contacto — el servidor lo usa con {{nombre}}
+      // pero como mandamos el texto ya sustituido en 'nombre' el resultado es correcto
+    };
+  }).filter(Boolean);
+
+  // Construir el mensaje resolviendo las variables del primer contacto como referencia;
+  // el servidor recibe 'mensaje' con {{nombre}} y sustituye nombre por contacto.nombre
+  // Para variables custom (producto, mora, asesor, fecha) las resolvemos por contacto
+  // y las enviamos en el campo 'textoPersonalizado' de cada contacto.
+  contactos.forEach((c, i) => {
+    const raw = wmClientesSegmento.filter(x => wmNormalizarTel(x.telefono) === c.telefono)[0] || {};
+    c.textoPersonalizado = wmReemplazarVars(texto, {
+      nombre: c.nombre, producto: raw.producto || '', mora: raw.mora || '$0',
+      telefono: c.telefono,
+    });
+  });
+  const mensajeServidor = '{{nombre}}'; // el servidor también aplica {{nombre}} como fallback
 
   wmLogLine(`🚀 Iniciando envío a ${total} contacto(s) vía ${server}`, 'info');
   if (statusTxt) statusTxt.textContent = 'Enviando...';
   if (dot) dot.style.background = 'var(--amber)';
 
-  for (let i = 0; i < wmClientesSegmento.length; i++) {
-    if (wmDetener) { wmLogLine('⏹ Detenido por el usuario', 'warn'); break; }
+  // Payload para /api/send (SSE)
+  // El servidor v2 usa contacto.textoPersonalizado si está presente;
+  // si no, usa 'mensaje' con {{nombre}} como fallback (compatibilidad v1).
+  const payload = {
+    contactos,
+    mensaje: mensajeServidor,
+    usarTextoPersonalizado: true,   // indica al servidor v2 que use campo por contacto
+    ..._wmAdjunto ? { mediaId: _wmAdjunto.mediaId, mediaTipo: _wmAdjunto.mediaTipo } : {}
+  };
 
-    const c    = wmClientesSegmento[i];
-    const tel  = wmNormalizarTel(c.telefono);
-    if (!tel) { fail++; wmLogLine(`❌ ${c.nombre} — número inválido`, 'err'); continue; }
-
-    const chatId = `${tel}@c.us`;
-    const msg    = wmReemplazarVars(texto, {
-      nombre: c.nombre, producto: c.producto || '', mora: c.mora || '$0', telefono: tel
+  try {
+    const r = await fetch(`${server}/api/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30 * 60 * 1000) // 30 min para lotes grandes
     });
 
-    // Intentar todos los formatos de payload de whatsapp-web.js
-    const payloads = [
-      { chatId, message: msg },
-      { phone: tel, message: msg },
-      { number: tel, message: msg },
-      { to: chatId, body: msg },
-    ];
+    if (!r.ok) {
+      let errMsg = `Error ${r.status}`;
+      try { const d = await r.json(); errMsg = d.error || errMsg; } catch(e) {}
+      throw new Error(errMsg);
+    }
 
-    let enviado = false;
-    for (const ep of sendEndpoints) {
-      if (wmDetener) break;
-      for (const payload of payloads) {
+    // Leer SSE (Server-Sent Events) línea por línea
+    const reader  = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      if (wmDetener) { wmLogLine('⏹ Detenido por el usuario', 'warn'); break; }
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // guardar línea incompleta
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
         try {
-          const r = await fetch(`${server}${ep}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(20000)
-          });
-          if (r.ok || r.status === 200) {
-            let d = {};
-            try { d = await r.json(); } catch(e) {}
-            if (d.error || d.success === false) {
-              wmLogLine(`⚠️ ${c.nombre} (${tel}) · ${ep} → ${d.error || 'error desconocido'}`, 'warn');
-            } else {
-              ok++;
-              sendEndpoint = ep; // guardar endpoint que funcionó
-              wmLogLine(`✅ ${c.nombre} (${tel}) · ${ep}`, 'ok');
-              enviado = true;
-            }
+          const ev = JSON.parse(line.slice(6));
+
+          if (ev.tipo === 'done') {
+            wmLogLine(`🏁 Completado: ${ok} enviados · ${fail} fallidos`, 'info');
             break;
           }
-        } catch(e) {
-          // continuar con siguiente formato
-        }
-        if (enviado) break;
+          if (ev.tipo === 'delay') {
+            wmLogLine(`⏳ Esperando ${ev.segundos || Math.round(_wmDelay/1000)}s...`, 'info');
+            continue;
+          }
+          if (ev.status === 'sent') {
+            ok++;
+            wmLogLine(`✅ ${ev.nombre} (${ev.telefono})`, 'ok');
+          } else if (ev.status === 'error') {
+            fail++;
+            wmLogLine(`❌ ${ev.nombre} (${ev.telefono}) — ${ev.error}`, 'err');
+          }
+          wmActualizarProgreso(ok, fail, total);
+        } catch(e) { /* línea no JSON, ignorar */ }
       }
-      if (enviado) break;
     }
 
-    if (!enviado) {
-      fail++;
-      wmLogLine(`❌ ${c.nombre} (${tel}) — no respondió ningún endpoint`, 'err');
-    }
-
-    wmActualizarProgreso(ok, fail, total);
-
-    // Delay antes del siguiente mensaje
-    if (i < wmClientesSegmento.length - 1 && !wmDetener) {
-      wmLogLine(`⏳ Esperando ${delay/1000}s...`, 'info');
-      await new Promise(res => setTimeout(res, delay));
-    }
+  } catch(e) {
+    fail = total - ok;
+    wmLogLine(`❌ Error de conexión: ${e.message}`, 'err');
+    showToast('❌ Error: ' + e.message);
   }
 
   if (resumen) {
     resumen.style.display = '';
-    const resOk   = document.getElementById('wm_res_ok');
-    const resFail = document.getElementById('wm_res_fail');
-    const resTotal= document.getElementById('wm_res_total');
-    if (resOk)    resOk.textContent    = ok;
-    if (resFail)  resFail.textContent  = fail;
-    if (resTotal) resTotal.textContent = total;
+    document.getElementById('wm_res_ok').textContent    = ok;
+    document.getElementById('wm_res_fail').textContent  = fail;
+    document.getElementById('wm_res_total').textContent = total;
   }
-
   wmLogLine(`🏁 Completado: ${ok} enviados · ${fail} fallidos`, 'info');
   showToast(`📲 Lote completado: ${ok}✅ ${fail}❌`);
-  if (dot)       dot.style.background  = ok > 0 ? 'var(--green)' : 'var(--red)';
-  if (statusTxt) statusTxt.textContent = `✅ Completado: ${ok}/${total} enviados`;
+  if (dot)       dot.style.background    = ok > 0 ? 'var(--green)' : 'var(--red)';
+  if (statusTxt) statusTxt.textContent   = `✅ Completado: ${ok}/${total} enviados`;
   wmEnviando = false;
   if (btnEnv) btnEnv.disabled = false;
   if (btnDet) btnDet.style.display = 'none';
@@ -25862,19 +26056,22 @@ async function wmIniciarEnvio() {
 
 function wmDetenerEnvio() { wmDetener = true; showToast('⏹ Deteniendo...'); }
 
+// Init al navegar a la página
 function wmInit() {
   wmCargarConfigServidor();
   wmSetTab('sura');
   wmFiltrarClientes();
   wmVerificarServidor();
 
-  // Keep-alive: ping cada 14 min para evitar que Render duerma el servidor
+  // ── KEEP-ALIVE: ping cada 14 min para evitar que Render duerma el servidor ──
   if (window._wmKeepAliveInterval) clearInterval(window._wmKeepAliveInterval);
   window._wmKeepAliveInterval = setInterval(async () => {
     const server = wmGetServer();
     if (!server) return;
     try {
-      await fetch(`${server}/status`, { signal: AbortSignal.timeout(10000) });
+      await fetch(`${server}/api/status`, {
+        signal: AbortSignal.timeout(10000)
+      });
     } catch(e) {}
   }, 14 * 60 * 1000);
 }
