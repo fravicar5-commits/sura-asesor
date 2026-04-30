@@ -10375,7 +10375,13 @@ function calcDatosPSM() {
   // (Atención Domiciliaria usa chkEMD — ver arriba)
 
   // 4. Aplicar multiplicador de periodicidad
-  const total = Math.round(totalMensual * mult);
+  const totalBruto = Math.round(totalMensual * mult);
+
+  // 4b. Descuentos por periodicidad no mensual (Modular)
+  const PSM_DCTOS = { MENSUAL: 0, TRIMESTRAL: 0.0197, SEMESTRAL: 0.0452, ANUAL: 0.0901 };
+  const psmDctoPct = PSM_DCTOS[periPSM] || 0;
+  const psmValorDcto = Math.round(totalBruto * psmDctoPct);
+  const total = totalBruto - psmValorDcto;
 
   // 5. Calc commission: 12% if ≤50, 6% if >50
   const comPct = edadNum <= 50 ? 0.12 : 0.06;
@@ -10387,12 +10393,26 @@ function calcDatosPSM() {
     + (mult > 1 ? ` <span style="font-size:10px;color:var(--text-muted);">(${fmt(Math.round(totalMensual))}/mes × ${mult})</span>` : '');
   document.getElementById('psmComision').textContent = fmt(comision) + ` (${edadNum<=50?'12':'6'}%)`;
 
-  document.getElementById('psmDesglose').innerHTML = desglose.map(d => `
+  const desgloseHTML = desglose.map(d => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
       <span style="color:var(--text-muted);">🧩 ${d.nombre}</span>
       <span style="font-family:var(--mono);color:var(--text);font-weight:600;">${d.nota ? `<span style="color:var(--text-dim);font-size:11px;">${d.nota}</span>` : fmt(Math.round(d.valor))}</span>
     </div>
-  `).join('') + (mult > 1 ? `<div style="padding:5px 0;font-size:11.5px;color:var(--teal);">× ${mult} meses (${perLabel}) = <strong>${fmt(total)}</strong></div>` : '');
+  `).join('');
+
+  const multLineHTML = mult > 1 ? `<div style="padding:5px 0;font-size:11.5px;color:var(--teal);">× ${mult} meses (${perLabel}) = <strong>${fmt(totalBruto)}</strong></div>` : '';
+
+  const dctoLineHTML = psmDctoPct > 0 ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-top:4px;border-radius:6px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);font-size:12px;">
+      <span style="color:var(--green);font-weight:600;">🏷️ Dcto. ${perLabel} (${(psmDctoPct*100).toFixed(2).replace('.',',')}%)</span>
+      <span style="font-family:var(--mono);color:var(--green);font-weight:700;">− ${fmt(psmValorDcto)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-top:4px;border-radius:6px;background:rgba(200,229,43,0.08);border:1px solid rgba(200,229,43,0.2);font-size:12.5px;">
+      <span style="color:var(--sura-lime);font-weight:700;">✅ Prima final con dcto.</span>
+      <span style="font-family:var(--mono);color:var(--sura-lime);font-weight:700;">${fmt(total)}</span>
+    </div>` : '';
+
+  document.getElementById('psmDesglose').innerHTML = desgloseHTML + multLineHTML + dctoLineHTML;
 }
 
 // =============================================
@@ -10465,7 +10485,13 @@ function calcDatosPAC60() {
   const perLabelEl = document.getElementById('pac60PerLabel');
   if (perLabelEl) perLabelEl.textContent = perLabel;
 
-  const prima = Math.round(primaMensual * mult);
+  const primaBruta = Math.round(primaMensual * mult);
+
+  // Descuentos por periodicidad no mensual (60+)
+  const PAC60_DCTOS = { MENSUAL: 0, TRIMESTRAL: 0.025, SEMESTRAL: 0.048, ANUAL: 0.0901 };
+  const pac60DctoPct = PAC60_DCTOS[periPAC] || 0;
+  const pac60ValorDcto = Math.round(primaBruta * pac60DctoPct);
+  const prima = primaBruta - pac60ValorDcto;
   const comision = Math.round(prima * PAC60_COM_PCT);
 
   // Show individual prices (siempre mensuales como referencia)
@@ -10487,12 +10513,27 @@ function calcDatosPAC60() {
   if (conAnexo) {
     desglose.push({ nombre: 'Anexo (Cardiólogo + Dermatólogo)', valor: diferencia });
   }
-  document.getElementById('pac60Desglose').innerHTML = desglose.map(d => `
+
+  const desgloseHTML60 = desglose.map(d => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;">
       <span style="color:var(--text-muted);">🌿 ${d.nombre}</span>
       <span style="font-family:var(--mono);color:var(--text);font-weight:600;">${fmt(d.valor)}</span>
     </div>
-  `).join('') + (mult > 1 ? `<div style="padding:5px 0;font-size:11.5px;color:var(--green);">× ${mult} meses (${perLabel}) = <strong>${fmt(prima)}</strong></div>` : '');
+  `).join('');
+
+  const multLine60HTML = mult > 1 ? `<div style="padding:5px 0;font-size:11.5px;color:var(--green);">× ${mult} meses (${perLabel}) = <strong>${fmt(primaBruta)}</strong></div>` : '';
+
+  const dctoLine60HTML = pac60DctoPct > 0 ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-top:4px;border-radius:6px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);font-size:12px;">
+      <span style="color:var(--green);font-weight:600;">🏷️ Dcto. ${perLabel} (${(pac60DctoPct*100).toFixed(2).replace('.',',')}%)</span>
+      <span style="font-family:var(--mono);color:var(--green);font-weight:700;">− ${fmt(pac60ValorDcto)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;margin-top:4px;border-radius:6px;background:rgba(200,229,43,0.08);border:1px solid rgba(200,229,43,0.2);font-size:12.5px;">
+      <span style="color:var(--sura-lime);font-weight:700;">✅ Prima final con dcto.</span>
+      <span style="font-family:var(--mono);color:var(--sura-lime);font-weight:700;">${fmt(prima)}</span>
+    </div>` : '';
+
+  document.getElementById('pac60Desglose').innerHTML = desgloseHTML60 + multLine60HTML + dctoLine60HTML;
 }
 
 function calcEdadSPD(quien) {
