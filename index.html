@@ -6026,14 +6026,67 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                     oninput="wmActualizarPreview()"
                     placeholder="Hola {nombre}, te escribimos de SURA..."></textarea>
                 </div>
-                <!-- Variables rápidas -->
-                <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                <!-- Variables rápidas + Emojis -->
+                <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
                   <button class="btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="wmInsertarVar('{nombre}')">+{nombre}</button>
                   <button class="btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="wmInsertarVar('{producto}')">+{producto}</button>
                   <button class="btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="wmInsertarVar('{mora}')">+{mora}</button>
                   <button class="btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="wmInsertarVar('{fecha}')">+{fecha}</button>
                   <button class="btn-secondary" style="font-size:11px;padding:3px 8px;" onclick="wmInsertarVar('{asesor}')">+{asesor}</button>
+                  <div style="position:relative;display:inline-block;">
+                    <button class="btn-secondary" style="font-size:13px;padding:3px 8px;" onclick="wmToggleEmojiPicker()" title="Insertar emoji">😊</button>
+                    <div id="wm_emoji_picker" style="display:none;position:absolute;bottom:32px;left:0;z-index:999;
+                         background:var(--card-bg);border:1px solid var(--border);border-radius:10px;
+                         padding:8px;width:260px;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;padding:0 2px;">Emojis frecuentes</div>
+                      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                        <!-- Saludos y personas -->
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('👋')">👋</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('😊')">😊</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🙏')">🙏</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('😃')">😃</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🤝')">🤝</span>
+                        <!-- Positivos / afirmativos -->
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('✅')">✅</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('⭐')">⭐</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🌟')">🌟</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('💯')">💯</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🎉')">🎉</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🏆')">🏆</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('💪')">💪</span>
+                        <!-- Seguros / negocio -->
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🛡️')">🛡️</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🏥')">🏥</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('❤️')">❤️</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('💙')">💙</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('💚')">💚</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('💰')">💰</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('📋')">📋</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('📞')">📞</span>
+                        <!-- Info / alertas -->
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('ℹ️')">ℹ️</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('⚠️')">⚠️</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🔔')">🔔</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('📢')">📢</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('💡')">💡</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🔑')">🔑</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('📅')">📅</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('⏰')">⏰</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('📍')">📍</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🚀')">🚀</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('👍')">👍</span>
+                        <span class="wm-emoji" onclick="wmInsertarEmoji('🎁')">🎁</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+                <style>
+                  .wm-emoji {
+                    font-size:20px; cursor:pointer; padding:3px; border-radius:6px;
+                    transition:background .15s; line-height:1;
+                  }
+                  .wm-emoji:hover { background:rgba(255,255,255,0.1); }
+                </style>
                 <!-- Adjunto -->
                 <div style="border-top:1px solid var(--border);padding-top:10px;">
                   <label class="form-label">📎 Adjunto opcional (imagen o PDF)</label>
@@ -26016,53 +26069,71 @@ function wmActualizarProgreso(ok, fail, total) {
 // ── ADJUNTO ───────────────────────────────────────────────────────────────
 let _wmAdjunto = null; // { mediaId, mediaTipo, fileName, previewUrl }
 
-function wmCargarAdjunto(event) {
-  const file = event.target.files[0];
+function wmCargarAdjunto(input) {
+  const file = input.files[0];
   if (!file) return;
   if (file.size > 10 * 1024 * 1024) {
     showToast('⚠️ El archivo supera los 10 MB');
-    event.target.value = '';
-    return;
-  }
-  const server = wmGetServer();
-  const { token, phoneId } = wmGetCredentials();
-  if (!server || !token || !phoneId) {
-    showToast('⚠️ Configura servidor, token y Phone ID antes de adjuntar');
-    event.target.value = '';
+    input.value = '';
     return;
   }
 
   const info   = document.getElementById('wm_adjunto_info');
   const quitar = document.getElementById('wm_adjunto_quitar');
-  if (info) info.innerHTML = `<span style="color:var(--amber);">⏳ Subiendo a WhatsApp...</span>`;
+  const nombre = document.getElementById('wm_adjunto_nombre');
+  if (info) info.style.display = '';
+  if (info) info.innerHTML = `<span style="color:var(--amber);">⏳ Cargando archivo...</span>`;
 
-  const formData = new FormData();
-  formData.append('archivo', file, file.name);
-
-  fetch(`${server}/api/upload`, {
-    method: 'POST',
-
-    body: formData,
-    signal: AbortSignal.timeout(60000)
-  })
-  .then(r => r.json())
-  .then(d => {
-    if (d.error) throw new Error(d.error);
-    _wmAdjunto = { mediaId: d.media_id, mediaTipo: d.tipo, fileName: d.nombre };
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result.split(',')[1];
+    const tipo   = file.type || 'application/octet-stream';
+    _wmAdjunto = { mediaBase64: base64, mediaTipo: tipo, fileName: file.name };
+    if (nombre) nombre.textContent = file.name;
     if (info) {
-      const isImg = d.tipo === 'image';
-      info.innerHTML = `<span style="color:var(--green);">✅ ${isImg ? '🖼️' : '📄'} ${d.nombre} subido correctamente · media_id: ${d.media_id}</span>`;
+      const isImg = tipo.startsWith('image/');
+      info.innerHTML = `<span style="color:var(--green);">✅ ${isImg ? '🖼️' : '📄'} ${file.name} listo (${(file.size/1024).toFixed(1)} KB)</span>`;
     }
     if (quitar) quitar.style.display = '';
-    showToast('📎 Adjunto listo: ' + d.nombre);
-  })
-  .catch(e => {
-    if (info) info.innerHTML = `<span style="color:var(--red);">❌ Error al subir: ${e.message}</span>`;
-    showToast('❌ Error subiendo adjunto: ' + e.message);
+    showToast('📎 Adjunto listo: ' + file.name);
+  };
+  reader.onerror = function() {
+    if (info) info.innerHTML = `<span style="color:var(--red);">❌ Error al leer el archivo</span>`;
+    showToast('❌ Error leyendo el archivo');
     _wmAdjunto = null;
-  });
-  event.target.value = '';
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
 }
+
+function wmToggleEmojiPicker() {
+  const picker = document.getElementById('wm_emoji_picker');
+  if (!picker) return;
+  picker.style.display = picker.style.display === 'none' ? '' : 'none';
+}
+
+function wmInsertarEmoji(emoji) {
+  const ta = document.getElementById('wm_texto');
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  ta.value = ta.value.slice(0, start) + emoji + ta.value.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + emoji.length;
+  ta.focus();
+  wmActualizarPreview();
+  // Cerrar picker tras insertar
+  const picker = document.getElementById('wm_emoji_picker');
+  if (picker) picker.style.display = 'none';
+}
+
+// Cerrar picker al hacer clic fuera
+document.addEventListener('click', function(e) {
+  const picker = document.getElementById('wm_emoji_picker');
+  if (!picker || picker.style.display === 'none') return;
+  if (!e.target.closest('#wm_emoji_picker') && !e.target.closest('[onclick="wmToggleEmojiPicker()"]')) {
+    picker.style.display = 'none';
+  }
+});
 
 function wmQuitarAdjunto() {
   _wmAdjunto = null;
@@ -26313,7 +26384,7 @@ async function wmEnviarApi() {
         contactos,
         mensaje: '{{nombre}}',
         usarTextoPersonalizado: true,
-        ..._wmAdjunto ? { mediaId: _wmAdjunto.mediaId, mediaTipo: _wmAdjunto.mediaTipo } : {}
+        ..._wmAdjunto ? { mediaBase64: _wmAdjunto.mediaBase64, mediaTipo: _wmAdjunto.mediaTipo } : {}
       }),
       signal: AbortSignal.timeout(30 * 60 * 1000)
     });
