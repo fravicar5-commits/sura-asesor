@@ -25777,7 +25777,7 @@ async function wmImportarExcel(event) {
 // ── FUENTE: PEGAR NÚMEROS MANUAL ─────────────────────────────────────────
 function wmCargarManual() { wmParsearManual(); }
 function wmParsearManual() {
-  const raw = document.getElementById('wm_manual_txt')?.value || '';
+  const raw = document.getElementById('wm_manual_input')?.value || '';
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
   const resultado = [];
   const seen = new Set();
