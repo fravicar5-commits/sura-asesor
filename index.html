@@ -1267,6 +1267,9 @@
     </div>
     <nav class="nav">
       <div class="nav-section">Principal</div>
+      <button class="nav-item" onclick="navigate('inicio')" data-label="Inicio" id="navBtnInicio">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span> Inicio
+      </button>
       <button class="nav-item active" onclick="navigate('dashboard')" data-label="Dashboard">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span> Dashboard
       </button>
@@ -1424,6 +1427,133 @@
     </header>
 
     <div class="content">
+
+
+      <!-- ===== INICIO / BIENVENIDA ===== -->
+      <div class="page" id="page-inicio">
+        <div id="inicioBannerWrap" style="min-height:100vh;display:flex;flex-direction:column;background:var(--bg);">
+
+          <!-- HERO -->
+          <div style="position:relative;padding:44px 36px 36px;overflow:hidden;flex:0 0 auto;">
+            <!-- grid decorativo -->
+            <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(37,88,240,0.055) 1px,transparent 1px),linear-gradient(90deg,rgba(37,88,240,0.055) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;"></div>
+            <!-- glow azul -->
+            <div style="position:absolute;top:-100px;right:-100px;width:500px;height:500px;background:radial-gradient(circle,rgba(37,88,240,0.15) 0%,transparent 68%);pointer-events:none;"></div>
+            <!-- glow lima -->
+            <div style="position:absolute;bottom:-60px;left:15%;width:320px;height:320px;background:radial-gradient(circle,rgba(200,229,43,0.06) 0%,transparent 70%);pointer-events:none;"></div>
+
+            <!-- badge -->
+            <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(37,88,240,0.16);border:1px solid rgba(37,88,240,0.32);border-radius:20px;padding:4px 13px;font-size:11px;font-weight:700;color:#7AA2F7;letter-spacing:.07em;text-transform:uppercase;margin-bottom:20px;position:relative;">
+              <span style="width:6px;height:6px;border-radius:50%;background:#2558F0;flex-shrink:0;"></span>
+              Canal Especializado en Salud &nbsp;&middot;&nbsp; SURA 2026
+            </div>
+
+            <!-- headline -->
+            <div style="font-size:36px;font-weight:700;line-height:1.15;color:var(--text);margin-bottom:10px;letter-spacing:-0.02em;position:relative;">
+              Bienvenido, <span id="inicioNombreAsesor" style="color:var(--sura-lime);">Asesor</span>
+            </div>
+            <div style="font-size:15px;color:var(--text-muted);max-width:500px;line-height:1.65;margin-bottom:28px;position:relative;">
+              Gestiona tu cartera, cotiza en segundos, registra ventas PBS y voluntarios, y monitorea tus comisiones en tiempo real.
+            </div>
+
+            <!-- CTA -->
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:40px;position:relative;">
+              <button onclick="navigate('dashboard')" style="background:#2558F0;color:#fff;border:none;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;letter-spacing:.01em;transition:background .15s;" onmouseover="this.style.background='#1A4CE8'" onmouseout="this.style.background='#2558F0'">Ir al Dashboard &rarr;</button>
+              <button onclick="navigate('cotizaciones')" style="background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;transition:all .15s;" onmouseover="this.style.color='var(--text)';this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='rgba(255,255,255,0.05)'">Cotizaciones</button>
+              <button onclick="navigate('cartera')" style="background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 18px;font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;transition:all .15s;" onmouseover="this.style.color='var(--text)';this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='rgba(255,255,255,0.05)'">Mi cartera</button>
+            </div>
+
+            <!-- KPIs -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;position:relative;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;">
+                <div style="margin-bottom:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sura-lime)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h2v5H7zM11 10h2v3h-2zM15 6h2v7h-2z"/></svg></div>
+                <div id="inicioKpiPBS" style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--sura-lime);line-height:1;">0</div>
+                <div style="font-size:10.5px;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Ventas PBS</div>
+                <div id="inicioKpiPBSSub" style="font-size:10px;color:var(--text-dim);margin-top:2px;">Mes activo</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;">
+                <div style="margin-bottom:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+                <div id="inicioKpiVol" style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--teal);line-height:1;">0</div>
+                <div style="font-size:10.5px;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Voluntarios 2026</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">SPTI + SPD + Mod. + 60+</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;">
+                <div style="margin-bottom:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sura-lime)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                <div id="inicioKpiCom" style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--sura-lime);line-height:1;">$0</div>
+                <div style="font-size:10.5px;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Com. Total</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">PBS + todos los vol.</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;">
+                <div style="margin-bottom:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+                <div id="inicioKpiMora" style="font-family:var(--mono);font-size:22px;font-weight:500;color:var(--amber);line-height:1;">0</div>
+                <div style="font-size:10.5px;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;">Vencidos 1-30 días</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">Pago pendiente · aún no en mora</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DIVISOR -->
+          <div style="height:1px;background:rgba(255,255,255,0.06);margin:0 36px;"></div>
+
+          <!-- HERRAMIENTAS RAPIDAS -->
+          <div style="padding:28px 36px 36px;flex:1;">
+            <div style="font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:16px;">Herramientas rápidas</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:11px;">
+
+              <div onclick="navigate('dashboard')" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;transition:all .18s;position:relative;" onmouseover="this.style.borderColor='rgba(37,88,240,0.35)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+                <span style="position:absolute;top:16px;right:14px;color:var(--text-dim);font-size:13px;transition:color .2s;">&#8599;</span>
+                <div style="width:34px;height:34px;border-radius:9px;background:rgba(37,88,240,0.16);display:flex;align-items:center;justify-content:center;margin-bottom:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7AA2F7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><path d="M13 13h9v9h-9z" rx="1"/></svg></div>
+                <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px;">Dashboard</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">Ventas vs presupuesto, comisiones y efectividad del mes.</div>
+              </div>
+
+              <div onclick="navigate('cotizaciones')" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;transition:all .18s;position:relative;" onmouseover="this.style.borderColor='rgba(6,182,212,0.35)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+                <span style="position:absolute;top:16px;right:14px;color:var(--text-dim);font-size:13px;">&#8599;</span>
+                <div style="width:34px;height:34px;border-radius:9px;background:rgba(6,182,212,0.14);display:flex;align-items:center;justify-content:center;margin-bottom:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></div>
+                <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px;">Cotizaciones</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">Cotiza SPTI, SPD, Modular y 60+ con PDF y comparador.</div>
+              </div>
+
+              <div onclick="navigate('cartera')" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;transition:all .18s;position:relative;" onmouseover="this.style.borderColor='rgba(34,197,94,0.3)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+                <span style="position:absolute;top:16px;right:14px;color:var(--text-dim);font-size:13px;">&#8599;</span>
+                <div style="width:34px;height:34px;border-radius:9px;background:rgba(34,197,94,0.13);display:flex;align-items:center;justify-content:center;margin-bottom:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+                <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px;">Cartera</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">Mora, suspensiones y mensajes de gestión por WhatsApp.</div>
+              </div>
+
+              <div onclick="navigate('pbs')" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;transition:all .18s;position:relative;" onmouseover="this.style.borderColor='rgba(245,158,11,0.3)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+                <span style="position:absolute;top:16px;right:14px;color:var(--text-dim);font-size:13px;">&#8599;</span>
+                <div style="width:34px;height:34px;border-radius:9px;background:rgba(245,158,11,0.13);display:flex;align-items:center;justify-content:center;margin-bottom:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FCD34D" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+                <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px;">Ventas PBS</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">Registro de afiliaciones, compensación y comisiones reales.</div>
+              </div>
+
+              <div onclick="navigate('simulador')" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;transition:all .18s;position:relative;" onmouseover="this.style.borderColor='rgba(168,85,247,0.3)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+                <span style="position:absolute;top:16px;right:14px;color:var(--text-dim);font-size:13px;">&#8599;</span>
+                <div style="width:34px;height:34px;border-radius:9px;background:rgba(168,85,247,0.13);display:flex;align-items:center;justify-content:center;margin-bottom:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#C084FC" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><polyline points="7 10 10 13 14 8 17 11"/></svg></div>
+                <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px;">Simuladores</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">Campañas, seguridad social y proyección de ingresos.</div>
+              </div>
+
+              <div onclick="navigate('accesos')" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;transition:all .18s;position:relative;" onmouseover="this.style.borderColor='rgba(200,229,43,0.25)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+                <span style="position:absolute;top:16px;right:14px;color:var(--text-dim);font-size:13px;">&#8599;</span>
+                <div style="width:34px;height:34px;border-radius:9px;background:rgba(200,229,43,0.1);display:flex;align-items:center;justify-content:center;margin-bottom:10px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#BEF264" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+                <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px;">Mi Ecosistema</div>
+                <div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;">Portales SURA, herramientas y recursos del canal.</div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- FOOTER -->
+          <div style="padding:0 36px 24px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:16px;margin-top:auto;">
+            <div style="font-size:11px;color:var(--text-dim);">Canal Especializado en Salud &nbsp;&middot;&nbsp; Seguros de Vida Suramericana S.A. &nbsp;&middot;&nbsp; <span id="inicioFecha"></span></div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 8px;">v2026.04</div>
+          </div>
+
+        </div>
+      </div>
+      <!-- ===== FIN INICIO ===== -->
 
       <!-- ===== DASHBOARD ===== -->
       <div class="page active" id="page-dashboard">
@@ -8084,6 +8214,7 @@ const pageTitles = {
   admin:        ['Administración de Usuarios', 'Aprobar, rechazar y gestionar accesos — Solo admin'],
   cotizaciones: ['Cotizaciones', 'Historial de cotizaciones generadas'],
   empresas:   ['Panel de Empresas', 'Base de datos · siniestralidad · ventas por empresa'],
+  inicio:    ['Bienvenido', 'Panel principal · Canal Especializado en Salud'],
   dashboard: ['Dashboard General', 'Resumen de desempeño · 2026'],
   registro: ['Registro de Ventas', 'Historial completo · todos los productos'],
   pbs: ['PBS / EPS', 'Afiliaciones, traslados e inclusiones'],
@@ -8353,7 +8484,8 @@ function navigate(page) {
 
 function refreshPage(page) {
   state = getState();
-  if (page === 'dashboard') renderDashboard();
+  if (page === 'inicio') renderInicio();
+  else if (page === 'dashboard') renderDashboard();
   else if (page === 'pbs') renderPBS();
   else if (page === 'voluntarios') renderVoluntarios();
   else if (page === 'campanas') renderCampanas();
@@ -8453,6 +8585,65 @@ function calcMesComisionTotal(month) {
 // =============================================
 // DASHBOARD
 // =============================================
+
+function renderInicio() {
+  const s = getState();
+  const nombreAsesor = (s.config?.nombreAsesor || 'Asesor').trim();
+  const el = document.getElementById('inicioNombreAsesor');
+  if (el) el.textContent = nombreAsesor;
+
+  // KPI PBS mes actual
+  const pbsMes = getVentasByProduct(selectedMonth, 'PBS').length;
+  const elPBS = document.getElementById('inicioKpiPBS');
+  if (elPBS) elPBS.textContent = pbsMes;
+  const elPBSSub = document.getElementById('inicioKpiPBSSub');
+  const MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  if (elPBSSub) elPBSSub.textContent = MESES_NOM[selectedMonth] + ' · mes activo';
+
+  // KPI voluntarios acumulados
+  const accVol = ['SPTI','SPD','PSM','PAC60'].reduce((s2, prod) =>
+    s2 + s.ventas.filter(v => !v._importadoSura && v.producto === prod && new Date(v.fecha).getFullYear() === AÑO_ACTUAL).length, 0);
+  const elVol = document.getElementById('inicioKpiVol');
+  if (elVol) elVol.textContent = accVol;
+
+  // KPI comisión total
+  const pbsAcc = MESES.reduce((sum, _, i) => sum + getVentasByProduct(i,'PBS').reduce((ss,v) => ss+(v.comision||0), 0), 0);
+  const { totalProy } = getVolComisionesSummary();
+  const comTotal = pbsAcc + totalProy;
+  const elCom = document.getElementById('inicioKpiCom');
+  if (elCom) elCom.textContent = comTotal >= 1000000
+    ? '$' + (comTotal / 1000000).toFixed(1).replace('.',',') + 'M'
+    : fmt(comTotal);
+
+  // KPI vencidos cartera voluntarios (VENCIDO = día 1-30, antes de mora real)
+  const pagosState = window.__FB_CACHE__?.pagos || {};
+  const enVencido = s.ventas.filter(v => {
+    if (v._importadoSura || v.producto === 'PBS') return false;
+    const est = getCarteraEstado(v, pagosState);
+    return est && est.estado === 'VENCIDO';
+  }).length;
+  const elMora = document.getElementById('inicioKpiMora');
+  if (elMora) {
+    elMora.textContent = enVencido;
+    elMora.style.color = enVencido > 0 ? 'var(--amber)' : 'var(--green)';
+  }
+  // Actualizar sublabel del KPI mora
+  const elMoraSub = document.querySelector('#page-inicio [id="inicioKpiMora"] ~ div:last-child, #page-inicio #inicioKpiMora + div + div');
+  // Actualizar el texto del KPI label a 'Vencidos (1-30 días)'
+  const kpiMoraCard = elMora ? elMora.closest('[style*="border-radius:12px"]') : null;
+  if (kpiMoraCard) {
+    const labels = kpiMoraCard.querySelectorAll('div');
+    labels.forEach(d => {
+      if (d.textContent.trim() === 'Clientes en mora') d.textContent = 'Vencidos 1-30 días';
+      if (d.textContent.trim() === 'Requieren gestión') d.textContent = 'Pago pendiente · aún no en mora';
+    });
+  }
+
+  // Fecha
+  const elFecha = document.getElementById('inicioFecha');
+  if (elFecha) elFecha.textContent = new Date().toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
+}
+
 function renderDashboard() {
   buildMonthSelector('monthSelectorDash', renderDashboard);
   checkCierresEnDashboard();
@@ -12648,11 +12839,13 @@ function calcProxVencimiento(fechaExp, periodicidad, ventaId) {
   }
 
   // El vencimiento del periodo N (contando desde 0) es: fechaExp + (N+1)*intervalo
-  // Con nPagos pagos, el proximo vencimiento a cubrir es: fechaExp + (nPagos+1)*intervalo
+  // Con nPagos pagos, el proximo vencimiento a cubrir es: fechaExp + nPagos*intervalo
+  // (el pago N cubre hasta fechaExp + N*intervalo, por lo que el proximo es ese mismo punto).
+  // Cuando nPagos=0 usamos 1 para que el primer vencimiento sea fechaExp + 1*intervalo.
   // Pero si ese vencimiento ya paso (hoy > venc), el cliente esta en mora —
   // en ese caso devolvemos ese vencimiento vencido para que getCarteraEstado calcule mora.
   let venc = new Date(diaExp);
-  venc.setMonth(venc.getMonth() + (nPagos + 1) * intervalo);
+  venc.setMonth(venc.getMonth() + Math.max(nPagos, 1) * intervalo);
   return venc;
 }
 
@@ -21651,7 +21844,7 @@ function _iniciarAppTrasLogin() {
   state = initState();
   initMultiAnio();
   migrarPagosV1();
-  navigate('dashboard');
+  navigate('inicio');
   checkMenuPulse();
   actualizarSidebarSync();
   adminActualizarNavBtn();
