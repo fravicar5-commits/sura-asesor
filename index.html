@@ -1475,10 +1475,13 @@
 
         <!-- Fila 2: Comisiones todos los productos -->
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:12px;">
-          <div class="stat-card green">
+          <div class="stat-card green" style="position:relative;">
             <div class="stat-label">Com. PBS Est. Mes</div>
             <div class="stat-value" id="kpi-com-mes" style="font-size:18px;">$0</div>
-            <div class="stat-sub">Mes seleccionado</div>
+            <div class="stat-sub" id="kpi-com-mes-sub">Mes seleccionado · bruto</div>
+            <div style="position:absolute;top:10px;right:10px;">
+              <button id="toggleComPBSMes" onclick="toggleComPBSVistaFn()" style="font-size:9.5px;padding:2px 7px;border-radius:10px;border:1px solid rgba(34,197,94,0.4);background:rgba(34,197,94,0.12);color:var(--green);cursor:pointer;font-weight:700;line-height:1.6;">BRUTO</button>
+            </div>
           </div>
           <div class="stat-card teal">
             <div class="stat-label">Com. SPTI Proy.</div>
@@ -1539,9 +1542,11 @@
           <div class="card">
             <div class="card-title">💊 Voluntarios — Ventas vs Presupuesto 2026</div>
             <div class="bar-chart" id="barChartVol"></div>
-            <div style="display:flex;gap:16px;margin-top:16px;font-size:11.5px;">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;font-size:11.5px;">
               <span style="display:flex;align-items:center;gap:5px;color:var(--text-muted)"><span style="width:10px;height:10px;background:var(--teal);border-radius:2px;display:inline-block;"></span>SPTI</span>
               <span style="display:flex;align-items:center;gap:5px;color:var(--text-muted)"><span style="width:10px;height:10px;background:var(--purple);border-radius:2px;display:inline-block;"></span>SPD</span>
+              <span style="display:flex;align-items:center;gap:5px;color:var(--text-muted)"><span style="width:10px;height:10px;background:var(--teal);border-radius:2px;display:inline-block;opacity:0.5;"></span>Modular</span>
+              <span style="display:flex;align-items:center;gap:5px;color:var(--text-muted)"><span style="width:10px;height:10px;background:var(--green);border-radius:2px;display:inline-block;"></span>60+</span>
             </div>
           </div>
         </div>
@@ -8465,7 +8470,9 @@ function renderDashboard() {
   const pbsPpto  = state.config.pbs[selectedMonth];
   const sptiPpto = state.config.spti[selectedMonth];
   const spdPpto  = state.config.spd[selectedMonth];
-  const comMes   = calcMesComisionTotal(selectedMonth);
+  const comMes = _comPBSMesVista === "compensado"
+    ? getVentasPBSCompensado(selectedMonth, AÑO_ACTUAL).reduce((s,v) => s+(v.comision||0), 0)
+    : calcMesComisionTotal(selectedMonth);
   const efect    = pct(pbsVentas, pbsPpto);
 
   // Acumulados año
@@ -8500,6 +8507,10 @@ function renderDashboard() {
   if (elPac) { elPac.textContent = accPac60 + ' total'; }
 
   document.getElementById('kpi-com-mes').textContent = fmt(comMes);
+  const _subComMes = document.getElementById('kpi-com-mes-sub');
+  if (_subComMes) _subComMes.textContent = _comPBSMesVista === 'compensado' ? 'Ventas ventana compensada' : 'Mes seleccionado · bruto';
+  const _btnComMes = document.getElementById('toggleComPBSMes');
+  if (_btnComMes) _btnComMes.textContent = _comPBSMesVista === 'bruto' ? 'BRUTO' : 'COMP.';
   document.getElementById('kpi-efect').textContent   = efect + '%';
 
   // Comisiones todos los productos
@@ -8516,11 +8527,13 @@ function renderDashboard() {
   // Bar chart PBS
   renderBarChart('barChartPBS', MESES_SHORT, state.config.pbs, MESES.map((_,i) => getVentasByProduct(i,'PBS').length), 'var(--sura-blue)', 'var(--surface3)');
 
-  // Bar chart voluntarios (SPTI + SPD)
-  renderBarChartDual('barChartVol', MESES_SHORT,
+  // Bar chart voluntarios (SPTI + SPD + PSM + PAC60)
+  renderBarChartCuatro('barChartVol', MESES_SHORT,
     MESES.map((_,i) => getVentasByProduct(i,'SPTI').length),
     MESES.map((_,i) => getVentasByProduct(i,'SPD').length),
-    'var(--teal)', 'var(--purple)'
+    MESES.map((_,i) => state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===i && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length),
+    MESES.map((_,i) => state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===i && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length),
+    'var(--teal)', 'var(--purple)', 'var(--teal)', 'var(--green)'
   );
 
   // Acumulado año progress bars
@@ -8578,6 +8591,43 @@ function renderBarChartDual(id, labels, data1, data2, color1, color2) {
           <span class="bar-val">${data1[i]}</span>
         </div>
         <div class="bar" style="background:${color2};height:${h2}px;flex:1;min-height:2px;"></div>
+      </div>
+      <div class="bar-label">${lbl}</div>
+    `;
+    el.appendChild(col);
+  });
+}
+
+// Estado del toggle de vista de comisión PBS mes (bruto vs compensado)
+let _comPBSMesVista = "bruto"; // "bruto" | "compensado"
+function toggleComPBSVistaFn() {
+  _comPBSMesVista = _comPBSMesVista === "bruto" ? "compensado" : "bruto";
+  const btn = document.getElementById("toggleComPBSMes");
+  if (btn) btn.textContent = _comPBSMesVista === "bruto" ? "BRUTO" : "COMP.";
+  renderDashboard();
+}
+
+function renderBarChartCuatro(id, labels, d1, d2, d3, d4, c1, c2, c3, c4) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = "";
+  const maxVal = Math.max(...d1, ...d2, ...d3, ...d4, 1);
+  labels.forEach((lbl, i) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const h1 = Math.round(d1[i] / maxVal * 100);
+    const h2 = Math.round(d2[i] / maxVal * 100);
+    const h3 = Math.round(d3[i] / maxVal * 100);
+    const h4 = Math.round(d4[i] / maxVal * 100);
+    const total = d1[i] + d2[i] + d3[i] + d4[i];
+    col.innerHTML = `
+      <div style="display:flex;align-items:flex-end;gap:1px;width:100%;height:100px;">
+        <div class="bar" style="background:${c1};height:${h1}px;flex:1;min-height:${d1[i]?2:0}px;position:relative;">
+          ${d1[i] ? `<span class="bar-val">${d1[i]}</span>` : ""}
+        </div>
+        <div class="bar" style="background:${c2};height:${h2}px;flex:1;min-height:${d2[i]?2:0}px;"></div>
+        <div class="bar" style="background:${c3};height:${h3}px;flex:1;min-height:${d3[i]?2:0}px;"></div>
+        <div class="bar" style="background:${c4};height:${h4}px;flex:1;min-height:${d4[i]?2:0}px;"></div>
       </div>
       <div class="bar-label">${lbl}</div>
     `;
@@ -18556,19 +18606,29 @@ function cotizadorCalcPrima(p) {
     const rango = getRangoPSM(edad);
     if (!rango) return 0;
     const k = rango.key;
-    let total = PSM_TARIFAS.basico[k] * PSM_IVA;
+    let totalMensual = PSM_TARIFAS.basico[k] * PSM_IVA;
     const mods = p.modulosExtra || [];
-    if (mods.includes('EMD')) total += PSM_TARIFAS.emd[k] * PSM_IVA;
-    if (mods.includes('Alto Costo')) total += PSM_TARIFAS.altoCosto[k] * PSM_IVA;
-    if (mods.includes('Cirugía')) total += PSM_TARIFAS.cirugia[k] * PSM_IVA;
-    if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) total += PSM_TARIFAS.maternidad[k] * PSM_IVA;
-    return cotConIVA ? Math.round(total) : Math.round(total / IVA_FACTOR);
+    if (mods.includes('EMD')) totalMensual += PSM_TARIFAS.emd[k] * PSM_IVA;
+    if (mods.includes('Alto Costo')) totalMensual += PSM_TARIFAS.altoCosto[k] * PSM_IVA;
+    if (mods.includes('Cirugía')) totalMensual += PSM_TARIFAS.cirugia[k] * PSM_IVA;
+    if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) totalMensual += PSM_TARIFAS.maternidad[k] * PSM_IVA;
+    const periMultPSM = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+    const multPSM = periMultPSM[per] || 1;
+    const PSM_DCTOS_COT = { MENSUAL:0, TRIMESTRAL:0.0197, SEMESTRAL:0.0452, ANUAL:0.0901 };
+    const brutoPSM = Math.round(totalMensual * multPSM);
+    const finalPSM = Math.round(brutoPSM * (1 - (PSM_DCTOS_COT[per] || 0)));
+    return cotConIVA ? finalPSM : Math.round(finalPSM / IVA_FACTOR);
   }
   if (p.producto === 'PAC60') {
     const rango = getRangoPAC60(edad);
     if (!rango) return 0;
-    const val = p.conAnexo ? PAC60_TARIFAS[rango].conAnexo : PAC60_TARIFAS[rango].sinAnexo;
-    return cotConIVA ? val : Math.round(val / 1.05); // PAC60 incluye IVA 5%
+    const valMensual = p.conAnexo ? PAC60_TARIFAS[rango].conAnexo : PAC60_TARIFAS[rango].sinAnexo;
+    const periMultPAC = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+    const multPAC = periMultPAC[per] || 1;
+    const PAC60_DCTOS_COT = { MENSUAL:0, TRIMESTRAL:0.025, SEMESTRAL:0.048, ANUAL:0.0901 };
+    const brutoPAC = Math.round(valMensual * multPAC);
+    const finalPAC = Math.round(brutoPAC * (1 - (PAC60_DCTOS_COT[per] || 0)));
+    return cotConIVA ? finalPAC : Math.round(finalPAC / 1.05); // PAC60 incluye IVA 5%
   }
   return 0;
 }
@@ -18608,6 +18668,46 @@ function actualizarResumenCotizador() {
         if (row) {
           const d = per==='TRIMESTRAL'?row.dctoTrim:per==='SEMESTRAL'?row.dctoSem:row.dctoAnual;
           if (d) dctoStr = ` <span style="color:var(--green);font-size:10px;">−${fmt(d)} dcto</span>`;
+        }
+      }
+    }
+    // Descuento para PSM (Modular)
+    if (p.producto === 'PSM' && per !== 'MENSUAL') {
+      const PSM_DCTOS_RES = { TRIMESTRAL:0.0197, SEMESTRAL:0.0452, ANUAL:0.0901 };
+      const pct = PSM_DCTOS_RES[per];
+      if (pct) {
+        const edadP = parseInt(p.edad)||0;
+        const rangoP = getRangoPSM(edadP);
+        if (rangoP) {
+          const k = rangoP.key;
+          let mens = PSM_TARIFAS.basico[k] * PSM_IVA;
+          const mods = p.modulosExtra || [];
+          if (mods.includes('EMD')) mens += PSM_TARIFAS.emd[k] * PSM_IVA;
+          if (mods.includes('Alto Costo')) mens += PSM_TARIFAS.altoCosto[k] * PSM_IVA;
+          if (mods.includes('Cirugía')) mens += PSM_TARIFAS.cirugia[k] * PSM_IVA;
+          if (mods.includes('Maternidad') && edadP>=15&&edadP<=45) mens += PSM_TARIFAS.maternidad[k] * PSM_IVA;
+          const mult = { TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 }[per];
+          const bruto = Math.round(mens * mult);
+          const ahorro = Math.round(bruto * pct);
+          const perLblR = { TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' }[per];
+          dctoStr = ` <span style="color:var(--green);font-size:10px;">Dcto. ${perLblR} (${(pct*100).toFixed(2).replace('.',',')}%) −${fmt(ahorro)}</span>`;
+        }
+      }
+    }
+    // Descuento para PAC60 (60+)
+    if (p.producto === 'PAC60' && per !== 'MENSUAL') {
+      const PAC60_DCTOS_RES = { TRIMESTRAL:0.025, SEMESTRAL:0.048, ANUAL:0.0901 };
+      const pct = PAC60_DCTOS_RES[per];
+      if (pct) {
+        const edadP = parseInt(p.edad)||0;
+        const rangoP = getRangoPAC60(edadP);
+        if (rangoP) {
+          const mens = p.conAnexo ? PAC60_TARIFAS[rangoP].conAnexo : PAC60_TARIFAS[rangoP].sinAnexo;
+          const mult = { TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 }[per];
+          const bruto = Math.round(mens * mult);
+          const ahorro = Math.round(bruto * pct);
+          const perLblR = { TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' }[per];
+          dctoStr = ` <span style="color:var(--green);font-size:10px;">Dcto. ${perLblR} (${(pct*100).toFixed(2).replace('.',',')}%) −${fmt(ahorro)}</span>`;
         }
       }
     }
@@ -19057,21 +19157,26 @@ function cotizadorImprimir() {
       const rango = getRangoPSM(edad);
       if (!rango) return 0;
       const k = rango.key;
-      let total = PSM_TARIFAS.basico[k];
+      let totalMens = PSM_TARIFAS.basico[k];
       const mods = p.modulosExtra || [];
-      if (mods.includes('EMD')) total += PSM_TARIFAS.emd[k];
-      if (mods.includes('Alto Costo')) total += PSM_TARIFAS.altoCosto[k];
-      if (mods.includes('Cirugía')) total += PSM_TARIFAS.cirugia[k];
-      if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) total += PSM_TARIFAS.maternidad[k];
-      const FACTORES = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
-      return Math.round(total * (FACTORES[per] || 1));
+      if (mods.includes('EMD')) totalMens += PSM_TARIFAS.emd[k];
+      if (mods.includes('Alto Costo')) totalMens += PSM_TARIFAS.altoCosto[k];
+      if (mods.includes('Cirugía')) totalMens += PSM_TARIFAS.cirugia[k];
+      if (mods.includes('Maternidad') && edad >= 15 && edad <= 45) totalMens += PSM_TARIFAS.maternidad[k];
+      const FACTORES_PSM = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+      const PSM_DCTOS_PDF = { MENSUAL:0, TRIMESTRAL:0.0197, SEMESTRAL:0.0452, ANUAL:0.0901 };
+      const brutoPSM_pdf = Math.round(totalMens * (FACTORES_PSM[per] || 1));
+      return Math.round(brutoPSM_pdf * (1 - (PSM_DCTOS_PDF[per] || 0)));
     }
     if (p.producto === 'PAC60') {
       const rango = getRangoPAC60(edad);
       if (!rango) return 0;
       const valConIVA = p.conAnexo ? PAC60_TARIFAS[rango].conAnexo : PAC60_TARIFAS[rango].sinAnexo;
-      const FACTORES = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
-      return Math.round((valConIVA / 1.05) * (FACTORES[per] || 1));
+      const valMens = Math.round(valConIVA / 1.05);
+      const FACTORES_PAC = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+      const PAC60_DCTOS_PDF = { MENSUAL:0, TRIMESTRAL:0.025, SEMESTRAL:0.048, ANUAL:0.0901 };
+      const brutoPAC_pdf = Math.round(valMens * (FACTORES_PAC[per] || 1));
+      return Math.round(brutoPAC_pdf * (1 - (PAC60_DCTOS_PDF[per] || 0)));
     }
     return 0;
   }
@@ -19154,7 +19259,7 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
           </g>
         </svg>
       </div>
-      <div class="header-sub" style="font-size:11px;color:rgba(255,255,255,0.7);">Canal Salud · Seguros de Vida Suramericana S.A.</div>
+      <div class="header-sub" style="font-size:11px;color:rgba(255,255,255,0.7);">Canal Especializado en Salud · Seguros de Vida Suramericana S.A.</div>
     </div>
     <div class="header-right">
       <strong style="font-size:13px;">Propuesta Comercial N°: ${numero}</strong><br>
@@ -19226,7 +19331,7 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
   </div>
 
   <div class="footer">
-    Propuesta elaborada por: <strong>${asesor}</strong> · Asesor Canal Salud · Seguros de Vida Suramericana S.A.<br>
+    Propuesta elaborada por: <strong>${asesor}</strong> · Asesor Canal Especializado en Salud · Seguros de Vida Suramericana S.A.<br>
     Para solicitar cotización oficial o aceptación del riesgo, contactar directamente a SURA.<br>
     Documento generado el ${new Date().toLocaleString('es-CO')} · Propuesta N° ${numero}
   </div>
