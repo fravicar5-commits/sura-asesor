@@ -101,15 +101,17 @@
   body.theme-light .month-btn.active { background: var(--sura-blue); border-color: var(--sura-blue); color: white; }
   body.theme-light .alert-info { background: rgba(26,76,232,0.07); border-color: rgba(26,76,232,0.18); color: #1A4CE8; }
   body.theme-light .chip-blue { background: rgba(26,76,232,0.1); color: #1A4CE8; }
-  body.theme-light .sidebar.collapsed .nav-item:hover::after { background: #FFFFFF; border: 1px solid rgba(26,76,232,0.15); color: var(--text); box-shadow: 0 4px 12px rgba(15,30,80,0.12); }
+  /* light-mode tooltip — handled by JS */
   .sidebar { transition: width 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.28s cubic-bezier(0.4,0,0.2,1); }
   .sidebar.collapsed { width: 56px; }
 
   /* Hide all text, keep only icons */
   .sidebar.collapsed .nav-section           { display: none !important; }
   .sidebar.collapsed .logo-sub             { display: none !important; }
-  .sidebar.collapsed .logo-badge           { padding: 8px; border-radius: 8px; font-size: 0; width: 36px; height: 36px; justify-content: center; overflow: hidden; }
-  .sidebar.collapsed .logo-badge::after    { content: '🏥'; font-size: 18px; }
+  .sidebar.collapsed .sidebar-logo         { padding: 12px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .sidebar.collapsed .logo-badge           { padding: 0; border-radius: 8px; font-size: 0; width: 36px; height: 36px; justify-content: center; overflow: hidden; gap: 0; }
+  .sidebar.collapsed .logo-badge::after    { content: 'S'; font-size: 16px; font-weight: 800; letter-spacing: 0; }
+  .sidebar.collapsed #sidebarNombreAsesor  { display: none !important; }
   .sidebar.collapsed #menuDias15Banner     { display: none !important; }
   .sidebar.collapsed #sidebarSyncStatus   { display: none !important; }
 
@@ -122,25 +124,8 @@
   .sidebar.collapsed #sidebarCollapseBtnLabel { display: none; }
   .sidebar.collapsed #sidebarCollapseArea { display: flex; justify-content: center; padding: 8px 0 14px; }
 
-  /* Tooltip for collapsed nav items */
+  /* Tooltip for collapsed nav items — manejado via JS (mouseenter) para posición correcta con scroll */
   .sidebar.collapsed .nav-item { position: relative; overflow: visible; }
-  .sidebar.collapsed .nav-item:hover::after {
-    content: attr(data-label);
-    position: fixed;
-    left: 66px;
-    background: var(--surface3);
-    color: var(--text) !important;
-    font-size: 13px !important;
-    font-weight: 600;
-    padding: 6px 12px;
-    border-radius: 8px;
-    white-space: nowrap;
-    border: 1px solid var(--border);
-    z-index: 9999;
-    pointer-events: none;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    opacity: 1 !important;
-  }
 
   /* Tooltip touch (mobile) */
   .nav-tooltip-touch {
@@ -244,7 +229,9 @@
     width: 100%;
     text-align: left;
   }
-  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item { transition: background 0.18s ease, color 0.18s ease, transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); transform: translateX(2px); }
+  .sidebar.collapsed .nav-item:hover { transform: scale(1.13); background: var(--surface2); box-shadow: 0 2px 12px rgba(37,88,240,0.18); }
   .nav-item.active { background: rgba(26,76,232,0.2); color: var(--sura-blue); }
   .nav-item .icon { font-size: 16px; width: 20px; text-align: center; display: inline-flex; align-items: center; justify-content: center; }
   .nav-item .icon svg { width: 18px; height: 18px; stroke: currentColor; flex-shrink: 0; }
@@ -27069,6 +27056,56 @@ bootApp();
     tip.style.top  = (rect.top + rect.height / 2) + 'px';
     tip.style.transform = 'translateY(-50%)';
     hideTimer = setTimeout(() => tip.classList.remove('visible'), 1800);
+  }
+
+  // Desktop: mouseenter/mouseleave en nav-items colapsados
+  document.addEventListener('mouseover', function(e) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar || !sidebar.classList.contains('collapsed')) return;
+    const navItem = e.target.closest('.nav-item[data-label]');
+    if (!navItem) return;
+    const label = navItem.getAttribute('data-label');
+    if (label) showTooltipDesktop(label, navItem);
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar || !sidebar.classList.contains('collapsed')) return;
+    const navItem = e.target.closest('.nav-item[data-label]');
+    if (!navItem) return;
+    hideTooltipDesktop();
+  });
+
+  let desktopTooltipEl = null;
+  let desktopHideTimer = null;
+
+  function getDesktopTooltip() {
+    if (!desktopTooltipEl) {
+      desktopTooltipEl = document.createElement('div');
+      desktopTooltipEl.className = 'nav-tooltip-touch';
+      desktopTooltipEl.style.transition = 'opacity 0.12s ease, transform 0.14s cubic-bezier(0.34,1.56,0.64,1)';
+      desktopTooltipEl.style.transformOrigin = 'left center';
+      document.body.appendChild(desktopTooltipEl);
+    }
+    return desktopTooltipEl;
+  }
+
+  function showTooltipDesktop(label, targetEl) {
+    clearTimeout(desktopHideTimer);
+    const tip = getDesktopTooltip();
+    tip.textContent = label;
+    const rect = targetEl.getBoundingClientRect();
+    tip.style.left = (rect.right + 10) + 'px';
+    tip.style.top  = (rect.top + rect.height / 2) + 'px';
+    tip.style.transform = 'translateY(-50%) scale(1)';
+    tip.classList.add('visible');
+  }
+
+  function hideTooltipDesktop() {
+    clearTimeout(desktopHideTimer);
+    desktopHideTimer = setTimeout(() => {
+      if (desktopTooltipEl) desktopTooltipEl.classList.remove('visible');
+    }, 80);
   }
 
   document.addEventListener('touchstart', function(e) {
