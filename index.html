@@ -13751,7 +13751,7 @@ function renderRenovaciones() {
     .sort((a,b) => a.proxVenc - b.proxVenc);
 
   // KPIs por tramo
-  const tramo1 = conVenc.filter(x => x.diasParaVencer <= 7);
+  const tramo1 = conVenc.filter(x => x.diasParaVencer <= 7); // incluye vencidos y urgentes
   const tramo2 = conVenc.filter(x => x.diasParaVencer > 7  && x.diasParaVencer <= 30);
   const tramo3 = conVenc.filter(x => x.diasParaVencer > 30 && x.diasParaVencer <= horizonte);
   const primaTotal = conVenc.reduce((s,x) => s + (x.v.prima||0), 0);
