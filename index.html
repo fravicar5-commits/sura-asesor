@@ -12844,14 +12844,12 @@ function calcProxVencimiento(fechaExp, periodicidad, ventaId) {
     nPagos = pagosVenta.length;
   }
 
-  // El vencimiento del periodo N (contando desde 0) es: fechaExp + (N+1)*intervalo
-  // Con nPagos pagos, el proximo vencimiento a cubrir es: fechaExp + nPagos*intervalo
-  // (el pago N cubre hasta fechaExp + N*intervalo, por lo que el proximo es ese mismo punto).
-  // Cuando nPagos=0 usamos 1 para que el primer vencimiento sea fechaExp + 1*intervalo.
-  // Pero si ese vencimiento ya paso (hoy > venc), el cliente esta en mora —
-  // en ese caso devolvemos ese vencimiento vencido para que getCarteraEstado calcule mora.
+  // MISMA fórmula que getCarteraEstado:
+  // proxVenc = fechaExp + (nPagos + 1) * intervalo
+  // Con 0 pagos → fechaExp + 1*intervalo (primer vencimiento)
+  // Con 3 pagos → fechaExp + 4*intervalo (cuarto vencimiento, el que aún no se ha pagado)
   let venc = new Date(diaExp);
-  venc.setMonth(venc.getMonth() + Math.max(nPagos, 1) * intervalo);
+  venc.setMonth(venc.getMonth() + (nPagos + 1) * intervalo);
   return venc;
 }
 
