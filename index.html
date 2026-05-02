@@ -4441,6 +4441,20 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             <div style="font-size:13px;color:var(--text-muted);">Pólizas canceladas · razones y análisis de patrones</div>
           </div>
 
+          <!-- Impacto presupuestal cancelaciones -->
+          <div class="card" style="margin-bottom:16px;border-left:3px solid var(--red);" id="ctImpactoCard">
+            <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <span>💸 Impacto presupuestal — Cancelaciones</span>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <label style="font-size:11px;color:var(--text-muted);font-weight:400;">Mes de corte:</label>
+                <select id="cancelImpactoMesFiltro" onchange="renderImpactoCancelaciones()" style="font-size:11.5px;padding:4px 8px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font);">
+                  <option value="todos">Todos los meses</option>
+                </select>
+              </div>
+            </div>
+            <div id="ctImpactoCancelaciones"></div>
+          </div>
+
           <!-- Dashboard de razones -->
           <div class="card" style="margin-bottom:16px;border-left:3px solid var(--purple);">
             <div class="card-title">📊 Análisis de cancelaciones — Razones registradas</div>
@@ -4454,10 +4468,12 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Producto</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Cliente</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Plan</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Fecha Exp.</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Motivo cancelación</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Prima</th>
-                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Pagos registrados</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Expedición</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Cancelación · Motivo</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Prima mens.</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Meses pag.</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--red);text-transform:uppercase;">Meses pend.</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--red);text-transform:uppercase;">Impacto ppto.</th>
                   <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Acciones</th>
                 </tr>
               </thead>
@@ -13519,6 +13535,70 @@ function renderPersistencia() {
 // ═══════════════════════════════════════════════════════════════════════════
 // PANEL: RENOVACIONES — calendario de vencimientos próximos
 // ═══════════════════════════════════════════════════════════════════════════
+// ── Plantillas de mensaje de renovación ─────────────────────────────────────
+const RENOV_PLANTILLAS = {
+  urgente: (nombre, prod, fechaFmt, prima, asesor) =>
+`¡Hola ${nombre}! 👋
+
+Te escribo porque tu plan *${prod} SURA* tiene su fecha de pago el *${fechaFmt}* — ya estamos muy cerca y quiero que no pierdas ni un día de cobertura.
+
+💳 *Valor a pagar:* ${prima}
+
+Si tienes alguna duda sobre cómo realizar el pago o quieres que te ayude con el proceso, aquí estoy. ¡Me avisas!
+
+Quedo atento 😊
+*${asesor} — Asesor Canal Especializado en Salud SURA*`,
+
+  proximo: (nombre, prod, fechaFmt, prima, asesor) =>
+`Hola ${nombre}, espero que estés muy bien 😊
+
+Te cuento que tu plan *${prod} SURA* tiene su próxima fecha de pago el *${fechaFmt}*.
+
+Es un buen momento para tenerlo en cuenta y programarlo con calma, así tu cobertura sigue activa sin interrupciones.
+
+💳 *Valor:* ${prima}
+
+Cualquier cosa que necesites, con gusto te ayudo.
+
+Saludos,
+*${asesor} — Asesor Canal Especializado en Salud SURA*`,
+
+  planificar: (nombre, prod, fechaFmt, prima, asesor) =>
+`Hola ${nombre}! 👋
+
+¿Cómo estás? Solo quería dejarte un recordatorio anticipado: tu plan *${prod} SURA* se renueva el *${fechaFmt}*.
+
+Todavía tienes tiempo para programarlo con tranquilidad — te aviso con tiempo para que no te tome por sorpresa 😊
+
+💳 *Valor:* ${prima}
+
+Estoy aquí para lo que necesites.
+
+*${asesor} — Asesor Canal Especializado en Salud SURA*`
+};
+
+function getMsgRenovacion(v, proxVenc, diasParaVencer, pagosState) {
+  const s = getState();
+  const asesor = (s.config?.nombreAsesor || 'Tu asesor SURA').trim();
+  const nombre = tc(v.tomadorNombre || v.nombre || 'cliente');
+  const prod   = { SPTI:'Salud Para Todos', SPD:'Salud Para Dependientes', PSM:'Plan Modular', PAC60:'Plan 60+' }[v.producto] || v.producto;
+  const pBruto = v.prima || 0;
+  const primaFmt = fmt(pBruto) + ' s/IVA · ' + fmt(Math.round(pBruto * 1.19)) + ' c/IVA';
+  const fechaFmt = proxVenc.toLocaleDateString('es-CO',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const tipo = diasParaVencer <= 7 ? 'urgente' : diasParaVencer <= 30 ? 'proximo' : 'planificar';
+  return RENOV_PLANTILLAS[tipo](nombre, prod, fechaFmt, primaFmt, asesor);
+}
+
+function copiarMsgRenovacion(id, proxVencTs, diasParaVencer) {
+  const s = getState();
+  const pagos = getPagos();
+  const v = s.ventas.find(x => x.id === id);
+  if (!v) return;
+  const proxVenc = new Date(proxVencTs);
+  const msg = getMsgRenovacion(v, proxVenc, diasParaVencer, pagos);
+  navigator.clipboard.writeText(msg).then(() => showToast('✅ Mensaje copiado al portapapeles'));
+}
+
 function renderRenovaciones() {
   const state    = getState();
   const pagos    = getPagos();
@@ -13526,7 +13606,6 @@ function renderRenovaciones() {
   const horizonte = parseInt(document.getElementById('renovHorizonteFiltro')?.value || '60');
   const PRODS    = ['SPTI','SPD','PSM','PAC60'];
   const hoy      = new Date(); hoy.setHours(0,0,0,0);
-  const limite   = new Date(hoy); limite.setDate(limite.getDate() + horizonte);
 
   const ventas = state.ventas.filter(v =>
     PRODS.includes(v.producto) &&
@@ -13536,7 +13615,6 @@ function renderRenovaciones() {
     v.fechaExp
   );
 
-  // Calcular próximo vencimiento para cada póliza y filtrar las que caen en el horizonte
   const conVenc = ventas
     .map(v => {
       const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
@@ -13558,24 +13636,24 @@ function renderRenovaciones() {
   if (kGrid) {
     kGrid.innerHTML = `
       <div class="stat-card" style="border-top:3px solid var(--red);">
-        <div class="stat-label">🔴 Vencen en 7 días</div>
+        <div class="stat-label">🔴 Esta semana</div>
         <div class="stat-value" style="color:var(--red);">${tramo1.length}</div>
-        <div class="stat-sub">Contacto urgente</div>
+        <div class="stat-sub">Contacto urgente · ≤7 días</div>
       </div>
       <div class="stat-card" style="border-top:3px solid var(--amber);">
-        <div class="stat-label">🟡 Vencen en 8–30 días</div>
+        <div class="stat-label">🟡 Este mes</div>
         <div class="stat-value" style="color:var(--amber);">${tramo2.length}</div>
-        <div class="stat-sub">Gestión esta semana</div>
+        <div class="stat-sub">Gestión proactiva · 8-30 días</div>
       </div>
       <div class="stat-card" style="border-top:3px solid var(--teal);">
-        <div class="stat-label">🔵 Vencen en 31–${horizonte} días</div>
+        <div class="stat-label">🔵 En el horizonte</div>
         <div class="stat-value" style="color:var(--teal);">${tramo3.length}</div>
-        <div class="stat-sub">Planificar contacto</div>
+        <div class="stat-sub">Planificar contacto · 31-${horizonte}d</div>
       </div>
       <div class="stat-card blue">
         <div class="stat-label">💰 Prima en juego</div>
         <div class="stat-value" style="color:var(--sura-lime);font-size:18px;">${fmt(primaTotal)}</div>
-        <div class="stat-sub">en ${horizonte} días</div>
+        <div class="stat-sub">total en ${horizonte} días</div>
       </div>`;
   }
 
@@ -13591,14 +13669,15 @@ function renderRenovaciones() {
   const semanas = {};
   conVenc.forEach(x => {
     const lunes = new Date(x.proxVenc);
-    lunes.setDate(lunes.getDate() - ((lunes.getDay()+6)%7)); // lunes de esa semana
+    lunes.setDate(lunes.getDate() - ((lunes.getDay()+6)%7));
     const key = lunes.toISOString().slice(0,10);
     if (!semanas[key]) semanas[key] = { lunes, items:[] };
     semanas[key].items.push(x);
   });
 
   const PROD_COLOR = { SPTI:'var(--teal)', SPD:'var(--purple)', PSM:'var(--amber)', PAC60:'var(--green)' };
-  const fmtFecha = d => d.toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'short'});
+  const PROD_NOMBRE = { SPTI:'Salud Para Todos', SPD:'Salud Para Dependientes', PSM:'Plan Modular', PAC60:'Plan 60+' };
+  const fmtFecha  = d => d.toLocaleDateString('es-CO',{weekday:'short',day:'2-digit',month:'short'});
   const fmtSemana = d => {
     const fin = new Date(d); fin.setDate(fin.getDate()+6);
     return `Semana del ${d.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})} al ${fin.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}`;
@@ -13611,40 +13690,66 @@ function renderRenovaciones() {
       const cards = sem.items.map(x => {
         const { v, proxVenc, diasParaVencer } = x;
         const urgColor = diasParaVencer <= 7 ? 'var(--red)' : diasParaVencer <= 30 ? 'var(--amber)' : 'var(--teal)';
-        const waUrl = v.telefono ? `https://wa.me/57${v.telefono.replace(/\D/g,'')}` : '';
-        const msgWA = encodeURIComponent(`Hola ${v.nombre||''}, te recuerdo que tu plan ${v.producto||''} con SURA vence el ${fmtFecha(proxVenc)}. ¿Coordinamos el pago? — Tu asesor SURA`);
+        const urgLabel = diasParaVencer <= 7 ? 'URGENTE' : diasParaVencer <= 30 ? 'PRÓXIMO' : 'PLANIFICAR';
+        const tel = (v.telefono||'').replace(/\D/g,'');
+        const waUrl = tel ? `https://wa.me/57${tel}` : '';
+        const msg = getMsgRenovacion(v, proxVenc, diasParaVencer, pagos);
+        const msgEnc = encodeURIComponent(msg);
         const pBruto = v.prima || 0;
         const pIVA   = Math.round(pBruto * 1.19);
-        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 13px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);border-left:3px solid ${urgColor};">
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">
-              <span style="font-size:13px;font-weight:700;">${v.nombre||'—'}</span>
-              <span style="font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:10px;background:${PROD_COLOR[v.producto]||'var(--teal)'}18;color:${PROD_COLOR[v.producto]||'var(--teal)'};">${v.producto||''}</span>
-              <span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:var(--surface3);color:var(--text-muted);">${v.periodicidad||''}</span>
+        const nPagos = (pagos[v.id]||[]).length;
+        const fechaExpAnios = v.fechaExp
+          ? Math.floor((new Date() - new Date(v.fechaExp+'T12:00:00')) / (365.25*86400000))
+          : 0;
+        const antiguedad = fechaExpAnios >= 1
+          ? `${fechaExpAnios} año${fechaExpAnios>1?'s':''} como cliente`
+          : 'Nuevo cliente';
+
+        return `<div style="padding:14px 16px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);border-left:3px solid ${urgColor};">
+          <!-- fila principal -->
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <!-- nombre + chips -->
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:5px;">
+                <span style="font-size:13.5px;font-weight:700;">${v.tomadorNombre||v.nombre||'—'}</span>
+                <span style="font-size:10px;font-weight:700;padding:1px 8px;border-radius:10px;background:${PROD_COLOR[v.producto]||'var(--teal)'}18;color:${PROD_COLOR[v.producto]||'var(--teal)'};">${v.producto}</span>
+                <span style="font-size:10px;padding:1px 8px;border-radius:10px;background:var(--surface3);color:var(--text-muted);">${v.periodicidad||''}</span>
+                <span style="font-size:10px;font-weight:700;padding:1px 8px;border-radius:10px;background:${urgColor}18;color:${urgColor};">${urgLabel} · ${diasParaVencer}d</span>
+              </div>
+              <!-- fecha y prima -->
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:3px;">
+                📅 Vence <strong style="color:${urgColor};">${fmtFecha(proxVenc)}</strong>
+                ${v.plan ? ` · ${v.plan}` : ''}
+                ${v.empresa ? ` · 🏢 ${v.empresa}` : ''}
+              </div>
+              <!-- contexto cliente -->
+              <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-dim);margin-top:4px;">
+                <span>💳 ${fmt(pBruto)} s/IVA &nbsp;·&nbsp; ${fmt(pIVA)} c/IVA</span>
+                <span>📋 ${nPagos} pago${nPagos!==1?'s':''} registrado${nPagos!==1?'s':''}</span>
+                <span>🗓 ${antiguedad}</span>
+              </div>
             </div>
-            <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">
-              📅 Vence: <strong style="color:${urgColor};">${fmtFecha(proxVenc)}</strong>
-              · <span style="color:${urgColor};font-weight:700;">en ${diasParaVencer} día${diasParaVencer!==1?'s':''}</span>
-              ${v.plan ? ` · ${v.plan}` : ''}
-              ${v.empresa ? ` · 🏢 ${v.empresa}` : ''}
+            <!-- botones -->
+            <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
+              ${waUrl ? `<a href="${waUrl}?text=${msgEnc}" target="_blank"
+                style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:rgba(34,197,94,0.15);color:var(--green);font-size:11.5px;font-weight:700;text-decoration:none;border:1px solid rgba(34,197,94,0.3);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.096.533 4.063 1.476 5.782L0 24l6.393-1.454A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.885 9.885 0 01-5.04-1.38l-.361-.214-3.795.863.899-3.687-.235-.378A9.866 9.866 0 012.105 12C2.105 6.527 6.527 2.105 12 2.105c5.472 0 9.895 4.422 9.895 9.895 0 5.472-4.423 9.894-9.895 9.894z"/></svg>
+                WhatsApp</a>` : ''}
+              <button onclick="copiarMsgRenovacion('${v.id}',${proxVenc.getTime()},${diasParaVencer})"
+                style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.05);color:var(--text-muted);font-size:11.5px;font-weight:600;border:1px solid rgba(255,255,255,0.1);cursor:pointer;font-family:var(--font);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copiar mensaje</button>
+              <button onclick="abrirModalPago('${v.id}')"
+                style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;background:rgba(26,76,232,0.12);color:var(--sura-blue);font-size:11.5px;font-weight:700;border:1px solid rgba(26,76,232,0.25);cursor:pointer;font-family:var(--font);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                Registrar pago</button>
             </div>
-            <div style="font-size:11.5px;color:var(--text-muted);">
-              💰 Prima: <strong>${fmt(pBruto)}</strong> s/IVA · <strong>${fmt(pIVA)}</strong> c/IVA
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
-            ${waUrl ? `<a href="${waUrl}?text=${msgWA}" target="_blank"
-              style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:rgba(34,197,94,0.15);color:var(--green);font-size:11px;font-weight:700;text-decoration:none;border:1px solid rgba(34,197,94,0.3);">
-              📱 Recordar</a>` : ''}
-            <button onclick="abrirModalPago('${v.id}')"
-              style="padding:4px 10px;border-radius:6px;background:rgba(26,76,232,0.12);color:var(--sura-blue);font-size:11px;font-weight:700;border:1px solid rgba(26,76,232,0.25);cursor:pointer;">
-              💳 Registrar pago</button>
           </div>
         </div>`;
       }).join('');
 
       return `<div class="card" style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px;">
           <div style="font-size:13px;font-weight:700;">${fmtSemana(sem.lunes)}</div>
           <div style="display:flex;gap:10px;align-items:center;">
             <span style="font-size:11.5px;color:var(--text-muted);">${sem.items.length} póliza${sem.items.length!==1?'s':''}</span>
@@ -13763,6 +13868,36 @@ function eliminarPagoIndividual(ventaId, pagoId) {
   showToast('🗑 Pago eliminado del historial');
 }
 
+// Calcula prima mensual sin IVA de una venta según producto/plan/rango edad
+function calcPrimaMensualSinIVA(v) {
+  const edad = parseInt(v.edadTomador || v.edad || 0);
+  if (v.producto === 'SPTI') {
+    const rango = edad <= 40 ? '0-40' : edad <= 50 ? '41-50' : edad <= 59 ? '51-59' : null;
+    if (!rango) return v.primaSinIVA || Math.round((v.prima||0)/1.05);
+    const plan = v.plan || 'PREFERENCIAL';
+    const SPTI_SIN = { PREFERENCIAL: { '0-40':159120,'41-50':171167,'51-59':212100 }, CLASICO: { '0-40':139990,'41-50':153628,'51-59':193610 } };
+    return (SPTI_SIN[plan]?.[rango]) || v.primaSinIVA || Math.round((v.prima||0)/1.05);
+  }
+  if (v.producto === 'SPD') return v.primaSinIVA || Math.round((v.prima||0)/1.05);
+  if (v.producto === 'PSM' || v.producto === 'PAC60') return v.primaSinIVA || Math.round((v.prima||0)/1.05);
+  return v.primaSinIVA || Math.round((v.prima||0)/1.05);
+}
+
+// Calcula impacto presupuestal de una cancelación
+function calcImpactoCancelacion(v, pagosState) {
+  const pList = pagosState[v.id] || [];
+  const mesesPagados = pList.length;
+  const primaMens = calcPrimaMensualSinIVA(v);
+  const proyAnual = primaMens * 12;
+  const pagado = primaMens * mesesPagados;
+  const mesesPendientes = Math.max(0, 12 - mesesPagados);
+  const impacto = mesesPendientes * primaMens;
+  const mesCancelacion = v.fechaCancelacion
+    ? new Date(v.fechaCancelacion + 'T12:00:00').getMonth()
+    : (v.fechaExp ? new Date(v.fechaExp + 'T12:00:00').getMonth() : -1);
+  return { mesesPagados, mesesPendientes, primaMens, proyAnual, pagado, impacto, mesCancelacion };
+}
+
 function renderCancelados() {
   const state = getState();
   const pagos = getPagos();
@@ -13770,27 +13905,47 @@ function renderCancelados() {
   const tbody = document.getElementById('canceladosTabla');
 
   if (!cancelados.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-dim);">Sin pólizas canceladas 🎉</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-dim);">Sin pólizas canceladas 🎉</td></tr>`;
     document.getElementById('canceladosCount').textContent = '';
+    renderImpactoCancelaciones();
     return;
   }
 
   const prodChip = { SPTI:'chip-teal', SPD:'chip-purple', PSM:'chip-blue', PAC60:'chip-green' };
+  const dateFmt = d => d ? new Date(d+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+
   tbody.innerHTML = cancelados.map((v,i) => {
     const rowBg = i%2===0 ? '' : 'rgba(255,255,255,0.015)';
     const nombre = tc(v.tomadorNombre || v.nombre || '—');
-    const expFmt = v.fechaExp ? new Date(v.fechaExp+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-    const cancelFmt = v.fechaCancelacion ? new Date(v.fechaCancelacion+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-    const nPagos = (pagos[v.id] || []).length;
     const planLabel = v.plan === 'PREFERENCIAL' ? 'Preferencial' : v.plan === 'CLASICO' ? 'Clásico' : (v.plan || '—');
-    return `<tr style="background:${rowBg};border-top:1px solid var(--border);opacity:0.75;">
+    const imp = calcImpactoCancelacion(v, pagos);
+    const barPct = Math.round((imp.mesesPagados / 12) * 100);
+    const impColor = imp.mesesPendientes >= 10 ? 'var(--red)' : imp.mesesPendientes >= 6 ? 'var(--amber)' : 'var(--green)';
+    return `<tr style="background:${rowBg};border-top:1px solid var(--border);">
       <td style="padding:10px 12px;"><span class="chip ${prodChip[v.producto]||'chip-blue'}" style="font-size:10px;">${v.producto}</span></td>
-      <td style="padding:10px 12px;font-weight:500;font-size:13px;">${nombre}</td>
+      <td style="padding:10px 12px;font-weight:500;font-size:13px;">${nombre}<br><span style="font-size:10.5px;color:var(--text-dim);">${v.cedula||''}</span></td>
       <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);">${planLabel}</td>
-      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;">${expFmt}</td>
-      <td style="padding:10px 12px;font-size:12px;color:var(--red);">${v.motivoCancelacion || 'Manual'} ${cancelFmt !== '—' ? `· ${cancelFmt}` : ''}</td>
-      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;color:var(--text-muted);">${fmt(v.prima||0)}</td>
-      <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);">${nPagos} pago(s)</td>
+      <td style="padding:10px 12px;font-family:var(--mono);font-size:11.5px;">${dateFmt(v.fechaExp)}</td>
+      <td style="padding:10px 12px;font-size:12px;">
+        <span style="color:var(--red);font-weight:600;">${dateFmt(v.fechaCancelacion)}</span><br>
+        <span style="font-size:10.5px;color:var(--text-muted);">${v.motivoCancelacion || 'Sin motivo'}</span>
+      </td>
+      <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;color:var(--text-muted);">${fmt(imp.primaMens)}<br><span style="font-size:10px;color:var(--text-dim);">anual: ${fmt(imp.proyAnual)}</span></td>
+      <td style="padding:10px 12px;font-size:12px;">
+        <div style="font-weight:600;color:var(--green);margin-bottom:4px;">${imp.mesesPagados} / 12</div>
+        <div style="height:4px;background:var(--surface3);border-radius:2px;width:60px;">
+          <div style="width:${barPct}%;height:100%;background:var(--green);border-radius:2px;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${fmt(imp.pagado)} pagados</div>
+      </td>
+      <td style="padding:10px 12px;font-size:12px;">
+        <div style="font-weight:700;color:${impColor};font-size:14px;">${imp.mesesPendientes}</div>
+        <div style="font-size:10px;color:var(--text-dim);">meses</div>
+      </td>
+      <td style="padding:10px 12px;font-family:var(--mono);font-size:13px;font-weight:700;color:${impColor};">
+        ${imp.impacto > 0 ? `−${fmt(imp.impacto)}` : '<span style="color:var(--green)">Sin impacto</span>'}
+        ${imp.impacto > 0 ? `<br><span style="font-size:10px;color:var(--text-dim);">${imp.mesesPendientes} × ${fmt(imp.primaMens)}</span>` : ''}
+      </td>
       <td style="padding:10px 12px;white-space:nowrap;">
         <button class="btn btn-secondary btn-sm" onclick="reactivarPoliza('${v.id}')">♻️ Reactivar</button>
         <button class="btn btn-danger btn-sm" onclick="eliminarVentaCartera('${v.id}')">🗑</button>
@@ -13798,6 +13953,146 @@ function renderCancelados() {
     </tr>`;
   }).join('');
   document.getElementById('canceladosCount').textContent = `${cancelados.length} póliza(s) cancelada(s)`;
+  renderImpactoCancelaciones();
+}
+
+function renderImpactoCancelaciones() {
+  const cont = document.getElementById('ctImpactoCancelaciones');
+  if (!cont) return;
+  const s = getState();
+  const pagos = getPagos();
+  const MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const canceladas = s.ventas.filter(v => ['SPTI','SPD','PSM','PAC60'].includes(v.producto) && v.tipo === 'CANCELACION');
+
+  // Poblar filtro de meses
+  const sel = document.getElementById('cancelImpactoMesFiltro');
+  if (sel) {
+    const mesesConCancelaciones = [...new Set(canceladas
+      .filter(v => v.fechaCancelacion)
+      .map(v => new Date(v.fechaCancelacion + 'T12:00:00').getMonth())
+    )].sort((a,b)=>a-b);
+    // Reconstruir options
+    const valorActual = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    mesesConCancelaciones.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = MESES_NOM[m];
+      sel.appendChild(opt);
+    });
+    if (valorActual && [...sel.options].some(o => o.value === valorActual)) sel.value = valorActual;
+  }
+
+  const filtroMes = sel ? sel.value : 'todos';
+  const filtradas = filtroMes === 'todos' ? canceladas
+    : canceladas.filter(v => {
+        if (!v.fechaCancelacion) return false;
+        return new Date(v.fechaCancelacion + 'T12:00:00').getMonth() === parseInt(filtroMes);
+      });
+
+  if (!filtradas.length) {
+    cont.innerHTML = '<div style="color:var(--text-dim);font-size:12.5px;padding:12px 0;">Sin cancelaciones en este período.</div>';
+    return;
+  }
+
+  // Calcular totales
+  let totalImpacto = 0, totalPagado = 0, totalProyAnual = 0;
+  const detalles = filtradas.map(v => {
+    const imp = calcImpactoCancelacion(v, pagos);
+    totalImpacto += imp.impacto;
+    totalPagado += imp.pagado;
+    totalProyAnual += imp.proyAnual;
+    return { v, imp };
+  });
+
+  // Planes equivalentes (base: Pref 0-40 sin IVA = 159120/mes = 1909440/año)
+  const PRIMA_MENSUAL_BASE = 159120;
+  const PRIMA_ANUAL_BASE   = PRIMA_MENSUAL_BASE * 12; // 1.909.440
+  const planesEquivalentes = totalImpacto / PRIMA_MENSUAL_BASE;
+  const planesAnualesEq    = totalImpacto / PRIMA_ANUAL_BASE;
+  const tituloMes = filtroMes === 'todos' ? 'acumulado total' : 'mes de ' + MESES_NOM[parseInt(filtroMes)];
+
+  // KPIs del resumen
+  const colorImpacto = totalImpacto > 3000000 ? 'var(--red)' : totalImpacto > 1000000 ? 'var(--amber)' : 'var(--text-muted)';
+
+  cont.innerHTML = `
+    <!-- KPIs resumen -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
+      <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:6px;">Pólizas canceladas</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);">${filtradas.length}</div>
+        <div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;">${tituloMes}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:6px;">Prima proyectada</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);">${fmt(totalProyAnual)}</div>
+        <div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;">Anual proyectada al expedirse</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:6px;">Prima cobrada</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green);">${fmt(totalPagado)}</div>
+        <div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;">Lo que efectivamente entró</div>
+      </div>
+      <div style="background:rgba(220,38,38,0.08);border-radius:10px;padding:14px;border:1px solid rgba(220,38,38,0.25);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--red);margin-bottom:6px;">⚠️ Impacto a reponer</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:${colorImpacto};">−${fmt(totalImpacto)}</div>
+        <div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;">≈ ${planesEquivalentes.toFixed(1)} planes mensuales</div>
+      </div>
+    </div>
+
+    <!-- Barra de impacto -->
+    <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12px;font-weight:600;color:var(--text);">Relación pagado vs impacto pendiente</span>
+        <span style="font-size:11.5px;color:var(--text-muted);">${fmt(totalPagado)} cobrado + <span style="color:${colorImpacto};">−${fmt(totalImpacto)}</span> = ${fmt(totalProyAnual)} proy.</span>
+      </div>
+      <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;display:flex;">
+        <div style="width:${totalProyAnual>0?Math.round(totalPagado/totalProyAnual*100):0}%;background:var(--green);border-radius:4px 0 0 4px;transition:width .5s;"></div>
+        <div style="flex:1;background:rgba(220,38,38,0.45);border-radius:0 4px 4px 0;"></div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:6px;">
+        <span style="font-size:10.5px;color:var(--green);">■ Pagado (${totalProyAnual>0?Math.round(totalPagado/totalProyAnual*100):0}%)</span>
+        <span style="font-size:10.5px;color:var(--red);">■ Impacto pendiente (${totalProyAnual>0?Math.round(totalImpacto/totalProyAnual*100):0}%)</span>
+      </div>
+    </div>
+
+    <!-- Detalle por cancelación -->
+    <div style="font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Detalle por póliza</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+    ${detalles.map(({v, imp}) => {
+      const nombre = tc(v.tomadorNombre || v.nombre || '—');
+      const cancelFmt = v.fechaCancelacion ? new Date(v.fechaCancelacion+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      const impColor2 = imp.mesesPendientes >= 10 ? 'var(--red)' : imp.mesesPendientes >= 6 ? 'var(--amber)' : 'var(--green)';
+      const barW = Math.round(imp.mesesPagados/12*100);
+      return `<div style="background:var(--surface2);border-radius:8px;padding:12px 14px;border:1px solid var(--border);border-left:3px solid ${impColor2};">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          <div>
+            <span style="font-weight:600;font-size:13px;color:var(--text);">${nombre}</span>
+            <span style="font-size:11px;color:var(--text-dim);margin-left:8px;">${v.producto} · ${v.plan||''}</span>
+          </div>
+          <div style="text-align:right;">
+            <span style="font-family:var(--mono);font-size:15px;font-weight:800;color:${impColor2};">${imp.impacto > 0 ? '−'+fmt(imp.impacto) : 'Sin impacto'}</span>
+            <div style="font-size:10px;color:var(--text-dim);">Cancelado: ${cancelFmt} · ${v.motivoCancelacion||'sin motivo'}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;font-size:11px;">
+          <div><div style="color:var(--text-dim);">Proy. anual</div><div style="font-family:var(--mono);font-weight:600;">${fmt(imp.proyAnual)}</div></div>
+          <div><div style="color:var(--text-dim);">Prima mensual</div><div style="font-family:var(--mono);font-weight:600;">${fmt(imp.primaMens)}</div></div>
+          <div><div style="color:var(--green);">Pagado</div><div style="font-family:var(--mono);font-weight:600;color:var(--green);">${fmt(imp.pagado)} (${imp.mesesPagados} m.)</div></div>
+          <div><div style="color:${impColor2};">Impacto</div><div style="font-family:var(--mono);font-weight:700;color:${impColor2};">${imp.impacto>0?'−'+fmt(imp.impacto)+' ('+imp.mesesPendientes+' m.)':'—'}</div></div>
+        </div>
+        <div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;display:flex;">
+          <div style="width:${barW}%;background:var(--green);border-radius:2px;"></div>
+          <div style="flex:1;background:rgba(220,38,38,0.35);"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:3px;">
+          <span>${imp.mesesPagados} meses pagados</span>
+          <span>${imp.mesesPendientes} meses pendientes de reponer</span>
+        </div>
+      </div>`;
+    }).join('')}
+    </div>
+  `;
 }
 
 function reactivarPoliza(id) {
