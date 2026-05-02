@@ -694,6 +694,7 @@
 <!-- ===== FIREBASE SDK ===== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
   import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -707,6 +708,8 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  let _fcmMessaging = null;
+  try { _fcmMessaging = getMessaging(app); } catch(_) {}
 
   // ── ID de usuario fijo (app monousuario) ──────────────────────────────────
   // ── ID de usuario dinámico (multiusuario) ────────────────────────────────────────────
@@ -13535,6 +13538,113 @@ function renderPersistencia() {
 // ═══════════════════════════════════════════════════════════════════════════
 // PANEL: RENOVACIONES — calendario de vencimientos próximos
 // ═══════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+// SISTEMA DE NOTIFICACIONES — RENOVACIONES
+// ══════════════════════════════════════════════════════════════════
+const VAPID_KEY = 'BEuXl7wmV0V5cboQSWPehUWiwgQQS_BaOdpt0hOzDmjkWROwi78x7GPY9uULL9pPNn7d2eVK3N5jHmHD5JBMqic';
+const NOTIF_CHECK_KEY = 'sura_notif_last_check';
+
+async function initNotificaciones() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !_fcmMessaging) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    if (Notification.permission === 'default') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+    }
+    if (Notification.permission !== 'granted') return;
+    const token = await getToken(_fcmMessaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    if (token && UID) {
+      try {
+        await setDoc(doc(db, 'usuarios', UID, 'dispositivos', 'fcmToken'),
+          { token, updatedAt: new Date().toISOString(), ua: navigator.userAgent.slice(0,100) },
+          { merge: true });
+      } catch(_) {}
+    }
+    onMessage(_fcmMessaging, payload => {
+      const { title, body } = payload.notification || {};
+      showNotifBanner(title || '\uD83C\uDFE5 SURA', body || '');
+    });
+    checkNotifRenovacionesDiarias();
+  } catch(e) { console.warn('FCM init:', e); }
+}
+
+function showNotifBanner(title, body) {
+  let banner = document.getElementById('_notifBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = '_notifBanner';
+    banner.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:12px;padding:14px 16px;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.4);font-family:var(--font);cursor:pointer;transition:opacity .3s;';
+    banner.onclick = () => { banner.style.opacity='0'; setTimeout(()=>banner.remove(),300); };
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">${title}</div><div style="font-size:12px;color:var(--text-muted);line-height:1.5;">${body}</div><div style="font-size:10px;color:var(--text-dim);margin-top:6px;">Toca para cerrar</div>`;
+  banner.style.opacity = '1';
+  setTimeout(() => { if(banner){banner.style.opacity='0';setTimeout(()=>banner.remove(),300);} }, 8000);
+}
+
+function checkNotifRenovacionesDiarias() {
+  const hoy = new Date().toISOString().slice(0,10);
+  if (localStorage.getItem(NOTIF_CHECK_KEY) === hoy) return;
+  localStorage.setItem(NOTIF_CHECK_KEY, hoy);
+  setTimeout(() => { try { _lanzarNotifRenovaciones(); } catch(e){console.warn('Notif:',e);} }, 3000);
+}
+
+function _lanzarNotifRenovaciones() {
+  const s = getState();
+  if (!s || !s.ventas) return;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const PRODS = ['SPTI','SPD','PSM','PAC60'];
+  const conVenc = s.ventas
+    .filter(v => PRODS.includes(v.producto) && v.tipo !== 'CANCELACION' && !v._importadoSura && v.fechaExp)
+    .map(v => {
+      const pv = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
+      if (!pv) return null;
+      const dias = Math.floor((pv - hoy) / 86400000);
+      if (dias < 0 || dias > 60) return null;
+      return { v, dias };
+    }).filter(Boolean);
+  if (!conVenc.length) return;
+  const urgentes = conVenc.filter(x => x.dias <= 7);
+  const proximos = conVenc.filter(x => x.dias > 7 && x.dias <= 30);
+  const hora = new Date().getHours();
+  const saludo = hora < 12 ? 'Buenos d\u00edas' : hora < 18 ? 'Buenas tardes' : 'Buenas noches';
+  const primerNombre = ((getState().config?.nombreAsesor)||'').split(' ')[0];
+  const titulo = `\uD83D\uDDD3 ${saludo}${primerNombre ? ', '+primerNombre : ''}`;
+  let cuerpo = '';
+  if (urgentes.length > 0) {
+    const noms = urgentes.slice(0,2).map(x=>(x.v.tomadorNombre||x.v.nombre||'').split(' ')[0]).join(', ');
+    cuerpo = `\u26A0\uFE0F ${urgentes.length} cliente${urgentes.length>1?'s':''} vence${urgentes.length>1?'n':''} esta semana: ${noms}${urgentes.length>2?' y m\u00e1s':''}.`;
+    if (proximos.length) cuerpo += ` +${proximos.length} m\u00e1s este mes.`;
+  } else if (proximos.length > 0) {
+    cuerpo = `\uD83D\uDCCB ${proximos.length} cliente${proximos.length>1?'s':''} vence${proximos.length>1?'n':''} este mes. Buen momento para contactarlos.`;
+  } else {
+    cuerpo = `\u2705 ${conVenc.length} p\u00f3liza${conVenc.length>1?'s':''} por renovar en los pr\u00f3ximos 60 d\u00edas. Todo bajo control.`;
+  }
+  showNotifBanner(titulo, cuerpo);
+  if (Notification.permission === 'granted') {
+    try { new Notification(titulo, { body: cuerpo, icon: '/icon-192.png', tag: 'sura-daily-renov' }); } catch(_) {}
+  }
+  _actualizarBadgeRenovaciones(urgentes.length);
+}
+
+function _actualizarBadgeRenovaciones(count) {
+  document.querySelectorAll('.nav-item[data-label]').forEach(btn => {
+    if (btn.getAttribute('data-label') !== 'Cartera') return;
+    let badge = btn.querySelector('._renovBadge');
+    if (!badge && count > 0) {
+      badge = document.createElement('span');
+      badge.className = '_renovBadge';
+      badge.style.cssText = 'position:absolute;top:4px;right:4px;background:var(--red);color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;';
+      btn.style.position = 'relative';
+      btn.appendChild(badge);
+    }
+    if (badge && count > 0) badge.textContent = count;
+    if (badge && count === 0) badge.remove();
+  });
+}
+
 // ── Plantillas de mensaje de renovación ─────────────────────────────────────
 const RENOV_PLANTILLAS = {
   urgente: (nombre, prod, fechaFmt, prima, asesor) =>
@@ -22128,6 +22238,7 @@ function _iniciarAppTrasLogin() {
   migrarPagosV1();
   navigate('inicio');
   checkMenuPulse();
+  setTimeout(() => initNotificaciones(), 2000);
   actualizarSidebarSync();
   adminActualizarNavBtn();
   actualizarNombreSidebarUsuario();
