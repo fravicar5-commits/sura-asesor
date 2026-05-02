@@ -1440,7 +1440,7 @@
 
             <!-- headline -->
             <div style="font-size:36px;font-weight:700;line-height:1.15;color:var(--text);margin-bottom:10px;letter-spacing:-0.02em;position:relative;">
-              Bienvenido, <span id="inicioNombreAsesor" style="color:var(--sura-lime);">Asesor</span>
+              Hola, <span id="inicioNombreAsesor" style="color:var(--sura-lime);">Asesor</span>
             </div>
             <div style="font-size:15px;color:var(--text-muted);max-width:500px;line-height:1.65;margin-bottom:28px;position:relative;">
               Gestiona tu cartera, cotiza en segundos, registra ventas PBS y voluntarios, y monitorea tus comisiones en tiempo real.
@@ -3401,6 +3401,20 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             📥 Importa tu archivo <strong>REPORTE_DE_VENTAS_SURA.xlsx</strong> — el sistema leerá automáticamente la hoja <em>TABLERO DE REGISTRO</em> y cargará las ventas del año en curso.
           </div>
 
+          <!-- Plantilla descargable PBS -->
+          <div class="card" style="margin-bottom:20px;border-left:3px solid var(--sura-lime);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:3px;">¿Eres nuevo o no tienes el archivo SURA? Descarga la plantilla predefinida</div>
+                <div style="font-size:12px;color:var(--text-muted);">Llena la plantilla con tus datos PBS y súbela aquí. Las columnas ya están configuradas para que la app las lea sin errores.</div>
+              </div>
+              <button onclick="descargarPlantillaPBS()" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:8px;background:rgba(200,229,43,0.12);color:var(--sura-lime);border:1px solid rgba(200,229,43,0.3);cursor:pointer;font-size:13px;font-weight:700;font-family:var(--font);white-space:nowrap;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Descargar Plantilla PBS
+              </button>
+            </div>
+          </div>
+
           <div class="card" style="margin-bottom:20px;">
             <div class="card-title">Paso 1 — Selecciona tu archivo Excel PBS</div>
             <div style="margin-bottom:16px;font-size:13px;color:var(--text-muted);">
@@ -3479,6 +3493,20 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         <div id="importTabVol" style="display:none;">
           <div class="alert alert-info" style="margin-bottom:20px;">
             💊 Importa tus ventas de <strong>SPTI, SPD, Plan Modular y Plan 60+</strong> desde tu Excel de voluntarios. El sistema detectará el producto automáticamente por el nombre del plan.
+          </div>
+
+          <!-- Plantilla descargable Voluntarios -->
+          <div class="card" style="margin-bottom:20px;border-left:3px solid var(--teal);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:3px;">¿Primera vez? Descarga la plantilla predefinida de Voluntarios</div>
+                <div style="font-size:12px;color:var(--text-muted);">Plantilla con todas las columnas necesarias: póliza, tomador, plan, periodicidad, prima y más. Lista para llenar y subir.</div>
+              </div>
+              <button onclick="descargarPlantillaVol()" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:8px;background:rgba(6,182,212,0.12);color:var(--teal);border:1px solid rgba(6,182,212,0.3);cursor:pointer;font-size:13px;font-weight:700;font-family:var(--font);white-space:nowrap;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Descargar Plantilla Voluntarios
+              </button>
+            </div>
           </div>
 
           <div class="card" style="margin-bottom:20px;">
@@ -15374,6 +15402,160 @@ function setImportTab(tab, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('importTabPBS').style.display = tab === 'pbs' ? '' : 'none';
   document.getElementById('importTabVol').style.display = tab === 'vol' ? '' : 'none';
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// PLANTILLAS EXCEL PREDEFINIDAS — PBS y Voluntarios
+// ══════════════════════════════════════════════════════════════════
+
+function descargarPlantillaPBS() {
+  if (typeof XLSX === 'undefined') { showToast('Cargando librería Excel, intenta de nuevo en 2 segundos...'); return; }
+
+  // Cabeceras exactas que lee el importador PBS
+  const cabeceras = [
+    'FECHA',
+    'COTIZANTE/BENEFICIARIO',
+    'No. DOC',
+    'EMPRESA',
+    'NIT',
+    'CRITERIO COMPENSA2',
+    'TIPO.AFILIADO',
+    'TRAM. DE AFILIACIÓN',
+    'BD/FUERA BD',
+    'COMPENSADO PARA',
+    'FECHA NACIMIENTO',
+    'ESTADO USUARIO',
+    'CIUDAD',
+    'COMISION'
+  ];
+
+  // Fila de ejemplo
+  const ejemplo = [
+    '2026-01-15',
+    'Juan Pérez García',
+    '1012345678',
+    'Empresa Ejemplo S.A.',
+    '900123456',
+    'COTIZANTE',
+    'COTIZANTE',
+    'NUEVA',
+    'BD',
+    'FEBRERO',
+    '1990-05-20',
+    'ÁGIL',
+    'MEDELLÍN',
+    '11257'
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([cabeceras, ejemplo]);
+
+  // Ancho de columnas
+  ws['!cols'] = cabeceras.map(() => ({ wch: 22 }));
+
+  // Estilo cabecera (color de fondo)
+  cabeceras.forEach((_, i) => {
+    const cell = XLSX.utils.encode_cell({ r: 0, c: i });
+    if (!ws[cell]) return;
+    ws[cell].s = { fill: { fgColor: { rgb: '1A4CE8' } }, font: { bold: true, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center' } };
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'TABLERO DE REGISTRO');
+
+  // Hoja de instrucciones
+  const instrucciones = [
+    ['INSTRUCCIONES DE USO — PLANTILLA PBS SURA ASESOR'],
+    [''],
+    ['1. No cambies los nombres de las columnas — son exactos para que la app los lea'],
+    ['2. Llena desde la fila 3 en adelante (la fila 2 es solo un ejemplo, puedes borrarla)'],
+    ['3. FECHA: formato AAAA-MM-DD (ej: 2026-01-15)'],
+    ['4. TIPO.AFILIADO: COTIZANTE o BENEFICIARIO'],
+    ['5. TRAM. DE AFILIACIÓN: NUEVA, TRASLADO, REINGRESO'],
+    ['6. BD/FUERA BD: BD o FUERA BD'],
+    ['7. ESTADO USUARIO: ÁGIL o NO ÁGIL'],
+    ['8. COMPENSADO PARA: nombre del mes en español (ej: ENERO, FEBRERO...)'],
+    ['9. COMISION: valor numérico sin puntos ni $'],
+    [''],
+    ['Una vez lleno, ve a Importar > PBS > Seleccionar Archivo Excel y sube este archivo'],
+  ];
+  const wsInstr = XLSX.utils.aoa_to_sheet(instrucciones);
+  wsInstr['!cols'] = [{ wch: 70 }];
+  XLSX.utils.book_append_sheet(wb, wsInstr, 'INSTRUCCIONES');
+
+  XLSX.writeFile(wb, 'Plantilla_PBS_SURA_Asesor.xlsx');
+  showToast('Plantilla PBS descargada');
+}
+
+function descargarPlantillaVol() {
+  if (typeof XLSX === 'undefined') { showToast('Cargando librería Excel, intenta de nuevo en 2 segundos...'); return; }
+
+  const cabeceras = [
+    'PÓLIZA',
+    'FECHA',
+    'TOMADOR',
+    'DOCUMENTO',
+    'ASEGURADO',
+    'DOC ASEGURADO',
+    'PLAN',
+    'PERIODICIDAD',
+    'PRIMA',
+    'TELÉFONO',
+    'CORREO',
+    'CIUDAD'
+  ];
+
+  const ejemplo = [
+    '1-001234567',
+    '2026-01-17',
+    'María Camila Rodríguez',
+    '1047123456',
+    '',
+    '',
+    'PREFERENCIAL',
+    'MENSUAL',
+    '160812',
+    '3001234567',
+    'maria@email.com',
+    'MEDELLÍN'
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([cabeceras, ejemplo]);
+  ws['!cols'] = cabeceras.map((h, i) => ({ wch: i === 2 || i === 4 ? 28 : 18 }));
+
+  cabeceras.forEach((_, i) => {
+    const cell = XLSX.utils.encode_cell({ r: 0, c: i });
+    if (!ws[cell]) return;
+    ws[cell].s = { fill: { fgColor: { rgb: '0E7490' } }, font: { bold: true, color: { rgb: 'FFFFFF' } }, alignment: { horizontal: 'center' } };
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Voluntarios');
+
+  const instrucciones = [
+    ['INSTRUCCIONES DE USO — PLANTILLA VOLUNTARIOS SURA ASESOR'],
+    [''],
+    ['1. No cambies los nombres de las columnas'],
+    ['2. La fila 2 es solo un ejemplo, puedes borrarla'],
+    ['3. FECHA: formato AAAA-MM-DD (ej: 2026-01-17)'],
+    ['4. PLAN: escribe el nombre del plan — la app detecta el producto automáticamente:'],
+    ['   • PREFERENCIAL o CLÁSICO → SPTI'],
+    ['   • SALUD PARA DOS o SPD → SPD'],
+    ['   • MODULAR o PSM → Plan Modular'],
+    ['   • 60+ o COMPLEMENTARIO → Plan 60+'],
+    ['5. PERIODICIDAD: MENSUAL, TRIMESTRAL, SEMESTRAL o ANUAL'],
+    ['6. PRIMA: valor numérico con IVA incluido, sin puntos ni $ (ej: 160812)'],
+    ['7. ASEGURADO y DOC ASEGURADO: solo para SPD — deja en blanco para SPTI'],
+    ['8. PÓLIZA: número de póliza SURA (se usa para evitar duplicados)'],
+    [''],
+    ['Una vez lleno, ve a Importar > Voluntarios > Seleccionar Excel Voluntarios'],
+  ];
+  const wsInstr = XLSX.utils.aoa_to_sheet(instrucciones);
+  wsInstr['!cols'] = [{ wch: 72 }];
+  XLSX.utils.book_append_sheet(wb, wsInstr, 'INSTRUCCIONES');
+
+  XLSX.writeFile(wb, 'Plantilla_Voluntarios_SURA_Asesor.xlsx');
+  showToast('Plantilla Voluntarios descargada');
 }
 
 function initImportar() {
