@@ -13546,6 +13546,8 @@ const VAPID_KEY = 'BEuXl7wmV0V5cboQSWPehUWiwgQQS_BaOdpt0hOzDmjkWROwi78x7GPY9uULL
 const NOTIF_CHECK_KEY = 'sura_notif_last_check';
 
 async function initNotificaciones() {
+  // Siempre ejecutar check in-app aunque no haya SW/FCM
+  checkNotifRenovacionesDiarias();
   if (!('Notification' in window) || !('serviceWorker' in navigator) || !_fcmMessaging) return;
   try {
     // Detectar base path para GitHub Pages (ej: /sura-asesor/) o raíz
@@ -13572,7 +13574,11 @@ async function initNotificaciones() {
       showNotifBanner(title || '\uD83C\uDFE5 SURA', body || '');
     });
     checkNotifRenovacionesDiarias();
-  } catch(e) { console.warn('FCM init:', e); }
+  } catch(e) {
+    console.warn('FCM init error:', e?.message || e);
+    // Si el SW falla, igual ejecutar check in-app
+    checkNotifRenovacionesDiarias();
+  }
 }
 
 function showNotifBanner(title, body) {
@@ -13735,7 +13741,10 @@ function renderRenovaciones() {
       const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
       if (!proxVenc) return null;
       const diasParaVencer = Math.floor((proxVenc - hoy) / 86400000);
-      if (diasParaVencer < 0 || diasParaVencer > horizonte) return null;
+      // Log diagnóstico — remover en producción
+      if (diasParaVencer <= 90) console.log('[RENOV]', (v.tomadorNombre||v.nombre||'').slice(0,20), '| exp:', v.fechaExp, '| peri:', v.periodicidad, '| nPagos:', (getPagosVenta?.(v.id)||[]).length, '| proxVenc:', proxVenc?.toISOString().slice(0,10), '| dias:', diasParaVencer);
+      // Incluir hasta 5 días vencidos sin pago registrado (aún en gestión)
+      if (diasParaVencer < -5 || diasParaVencer > horizonte) return null;
       return { v, proxVenc, diasParaVencer };
     })
     .filter(Boolean)
@@ -13804,8 +13813,8 @@ function renderRenovaciones() {
       const primasSem = sem.items.reduce((s,x) => s + (x.v.prima||0), 0);
       const cards = sem.items.map(x => {
         const { v, proxVenc, diasParaVencer } = x;
-        const urgColor = diasParaVencer <= 7 ? 'var(--red)' : diasParaVencer <= 30 ? 'var(--amber)' : 'var(--teal)';
-        const urgLabel = diasParaVencer <= 7 ? 'URGENTE' : diasParaVencer <= 30 ? 'PRÓXIMO' : 'PLANIFICAR';
+        const urgColor = diasParaVencer <= 0 ? 'var(--red)' : diasParaVencer <= 7 ? 'var(--red)' : diasParaVencer <= 30 ? 'var(--amber)' : 'var(--teal)';
+        const urgLabel = diasParaVencer < 0 ? `VENCIDO ${Math.abs(diasParaVencer)}d` : diasParaVencer === 0 ? 'VENCE HOY' : diasParaVencer <= 7 ? 'URGENTE' : diasParaVencer <= 30 ? 'PRÓXIMO' : 'PLANIFICAR';
         const tel = (v.telefono||'').replace(/\D/g,'');
         const waUrl = tel ? `https://wa.me/57${tel}` : '';
         const msg = getMsgRenovacion(v, proxVenc, diasParaVencer, pagos);
