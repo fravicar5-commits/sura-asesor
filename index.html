@@ -6665,6 +6665,33 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
       </div>
 
+      <!-- Prospecto Voluntarios -->
+      <div style="margin:14px 0 10px;padding:12px 14px;background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.2);border-radius:var(--radius-sm);">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="vEsProspectoVol" style="width:16px;height:16px;accent-color:var(--teal);">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--teal);">Agregar al Pipeline como prospecto de Voluntarios</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Al guardar, este afiliado quedará registrado en el Pipeline para hacerle seguimiento de venta voluntaria (SPTI, SPD, Modular, 60+).</div>
+          </div>
+        </label>
+        <div id="vProspectoVolDetalle" style="display:none;margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" style="font-size:11px;">Producto de interés</label>
+            <select class="form-control" id="vProspectoVolProducto" style="font-size:12px;">
+              <option value="SPTI">SPTI — Salud Para Todos</option>
+              <option value="SPD">SPD — Salud Para Dos</option>
+              <option value="PSM">Plan Modular</option>
+              <option value="PAC60">Plan 60+</option>
+              <option value="VARIOS">Varios / Por definir</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" style="font-size:11px;">Próximo contacto</label>
+            <input type="date" class="form-control" id="vProspectoVolFecha" style="font-size:12px;">
+          </div>
+        </div>
+      </div>
+
       <div class="alert alert-info" id="comPreview" style="margin-bottom:0;">
         💡 Selecciona los datos para ver la comisión estimada
       </div>
@@ -11320,27 +11347,40 @@ function calcPreviewCom() {
     return;
   }
 
-  // ── Mes de conteo ──
+  // ── Mes de conteo — usar mes COMPENSADO (ventana hábil 6→5) ──
   let mesConteo  = new Date().getMonth();
   let anioConteo = new Date().getFullYear();
   if (fechaStr) {
-    const d = new Date(fechaStr + 'T12:00:00');
-    if (!isNaN(d)) { mesConteo = d.getMonth(); anioConteo = d.getFullYear(); }
+    const { mesComp } = calcMesCompensado(fechaStr);
+    // mesComp viene como 'ENERO.2026' — parseamos mes
+    if (mesComp) {
+      const partes = mesComp.split('.');
+      const MESES_IDX = {ENERO:0,FEBRERO:1,MARZO:2,ABRIL:3,MAYO:4,JUNIO:5,JULIO:6,AGOSTO:7,SEPTIEMBRE:8,OCTUBRE:9,NOVIEMBRE:10,DICIEMBRE:11};
+      const mIdx = MESES_IDX[partes[0]];
+      if (mIdx !== undefined) { mesConteo = mIdx; anioConteo = parseInt(partes[1]) || anioConteo; }
+    } else {
+      const d = new Date(fechaStr + 'T12:00:00');
+      if (!isNaN(d)) { mesConteo = d.getMonth(); anioConteo = d.getFullYear(); }
+    }
   }
 
-  // ── Acumulado de cotizantes del mes (con guard por si Firestore no está listo) ──
+  // ── Acumulado de cotizantes del mes compensado ──
   let cotizantesAcumMes = 0;
   try {
     const s = getState();
     const ventasMes = (s.ventas || []).filter(v => {
       if (v.producto !== 'PBS' || v.tipo !== 'COTIZANTE' || !v.fecha) return false;
-      if (v._importadoSura) return false; // excluir polizas importadas desde cartera SURA
-      const vd = new Date(v.fecha + 'T12:00:00');
-      return vd.getMonth() === mesConteo && vd.getFullYear() === anioConteo;
+      if (v._importadoSura) return false;
+      // Filtrar por mes compensado, no por mes de la fecha
+      const { mesComp: mc } = calcMesCompensado(v.fecha);
+      if (!mc) return false;
+      const partes = mc.split('.');
+      const MESES_IDX = {ENERO:0,FEBRERO:1,MARZO:2,ABRIL:3,MAYO:4,JUNIO:5,JULIO:6,AGOSTO:7,SEPTIEMBRE:8,OCTUBRE:9,NOVIEMBRE:10,DICIEMBRE:11};
+      const mIdx = MESES_IDX[partes[0]];
+      return mIdx === mesConteo && (parseInt(partes[1])||0) === anioConteo;
     });
     cotizantesAcumMes = ventasMes.length;
   } catch(e) {
-    // Firestore aún no disponible — calculamos sin acumulado
     cotizantesAcumMes = 0;
   }
 
@@ -11531,23 +11571,30 @@ function guardarVenta() {
     const criterio  = document.getElementById('vSiniestralidad').value;
     const cotizantes = parseInt(document.getElementById('vCotizantes').value) || 0;
 
-    // ── Comisión real según acumulado del mes de conteo ──────────────────
-    // Mes de conteo = mes calendario de la fecha (no el compensado)
+    // ── Comisión real según acumulado del mes COMPENSADO ────────────────
     let com, rango;
     if (tipo === 'BENEFICIARIO') {
       com   = 10000;
       rango = 'N/A';
     } else {
-      const dFecha = new Date(fecha + 'T12:00:00');
-      const mesConteoV  = dFecha.getMonth();
-      const anioConteoV = dFecha.getFullYear();
-      // Cotizantes ya guardados en ese mes (sin contar la venta actual)
-      const cotizAcumV = state.ventas.filter(v =>
-        v.producto === 'PBS' && v.tipo === 'COTIZANTE' && v.fecha &&
-        new Date(v.fecha + 'T12:00:00').getMonth()     === mesConteoV &&
-        new Date(v.fecha + 'T12:00:00').getFullYear()  === anioConteoV
-      ).length;
-      // Rango con acumulado + esta empresa
+      // Usar mes compensado para el conteo (ventas primeros días = mes anterior)
+      const { mesComp: mcEsta } = calcMesCompensado(fecha);
+      const MESES_IDX2 = {ENERO:0,FEBRERO:1,MARZO:2,ABRIL:3,MAYO:4,JUNIO:5,JULIO:6,AGOSTO:7,SEPTIEMBRE:8,OCTUBRE:9,NOVIEMBRE:10,DICIEMBRE:11};
+      let mesConteoV = new Date(fecha+'T12:00:00').getMonth();
+      let anioConteoV = new Date(fecha+'T12:00:00').getFullYear();
+      if (mcEsta) {
+        const partes = mcEsta.split('.');
+        const mIdx = MESES_IDX2[partes[0]];
+        if (mIdx !== undefined) { mesConteoV = mIdx; anioConteoV = parseInt(partes[1])||anioConteoV; }
+      }
+      // Cotizantes ya guardados con el mismo mes compensado
+      const cotizAcumV = state.ventas.filter(v => {
+        if (v.producto !== 'PBS' || v.tipo !== 'COTIZANTE' || !v.fecha) return false;
+        const { mesComp: mcV } = calcMesCompensado(v.fecha);
+        if (!mcV) return false;
+        const pV = mcV.split('.');
+        return MESES_IDX2[pV[0]] === mesConteoV && (parseInt(pV[1])||0) === anioConteoV;
+      }).length;
       const rangoObj = getRango(cotizAcumV + cotizantes);
       rango = rangoObj.label;
       const row = COM_TABLE[criterio] || COM_TABLE['<=75%'];
@@ -11614,6 +11661,45 @@ function guardarVenta() {
 
     // Auto-registrar empresa en BD
     if (empNombre) autoRegistrarEmpresaDesdeVenta(empNombre, empNIT, ciudad);
+
+    // ── Prospecto Voluntarios → Pipeline ─────────────────────────────────
+    if (document.getElementById('vEsProspectoVol')?.checked) {
+      try {
+        const pipLista = getPipeline();
+        const docPBS = document.getElementById('vDoc')?.value || '';
+        const yaExiste = docPBS && pipLista.some(p => p.cedula === docPBS);
+        if (!yaExiste) {
+          const proxFechaPip = document.getElementById('vProspectoVolFecha')?.value || '';
+          const prodPip = document.getElementById('vProspectoVolProducto')?.value || 'SPTI';
+          pipLista.push({
+            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+            nombre: document.getElementById('vNombre')?.value || '',
+            cedula: docPBS,
+            telefono: document.getElementById('vTelefono')?.value || '',
+            correo: document.getElementById('vCorreo')?.value || '',
+            empresa: empNombre || '',
+            producto: prodPip,
+            estado: '1',
+            origen: 'PBS',
+            referidoPor: '',
+            paraQuien: 'PROPIO',
+            beneficiarios: 1,
+            proxContacto: proxFechaPip,
+            refCotizacion: '',
+            notas: 'Prospecto generado desde afiliación PBS — ya es afiliado activo',
+            fechaCreacion: new Date().toISOString().split('T')[0],
+            updatedAt: new Date().toISOString(),
+            actividades: [{
+              fecha: new Date().toISOString().split('T')[0],
+              hora: new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
+              texto: 'Prospecto creado automáticamente desde afiliación PBS'
+            }]
+          });
+          setPipeline(pipLista);
+          setTimeout(() => showToast('Pipeline actualizado — ' + (document.getElementById('vNombre')?.value||'').split(' ')[0] + ' agregado como prospecto voluntario'), 1500);
+        }
+      } catch(e) { console.warn('Pipeline PBS prospecto:', e); }
+    }
 
   } else if (modalTab === 'spti') {
     const fecha = document.getElementById('vFechaSPTI').value;
@@ -15409,8 +15495,11 @@ function setImportTab(tab, btn) {
 // PLANTILLAS EXCEL PREDEFINIDAS — PBS y Voluntarios
 // ══════════════════════════════════════════════════════════════════
 
-function descargarPlantillaPBS() {
-  if (typeof XLSX === 'undefined') { showToast('Cargando librería Excel, intenta de nuevo en 2 segundos...'); return; }
+async function descargarPlantillaPBS() {
+  if (typeof XLSX === 'undefined') {
+    showToast('Cargando librería Excel...');
+    await new Promise((res,rej) => { const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+  }
 
   // Cabeceras exactas que lee el importador PBS
   const cabeceras = [
@@ -15487,8 +15576,11 @@ function descargarPlantillaPBS() {
   showToast('Plantilla PBS descargada');
 }
 
-function descargarPlantillaVol() {
-  if (typeof XLSX === 'undefined') { showToast('Cargando librería Excel, intenta de nuevo en 2 segundos...'); return; }
+async function descargarPlantillaVol() {
+  if (typeof XLSX === 'undefined') {
+    showToast('Cargando librería Excel...');
+    await new Promise((res,rej) => { const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+  }
 
   const cabeceras = [
     'PÓLIZA',
