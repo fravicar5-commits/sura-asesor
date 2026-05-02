@@ -13548,12 +13548,17 @@ const NOTIF_CHECK_KEY = 'sura_notif_last_check';
 async function initNotificaciones() {
   if (!('Notification' in window) || !('serviceWorker' in navigator) || !_fcmMessaging) return;
   try {
-    const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    // Detectar base path para GitHub Pages (ej: /sura-asesor/) o raíz
+    const _swBase = (location.pathname.split('/').slice(0,2).join('/') + '/').replace('//','/') || '/';
+    const _swUrl = _swBase + 'firebase-messaging-sw.js';
+    const reg = await navigator.serviceWorker.register(_swUrl);
     if (Notification.permission === 'default') {
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') return;
     }
     if (Notification.permission !== 'granted') return;
+    // Limpiar flag diario para que el check corra en esta sesión
+    localStorage.removeItem(NOTIF_CHECK_KEY);
     const token = await getToken(_fcmMessaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (token && UID) {
       try {
