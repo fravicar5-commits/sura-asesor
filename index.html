@@ -13657,43 +13657,50 @@ function _actualizarBadgeRenovaciones(count) {
 // ── Plantillas de mensaje de renovación ─────────────────────────────────────
 const RENOV_PLANTILLAS = {
   urgente: (nombre, prod, fechaFmt, prima, asesor) =>
-`¡Hola ${nombre}! 👋
+`Hola ${nombre}!
 
-Te escribo porque tu plan *${prod} SURA* tiene su fecha de pago el *${fechaFmt}* — ya estamos muy cerca y quiero que no pierdas ni un día de cobertura.
+Te escribo porque tu plan *${prod} SURA* tiene su fecha de pago el *${fechaFmt}* - ya estamos muy cerca y quiero que no pierdas ni un dia de cobertura.
 
-💳 *Valor a pagar:* ${prima}
+*Valor a pagar:* ${prima}
 
-Si tienes alguna duda sobre cómo realizar el pago o quieres que te ayude con el proceso, aquí estoy. ¡Me avisas!
+Si tienes alguna duda sobre como realizar el pago o quieres que te ayude con el proceso, aqui estoy. Me avisas!
 
-Quedo atento 😊
-*${asesor} — Asesor Canal Especializado en Salud SURA*`,
+
+Pago express SURA: https://www.segurossura.com.co/paginas/pago-express.aspx/
+
+*${asesor} - Asesor Canal Especializado en Salud SURA*`,
 
   proximo: (nombre, prod, fechaFmt, prima, asesor) =>
-`Hola ${nombre}, espero que estés muy bien 😊
+`Hola ${nombre}, espero que estes muy bien.
 
-Te cuento que tu plan *${prod} SURA* tiene su próxima fecha de pago el *${fechaFmt}*.
+Te cuento que tu plan *${prod} SURA* tiene su proxima fecha de pago el *${fechaFmt}*.
 
-Es un buen momento para tenerlo en cuenta y programarlo con calma, así tu cobertura sigue activa sin interrupciones.
+Es un buen momento para tenerlo en cuenta y programarlo con calma, asi tu cobertura sigue activa sin interrupciones.
 
-💳 *Valor:* ${prima}
+*Valor a pagar:* ${prima}
 
 Cualquier cosa que necesites, con gusto te ayudo.
 
-Saludos,
-*${asesor} — Asesor Canal Especializado en Salud SURA*`,
+
+Pago express SURA: https://www.segurossura.com.co/paginas/pago-express.aspx/
+
+*${asesor} - Asesor Canal Especializado en Salud SURA*`,
 
   planificar: (nombre, prod, fechaFmt, prima, asesor) =>
-`Hola ${nombre}! 👋
+`Hola ${nombre}!
 
-¿Cómo estás? Solo quería dejarte un recordatorio anticipado: tu plan *${prod} SURA* se renueva el *${fechaFmt}*.
+Como estas? Solo queria dejarte un recordatorio anticipado: tu plan *${prod} SURA* se renueva el *${fechaFmt}*.
 
-Todavía tienes tiempo para programarlo con tranquilidad — te aviso con tiempo para que no te tome por sorpresa 😊
+Todavia tienes tiempo para programarlo con tranquilidad - te aviso con tiempo para que no te tome por sorpresa.
 
-💳 *Valor:* ${prima}
+*Valor a pagar:* ${prima}
 
-Estoy aquí para lo que necesites.
+Estoy aqui para lo que necesites.
 
-*${asesor} — Asesor Canal Especializado en Salud SURA*`
+
+Pago express SURA: https://www.segurossura.com.co/paginas/pago-express.aspx/
+
+*${asesor} - Asesor Canal Especializado en Salud SURA*`
 };
 
 function getMsgRenovacion(v, proxVenc, diasParaVencer, pagosState) {
@@ -13701,8 +13708,8 @@ function getMsgRenovacion(v, proxVenc, diasParaVencer, pagosState) {
   const asesor = (s.config?.nombreAsesor || 'Tu asesor SURA').trim();
   const nombre = tc(v.tomadorNombre || v.nombre || 'cliente');
   const prod   = { SPTI:'Salud Para Todos', SPD:'Salud Para Dependientes', PSM:'Plan Modular', PAC60:'Plan 60+' }[v.producto] || v.producto;
-  const pBruto = v.prima || 0;
-  const primaFmt = fmt(pBruto) + ' s/IVA · ' + fmt(Math.round(pBruto * 1.19)) + ' c/IVA';
+  const primaConIVA = v.prima || 0;
+  const primaFmt = fmt(primaConIVA);
   const fechaFmt = proxVenc.toLocaleDateString('es-CO',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   const tipo = diasParaVencer <= 7 ? 'urgente' : diasParaVencer <= 30 ? 'proximo' : 'planificar';
   return RENOV_PLANTILLAS[tipo](nombre, prod, fechaFmt, primaFmt, asesor);
@@ -13817,8 +13824,9 @@ function renderRenovaciones() {
         const waUrl = tel ? `https://wa.me/57${tel}` : '';
         const msg = getMsgRenovacion(v, proxVenc, diasParaVencer, pagos);
         const msgEnc = encodeURIComponent(msg);
-        const pBruto = v.prima || 0;
-        const pIVA   = Math.round(pBruto * 1.19);
+        const primaConIVA = v.prima || 0;
+        const ivaFactor = ['PSM','PAC60'].includes(v.producto) ? 1.05 : 1.19;
+        const primaSinIVA = Math.round(primaConIVA / ivaFactor);
         const nPagos = (pagos[v.id]||[]).length;
         const fechaExpAnios = v.fechaExp
           ? Math.floor((new Date() - new Date(v.fechaExp+'T12:00:00')) / (365.25*86400000))
@@ -13846,7 +13854,7 @@ function renderRenovaciones() {
               </div>
               <!-- contexto cliente -->
               <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-dim);margin-top:4px;">
-                <span>💳 ${fmt(pBruto)} s/IVA &nbsp;·&nbsp; ${fmt(pIVA)} c/IVA</span>
+                <span>💳 ${fmt(primaSinIVA)} s/IVA &nbsp;·&nbsp; <strong>${fmt(primaConIVA)}</strong> c/IVA</span>
                 <span>📋 ${nPagos} pago${nPagos!==1?'s':''} registrado${nPagos!==1?'s':''}</span>
                 <span>🗓 ${antiguedad}</span>
               </div>
