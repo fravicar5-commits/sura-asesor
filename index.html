@@ -695,7 +695,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, updateDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDQEMeKa8yGsdvyW3qoC9w1ITMCzNN0TTI",
@@ -953,7 +953,7 @@
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, db, UID, collection, getDocs, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase };
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
   // ── Migración datos de 'fran' → UID actual ───────────────────────────────
@@ -13893,6 +13893,121 @@ function _actualizarBadgeRenovaciones(count) {
   });
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// LEADS DESDE LANDING — importar al pipeline y notificar
+// ══════════════════════════════════════════════════════════════════
+
+let _leadsUnsubscribe = null; // Para desuscribir el listener
+const LEADS_VISTOS_KEY = 'sura_leads_vistos';
+
+function iniciarListenerLeads() {
+  if (!window.FB || !window.FB.db || !UID) return;
+  if (_leadsUnsubscribe) _leadsUnsubscribe(); // limpiar anterior
+
+  try {
+    const leadsQuery = window.FB.query(
+      window.FB.collection(window.FB.db, 'leads'),
+      window.FB.where('uidAsesor', '==', UID),
+      window.FB.orderBy('creadoEn', 'desc')
+    );
+
+    _leadsUnsubscribe = window.FB.onSnapshot(leadsQuery, (snapshot) => {
+      snapshot.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        const lead = { id: change.doc.id, ...change.doc.data() };
+        _procesarLeadNuevo(lead);
+      });
+    }, (err) => {
+      console.warn('[Leads] onSnapshot error:', err.message);
+    });
+
+    console.log('[Leads] Escuchando leads de landing...');
+  } catch(e) {
+    console.warn('[Leads] No se pudo iniciar listener:', e.message);
+  }
+}
+
+function _procesarLeadNuevo(lead) {
+  // Verificar si ya fue procesado
+  let vistos = [];
+  try { vistos = JSON.parse(localStorage.getItem(LEADS_VISTOS_KEY) || '[]'); } catch(e) {}
+  if (vistos.includes(lead.id)) return;
+
+  // Marcar como visto
+  vistos.push(lead.id);
+  if (vistos.length > 200) vistos = vistos.slice(-200);
+  try { localStorage.setItem(LEADS_VISTOS_KEY, JSON.stringify(vistos)); } catch(e) {}
+
+  // Agregar al pipeline si no existe por cédula
+  const pipActual = getPipeline();
+  const yaExiste = pipActual.some(p =>
+    p.cedula === lead.documento || p.id === lead.id
+  );
+
+  if (!yaExiste) {
+    const INTERES_PROD = {
+      voluntario_si: 'SPTI', voluntario_no: 'SPTI',
+      traslado_si: 'PBS', traslado_no: 'PBS'
+    };
+    const nuevo = {
+      id:            lead.id,
+      nombre:        lead.nombre || '',
+      cedula:        lead.documento || '',
+      tipoDoc:       lead.tipoDoc || 'CC',
+      telefono:      lead.telefono || '',
+      correo:        lead.correo || '',
+      empresa:       lead.empresa || '',
+      producto:      INTERES_PROD[lead.interes] || 'SPTI',
+      estado:        '0',
+      origen:        'EMPRESA_LANDING',
+      referidoPor:   lead.empresa || '',
+      paraQuien:     'PROPIO',
+      beneficiarios: 1,
+      proxContacto:  '',
+      refCotizacion: '',
+      notas:         'Lead desde landing empresa. Interés: ' + (lead.interesLabel || lead.interes || '') + '. EPS actual: ' + (lead.epsActual === 'si' ? 'SURA' : 'Otra EPS') + '.',
+      fechaCreacion: lead.fecha || new Date().toISOString().split('T')[0],
+      updatedAt:     new Date().toISOString(),
+      actividades: [{
+        fecha: lead.fecha || new Date().toISOString().split('T')[0],
+        hora:  lead.hora || '',
+        texto: 'Registrado vía landing empresa ' + (lead.empresa || '') + '. Interés: ' + (lead.interesLabel || '') + '.'
+      }]
+    };
+
+    pipActual.push(nuevo);
+    setPipeline(pipActual);
+
+    // Si el pipeline está visible, refrescarlo
+    if (document.getElementById('page-pipeline')?.classList.contains('active') ||
+        document.getElementById('page-pipeline')?.style.display !== 'none') {
+      renderPipeline();
+    }
+
+    // Mostrar notificación in-app
+    const nombre = (lead.nombre || 'Alguien').split(' ')[0];
+    const empresa = lead.empresa ? ' de ' + lead.empresa : '';
+    showNotifBanner(
+      '🎯 Nuevo lead desde landing' + empresa,
+      nombre + ' se registró con interés en ' + (lead.interesLabel || lead.interes || 'SURA') + '. Ya está en tu Pipeline.'
+    );
+
+    // Notificación nativa del sistema
+    if (Notification.permission === 'granted') {
+      try {
+        new Notification('🎯 Nuevo lead' + empresa, {
+          body: nombre + ' · ' + (lead.telefono || '') + ' · ' + (lead.interesLabel || ''),
+          icon: '/icon-192.png',
+          tag: 'lead-' + lead.id
+        });
+      } catch(_) {}
+    }
+
+    console.log('[Leads] Nuevo lead importado al pipeline:', nombre);
+  }
+}
+
 // ── Plantillas de mensaje de renovación ─────────────────────────────────────
 const RENOV_PLANTILLAS = {
   urgente: (nombre, prod, fechaFmt, prima, asesor) =>
@@ -23371,6 +23486,7 @@ function _iniciarAppTrasLogin() {
   navigate('inicio');
   checkMenuPulse();
   setTimeout(() => initNotificaciones(), 2000);
+  setTimeout(() => iniciarListenerLeads(), 3000);
   actualizarSidebarSync();
   adminActualizarNavBtn();
   actualizarNombreSidebarUsuario();
