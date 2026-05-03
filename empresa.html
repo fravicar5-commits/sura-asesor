@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SURA · Bienestar para tu equipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:      #1A4CE8;
+    --blue-dark: #0F2E9A;
+    --lime:      #C8E52B;
+    --lime-dark: #A8C420;
+    --white:     #FFFFFF;
+    --off:       #F4F6FB;
+    --text:      #0C1733;
+    --muted:     #6B7A99;
+    --border:    rgba(26,76,232,0.12);
+    --radius:    16px;
+    --shadow:    0 4px 32px rgba(12,23,51,0.10);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--off);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: var(--blue);
+    position: relative;
+    overflow: hidden;
+    padding: 0 24px 64px;
+    text-align: center;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(200,229,43,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 40% at 90% 80%, rgba(255,255,255,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .hero-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0 0;
+    position: relative;
+  }
+
+  .hero-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hero-logo-badge {
+    width: 36px;
+    height: 36px;
+    background: var(--lime);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--blue-dark);
+    letter-spacing: -0.5px;
+  }
+
+  .hero-logo-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.2;
+  }
+
+  .hero-logo-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    font-weight: 400;
+  }
+
+  .asesor-chip {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .hero-content {
+    padding: 52px 0 8px;
+    position: relative;
+  }
+
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(200,229,43,0.15);
+    border: 1px solid rgba(200,229,43,0.3);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--lime);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+  }
+
+  .hero-kicker-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--lime);
+    flex-shrink: 0;
+  }
+
+  .hero-headline {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(32px, 7vw, 52px);
+    color: var(--white);
+    line-height: 1.1;
+    margin-bottom: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-headline em {
+    font-style: italic;
+    color: var(--lime);
+  }
+
+  .hero-sub {
+    font-size: 16px;
+    color: rgba(255,255,255,0.72);
+    max-width: 480px;
+    margin: 0 auto 32px;
+    line-height: 1.7;
+  }
+
+  .hero-empresa-name {
+    display: inline-block;
+    background: rgba(200,229,43,0.18);
+    border: 1px solid rgba(200,229,43,0.35);
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--lime);
+    margin-bottom: 28px;
+  }
+
+  .hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--lime);
+    color: var(--blue-dark);
+    font-weight: 700;
+    font-size: 15px;
+    padding: 14px 28px;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 20px rgba(200,229,43,0.35);
+  }
+
+  .hero-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(200,229,43,0.45); }
+
+  /* ── CARDS BENEFICIOS ── */
+  .benefits {
+    padding: 48px 24px 0;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .benefits-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .benefits-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+
+  .benefit-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+
+  .benefit-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: rgba(26,76,232,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .benefit-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .benefit-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  /* ── FORMULARIO ── */
+  .form-section {
+    padding: 0 24px 64px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .form-card {
+    background: var(--white);
+    border-radius: 20px;
+    box-shadow: 0 8px 48px rgba(12,23,51,0.12);
+    overflow: hidden;
+  }
+
+  .form-header {
+    background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
+    padding: 28px 28px 24px;
+    text-align: center;
+  }
+
+  .form-header-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--white);
+    margin-bottom: 6px;
+  }
+
+  .form-header-sub {
+    font-size: 13px;
+    color: rgba(255,255,255,0.65);
+  }
+
+  .form-steps {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .form-step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transition: background .3s, width .3s;
+  }
+
+  .form-step-dot.active {
+    background: var(--lime);
+    width: 24px;
+    border-radius: 4px;
+  }
+
+  .form-body {
+    padding: 28px;
+  }
+
+  /* Step containers */
+  .step { display: none; }
+  .step.active { display: block; }
+
+  .step-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .step-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 22px;
+    line-height: 1.55;
+  }
+
+  /* Opciones grandes de selección */
+  .option-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .option-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--off);
+    cursor: pointer;
+    transition: border-color .15s, background .15s, transform .1s;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+    width: 100%;
+  }
+
+  .option-btn:hover {
+    border-color: var(--blue);
+    background: rgba(26,76,232,0.04);
+    transform: translateY(-1px);
+  }
+
+  .option-btn.selected {
+    border-color: var(--blue);
+    background: rgba(26,76,232,0.06);
+  }
+
+  .option-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 18px;
+  }
+
+  .option-icon.blue { background: rgba(26,76,232,0.1); }
+  .option-icon.lime { background: rgba(200,229,43,0.2); }
+  .option-icon.teal { background: rgba(6,182,212,0.1); }
+
+  .option-text-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .option-text-sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Inputs */
+  .input-group {
+    margin-bottom: 16px;
+  }
+
+  .input-label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .input-label span {
+    color: var(--blue);
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    background: var(--off);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+
+  .form-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(26,76,232,0.08);
+    background: var(--white);
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  /* Botones de acción */
+  .btn-primary {
+    width: 100%;
+    padding: 15px;
+    background: var(--blue);
+    color: var(--white);
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background .15s, transform .1s, box-shadow .15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-primary:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26,76,232,0.25); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 13px;
+    background: transparent;
+    color: var(--muted);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: border-color .15s, color .15s;
+  }
+
+  .btn-secondary:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* ── ÉXITO ── */
+  .success-screen {
+    display: none;
+    text-align: center;
+    padding: 40px 28px;
+  }
+
+  .success-icon {
+    width: 72px; height: 72px;
+    background: rgba(200,229,43,0.15);
+    border: 2px solid var(--lime-dark);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 32px;
+  }
+
+  .success-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 24px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .success-sub {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 320px;
+    margin: 0 auto 24px;
+  }
+
+  .success-card {
+    background: var(--off);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: left;
+    margin-bottom: 20px;
+  }
+
+  .success-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  .success-card-value { font-size: 14px; font-weight: 600; color: var(--text); }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── LOADER ── */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2.5px solid rgba(255,255,255,0.35);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+  .animate { animation: fadeUp .4s ease both; }
+
+  /* Mobile */
+  @media (max-width: 420px) {
+    .benefits-grid { grid-template-columns: 1fr; }
+    .input-row { grid-template-columns: 1fr; }
+    .hero-headline { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════ -->
+<section class="hero">
+  <nav class="hero-nav">
+    <div class="hero-logo">
+      <div class="hero-logo-badge">S</div>
+      <div>
+        <div class="hero-logo-text">SURA Salud</div>
+        <div class="hero-logo-sub">Canal Especializado en Salud</div>
+      </div>
+    </div>
+    <div class="asesor-chip" id="asesorChip">Asesor SURA</div>
+  </nav>
+
+  <div class="hero-content animate">
+    <div class="hero-kicker">
+      <span class="hero-kicker-dot"></span>
+      Bienestar empresarial 2026
+    </div>
+    <h1 class="hero-headline">
+      Tu salud y la de<br>tu familia, <em>protegida</em>
+    </h1>
+    <p class="hero-sub">
+      Accede a los mejores planes de salud SURA disponibles para los colaboradores de
+    </p>
+    <div class="hero-empresa-name" id="empresaNombre">tu empresa</div>
+    <br>
+    <a href="#formulario" class="hero-cta">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      Comenzar ahora
+    </a>
+  </div>
+</section>
+
+<!-- ══ BENEFICIOS ══════════════════════════════════════════════════ -->
+<section class="benefits">
+  <div class="benefits-title">¿Por qué elegir SURA?</div>
+  <div class="benefits-grid">
+    <div class="benefit-card animate">
+      <div class="benefit-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      </div>
+      <div class="benefit-title">Red de salud amplia</div>
+      <div class="benefit-desc">Acceso a clínicas y especialistas en todo el país.</div>
+    </div>
+    <div class="benefit-card animate">
+      <div class="benefit-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <div class="benefit-title">Cobertura complementaria</div>
+      <div class="benefit-desc">Servicios adicionales que tu EPS no cubre.</div>
+    </div>
+    <div class="benefit-card animate">
+      <div class="benefit-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      </div>
+      <div class="benefit-title">Atención ágil</div>
+      <div class="benefit-desc">Citas con especialistas sin largas esperas.</div>
+    </div>
+    <div class="benefit-card animate">
+      <div class="benefit-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div class="benefit-title">Para toda la familia</div>
+      <div class="benefit-desc">Planes individuales y familiares disponibles.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FORMULARIO ══════════════════════════════════════════════════ -->
+<section class="form-section" id="formulario">
+  <div class="form-card">
+
+    <!-- Header del formulario -->
+    <div class="form-header">
+      <div class="form-header-title">Regístrate en 3 pasos</div>
+      <div class="form-header-sub">Es rápido, gratis y sin compromiso</div>
+      <div class="form-steps">
+        <div class="form-step-dot active" id="dot0"></div>
+        <div class="form-step-dot" id="dot1"></div>
+        <div class="form-step-dot" id="dot2"></div>
+      </div>
+    </div>
+
+    <!-- Cuerpo del formulario -->
+    <div class="form-body">
+
+      <!-- PASO 1: ¿Estás en SURA? -->
+      <div class="step active" id="step0">
+        <div class="step-title">¿Actualmente estás afiliado a SURA EPS?</div>
+        <div class="step-sub">Cuéntanos tu situación actual para orientarte mejor.</div>
+        <div class="option-grid">
+          <button class="option-btn" onclick="seleccionarEPS('si')">
+            <div class="option-icon blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div>
+              <div class="option-text-title">Sí, soy afiliado SURA</div>
+              <div class="option-text-sub">Ya tengo mi EPS con SURA</div>
+            </div>
+          </button>
+          <button class="option-btn" onclick="seleccionarEPS('no')">
+            <div class="option-icon teal">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div>
+              <div class="option-text-title">No, estoy en otra EPS</div>
+              <div class="option-text-sub">Me interesa conocer más sobre SURA</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- PASO 2A: Afiliado SURA — ¿Voluntario? -->
+      <div class="step" id="step1a">
+        <div class="step-title">¿Te gustaría complementar tu salud?</div>
+        <div class="step-sub">Como afiliado SURA, puedes acceder a planes voluntarios que amplían tu cobertura.</div>
+        <div class="option-grid">
+          <button class="option-btn" onclick="seleccionarInteres('voluntario_si')">
+            <div class="option-icon lime">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7A00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div>
+              <div class="option-text-title">Sí, me interesa</div>
+              <div class="option-text-sub">Quiero conocer planes voluntarios SURA</div>
+            </div>
+          </button>
+          <button class="option-btn" onclick="seleccionarInteres('voluntario_no')">
+            <div class="option-icon" style="background:rgba(107,122,153,0.1);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <div>
+              <div class="option-text-title">Por ahora no</div>
+              <div class="option-text-sub">Solo quiero dejar mis datos</div>
+            </div>
+          </button>
+        </div>
+        <button class="btn-secondary" onclick="goStep(0)">← Volver</button>
+      </div>
+
+      <!-- PASO 2B: No SURA — Traslado -->
+      <div class="step" id="step1b">
+        <div class="step-title">¿Te gustaría conocer SURA EPS?</div>
+        <div class="step-sub">Te explicamos cómo funciona el traslado y qué beneficios obtienes con SURA.</div>
+        <div class="option-grid">
+          <button class="option-btn" onclick="seleccionarInteres('traslado_si')">
+            <div class="option-icon blue">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            </div>
+            <div>
+              <div class="option-text-title">Sí, quiero saber más</div>
+              <div class="option-text-sub">Me interesa trasladarme a SURA</div>
+            </div>
+          </button>
+          <button class="option-btn" onclick="seleccionarInteres('traslado_no')">
+            <div class="option-icon" style="background:rgba(107,122,153,0.1);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <div>
+              <div class="option-text-title">Por ahora no</div>
+              <div class="option-text-sub">Solo quiero dejar mis datos</div>
+            </div>
+          </button>
+        </div>
+        <button class="btn-secondary" onclick="goStep(0)">← Volver</button>
+      </div>
+
+      <!-- PASO 3: Datos de contacto -->
+      <div class="step" id="step2">
+        <div class="step-title">Tus datos de contacto</div>
+        <div class="step-sub">Un asesor SURA se comunicará contigo para orientarte personalmente.</div>
+
+        <div class="input-group">
+          <label class="input-label">Nombre completo <span>*</span></label>
+          <input type="text" class="form-input" id="fNombre" placeholder="Ej: María Camila García" autocomplete="name">
+        </div>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label class="input-label">Tipo de documento</label>
+            <select class="form-input" id="fTipoDoc">
+              <option value="CC">Cédula</option>
+              <option value="CE">C. Extranjería</option>
+              <option value="PA">Pasaporte</option>
+              <option value="NIT">NIT</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label class="input-label">Número de documento <span>*</span></label>
+            <input type="text" class="form-input" id="fDoc" placeholder="Ej: 1012345678" inputmode="numeric">
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Celular <span>*</span></label>
+          <input type="tel" class="form-input" id="fTelefono" placeholder="Ej: 3001234567" inputmode="tel" autocomplete="tel">
+        </div>
+
+        <div class="input-group">
+          <label class="input-label">Correo electrónico</label>
+          <input type="email" class="form-input" id="fCorreo" placeholder="Ej: maria@empresa.com" autocomplete="email">
+        </div>
+
+        <div id="msgError" style="display:none;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:8px;padding:10px 14px;font-size:13px;color:#DC2626;margin-bottom:14px;"></div>
+
+        <button class="btn-primary" id="btnEnviar" onclick="enviarFormulario()">
+          <span id="btnTexto">Enviar mi información</span>
+          <div class="spinner" id="btnSpinner"></div>
+          <svg id="btnIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+        <button class="btn-secondary" onclick="goStepAtras2()">← Volver</button>
+
+        <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.6;">
+          Al enviar, autorizas el tratamiento de tus datos personales conforme a la política de privacidad de Seguros de Vida Suramericana S.A.
+        </p>
+      </div>
+
+      <!-- PANTALLA ÉXITO -->
+      <div class="success-screen" id="successScreen">
+        <div class="success-icon">✅</div>
+        <div class="success-title">¡Listo, <span id="successNombre"></span>!</div>
+        <div class="success-sub">Tu información fue registrada. Un asesor SURA te contactará pronto para orientarte personalmente.</div>
+        <div class="success-card">
+          <div class="success-card-label">Tu interés registrado</div>
+          <div class="success-card-value" id="successInteres"></div>
+        </div>
+        <div class="success-card">
+          <div class="success-card-label">Asesor asignado</div>
+          <div class="success-card-value" id="successAsesor"></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.6;">
+          Puedes cerrar esta página tranquilamente. Nos pondremos en contacto contigo en las próximas horas hábiles.
+        </p>
+      </div>
+
+    </div><!-- /form-body -->
+  </div><!-- /form-card -->
+</section>
+
+<!-- ══ FOOTER ══════════════════════════════════════════════════════ -->
+<footer class="footer">
+  <strong>Seguros de Vida Suramericana S.A.</strong> · Canal Especializado en Salud<br>
+  Información sujeta a verificación · <span id="footerAsesor"></span>
+</footer>
+
+<!-- ══ FIREBASE SDK ══════════════════════════════════════════════ -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getFirestore, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyDQEMeKa8yGsdvyW3qoC9w1ITMCzNN0TTI",
+    authDomain:        "sura-asesor.firebaseapp.com",
+    projectId:         "sura-asesor",
+    storageBucket:     "sura-asesor.firebasestorage.app",
+    messagingSenderId: "910746092866",
+    appId:             "1:910746092866:web:ae7bd2b56615b2779d74db"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // Exponer para uso desde JS global
+  window._fbDb       = db;
+  window._fbSetDoc   = setDoc;
+  window._fbDoc      = doc;
+  window._fbReady    = true;
+</script>
+
+<!-- ══ LÓGICA DE LA LANDING ══════════════════════════════════════ -->
+<script>
+  // ── Parámetros de URL ────────────────────────────────────────────
+  const params   = new URLSearchParams(window.location.search);
+  const ASESOR   = params.get('asesor') || 'Asesor SURA';
+  const UID      = params.get('uid')    || '';
+  const EMPRESA  = params.get('empresa')|| 'tu empresa';
+
+  // ── Poblar UI con datos del asesor/empresa ────────────────────────
+  document.getElementById('asesorChip').textContent   = ASESOR;
+  document.getElementById('empresaNombre').textContent = EMPRESA;
+  document.getElementById('footerAsesor').textContent  = ASESOR;
+
+  // ── Estado del formulario ─────────────────────────────────────────
+  let epsActual  = '';   // 'si' | 'no'
+  let interes    = '';   // 'voluntario_si' | 'voluntario_no' | 'traslado_si' | 'traslado_no'
+  let stepActual = 0;
+
+  const INTERES_LABEL = {
+    voluntario_si:  'Interesado en planes voluntarios SURA',
+    voluntario_no:  'Afiliado SURA — sin interés en voluntarios por ahora',
+    traslado_si:    'Interesado en traslado a SURA EPS',
+    traslado_no:    'No afiliado SURA — sin interés en traslado por ahora',
+  };
+
+  // ── Navegación entre pasos ─────────────────────────────────────────
+  function goStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.form-step-dot').forEach((d, i) => {
+      d.classList.toggle('active', i <= n);
+    });
+    const steps = ['step0','step1a','step1b','step2'];
+    stepActual = n;
+    // El paso 2 siempre es step2; los intermedios dependen de epsActual
+    if (n === 0) document.getElementById('step0').classList.add('active');
+    else if (n === 1) document.getElementById(epsActual === 'si' ? 'step1a' : 'step1b').classList.add('active');
+    else if (n === 2) document.getElementById('step2').classList.add('active');
+    window.scrollTo({ top: document.getElementById('formulario').offsetTop - 20, behavior: 'smooth' });
+  }
+
+  function seleccionarEPS(val) {
+    epsActual = val;
+    goStep(1);
+  }
+
+  function seleccionarInteres(val) {
+    interes = val;
+    goStep(2);
+  }
+
+  function goStepAtras2() {
+    goStep(1);
+  }
+
+  // ── Envío del formulario ──────────────────────────────────────────
+  async function enviarFormulario() {
+    const nombre   = document.getElementById('fNombre').value.trim();
+    const doc_num  = document.getElementById('fDoc').value.trim();
+    const tipoDoc  = document.getElementById('fTipoDoc').value;
+    const telefono = document.getElementById('fTelefono').value.trim();
+    const correo   = document.getElementById('fCorreo').value.trim();
+    const errEl    = document.getElementById('msgError');
+
+    errEl.style.display = 'none';
+
+    if (!nombre)   { mostrarError('El nombre es obligatorio.'); return; }
+    if (!doc_num)  { mostrarError('El número de documento es obligatorio.'); return; }
+    if (!telefono || telefono.length < 7) { mostrarError('Ingresa un número de celular válido.'); return; }
+
+    // Bloquear botón
+    const btn = document.getElementById('btnEnviar');
+    btn.disabled = true;
+    document.getElementById('btnTexto').textContent  = 'Enviando...';
+    document.getElementById('btnSpinner').style.display = 'block';
+    document.getElementById('btnIcon').style.display    = 'none';
+
+    const lead = {
+      nombre,
+      tipoDoc,
+      documento: doc_num,
+      telefono,
+      correo,
+      empresa:   EMPRESA,
+      asesor:    ASESOR,
+      uidAsesor: UID,
+      epsActual,
+      interes,
+      interesLabel: INTERES_LABEL[interes] || interes,
+      fecha:     new Date().toISOString().split('T')[0],
+      hora:      new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' }),
+      creadoEn:  new Date().toISOString(),
+      origen:    'landing_empresa',
+      estado:    '0', // Nuevo en pipeline
+    };
+
+    try {
+      // Esperar Firebase
+      let intentos = 0;
+      while (!window._fbReady && intentos < 20) {
+        await new Promise(r => setTimeout(r, 200));
+        intentos++;
+      }
+
+      if (!window._fbReady) throw new Error('Firebase no disponible');
+
+      const leadId = `lead_${Date.now().toString(36)}_${Math.random().toString(36).substr(2,5)}`;
+
+      // 1. Guardar en colección 'leads' global (accesible sin UID específico)
+      await window._fbSetDoc(window._fbDoc(window._fbDb, 'leads', leadId), lead);
+
+      // 2. Si hay UID del asesor, también agregar al pipeline del asesor
+      if (UID) {
+        // Leer pipeline actual del asesor desde Firestore
+        const { getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const pipSnap = await getDoc(window._fbDoc(window._fbDb, 'pipeline', UID));
+        let pipActual = [];
+        if (pipSnap.exists()) {
+          const data = pipSnap.data();
+          pipActual = Array.isArray(data.payload) ? data.payload : [];
+        }
+
+        // Evitar duplicados por documento
+        const yaExiste = pipActual.some(p => p.cedula === doc_num || p.cedula === String(doc_num));
+
+        if (!yaExiste) {
+          const prospecto = {
+            id:            leadId,
+            nombre,
+            cedula:        doc_num,
+            tipoDoc,
+            telefono,
+            correo,
+            empresa:       EMPRESA,
+            producto:      interes.includes('voluntario') ? 'SPTI' : 'PBS',
+            estado:        '0',
+            origen:        'EMPRESA_LANDING',
+            referidoPor:   EMPRESA,
+            paraQuien:     'PROPIO',
+            beneficiarios: 1,
+            proxContacto:  '',
+            refCotizacion: '',
+            notas:         `Lead desde landing empresa. Interés: ${INTERES_LABEL[interes]||interes}. EPS actual: ${epsActual === 'si' ? 'SURA' : 'Otra EPS'}.`,
+            fechaCreacion: new Date().toISOString().split('T')[0],
+            updatedAt:     new Date().toISOString(),
+            actividades: [{
+              fecha: new Date().toISOString().split('T')[0],
+              hora:  new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' }),
+              texto: `Registrado vía landing empresa ${EMPRESA}. Interés: ${INTERES_LABEL[interes]||interes}.`
+            }]
+          };
+
+          pipActual.push(prospecto);
+          await window._fbSetDoc(
+            window._fbDoc(window._fbDb, 'pipeline', UID),
+            { payload: pipActual },
+            { merge: false }
+          );
+        }
+      }
+
+      // Mostrar éxito
+      document.getElementById('successNombre').textContent  = nombre.split(' ')[0];
+      document.getElementById('successInteres').textContent = INTERES_LABEL[interes] || 'Información registrada';
+      document.getElementById('successAsesor').textContent  = ASESOR;
+      document.querySelector('.form-body').querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+      document.getElementById('successScreen').style.display = 'block';
+      document.querySelector('.form-steps').style.display    = 'none';
+      window.scrollTo({ top: document.getElementById('formulario').offsetTop - 20, behavior: 'smooth' });
+
+    } catch(e) {
+      console.error('Error enviando lead:', e);
+      mostrarError('Ocurrió un error al enviar. Por favor intenta de nuevo o contacta directamente al asesor.');
+      btn.disabled = false;
+      document.getElementById('btnTexto').textContent  = 'Enviar mi información';
+      document.getElementById('btnSpinner').style.display = 'none';
+      document.getElementById('btnIcon').style.display    = 'inline';
+    }
+  }
+
+  function mostrarError(msg) {
+    const el = document.getElementById('msgError');
+    el.textContent    = msg;
+    el.style.display  = 'block';
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // Exponer funciones al HTML
+  window.seleccionarEPS    = seleccionarEPS;
+  window.seleccionarInteres = seleccionarInteres;
+  window.goStep            = goStep;
+  window.goStepAtras2      = goStepAtras2;
+  window.enviarFormulario  = enviarFormulario;
+</script>
+
+</body>
+</html>
