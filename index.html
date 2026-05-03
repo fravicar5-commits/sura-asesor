@@ -835,39 +835,33 @@
     }
   }
 
-  // ── bdSiniestralidad: guardar en chunks de 500 registros ─────────────────
+  // ── bdSiniestralidad: guardar en chunks de 400 registros ─────────────────
   // Metadatos en 'bdSiniestralidad/{UID}' + chunks en 'bdSinChunks/{UID}_chunk_{n}'
-  // Escrituras en lotes de 10 para no saturar Firestore con 100+ escrituras simultáneas
-  const CHUNK_SIZE = 500;
-  const CHUNK_BATCH = 10; // máx escrituras paralelas simultáneas
+  const CHUNK_SIZE = 400;
   async function fbSetBdSin(valor) {
     try {
       const registros = valor.registros || [];
       const totalChunks = Math.ceil(registros.length / CHUNK_SIZE) || 1;
-      // Guardar metadatos primero
+      // Guardar metadatos + índice de chunks en el doc principal
       await setDoc(doc(db, 'bdSiniestralidad', UID), {
         payload: { trimestres: valor.trimestres || [], registros: [], totalChunks }
       });
-      // Guardar chunks en lotes de CHUNK_BATCH para evitar rate limiting
-      for (let batch = 0; batch < totalChunks; batch += CHUNK_BATCH) {
-        const batchEnd = Math.min(batch + CHUNK_BATCH, totalChunks);
-        const promises = [];
-        for (let i = batch; i < batchEnd; i++) {
-          const chunk = registros.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-          promises.push(setDoc(doc(db, 'bdSinChunks', `${UID}_chunk_${i}`), { payload: chunk }));
-        }
-        await Promise.all(promises);
-        console.log(`bdSin: lote ${batch}-${batchEnd-1} de ${totalChunks} guardado`);
+      // Guardar cada chunk
+      const promises = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = registros.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+        promises.push(setDoc(doc(db, 'bdSinChunks', `${UID}_chunk_${i}`), { payload: chunk }));
       }
-      // Borrar chunks sobrantes de importaciones anteriores (máx 50 chunks viejos)
-      for (let i = totalChunks; i < totalChunks + 50; i++) {
+      await Promise.all(promises);
+      // Borrar chunks sobrantes de importaciones anteriores
+      for (let i = totalChunks; i < totalChunks + 20; i++) {
         const old = doc(db, 'bdSinChunks', `${UID}_chunk_${i}`);
         try { await deleteDoc(old); } catch(_) { break; }
       }
       console.log(`bdSin guardada en ${totalChunks} chunk(s) · ${registros.length} registros`);
       return true;
     } catch(e) {
-      console.error('fbSetBdSin error', e.code, e.message);
+      console.error('fbSetBdSin error', e);
       return false;
     }
   }
@@ -5089,6 +5083,23 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
               <div style="font-size:12px;color:var(--text-muted);">Todos los afiliados PBS agrupados por empresa con su estado de cartera actual</div>
             </div>
             <input type="text" id="empConsolidadoBuscar" placeholder="Buscar empresa..." oninput="renderEmpresaConsolidado()" style="padding:7px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:13px;width:220px;">
+            <select id="empConsolidadoCiudad" onchange="renderEmpresaConsolidado()" style="padding:7px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:13px;">
+              <option value="">Todas las ciudades</option>
+              <option value="Armenia">Armenia</option>
+              <option value="Barranquilla">Barranquilla</option>
+              <option value="Bogota" selected>Bogotá</option>
+              <option value="Bucaramanga">Bucaramanga</option>
+              <option value="Cali">Cali</option>
+              <option value="Cartagena">Cartagena</option>
+              <option value="Manizales">Manizales</option>
+              <option value="Medellin">Medellín</option>
+              <option value="Monteria">Montería</option>
+              <option value="Pereira">Pereira</option>
+              <option value="Popayan">Popayán</option>
+              <option value="Santa Marta">Santa Marta</option>
+              <option value="Tunja">Tunja</option>
+              <option value="Uraba">Urabá</option>
+            </select>
           </div>
           <div id="empConsolidadoContainer"></div>
         </div><!-- fin empTabConsolidado -->
@@ -18958,10 +18969,12 @@ function sinConsultar() {
       </div>
       <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;">
         ${grupo.map(r => `
-          <div style="padding:8px 12px;border-radius:8px;background:${sinBg(r.sinCat)};border:1px solid ${sinColor(r.sinCat)}44;min-width:160px;">
+          <div style="padding:8px 12px;border-radius:8px;background:${sinBg(r.sinCat)};border:1px solid ${sinColor(r.sinCat)}44;min-width:160px;max-width:200px;">
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">🏙️ ${r.ciudad||'Sin ciudad'}</div>
             <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${sinColor(r.sinCat)};">${r.sinPct!==''&&r.sinPct!==undefined?r.sinPct+'%':'—'}</div>
             <div style="font-size:11px;color:${sinColor(r.sinCat)};margin-top:2px;">${r.sinCat||'Sin dato'}</div>
+            ${r.cotizantesActivos!=null?`<div style="font-size:10.5px;color:var(--teal);margin-top:3px;">🏥 ${r.cotizantesActivos} cot. activos</div>`:''}
+            ${r.asesorAsignado?`<div style="font-size:10px;color:var(--purple);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${r.asesorAsignado}">👤 ${r.asesorAsignado}</div>`:''}
           </div>`).join('')}
       </div>
       ${trimObj ? `<div style="padding:8px 14px;background:var(--surface3);border-top:1px solid var(--border);font-size:11.5px;color:var(--text-muted);">
@@ -19147,32 +19160,54 @@ function renderEmpresaConsolidado() {
   const s = getState();
   const pagos = getPagos ? getPagos() : {};
   const buscar = (document.getElementById('empConsolidadoBuscar')?.value || '').toLowerCase();
+  const ciudadFiltro = (document.getElementById('empConsolidadoCiudad')?.value || '');
 
   const bdSinData = getBDSin ? getBDSin() : { registros: [] };
   const bdRegistros = bdSinData.registros || [];
   const asesorProp = (s.config?.nombreAsesor || 'Tu asesor SURA').trim();
 
-  // Helper: buscar registro SURA más reciente por NIT o nombre
-  const getSuraEmpresa = (nit, nombre) => {
+  // Helper: buscar registro SURA más reciente por NIT o nombre, opcionalmente filtrado por ciudad
+  const getSuraEmpresa = (nit, nombre, ciudad) => {
     if (!bdRegistros.length) return null;
+    const nitL = (nit||'').replace(/\D/g,'');
+    let regs = bdRegistros.filter(r => {
+      if (nitL && r.nit && r.nit.replace(/\D/g,'') === nitL) return true;
+      if (nombre && r.nombre && bdNormalizar(r.nombre).substring(0,12) === bdNormalizar(nombre).substring(0,12)) return true;
+      return false;
+    });
+    if (!regs.length) return null;
+    // Si hay filtro ciudad, priorizar ese registro; si no hay ninguno de esa ciudad, devolver el más reciente
+    if (ciudad) {
+      const porCiudad = regs.filter(r => bdNormalizarCiudad(r.ciudad) === bdNormalizarCiudad(ciudad));
+      if (porCiudad.length) { porCiudad.sort((a,b) => (b.anio||0) - (a.anio||0)); return porCiudad[0]; }
+    }
+    regs.sort((a,b) => (b.anio||0) - (a.anio||0));
+    return regs[0];
+  };
+
+  // Todas las ciudades disponibles para esta empresa en la BD
+  const getCiudadesEmpresa = (nit, nombre) => {
+    if (!bdRegistros.length) return [];
     const nitL = (nit||'').replace(/\D/g,'');
     const regs = bdRegistros.filter(r => {
       if (nitL && r.nit && r.nit.replace(/\D/g,'') === nitL) return true;
       if (nombre && r.nombre && bdNormalizar(r.nombre).substring(0,12) === bdNormalizar(nombre).substring(0,12)) return true;
       return false;
     });
-    if (!regs.length) return null;
-    regs.sort((a,b) => (b.anio||0) - (a.anio||0));
-    return regs[0];
+    // Ciudades únicas más recientes
+    const ciudadMap = {};
+    regs.forEach(r => {
+      const c = r.ciudad || '';
+      if (!ciudadMap[c] || (r.anio||0) > (ciudadMap[c].anio||0)) ciudadMap[c] = r;
+    });
+    return Object.values(ciudadMap);
   };
 
-  // Solo cotizantes PBS con empresa real (incluye importados desde SURA)
+  // Solo cotizantes PBS con empresa real
   const afiliados = s.ventas.filter(v =>
     v.producto === 'PBS' &&
     v.tipo === 'COTIZANTE' &&
-    v.empresa &&
-    v.empresa.trim() !== '' &&
-    v.empresa.trim() !== '—'
+    v.empresa && v.empresa.trim() !== '' && v.empresa.trim() !== '—'
   );
 
   // Agrupar por empresa
@@ -19182,14 +19217,14 @@ function renderEmpresaConsolidado() {
     if (!key || key === '—') return;
     if (!grupos[key]) grupos[key] = { nombre: key, nit: v.nit || '', afiliados: [] };
     grupos[key].afiliados.push(v);
-    // Tomar el NIT del primer afiliado que lo tenga
     if (!grupos[key].nit && v.nit) grupos[key].nit = v.nit;
   });
 
-  // Enriquecer con datos SURA
+  // Enriquecer con datos SURA para la ciudad seleccionada
   let lista = Object.values(grupos).map(g => {
-    const sura = getSuraEmpresa(g.nit, g.nombre);
-    return { ...g, sura };
+    const sura = getSuraEmpresa(g.nit, g.nombre, ciudadFiltro);
+    const todasCiudades = getCiudadesEmpresa(g.nit, g.nombre);
+    return { ...g, sura, todasCiudades };
   });
 
   // Ordenar: primero empresas con datos SURA, luego por total afiliados
@@ -19206,34 +19241,42 @@ function renderEmpresaConsolidado() {
   );
 
   if (!lista.length) {
-    cont.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-dim);">Sin afiliados PBS con empresa registrada. Al registrar una venta PBS, completa el campo <strong>Empresa</strong> para que aparezca aqui.</div>';
+    cont.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-dim);">Sin afiliados PBS con empresa registrada. Al registrar una venta PBS, completa el campo <strong>Empresa</strong> para que aparezca aquí.</div>';
     return;
   }
 
   const sinColor = cat => cat === '<=75%' ? 'var(--green)' : cat === '76% - 90%' ? 'var(--amber)' : cat ? 'var(--red)' : 'var(--text-muted)';
 
   cont.innerHTML = lista.map(g => {
-    const { sura } = g;
+    const { sura, todasCiudades } = g;
     const misCot  = g.afiliados.length;
     const suraCot = sura?.cotizantesActivos ?? null;
-    // Penetración: mis afiliados vs total cotizantes activos SURA
     const pctPenetr = (suraCot && suraCot > 0) ? Math.min(100, Math.round(misCot / suraCot * 100)) : null;
     const oportunidad = (suraCot != null && suraCot > misCot) ? suraCot - misCot : null;
 
-    // Color header según penetración
     const headerColor = pctPenetr == null ? 'var(--sura-blue)'
       : pctPenetr >= 80 ? 'var(--green)'
       : pctPenetr >= 40 ? 'var(--amber)'
       : 'var(--red)';
 
-    // Barra penetración
     const barPct = pctPenetr ?? 0;
     const barColor = pctPenetr == null ? 'var(--sura-blue)' : pctPenetr >= 80 ? 'var(--green)' : pctPenetr >= 40 ? 'var(--amber)' : 'var(--red)';
 
-    // Mensaje WA de prospección a empresa
+    // Ciudad que se está mostrando
+    const ciudadMostrada = sura?.ciudad || (ciudadFiltro ? ciudadFiltro : '');
+    // Otras ciudades con datos SURA (chips informativos)
+    const otrasCiudadesHtml = todasCiudades.length > 1
+      ? todasCiudades
+          .filter(r => !ciudadFiltro || bdNormalizarCiudad(r.ciudad) !== bdNormalizarCiudad(ciudadFiltro))
+          .slice(0, 4)
+          .map(r => `<span style="font-size:10px;padding:1px 7px;border-radius:6px;background:var(--surface3);color:var(--text-dim);cursor:pointer;" title="Sin. ${r.sinPct!=null?r.sinPct+'%':r.sinCat||'—'} · ${r.cotizantesActivos!=null?r.cotizantesActivos+' cot.':'sin cot.'}">${r.ciudad||'—'}: ${r.sinPct!=null?r.sinPct+'%':'—'}</span>`)
+          .join('')
+      : '';
+
+    // Mensaje WA de prospección
     const tel = (g.afiliados[0]?.telefono||'').replace(/\D/g,'');
     const msgEmpresa = oportunidad && oportunidad > 0
-      ? `Hola, buenos dias. Soy ${asesorProp} de SURA Canal Especializado en Salud.\n\nTenemos ${misCot} afiliado${misCot!==1?'s':''} de ${g.nombre} activos con nosotros. Con ${suraCot} cotizantes activos en la empresa, aun hay ${oportunidad} colaborador${oportunidad!==1?'es':''} sin gestionar.\n\nMe gustaria coordinar una visita para ampliar la cobertura del equipo. Quedo disponible.\n\n*${asesorProp} - Asesor SURA*`
+      ? `Hola, buenos días. Soy ${asesorProp} de SURA Canal Especializado en Salud.\n\nTenemos ${misCot} afiliado${misCot!==1?'s':''} de ${g.nombre} activos con nosotros. Con ${suraCot} cotizantes activos en la empresa${ciudadMostrada?' en '+ciudadMostrada:''}, aún hay ${oportunidad} colaborador${oportunidad!==1?'es':''} sin gestionar.\n\nMe gustaría coordinar una visita para ampliar la cobertura del equipo. Quedo disponible.\n\n*${asesorProp} - Asesor SURA*`
       : '';
     const waUrl = tel && msgEmpresa ? `https://wa.me/57${tel}?text=${encodeURIComponent(msgEmpresa)}` : '';
 
@@ -19256,15 +19299,15 @@ function renderEmpresaConsolidado() {
             </div>
             ${suraCot != null ? `
             <div style="display:flex;align-items:center;gap:5px;">
-              <span style="font-size:11px;color:var(--text-muted);">Cot. activos SURA:</span>
+              <span style="font-size:11px;color:var(--text-muted);">Cot. activos SURA${ciudadMostrada?' ('+ciudadMostrada+')':''}:</span>
               <span style="font-size:13px;font-weight:700;color:var(--teal);">${suraCot}</span>
             </div>
             <div style="display:flex;align-items:center;gap:5px;">
-              <span style="font-size:11px;color:var(--text-muted);">Penetracion:</span>
+              <span style="font-size:11px;color:var(--text-muted);">Penetración:</span>
               <span style="font-size:13px;font-weight:700;color:${barColor};">${pctPenetr}%</span>
             </div>
-            ${oportunidad && oportunidad > 0 ? `<span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:rgba(245,158,11,0.12);color:var(--amber);font-weight:700;">+${oportunidad} por gestionar</span>` : '<span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">Empresa gestionada</span>'}
-            ` : `<span style="font-size:10.5px;color:var(--text-dim);">Sin datos SURA — importa siniestralidad para ver penetracion</span>`}
+            ${oportunidad && oportunidad > 0 ? `<span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:rgba(245,158,11,0.12);color:var(--amber);font-weight:700;">+${oportunidad} por gestionar</span>` : '<span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">Empresa gestionada ✓</span>'}
+            ` : `<span style="font-size:10.5px;color:var(--text-dim);">Sin datos SURA — importa siniestralidad para ver penetración</span>`}
           </div>
 
           <!-- Barra de penetración -->
@@ -19274,16 +19317,17 @@ function renderEmpresaConsolidado() {
           </div>` : ''}
 
           <!-- Datos SURA -->
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             ${sura?.sinCat ? `<span style="font-size:10.5px;padding:1px 8px;border-radius:8px;background:${sinColor(sura.sinCat)}18;color:${sinColor(sura.sinCat)};border:1px solid ${sinColor(sura.sinCat)}33;">Sin. ${sura.sinPct!=null&&sura.sinPct!==''?sura.sinPct+'%':sura.sinCat}</span>` : ''}
             ${sura?.asesorAsignado ? `<span style="font-size:10.5px;padding:1px 8px;border-radius:8px;background:rgba(168,85,247,0.1);color:var(--purple);border:1px solid rgba(168,85,247,0.2);">👤 ${sura.asesorAsignado}</span>` : ''}
-            ${sura?.ciudad ? `<span style="font-size:10.5px;color:var(--text-dim);">📍 ${sura.ciudad}</span>` : ''}
+            ${ciudadMostrada ? `<span style="font-size:10.5px;color:var(--text-dim);">📍 ${ciudadMostrada}</span>` : ''}
             ${sura?.trim ? `<span style="font-size:10px;color:var(--text-dim);">${sura.trim}</span>` : ''}
+            ${otrasCiudadesHtml ? `<span style="font-size:10px;color:var(--text-dim);">·</span>${otrasCiudadesHtml}` : ''}
           </div>
         </div>
 
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-          <button onclick="event.stopPropagation();generarURLEmpresa('${g.nombre.replace(/'/g,"\\'")}');" title="Generar enlace de captacion"
+          <button onclick="event.stopPropagation();generarURLEmpresa('${g.nombre.replace(/'/g,"\\'")}');" title="Generar enlace de captación"
             style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;background:rgba(200,229,43,0.1);color:var(--sura-lime);border:1px solid rgba(200,229,43,0.25);font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--font);">🔗 Enlace</button>
           ${waUrl?`<a href="${waUrl}" target="_blank" onclick="event.stopPropagation();"
             style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;background:rgba(6,182,212,0.1);color:var(--teal);border:1px solid rgba(6,182,212,0.25);font-size:11.5px;font-weight:700;text-decoration:none;">📲 WA Oportunidad</a>`:''}
@@ -19294,7 +19338,7 @@ function renderEmpresaConsolidado() {
       <!-- Lista afiliados registrados (oculta por defecto) -->
       <div style="display:none;padding:12px 16px;">
         <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;font-weight:600;">
-          Afiliados registrados en Cuadre (${misCot})
+          Afiliados en tu panel (${misCot})
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;">
           ${g.afiliados.map(v => {
@@ -19649,73 +19693,60 @@ function mostrarResumenImportSin(resultados, trimLabel) {
 }
 
 async function confirmarImportSin() {
-  if (!_sinImportData) { showToast('⚠️ No hay datos para guardar. Vuelve a cargar el archivo.'); return; }
+  if (!_sinImportData) return;
+  const { resultados, trimLabel, trimId, anio, raw } = _sinImportData;
+  const empresas = getEmpresas();
+  const bdSin = getBDSin();
 
-  // Bloquear botón con feedback visual
-  const btn = document.getElementById('btnConfirmarImportSin');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando en Firebase…'; }
+  // Actualizar trimestres registrados
+  const trims = bdSin.trimestres || [];
+  const trimIdx = trims.findIndex(t => t.label === trimLabel);
+  const trimEntry = { label: trimLabel, id: trimId, anio, fechaImport: new Date().toISOString().split('T')[0], total: raw.length };
+  if (trimIdx >= 0) trims[trimIdx] = trimEntry;
+  else trims.unshift(trimEntry);
+  bdSin.trimestres = trims;
 
-  try {
-    const { resultados, trimLabel, trimId, anio, raw } = _sinImportData;
+  // Guardar/actualizar registros — reemplaza los del mismo trimestre, conserva los demás
+  const registrosOtros = (bdSin.registros || []).filter(r => r.trimId !== trimId || r.anio !== anio);
+  const registrosNuevos = raw.map(r => ({ ...r }));
+  bdSin.registros = [...registrosOtros, ...registrosNuevos];
 
-    // Construir bdSin — conservar registros de otros trimestres, reemplazar el trimestre actual
-    const bdSinActual = getBDSin();
-    const trims = bdSinActual.trimestres || [];
-    const trimIdx = trims.findIndex(t => t.label === trimLabel);
-    const trimEntry = { label: trimLabel, id: trimId, anio, fechaImport: new Date().toISOString().split('T')[0], total: raw.length };
-    if (trimIdx >= 0) trims[trimIdx] = trimEntry;
-    else trims.unshift(trimEntry);
-
-    const registrosOtros = (bdSinActual.registros || []).filter(r => !(r.trimId === trimId && r.anio === anio));
-    const bdSin = { trimestres: trims, registros: [...registrosOtros, ...raw] };
-
-    if (btn) btn.textContent = `⏳ Enviando ${bdSin.registros.length.toLocaleString()} registros…`;
-
-    // Actualizar siniestralidad en panel de empresas (historial)
-    const empresas = getEmpresas();
-    let actualizadas = 0;
-    const fechaHoy = new Date().toISOString().split('T')[0];
-    resultados.forEach(r => {
-      const nitL = (r.nit||'').replace(/\D/g,'');
-      const idx = empresas.findIndex(e =>
-        (nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
-        bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)
-      );
-      if (idx >= 0 && r.sinCat) {
-        if (!empresas[idx].historialSin) empresas[idx].historialSin = [];
-        const existeTrim = empresas[idx].historialSin.findIndex(h => h.trim === trimLabel);
-        const entrada = { trim: trimLabel, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
-        if (existeTrim >= 0) empresas[idx].historialSin[existeTrim] = entrada;
-        else { empresas[idx].historialSin.unshift(entrada); }
-        empresas[idx].siniestralidad = r.sinCat;
-        empresas[idx].sinPct = r.sinPct;
-        empresas[idx].trimRef = trimLabel;
-        actualizadas++;
-      }
-    });
-
-    // Guardar en Firebase (usa chunks internamente para superar límite 1MB)
-    const resultGuardado = window.FB ? await window.FB.set('bdSiniestralidad', bdSin) : false;
-
-    // Actualizar cache en memoria siempre
-    if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = bdSin;
-    bdSinConstruirCache(bdSin.registros || []);
-    setEmpresas(empresas);
-    _sinImportData = null;
-    closeModal('modalImportSin');
-
-    if (resultGuardado === false) {
-      showToast('⚠️ BD cargada en memoria pero NO se pudo guardar en Firebase. Verifica tu conexión e intenta de nuevo.', 7000);
-    } else {
-      showToast(`✅ BD guardada · ${bdSin.registros.length.toLocaleString()} registros · ${actualizadas} empresas actualizadas`);
+  // Actualizar siniestralidad en panel de empresas (historial)
+  let actualizadas = 0;
+  const fechaHoy = new Date().toISOString().split('T')[0];
+  resultados.forEach(r => {
+    const nitL = (r.nit||'').replace(/\D/g,'');
+    const idx = empresas.findIndex(e =>
+      (nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
+      bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)
+    );
+    if (idx >= 0 && r.sinCat) {
+      if (!empresas[idx].historialSin) empresas[idx].historialSin = [];
+      const existeTrim = empresas[idx].historialSin.findIndex(h => h.trim === trimLabel);
+      const entrada = { trim: trimLabel, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
+      if (existeTrim >= 0) empresas[idx].historialSin[existeTrim] = entrada;
+      else { empresas[idx].historialSin.unshift(entrada); }
+      empresas[idx].siniestralidad = r.sinCat;
+      empresas[idx].sinPct = r.sinPct;
+      empresas[idx].trimRef = trimLabel;
+      actualizadas++;
     }
-    renderEmpresas();
+  });
 
-  } catch(err) {
-    console.error('[confirmarImportSin]', err);
-    showToast('❌ Error al guardar: ' + (err.message || String(err)), 7000);
-    if (btn) { btn.disabled = false; btn.textContent = '✅ Guardar en Firebase'; }
+  // Guardar y verificar que Firestore lo aceptó
+  const resultGuardado = window.FB ? await window.FB.set('bdSiniestralidad', bdSin) : false;
+  if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = bdSin;
+  bdSinConstruirCache(bdSin.registros || []);
+  setEmpresas(empresas);
+  _sinImportData = null;
+  closeModal('modalImportSin');
+
+  if (resultGuardado === false) {
+    showToast('⚠️ BD cargada en memoria pero NO se pudo guardar en Firebase. Verifica tu conexión.', 6000);
+  } else {
+    showToast(`✅ BD guardada en Firebase · ${actualizadas} empresas del panel actualizadas`);
   }
+  renderEmpresas();
 }
 
 
@@ -28534,6 +28565,87 @@ function cumpCheckDashboard() {
   }
 }
 
+
+// =============================================
+// ENLACE DE CAPTACIÓN POR EMPRESA
+// =============================================
+let _enlaceEmpresaActual = '';
+
+function generarURLEmpresa(nombreEmpresa) {
+  _enlaceEmpresaActual = nombreEmpresa || '';
+  const el = document.getElementById('enlaceEmpresaNombre');
+  if (el) el.textContent = nombreEmpresa || '';
+
+  // Restaurar URL base guardada
+  const urlGuardada = localStorage.getItem('sura_landing_url') || '';
+  const inputBase = document.getElementById('enlaceLandingBase');
+  if (inputBase) inputBase.value = urlGuardada;
+
+  // Calcular enlace si hay URL base
+  actualizarVistaEnlace();
+
+  // Abrir modal
+  const modal = document.getElementById('modalEnlaceEmpresa');
+  if (modal) { modal.classList.add('open'); setTimeout(() => { if (inputBase && !urlGuardada) inputBase.focus(); }, 100); }
+}
+
+function actualizarVistaEnlace() {
+  const urlBase = (document.getElementById('enlaceLandingBase')?.value || '').trim();
+  const empresa = _enlaceEmpresaActual;
+  const wrap = document.getElementById('enlaceResultadoWrap');
+  const alerta = document.getElementById('enlaceAlertaBase');
+  const inputResult = document.getElementById('enlaceResultado');
+  const abrirBtn = document.getElementById('enlaceAbrirBtn');
+  const waBtn = document.getElementById('enlaceWABtn');
+
+  // Guardar URL base en localStorage automáticamente
+  if (urlBase) {
+    try { localStorage.setItem('sura_landing_url', urlBase); } catch(e) {}
+  }
+
+  if (!urlBase) {
+    if (wrap) wrap.style.display = 'none';
+    if (alerta) alerta.style.display = '';
+    return;
+  }
+  if (alerta) alerta.style.display = 'none';
+  if (wrap) wrap.style.display = '';
+
+  // Construir URL final: añadir empresa como parámetro ?empresa=... o &empresa=...
+  let urlFinal = urlBase;
+  if (empresa) {
+    const sep = urlFinal.includes('?') ? '&' : '?';
+    urlFinal = urlFinal + sep + 'empresa=' + encodeURIComponent(empresa);
+  }
+
+  if (inputResult) inputResult.value = urlFinal;
+  if (abrirBtn) abrirBtn.href = urlFinal;
+
+  // Mensaje WA con el enlace
+  const asesor = (getState()?.config?.nombreAsesor || 'Tu asesor SURA').trim();
+  const msgWA = `Hola 👋 Te comparto el enlace de afiliación a SURA para *${empresa}*.
+
+Puedes registrarte directamente aquí:
+${urlFinal}
+
+Cualquier duda estoy disponible.
+
+*${asesor} - Asesor SURA*`;
+  if (waBtn) waBtn.href = `https://wa.me/?text=${encodeURIComponent(msgWA)}`;
+}
+
+function copiarEnlaceEmpresa() {
+  const val = document.getElementById('enlaceResultado')?.value || '';
+  if (!val) return;
+  try {
+    navigator.clipboard.writeText(val).then(() => showToast('✅ Enlace copiado al portapapeles'));
+  } catch(e) {
+    // Fallback
+    const inp = document.getElementById('enlaceResultado');
+    if (inp) { inp.select(); document.execCommand('copy'); showToast('✅ Enlace copiado'); }
+  }
+}
+
 bootApp();
 </script>
 </body>
@@ -28625,5 +28737,56 @@ bootApp();
   }, { passive: true });
 })();
 </script>
+
+<!-- MODAL: Generar enlace de captación por empresa -->
+<div class="modal-overlay" id="modalEnlaceEmpresa">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <div class="modal-title">🔗 Enlace de Captación</div>
+      <button class="modal-close" onclick="closeModal('modalEnlaceEmpresa')">×</button>
+    </div>
+    <div style="padding:0 0 4px 0;">
+      <div id="enlaceEmpresaNombre" style="font-size:15px;font-weight:700;margin-bottom:14px;color:var(--sura-lime);"></div>
+
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">URL base de tu landing / formulario de afiliación</label>
+        <input type="url" class="form-control" id="enlaceLandingBase"
+          placeholder="Ej: https://segurossura.com.co/afiliacion?asesor=12345"
+          oninput="actualizarVistaEnlace()" style="font-size:13px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+          Esta URL se guarda automáticamente para los próximos enlaces que generes.
+        </div>
+      </div>
+
+      <div id="enlaceResultadoWrap" style="display:none;margin-bottom:14px;">
+        <label class="form-label">Enlace generado con empresa pre-completada</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="enlaceResultado" readonly class="form-control"
+            style="font-size:12px;font-family:var(--mono);background:var(--surface3);cursor:pointer;"
+            onclick="this.select()" title="Clic para seleccionar">
+          <button class="btn btn-primary btn-sm" onclick="copiarEnlaceEmpresa()" style="white-space:nowrap;flex-shrink:0;">📋 Copiar</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <a id="enlaceAbrirBtn" href="#" target="_blank" rel="noopener"
+            style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;background:rgba(37,88,240,0.15);color:var(--sura-blue);border:1px solid rgba(37,88,240,0.3);font-size:12.5px;font-weight:600;text-decoration:none;">
+            🌐 Abrir enlace
+          </a>
+          <a id="enlaceWABtn" href="#" target="_blank" rel="noopener"
+            style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25);font-size:12.5px;font-weight:600;text-decoration:none;">
+            📲 Compartir por WA
+          </a>
+        </div>
+      </div>
+
+      <div id="enlaceAlertaBase" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);font-size:12px;margin-bottom:10px;">
+        ⚠️ Ingresa la URL base para generar el enlace.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalEnlaceEmpresa')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
