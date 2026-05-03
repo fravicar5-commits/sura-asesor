@@ -17204,6 +17204,23 @@ function renderBuscador() {
   }
 
   const prodChip = { PBS:'chip-blue', SPTI:'chip-teal', SPD:'chip-purple' };
+  const bdSin = getBDSin ? getBDSin() : { registros: [] };
+
+  // Helper: buscar datos SURA de una empresa por NIT
+  const getSuraDatos = (nit, empresaNombre) => {
+    if (!bdSin.registros || !bdSin.registros.length) return null;
+    const nitL = (nit||'').replace(/\D/g,'');
+    const regs = bdSin.registros.filter(r => {
+      if (nitL && r.nit && r.nit.replace(/\D/g,'') === nitL) return true;
+      if (empresaNombre && r.nombre && bdNormalizar(r.nombre).substring(0,12) === bdNormalizar(empresaNombre).substring(0,12)) return true;
+      return false;
+    });
+    if (!regs.length) return null;
+    // Tomar el registro más reciente (mayor anio)
+    regs.sort((a,b) => (b.anio||0) - (a.anio||0));
+    return regs[0];
+  };
+
   el.innerHTML = resultados.map(v => {
     const nombre = tc(v.tomadorNombre || v.nombre || '—');
     const doc = v.tomadorDoc || v.doc || '—';
@@ -17211,6 +17228,19 @@ function renderBuscador() {
     const correo = v.tomadorCorreo || v.correo || '';
     const empresa = v.empresa || '';
     const d = new Date(v.fecha+'T12:00:00').toLocaleDateString('es-CO');
+
+    // Datos SURA de la empresa si es PBS
+    const suraDatos = (v.producto === 'PBS' && empresa) ? getSuraDatos(v.nit, empresa) : null;
+    const asesorBadge = suraDatos?.asesorAsignado
+      ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:8px;background:rgba(168,85,247,0.1);color:var(--purple);border:1px solid rgba(168,85,247,0.2);">👤 ${suraDatos.asesorAsignado}</span>`
+      : '';
+    const cotBadge = suraDatos?.cotizantesActivos != null
+      ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:8px;background:rgba(6,182,212,0.1);color:var(--teal);border:1px solid rgba(6,182,212,0.2);">🏥 ${suraDatos.cotizantesActivos} cot. SURA</span>`
+      : '';
+    const sinBadge = suraDatos?.sinCat
+      ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:8px;background:rgba(245,158,11,0.08);color:var(--amber);">Sin. ${suraDatos.sinPct != null ? suraDatos.sinPct + '%' : suraDatos.sinCat}</span>`
+      : '';
+
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
         <div>
@@ -17229,6 +17259,7 @@ function renderBuscador() {
         ${v.plan?`<span>Plan: ${v.plan}</span>`:''}
         ${v.primaTotal?`<span style="color:var(--sura-lime);">Prima: ${fmt(v.primaTotal)}</span>`:''}
       </div>
+      ${(asesorBadge||cotBadge||sinBadge)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">${cotBadge}${sinBadge}${asesorBadge}</div>`:''}
       <div style="margin-top:8px;display:flex;gap:8px;">
         <button class="btn btn-secondary btn-sm" onclick="editarVenta('${v.id}')">✏️ Editar</button>
         ${tel?`<button class="btn btn-secondary btn-sm" onclick="window.open('https://wa.me/57${tel.replace(/\D/g,'')}','_blank')">📱 WhatsApp</button>`:''}
@@ -19111,6 +19142,24 @@ function renderEmpresaConsolidado() {
   const pagos = getPagos ? getPagos() : {};
   const buscar = (document.getElementById('empConsolidadoBuscar')?.value || '').toLowerCase();
 
+  const bdSinData = getBDSin ? getBDSin() : { registros: [] };
+  const bdRegistros = bdSinData.registros || [];
+  const asesorProp = (s.config?.nombreAsesor || 'Tu asesor SURA').trim();
+
+  // Helper: buscar registro SURA más reciente por NIT o nombre
+  const getSuraEmpresa = (nit, nombre) => {
+    if (!bdRegistros.length) return null;
+    const nitL = (nit||'').replace(/\D/g,'');
+    const regs = bdRegistros.filter(r => {
+      if (nitL && r.nit && r.nit.replace(/\D/g,'') === nitL) return true;
+      if (nombre && r.nombre && bdNormalizar(r.nombre).substring(0,12) === bdNormalizar(nombre).substring(0,12)) return true;
+      return false;
+    });
+    if (!regs.length) return null;
+    regs.sort((a,b) => (b.anio||0) - (a.anio||0));
+    return regs[0];
+  };
+
   // Solo cotizantes PBS con empresa real (incluye importados desde SURA)
   const afiliados = s.ventas.filter(v =>
     v.producto === 'PBS' &&
@@ -19126,96 +19175,135 @@ function renderEmpresaConsolidado() {
     const key = (v.empresa || '').trim();
     if (!key || key === '—') return;
     if (!grupos[key]) grupos[key] = { nombre: key, nit: v.nit || '', afiliados: [] };
-    const est = getPBSEstado(v, pagos);
-    grupos[key].afiliados.push({ v, est });
+    grupos[key].afiliados.push(v);
+    // Tomar el NIT del primer afiliado que lo tenga
+    if (!grupos[key].nit && v.nit) grupos[key].nit = v.nit;
   });
 
-  let lista = Object.values(grupos).sort((a,b) => b.afiliados.length - a.afiliados.length);
-  if (buscar) lista = lista.filter(g => g.nombre.toLowerCase().includes(buscar) || g.nit.includes(buscar));
+  // Enriquecer con datos SURA
+  let lista = Object.values(grupos).map(g => {
+    const sura = getSuraEmpresa(g.nit, g.nombre);
+    return { ...g, sura };
+  });
+
+  // Ordenar: primero empresas con datos SURA, luego por total afiliados
+  lista.sort((a, b) => {
+    if (a.sura && !b.sura) return -1;
+    if (!a.sura && b.sura) return 1;
+    return b.afiliados.length - a.afiliados.length;
+  });
+
+  if (buscar) lista = lista.filter(g =>
+    g.nombre.toLowerCase().includes(buscar) ||
+    g.nit.includes(buscar) ||
+    (g.sura?.asesorAsignado||'').toLowerCase().includes(buscar)
+  );
 
   if (!lista.length) {
     cont.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-dim);">Sin afiliados PBS con empresa registrada. Al registrar una venta PBS, completa el campo <strong>Empresa</strong> para que aparezca aqui.</div>';
     return;
   }
 
-  const EST_ORD = { SUSPENDIDO:0, MORA:1, VENCIDO:2, PROXIMO:3, AL_DIA:4, CANCELADO:5 };
-  const EST_COLOR = { AL_DIA:'var(--green)', PROXIMO:'var(--teal)', VENCIDO:'var(--amber)', MORA:'var(--amber)', SUSPENDIDO:'var(--red)', CANCELADO:'var(--text-dim)' };
-  const asesor = (s.config?.nombreAsesor || 'Tu asesor SURA').trim();
+  const sinColor = cat => cat === '<=75%' ? 'var(--green)' : cat === '76% - 90%' ? 'var(--amber)' : cat ? 'var(--red)' : 'var(--text-muted)';
 
   cont.innerHTML = lista.map(g => {
-    const sorted = [...g.afiliados].sort((a,b) =>
-      (EST_ORD[a.est?.estado||'AL_DIA']||4) - (EST_ORD[b.est?.estado||'AL_DIA']||4)
-    );
-    const criticos = sorted.filter(x => ['MORA','SUSPENDIDO','VENCIDO'].includes(x.est?.estado));
-    const alDia = sorted.filter(x => ['AL_DIA','PROXIMO'].includes(x.est?.estado));
-    const primaTotal = sorted.reduce((s2,x) => s2+(x.v.prima||0), 0);
-    const headerColor = criticos.length > 0
-      ? (sorted.some(x=>x.est?.estado==='SUSPENDIDO') ? 'var(--red)' : 'var(--amber)')
-      : 'var(--green)';
+    const { sura } = g;
+    const misCot  = g.afiliados.length;
+    const suraCot = sura?.cotizantesActivos ?? null;
+    // Penetración: mis afiliados vs total cotizantes activos SURA
+    const pctPenetr = (suraCot && suraCot > 0) ? Math.min(100, Math.round(misCot / suraCot * 100)) : null;
+    const oportunidad = (suraCot != null && suraCot > misCot) ? suraCot - misCot : null;
 
-    // Mensaje de gestión empresarial
-    const contacto = g.afiliados[0]?.v?.telefono || '';
-    const tel = contacto.replace(/\D/g,'');
-    const nCrit = criticos.length;
-    const _listaAfil = criticos.slice(0,5).map(x => '\u2022 ' + tc(x.v.nombre||'') + ' \u2014 Dia ' + (x.est?.dias||0) + ' de mora').join('\n');
-    const msgEmpresa = nCrit > 0
-      ? 'Hola, buenos dias. Le escribo de parte de SURA - Canal Especializado en Salud.\n\n'
-        + 'Le informamos que ' + nCrit + ' afiliado' + (nCrit>1?'s':'') + ' de ' + g.nombre + ' ' + (nCrit>1?'tienen':'tiene') + ' pagos pendientes de su plan de salud:\n\n'
-        + _listaAfil + '\n\n'
-        + 'Para regularizar los pagos de forma inmediata:\n'
-        + 'Pago express SURA: https://www.segurossura.com.co/paginas/pago-express.aspx/\n\n'
-        + 'Quedo disponible para cualquier consulta.\n\n'
-        + '*' + asesor + ' - Asesor Canal Especializado en Salud SURA*'
+    // Color header según penetración
+    const headerColor = pctPenetr == null ? 'var(--sura-blue)'
+      : pctPenetr >= 80 ? 'var(--green)'
+      : pctPenetr >= 40 ? 'var(--amber)'
+      : 'var(--red)';
+
+    // Barra penetración
+    const barPct = pctPenetr ?? 0;
+    const barColor = pctPenetr == null ? 'var(--sura-blue)' : pctPenetr >= 80 ? 'var(--green)' : pctPenetr >= 40 ? 'var(--amber)' : 'var(--red)';
+
+    // Mensaje WA de prospección a empresa
+    const tel = (g.afiliados[0]?.telefono||'').replace(/\D/g,'');
+    const msgEmpresa = oportunidad && oportunidad > 0
+      ? `Hola, buenos dias. Soy ${asesorProp} de SURA Canal Especializado en Salud.\n\nTenemos ${misCot} afiliado${misCot!==1?'s':''} de ${g.nombre} activos con nosotros. Con ${suraCot} cotizantes activos en la empresa, aun hay ${oportunidad} colaborador${oportunidad!==1?'es':''} sin gestionar.\n\nMe gustaria coordinar una visita para ampliar la cobertura del equipo. Quedo disponible.\n\n*${asesorProp} - Asesor SURA*`
       : '';
-    const waEmpresa = tel && msgEmpresa ? `https://wa.me/57${tel}?text=${encodeURIComponent(msgEmpresa)}` : '';
+    const waUrl = tel && msgEmpresa ? `https://wa.me/57${tel}?text=${encodeURIComponent(msgEmpresa)}` : '';
 
     return `<div style="background:var(--surface);border:1px solid var(--border);border-left:4px solid ${headerColor};border-radius:12px;margin-bottom:14px;overflow:hidden;">
 
       <!-- Header empresa -->
-      <div style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;background:var(--surface2);"
-           onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none';this.querySelector('._arrow').style.transform=this.nextElementSibling.style.display===''?'rotate(180deg)':'';">
+      <div style="padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;cursor:pointer;background:var(--surface2);"
+           onclick="const body=this.nextElementSibling;body.style.display=body.style.display==='none'?'block':'none';this.querySelector('._arrow').style.transform=body.style.display==='block'?'rotate(180deg)':'rotate(0deg)';">
         <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
             <span style="font-size:14px;font-weight:700;">${g.nombre}</span>
             ${g.nit?`<span style="font-size:11px;color:var(--text-dim);">NIT: ${g.nit}</span>`:''}
-            <span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:${headerColor}18;color:${headerColor};font-weight:700;">${sorted.length} afiliado${sorted.length!==1?'s':''}</span>
-            ${criticos.length>0?`<span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:rgba(220,38,38,0.12);color:var(--red);font-weight:700;">${criticos.length} con alerta</span>`:''}
           </div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">
-            ${alDia.length} al dia · ${criticos.length} con mora/suspension · Prima total: <strong>${fmt(primaTotal)}</strong>
+
+          <!-- KPIs penetración -->
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span style="font-size:11px;color:var(--text-muted);">Mis afiliados:</span>
+              <span style="font-size:13px;font-weight:700;color:var(--sura-blue);">${misCot}</span>
+            </div>
+            ${suraCot != null ? `
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span style="font-size:11px;color:var(--text-muted);">Cot. activos SURA:</span>
+              <span style="font-size:13px;font-weight:700;color:var(--teal);">${suraCot}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span style="font-size:11px;color:var(--text-muted);">Penetracion:</span>
+              <span style="font-size:13px;font-weight:700;color:${barColor};">${pctPenetr}%</span>
+            </div>
+            ${oportunidad && oportunidad > 0 ? `<span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:rgba(245,158,11,0.12);color:var(--amber);font-weight:700;">+${oportunidad} por gestionar</span>` : '<span style="font-size:10.5px;padding:1px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">Empresa gestionada</span>'}
+            ` : `<span style="font-size:10.5px;color:var(--text-dim);">Sin datos SURA — importa siniestralidad para ver penetracion</span>`}
+          </div>
+
+          <!-- Barra de penetración -->
+          ${pctPenetr != null ? `
+          <div style="height:4px;background:var(--surface3);border-radius:4px;overflow:hidden;width:100%;max-width:320px;margin-bottom:6px;">
+            <div style="width:${barPct}%;height:100%;background:${barColor};border-radius:4px;transition:width .4s;"></div>
+          </div>` : ''}
+
+          <!-- Datos SURA -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${sura?.sinCat ? `<span style="font-size:10.5px;padding:1px 8px;border-radius:8px;background:${sinColor(sura.sinCat)}18;color:${sinColor(sura.sinCat)};border:1px solid ${sinColor(sura.sinCat)}33;">Sin. ${sura.sinPct!=null&&sura.sinPct!==''?sura.sinPct+'%':sura.sinCat}</span>` : ''}
+            ${sura?.asesorAsignado ? `<span style="font-size:10.5px;padding:1px 8px;border-radius:8px;background:rgba(168,85,247,0.1);color:var(--purple);border:1px solid rgba(168,85,247,0.2);">👤 ${sura.asesorAsignado}</span>` : ''}
+            ${sura?.ciudad ? `<span style="font-size:10.5px;color:var(--text-dim);">📍 ${sura.ciudad}</span>` : ''}
+            ${sura?.trim ? `<span style="font-size:10px;color:var(--text-dim);">${sura.trim}</span>` : ''}
           </div>
         </div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <button onclick="event.stopPropagation();generarURLEmpresa('${g.nombre}')" title="Generar enlace de captación"
+
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+          <button onclick="event.stopPropagation();generarURLEmpresa('${g.nombre.replace(/'/g,"\\'")}');" title="Generar enlace de captacion"
             style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;background:rgba(200,229,43,0.1);color:var(--sura-lime);border:1px solid rgba(200,229,43,0.25);font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--font);">🔗 Enlace</button>
-          ${waEmpresa?`<a href="${waEmpresa}" target="_blank" onclick="event.stopPropagation();"
-            style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;background:rgba(220,38,38,0.12);color:var(--red);border:1px solid rgba(220,38,38,0.25);font-size:11.5px;font-weight:700;text-decoration:none;">
-            WA Empresa</a>`:''}
+          ${waUrl?`<a href="${waUrl}" target="_blank" onclick="event.stopPropagation();"
+            style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:7px;background:rgba(6,182,212,0.1);color:var(--teal);border:1px solid rgba(6,182,212,0.25);font-size:11.5px;font-weight:700;text-decoration:none;">📲 WA Oportunidad</a>`:''}
           <svg class="_arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform .2s;"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
       </div>
 
-      <!-- Lista afiliados (oculta por defecto) -->
+      <!-- Lista afiliados registrados (oculta por defecto) -->
       <div style="display:none;padding:12px 16px;">
-        <div style="display:flex;flex-direction:column;gap:6px;">
-          ${sorted.map(({ v, est }) => {
-            const estColor = EST_COLOR[est?.estado||'AL_DIA'] || 'var(--text-muted)';
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;font-weight:600;">
+          Afiliados registrados en Cuadre (${misCot})
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          ${g.afiliados.map(v => {
             const tel2 = (v.telefono||'').replace(/\D/g,'');
-            const msgInd = est && ['VENCIDO','MORA','SUSPENDIDO'].includes(est.estado)
-              ? (est.estado === 'SUSPENDIDO'
-                  ? getMsgSuspensionInminente(v, est.dias, asesor)
-                  : `Hola ${tc(v.nombre||'').split(' ')[0]}, te escribo porque tu plan SURA tiene ${est.dias} dias sin pago registrado. Para regularizarlo: https://www.segurossura.com.co/paginas/pago-express.aspx/ - *${asesor}*`)
-              : '';
-            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface2);border-radius:8px;border-left:3px solid ${estColor};gap:8px;flex-wrap:wrap;">
-              <div style="flex:1;min-width:150px;">
+            const estadoColor = v.estado === 'AGIL' ? 'var(--green)' : v.estado === 'NO AGIL' ? 'var(--amber)' : 'var(--text-muted)';
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border-radius:8px;gap:8px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:140px;">
                 <div style="font-size:12.5px;font-weight:600;">${tc(v.nombre||'—')}</div>
-                <div style="font-size:11px;color:var(--text-muted);">${v.doc||''} · ${fmt(v.prima||0)}</div>
+                <div style="font-size:11px;color:var(--text-muted);">${v.doc||''} ${v.inicioCobertura?'· Cobertura: '+new Date(v.inicioCobertura+'T12:00:00').toLocaleDateString('es-CO'):''}</div>
               </div>
-              <div style="display:flex;align-items:center;gap:6px;">
-                <span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:8px;background:${estColor}15;color:${estColor};">${est?.label||est?.estado||'—'}</span>
-                ${tel2&&msgInd?`<a href="https://wa.me/57${tel2}?text=${encodeURIComponent(msgInd)}" target="_blank"
-                  style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25);text-decoration:none;" title="WhatsApp">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.096.533 4.063 1.476 5.782L0 24l6.393-1.454A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.885 9.885 0 01-5.04-1.38l-.361-.214-3.795.863.899-3.687-.235-.378A9.866 9.866 0 012.105 12C2.105 6.527 6.527 2.105 12 2.105c5.472 0 9.895 4.422 9.895 9.895 0 5.472-4.423 9.894-9.895 9.894z"/></svg>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                ${v.estado?`<span style="font-size:10px;padding:1px 7px;border-radius:7px;background:${estadoColor}18;color:${estadoColor};font-weight:700;">${v.estado}</span>`:''}
+                ${tel2?`<a href="https://wa.me/57${tel2}" target="_blank"
+                  style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.25);text-decoration:none;" title="WhatsApp">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.096.533 4.063 1.476 5.782L0 24l6.393-1.454A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.885 9.885 0 01-5.04-1.38l-.361-.214-3.795.863.899-3.687-.235-.378A9.866 9.866 0 012.105 12C2.105 6.527 6.527 2.105 12 2.105c5.472 0 9.895 4.422 9.895 9.895 0 5.472-4.423 9.894-9.895 9.894z"/></svg>
                 </a>`:''}
               </div>
             </div>`;
@@ -19438,10 +19526,12 @@ async function procesarArchivoSin(file) {
         return -1;
       };
 
-      const colNombre = findCol('empresa', 'razon', 'nombre', 'compania', 'entidad');
-      const colNIT    = findCol('nit', 'identificacion', 'documento', 'rut');
-      const colSin    = findCol('siniestralidad', 'siniestr', 'porcentaje', '%sin');
-      const colCiudad = findCol('ciudad', 'municipio', 'city', 'localidad');
+      const colNombre     = findCol('empresa', 'razon', 'nombre', 'compania', 'entidad');
+      const colNIT        = findCol('nit', 'identificacion', 'documento', 'rut');
+      const colSin        = findCol('siniestralidad', 'siniestr', 'porcentaje', '%sin');
+      const colCiudad     = findCol('ciudad', 'municipio', 'city', 'localidad');
+      const colCotizantes = findCol('cotizantes activos', 'cotizantes', 'activos', 'afiliados activos', 'afiliados');
+      const colAsesor     = findCol('asesor asignado', 'asesor', 'ejecutivo', 'comercial asignado');
 
       const filas = data.slice(1).filter(row => row.some(c => c !== ''));
       const resultados = [];
@@ -19457,6 +19547,14 @@ async function procesarArchivoSin(file) {
           const ciudad = colCiudad >= 0 ? String(row[colCiudad] || '').trim() : '';
           if (!nombre && !nit) return;
 
+          // Cotizantes activos según SURA
+          const cotRaw = colCotizantes >= 0 ? row[colCotizantes] : null;
+          const cotizantesActivos = (cotRaw !== null && cotRaw !== '') ? parseInt(cotRaw) || 0 : null;
+
+          // Asesor asignado — normalizar 'Sin asesor asignado' a null
+          const asesorRaw = colAsesor >= 0 ? String(row[colAsesor] || '').trim() : '';
+          const asesorAsignado = (asesorRaw && asesorRaw.toLowerCase() !== 'sin asesor asignado') ? asesorRaw : null;
+
           let sinPct = '', sinCat = '';
           if (sinRaw !== '' && sinRaw !== null) {
             const n = parseFloat(String(sinRaw).replace(',','.').replace('%','').trim());
@@ -19468,7 +19566,7 @@ async function procesarArchivoSin(file) {
             }
           }
 
-          resultados.push({ nombre, nit, sinPct, sinCat, ciudad, trim: trimLabel, trimId, anio });
+          resultados.push({ nombre, nit, sinPct, sinCat, ciudad, cotizantesActivos, asesorAsignado, trim: trimLabel, trimId, anio });
         });
         await new Promise(r => setTimeout(r, 0));
       }
@@ -19519,16 +19617,20 @@ function mostrarResumenImportSin(resultados, trimLabel) {
               <th style="padding:8px 10px;color:var(--text-muted);font-size:10.5px;">NIT</th>
               <th style="padding:8px 10px;color:var(--text-muted);font-size:10.5px;">Ciudad</th>
               <th style="padding:8px 10px;color:var(--text-muted);font-size:10.5px;">Sin.</th>
+              <th style="padding:8px 10px;color:var(--text-muted);font-size:10.5px;">Cot. Activos</th>
+              <th style="padding:8px 10px;color:var(--text-muted);font-size:10.5px;">Asesor</th>
             </tr>
           </thead>
           <tbody>
             ${resultados.slice(0,60).map(r => `<tr style="border-top:1px solid var(--border);">
-              <td style="padding:6px 10px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.nombre||'—'}</td>
+              <td style="padding:6px 10px;font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.nombre||'—'}</td>
               <td style="padding:6px 10px;font-family:var(--mono);font-size:11px;color:var(--text-muted);">${r.nit||'—'}</td>
               <td style="padding:6px 10px;font-size:11px;color:var(--text-muted);">${r.ciudad||'—'}</td>
               <td style="padding:6px 10px;font-family:var(--mono);font-size:11px;color:${r.sinPct<=75?'var(--green)':r.sinPct<=90?'var(--amber)':'var(--red)'};">${r.sinPct!==''?r.sinPct+'%':'—'}</td>
+              <td style="padding:6px 10px;font-family:var(--mono);font-size:11px;color:var(--teal);text-align:center;">${r.cotizantesActivos!=null?r.cotizantesActivos:'—'}</td>
+              <td style="padding:6px 10px;font-size:11px;color:var(--text-muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.asesorAsignado||'—'}</td>
             </tr>`).join('')}
-            ${resultados.length>60?`<tr><td colspan="4" style="text-align:center;padding:8px;color:var(--text-dim);font-size:12px;">... y ${resultados.length-60} más</td></tr>`:''}
+            ${resultados.length>60?`<tr><td colspan="6" style="text-align:center;padding:8px;color:var(--text-dim);font-size:12px;">... y ${resultados.length-60} más</td></tr>`:''}
           </tbody>
         </table>
       </div>
