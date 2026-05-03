@@ -4210,9 +4210,6 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
       <!-- ===== GESTIÓN DE CARTERA ===== -->
       <div class="page" id="page-cartera">
 
-        <!-- Alertas automáticas de cartera -->
-        <div id="carteraAlertasBanner" style="margin-bottom:16px;"></div>
-
         <!-- Pestañas de cartera -->
         <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0;">
           <button id="ctTab-activa" class="tab-pill active" onclick="switchCarteraTab('activa')" style="border-radius:8px 8px 0 0;border-bottom:2px solid var(--sura-blue);">📋 Cartera Activa</button>
@@ -4226,6 +4223,9 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
 
         <!-- Panel: Cartera Activa -->
         <div id="ctPanel-activa">
+
+        <!-- Alertas automáticas de cartera -->
+        <div id="carteraAlertasBanner" style="margin-bottom:12px;"></div>
 
         <!-- Alerta suspensión inminente -->
         <div id="cartAlertaInminente"></div>
@@ -14535,6 +14535,31 @@ function reactivarPoliza(id) {
   showToast('♻️ Póliza reactivada');
 }
 
+function renderAlertasSuspensionInminente() {
+  const el = document.getElementById('cartAlertaInminente');
+  if (!el) return;
+  const s = getState();
+  const pagos = getPagos ? getPagos() : {};
+  const ventas = s.ventas.filter(v => ['SPTI','SPD','PSM','PAC60'].includes(v.producto) && v.fechaExp && v.tipo !== 'CANCELACION');
+  const conEst = ventas.map(v => ({ ...v, _est: getCarteraEstado(v, pagos) })).filter(v => v._est);
+
+  // Vencidos proximos a mora (dia 25-30) — alertas tempranas
+  const proxMora = conEst.filter(v => v._est.estado === 'VENCIDO' && v._est.dias >= 25);
+  // En mora proximos a suspension (mora dia 28+)
+  const proxSusp = conEst.filter(v => v._est.estado === 'MORA' && v._est.dias >= 28);
+  // Nota: PROXIMO (vence en 3 dias o menos) ya lo muestra renderCarteraAlertas
+
+  const banners = [];
+  if (proxSusp.length) banners.push(
+    `<div class="alert alert-warning" style="border-color:rgba(239,68,68,0.5);background:rgba(239,68,68,0.07);">&#x1F534; <strong>${proxSusp.length} plan(es) a punto de suspenderse (mora dia 28+):</strong> ${proxSusp.map(v=>tc(v.tomadorNombre||v.nombre||'')).join(', ')}</div>`
+  );
+  if (proxMora.length) banners.push(
+    `<div class="alert alert-warning" style="border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.06);">&#x1F7E1; <strong>${proxMora.length} plan(es) proximo(s) a entrar en mora (dia 25-30):</strong> ${proxMora.map(v=>tc(v.tomadorNombre||v.nombre||'')).join(', ')}</div>`
+  );
+
+  el.innerHTML = banners.join('');
+}
+
 function renderCarteraAlertas(conEstado) {
   const criticos = conEstado.filter(v => ['MORA','SUSPENDIDO','VENCIDO','PROXIMO'].includes(v._est.estado));
   const el = document.getElementById('carteraAlertasBanner');
@@ -19045,6 +19070,40 @@ function setEmpTab(tab, btn) {
 // ══════════════════════════════════════════════════════════════════
 // VISTA CONSOLIDADA POR EMPRESA — afiliados PBS con estado cartera
 // ══════════════════════════════════════════════════════════════════
+function getPBSEstado(v, pagos) {
+  // PBS importados desde SURA tienen fechaExp y periodicidad -> usar getCarteraEstado
+  if (v.fechaExp && v.periodicidad) return getCarteraEstado(v, pagos);
+
+  // PBS manuales: usan fecha de registro como ancla mensual PILA
+  // Lógica: cada mes desde la fecha de registro es un ciclo. Si el afiliado
+  // tiene pagos registrados cubre N meses. El estado es como cartera mensual.
+  const ancla = v.inicioCobertura || v.fecha;
+  if (!ancla) return { estado: 'AL_DIA', dias: 0, color: 'var(--green)', label: 'Sin fecha', proxVenc: null, prevVenc: null };
+
+  const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
+  const diaAncla = new Date(ancla + 'T12:00:00');
+  const pagosVenta = getPagosVenta ? getPagosVenta(v.id) : [];
+  const nPagos = pagosVenta.length;
+
+  // proxVenc = ancla + (nPagos + 1) meses
+  const proxVenc = new Date(diaAncla);
+  proxVenc.setMonth(proxVenc.getMonth() + (nPagos + 1));
+  const prevVenc = new Date(diaAncla);
+  prevVenc.setMonth(prevVenc.getMonth() + nPagos);
+
+  const diasParaVencer = Math.floor((proxVenc - hoy) / 86400000);
+  if (hoy < proxVenc) {
+    if (diasParaVencer <= 3) return { estado: 'PROXIMO', dias: diasParaVencer, color: 'var(--teal)', label: `Vence en ${diasParaVencer}d`, proxVenc, prevVenc };
+    return { estado: 'AL_DIA', dias: 0, color: 'var(--green)', label: 'Al dia', proxVenc, prevVenc };
+  }
+  const diasMora = Math.max(0, Math.floor((hoy - proxVenc) / 86400000));
+  if (diasMora >= 60) return { estado: 'CANCELADO', dias: diasMora, color: '#6b7280', label: 'Cancelado (mora)', proxVenc, prevVenc };
+  if (diasMora >= 35) return { estado: 'SUSPENDIDO', dias: diasMora, color: 'var(--red)', label: 'Suspendido', proxVenc, prevVenc };
+  if (diasMora >= 31) return { estado: 'MORA', dias: diasMora, color: 'var(--amber)', label: 'En mora', proxVenc, prevVenc };
+  if (diasMora > 0)   return { estado: 'VENCIDO', dias: diasMora, color: 'var(--amber)', label: `Vencido hace ${diasMora}d`, proxVenc, prevVenc };
+  return { estado: 'PROXIMO', dias: 0, color: 'var(--teal)', label: 'Vence hoy', proxVenc, prevVenc };
+}
+
 function renderEmpresaConsolidado() {
   const cont = document.getElementById('empConsolidadoContainer');
   if (!cont) return;
@@ -19052,21 +19111,22 @@ function renderEmpresaConsolidado() {
   const pagos = getPagos ? getPagos() : {};
   const buscar = (document.getElementById('empConsolidadoBuscar')?.value || '').toLowerCase();
 
-  // Solo cotizantes PBS con empresa
+  // Solo cotizantes PBS con empresa real (incluye importados desde SURA)
   const afiliados = s.ventas.filter(v =>
     v.producto === 'PBS' &&
     v.tipo === 'COTIZANTE' &&
     v.empresa &&
-    !v._importadoSura
+    v.empresa.trim() !== '' &&
+    v.empresa.trim() !== '—'
   );
 
   // Agrupar por empresa
   const grupos = {};
   afiliados.forEach(v => {
     const key = (v.empresa || '').trim();
-    if (!key) return;
+    if (!key || key === '—') return;
     if (!grupos[key]) grupos[key] = { nombre: key, nit: v.nit || '', afiliados: [] };
-    const est = getCarteraEstado(v, pagos);
+    const est = getPBSEstado(v, pagos);
     grupos[key].afiliados.push({ v, est });
   });
 
@@ -19074,7 +19134,7 @@ function renderEmpresaConsolidado() {
   if (buscar) lista = lista.filter(g => g.nombre.toLowerCase().includes(buscar) || g.nit.includes(buscar));
 
   if (!lista.length) {
-    cont.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-dim);">Sin empresas con afiliados PBS registrados.</div>';
+    cont.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-dim);">Sin afiliados PBS con empresa registrada. Al registrar una venta PBS, completa el campo <strong>Empresa</strong> para que aparezca aqui.</div>';
     return;
   }
 
