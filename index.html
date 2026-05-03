@@ -28576,10 +28576,13 @@ function generarURLEmpresa(nombreEmpresa) {
   const el = document.getElementById('enlaceEmpresaNombre');
   if (el) el.textContent = nombreEmpresa || '';
 
-  // Restaurar URL base guardada
-  const urlGuardada = localStorage.getItem('sura_landing_url') || '';
+  // Autodetectar URL de GitHub Pages si no hay URL guardada
+  const urlAutodetect = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'empresa.html';
+  const urlGuardada = localStorage.getItem('sura_landing_url') || urlAutodetect;
   const inputBase = document.getElementById('enlaceLandingBase');
   if (inputBase) inputBase.value = urlGuardada;
+  // Guardar la autodetectada
+  try { localStorage.setItem('sura_landing_url', urlGuardada); } catch(e) {}
 
   // Calcular enlace si hay URL base
   actualizarVistaEnlace();
