@@ -835,33 +835,39 @@
     }
   }
 
-  // ── bdSiniestralidad: guardar en chunks de 400 registros ─────────────────
+  // ── bdSiniestralidad: guardar en chunks de 500 registros ─────────────────
   // Metadatos en 'bdSiniestralidad/{UID}' + chunks en 'bdSinChunks/{UID}_chunk_{n}'
-  const CHUNK_SIZE = 400;
+  // Escrituras en lotes de 10 para no saturar Firestore con 100+ escrituras simultáneas
+  const CHUNK_SIZE = 500;
+  const CHUNK_BATCH = 10; // máx escrituras paralelas simultáneas
   async function fbSetBdSin(valor) {
     try {
       const registros = valor.registros || [];
       const totalChunks = Math.ceil(registros.length / CHUNK_SIZE) || 1;
-      // Guardar metadatos + índice de chunks en el doc principal
+      // Guardar metadatos primero
       await setDoc(doc(db, 'bdSiniestralidad', UID), {
         payload: { trimestres: valor.trimestres || [], registros: [], totalChunks }
       });
-      // Guardar cada chunk
-      const promises = [];
-      for (let i = 0; i < totalChunks; i++) {
-        const chunk = registros.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-        promises.push(setDoc(doc(db, 'bdSinChunks', `${UID}_chunk_${i}`), { payload: chunk }));
+      // Guardar chunks en lotes de CHUNK_BATCH para evitar rate limiting
+      for (let batch = 0; batch < totalChunks; batch += CHUNK_BATCH) {
+        const batchEnd = Math.min(batch + CHUNK_BATCH, totalChunks);
+        const promises = [];
+        for (let i = batch; i < batchEnd; i++) {
+          const chunk = registros.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+          promises.push(setDoc(doc(db, 'bdSinChunks', `${UID}_chunk_${i}`), { payload: chunk }));
+        }
+        await Promise.all(promises);
+        console.log(`bdSin: lote ${batch}-${batchEnd-1} de ${totalChunks} guardado`);
       }
-      await Promise.all(promises);
-      // Borrar chunks sobrantes de importaciones anteriores
-      for (let i = totalChunks; i < totalChunks + 20; i++) {
+      // Borrar chunks sobrantes de importaciones anteriores (máx 50 chunks viejos)
+      for (let i = totalChunks; i < totalChunks + 50; i++) {
         const old = doc(db, 'bdSinChunks', `${UID}_chunk_${i}`);
         try { await deleteDoc(old); } catch(_) { break; }
       }
       console.log(`bdSin guardada en ${totalChunks} chunk(s) · ${registros.length} registros`);
       return true;
     } catch(e) {
-      console.error('fbSetBdSin error', e);
+      console.error('fbSetBdSin error', e.code, e.message);
       return false;
     }
   }
@@ -19643,60 +19649,73 @@ function mostrarResumenImportSin(resultados, trimLabel) {
 }
 
 async function confirmarImportSin() {
-  if (!_sinImportData) return;
-  const { resultados, trimLabel, trimId, anio, raw } = _sinImportData;
-  const empresas = getEmpresas();
-  const bdSin = getBDSin();
+  if (!_sinImportData) { showToast('⚠️ No hay datos para guardar. Vuelve a cargar el archivo.'); return; }
 
-  // Actualizar trimestres registrados
-  const trims = bdSin.trimestres || [];
-  const trimIdx = trims.findIndex(t => t.label === trimLabel);
-  const trimEntry = { label: trimLabel, id: trimId, anio, fechaImport: new Date().toISOString().split('T')[0], total: raw.length };
-  if (trimIdx >= 0) trims[trimIdx] = trimEntry;
-  else trims.unshift(trimEntry);
-  bdSin.trimestres = trims;
+  // Bloquear botón con feedback visual
+  const btn = document.getElementById('btnConfirmarImportSin');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando en Firebase…'; }
 
-  // Guardar/actualizar registros — reemplaza los del mismo trimestre, conserva los demás
-  const registrosOtros = (bdSin.registros || []).filter(r => r.trimId !== trimId || r.anio !== anio);
-  const registrosNuevos = raw.map(r => ({ ...r }));
-  bdSin.registros = [...registrosOtros, ...registrosNuevos];
+  try {
+    const { resultados, trimLabel, trimId, anio, raw } = _sinImportData;
 
-  // Actualizar siniestralidad en panel de empresas (historial)
-  let actualizadas = 0;
-  const fechaHoy = new Date().toISOString().split('T')[0];
-  resultados.forEach(r => {
-    const nitL = (r.nit||'').replace(/\D/g,'');
-    const idx = empresas.findIndex(e =>
-      (nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
-      bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)
-    );
-    if (idx >= 0 && r.sinCat) {
-      if (!empresas[idx].historialSin) empresas[idx].historialSin = [];
-      const existeTrim = empresas[idx].historialSin.findIndex(h => h.trim === trimLabel);
-      const entrada = { trim: trimLabel, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
-      if (existeTrim >= 0) empresas[idx].historialSin[existeTrim] = entrada;
-      else { empresas[idx].historialSin.unshift(entrada); }
-      empresas[idx].siniestralidad = r.sinCat;
-      empresas[idx].sinPct = r.sinPct;
-      empresas[idx].trimRef = trimLabel;
-      actualizadas++;
+    // Construir bdSin — conservar registros de otros trimestres, reemplazar el trimestre actual
+    const bdSinActual = getBDSin();
+    const trims = bdSinActual.trimestres || [];
+    const trimIdx = trims.findIndex(t => t.label === trimLabel);
+    const trimEntry = { label: trimLabel, id: trimId, anio, fechaImport: new Date().toISOString().split('T')[0], total: raw.length };
+    if (trimIdx >= 0) trims[trimIdx] = trimEntry;
+    else trims.unshift(trimEntry);
+
+    const registrosOtros = (bdSinActual.registros || []).filter(r => !(r.trimId === trimId && r.anio === anio));
+    const bdSin = { trimestres: trims, registros: [...registrosOtros, ...raw] };
+
+    if (btn) btn.textContent = `⏳ Enviando ${bdSin.registros.length.toLocaleString()} registros…`;
+
+    // Actualizar siniestralidad en panel de empresas (historial)
+    const empresas = getEmpresas();
+    let actualizadas = 0;
+    const fechaHoy = new Date().toISOString().split('T')[0];
+    resultados.forEach(r => {
+      const nitL = (r.nit||'').replace(/\D/g,'');
+      const idx = empresas.findIndex(e =>
+        (nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
+        bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)
+      );
+      if (idx >= 0 && r.sinCat) {
+        if (!empresas[idx].historialSin) empresas[idx].historialSin = [];
+        const existeTrim = empresas[idx].historialSin.findIndex(h => h.trim === trimLabel);
+        const entrada = { trim: trimLabel, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
+        if (existeTrim >= 0) empresas[idx].historialSin[existeTrim] = entrada;
+        else { empresas[idx].historialSin.unshift(entrada); }
+        empresas[idx].siniestralidad = r.sinCat;
+        empresas[idx].sinPct = r.sinPct;
+        empresas[idx].trimRef = trimLabel;
+        actualizadas++;
+      }
+    });
+
+    // Guardar en Firebase (usa chunks internamente para superar límite 1MB)
+    const resultGuardado = window.FB ? await window.FB.set('bdSiniestralidad', bdSin) : false;
+
+    // Actualizar cache en memoria siempre
+    if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = bdSin;
+    bdSinConstruirCache(bdSin.registros || []);
+    setEmpresas(empresas);
+    _sinImportData = null;
+    closeModal('modalImportSin');
+
+    if (resultGuardado === false) {
+      showToast('⚠️ BD cargada en memoria pero NO se pudo guardar en Firebase. Verifica tu conexión e intenta de nuevo.', 7000);
+    } else {
+      showToast(`✅ BD guardada · ${bdSin.registros.length.toLocaleString()} registros · ${actualizadas} empresas actualizadas`);
     }
-  });
+    renderEmpresas();
 
-  // Guardar y verificar que Firestore lo aceptó
-  const resultGuardado = window.FB ? await window.FB.set('bdSiniestralidad', bdSin) : false;
-  if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = bdSin;
-  bdSinConstruirCache(bdSin.registros || []);
-  setEmpresas(empresas);
-  _sinImportData = null;
-  closeModal('modalImportSin');
-
-  if (resultGuardado === false) {
-    showToast('⚠️ BD cargada en memoria pero NO se pudo guardar en Firebase. Verifica tu conexión.', 6000);
-  } else {
-    showToast(`✅ BD guardada en Firebase · ${actualizadas} empresas del panel actualizadas`);
+  } catch(err) {
+    console.error('[confirmarImportSin]', err);
+    showToast('❌ Error al guardar: ' + (err.message || String(err)), 7000);
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Guardar en Firebase'; }
   }
-  renderEmpresas();
 }
 
 
