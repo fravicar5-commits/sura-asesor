@@ -28837,7 +28837,6 @@ function copiarEnlaceEmpresa() {
 
 bootApp();
 </script>
-</body>
 
 <script>
 // Touch tooltip for collapsed sidebar icons
@@ -28927,6 +28926,7 @@ bootApp();
 })();
 </script>
 
+
 <!-- MODAL: Generar enlace de captación por empresa -->
 <div class="modal-overlay" id="modalEnlaceEmpresa">
   <div class="modal" style="width:520px;">
@@ -28936,17 +28936,15 @@ bootApp();
     </div>
     <div style="padding:0 0 4px 0;">
       <div id="enlaceEmpresaNombre" style="font-size:15px;font-weight:700;margin-bottom:14px;color:var(--sura-lime);"></div>
-
       <div class="form-group" style="margin-bottom:12px;">
         <label class="form-label">URL base de tu landing / formulario de afiliación</label>
         <input type="url" class="form-control" id="enlaceLandingBase"
-          placeholder="Ej: https://segurossura.com.co/afiliacion?asesor=12345"
+          placeholder="Ej: https://fravicar5-commits.github.io/sura-asesor/empresa.html"
           oninput="actualizarVistaEnlace()" style="font-size:13px;">
         <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
-          Esta URL se guarda automáticamente para los próximos enlaces que generes.
+          Se guarda automáticamente para los próximos enlaces.
         </div>
       </div>
-
       <div id="enlaceResultadoWrap" style="display:none;margin-bottom:14px;">
         <label class="form-label">Enlace generado con empresa pre-completada</label>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -28966,12 +28964,11 @@ bootApp();
           </a>
         </div>
       </div>
-
       <div id="enlaceAlertaBase" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);font-size:12px;margin-bottom:10px;">
         ⚠️ Ingresa la URL base para generar el enlace.
       </div>
       <div id="enlaceWarnUID" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);font-size:12px;margin-bottom:10px;">
-        ⚠️ No se detectó tu UID de sesión. Cierra sesión, vuelve a entrar y genera el enlace de nuevo para que los leads queden vinculados a tu cuenta.
+        ⚠️ No se detectó tu UID de sesión. Cierra sesión, vuelve a entrar y genera el enlace de nuevo.
       </div>
     </div>
     <div class="modal-footer">
