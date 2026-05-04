@@ -13900,17 +13900,47 @@ function _actualizarBadgeRenovaciones(count) {
 
 let _leadsUnsubscribe = null; // Para desuscribir el listener
 const LEADS_VISTOS_KEY = 'sura_leads_vistos';
+let _leadsListenerPrimeraCarga = true; // Para distinguir carga inicial vs nuevos
 
 function iniciarListenerLeads() {
   if (!window.FB || !window.FB.db || !UID) return;
   if (_leadsUnsubscribe) _leadsUnsubscribe(); // limpiar anterior
 
   try {
+    // Buscar leads por UID del asesor O por nombre del asesor (fallback para URLs sin uid)
+    const s = getState();
+    const nombreAsesor = (s.config?.nombreAsesor || '').trim();
     const leadsQuery = window.FB.query(
       window.FB.collection(window.FB.db, 'leads'),
       window.FB.where('uidAsesor', '==', UID),
       window.FB.orderBy('creadoEn', 'desc')
     );
+    // Listener adicional por nombre del asesor (cuando uid no estaba en la URL)
+    if (nombreAsesor && nombreAsesor !== 'Asesor SURA') {
+      const leadsQueryNombre = window.FB.query(
+        window.FB.collection(window.FB.db, 'leads'),
+        window.FB.where('asesor', '==', nombreAsesor),
+        window.FB.orderBy('creadoEn', 'desc')
+      );
+      window.FB.onSnapshot(leadsQueryNombre, (snap2) => {
+        snap2.docChanges().forEach(change => {
+          if (change.type !== 'added') return;
+          _procesarLeadNuevo({ id: change.doc.id, ...change.doc.data() });
+        });
+      }, (err) => console.warn('[Leads por nombre]', err.message));
+    }
+    // También procesar leads sin UID (uidAsesor vacío) que son del asesor SURA genérico
+    const leadsQuerySinUID = window.FB.query(
+      window.FB.collection(window.FB.db, 'leads'),
+      window.FB.where('uidAsesor', '==', ''),
+      window.FB.orderBy('creadoEn', 'desc')
+    );
+    window.FB.onSnapshot(leadsQuerySinUID, (snap3) => {
+      snap3.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        _procesarLeadNuevo({ id: change.doc.id, ...change.doc.data() });
+      });
+    }, (err) => console.warn('[Leads sin UID]', err.message));
 
     _leadsUnsubscribe = window.FB.onSnapshot(leadsQuery, (snapshot) => {
       snapshot.docChanges().forEach(change => {
@@ -13932,7 +13962,13 @@ function _procesarLeadNuevo(lead) {
   // Verificar si ya fue procesado
   let vistos = [];
   try { vistos = JSON.parse(localStorage.getItem(LEADS_VISTOS_KEY) || '[]'); } catch(e) {}
-  if (vistos.includes(lead.id)) return;
+  // En la primera carga: importar al pipeline aunque ya esté en vistos (por si no fue importado)
+  // Pero solo mostrar notificación si es genuinamente nuevo
+  const esYaVisto = vistos.includes(lead.id);
+  // Verificar si ya está en pipeline
+  const pipActual2 = getPipeline();
+  const yaEnPipeline = pipActual2.some(p => p.cedula === lead.documento || p.id === lead.id);
+  if (esYaVisto && yaEnPipeline) return; // Ya procesado y ya en pipeline, nada que hacer
 
   // Marcar como visto
   vistos.push(lead.id);
@@ -13945,7 +13981,7 @@ function _procesarLeadNuevo(lead) {
     p.cedula === lead.documento || p.id === lead.id
   );
 
-  if (!yaExiste) {
+  if (!yaEnPipeline) {
     const INTERES_PROD = {
       voluntario_si: 'SPTI', voluntario_no: 'SPTI',
       traslado_si: 'PBS', traslado_no: 'PBS'
@@ -13985,7 +14021,8 @@ function _procesarLeadNuevo(lead) {
       renderPipeline();
     }
 
-    // Mostrar notificación in-app
+    // Mostrar notificación in-app solo si es genuinamente nuevo
+    if (!esYaVisto) {
     const nombre = (lead.nombre || 'Alguien').split(' ')[0];
     const empresa = lead.empresa ? ' de ' + lead.empresa : '';
     showNotifBanner(
@@ -14005,6 +14042,7 @@ function _procesarLeadNuevo(lead) {
     }
 
     console.log('[Leads] Nuevo lead importado al pipeline:', nombre);
+    } // fin if !esYaVisto
   }
 }
 
