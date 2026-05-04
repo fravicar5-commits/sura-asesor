@@ -910,71 +910,10 @@
 
       const leadId = `lead_${Date.now().toString(36)}_${Math.random().toString(36).substr(2,5)}`;
 
-      // 1. Guardar lead en Firestore
-      // Ruta: leads/{leadId} — colección pública para captación
+      // Guardar lead en Firestore — colección 'leads'
+      // La app escucha esta colección con iniciarListenerLeads() y lo importa
+      // automáticamente al pipeline del asesor cuando detecta un nuevo documento.
       await window._fbSetDoc(window._fbDoc(window._fbDb, 'leads', leadId), lead);
-
-      // 2. Si hay UID del asesor, también agregar al pipeline del asesor
-      if (UID) {
-        // Leer pipeline actual del asesor desde Firestore
-        const { getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        // Intentar ruta principal: usuarios/{UID}/datos (como usa la app)
-        // La app guarda pipeline dentro del documento de estado del usuario
-        let pipSnap = null;
-        let pipActual = [];
-        try {
-          pipSnap = await getDoc(window._fbDoc(window._fbDb, 'pipeline', UID));
-          if (pipSnap && pipSnap.exists()) {
-            const data = pipSnap.data();
-            pipActual = Array.isArray(data.payload) ? data.payload : [];
-          }
-        } catch(pipErr) {
-          console.warn('No se pudo leer pipeline:', pipErr);
-        }
-
-        // Evitar duplicados por documento
-        const yaExiste = pipActual.some(p => p.cedula === doc_num || p.cedula === String(doc_num));
-
-        if (!yaExiste) {
-          const prospecto = {
-            id:            leadId,
-            nombre,
-            cedula:        doc_num,
-            tipoDoc,
-            telefono,
-            correo,
-            empresa:       EMPRESA,
-            producto:      interes.includes('voluntario') ? 'SPTI' : 'PBS',
-            estado:        '0',
-            origen:        'EMPRESA_LANDING',
-            referidoPor:   EMPRESA,
-            paraQuien:     'PROPIO',
-            beneficiarios: 1,
-            proxContacto:  '',
-            refCotizacion: '',
-            notas:         `Lead desde landing empresa. Interés: ${INTERES_LABEL[interes]||interes}. EPS actual: ${epsActual === 'si' ? 'SURA' : 'Otra EPS'}.`,
-            fechaCreacion: new Date().toISOString().split('T')[0],
-            updatedAt:     new Date().toISOString(),
-            actividades: [{
-              fecha: new Date().toISOString().split('T')[0],
-              hora:  new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' }),
-              texto: `Registrado vía landing empresa ${EMPRESA}. Interés: ${INTERES_LABEL[interes]||interes}.`
-            }]
-          };
-
-          pipActual.push(prospecto);
-          try {
-            await window._fbSetDoc(
-              window._fbDoc(window._fbDb, 'pipeline', UID),
-              { payload: pipActual },
-              { merge: false }
-            );
-          } catch(pipWriteErr) {
-            console.warn('No se pudo escribir pipeline:', pipWriteErr);
-            // El lead ya fue guardado en leads — el asesor lo verá desde la app
-          }
-        }
-      }
 
       // Mostrar éxito
       document.getElementById('successNombre').textContent  = nombre.split(' ')[0];
