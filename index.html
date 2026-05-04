@@ -809,6 +809,17 @@
     }
   }
 
+  // ── Helper: actualizar campos de un documento en una colección abierta (sin UID) ──
+  async function fbPatchDoc(coleccion, docId, campos) {
+    try {
+      await setDoc(doc(db, coleccion, docId), campos, { merge: true });
+      return true;
+    } catch(e) {
+      console.warn('fbPatchDoc error', coleccion, docId, e.message);
+      return false;
+    }
+  }
+
   // ── Helper genérico: leer un documento ───────────────────────────────────
   async function fbGet(coleccion, defVal) {
     try {
@@ -953,7 +964,7 @@
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, patchDoc: fbPatchDoc, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase };
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
   // ── Migración datos de 'fran' → UID actual ───────────────────────────────
@@ -13907,15 +13918,17 @@ function iniciarListenerLeads() {
   if (_leadsUnsubscribe) _leadsUnsubscribe(); // limpiar anterior
 
   try {
-    // Buscar leads por UID del asesor O por nombre del asesor (fallback para URLs sin uid)
     const s = getState();
     const nombreAsesor = (s.config?.nombreAsesor || '').trim();
+
+    // Query principal: leads vinculados a este UID
     const leadsQuery = window.FB.query(
       window.FB.collection(window.FB.db, 'leads'),
       window.FB.where('uidAsesor', '==', UID),
       window.FB.orderBy('creadoEn', 'desc')
     );
-    // Listener adicional por nombre del asesor (cuando uid no estaba en la URL)
+
+    // Query secundaria: leads con nombre de asesor (por si uid no viajó en una URL antigua)
     if (nombreAsesor && nombreAsesor !== 'Asesor SURA') {
       const leadsQueryNombre = window.FB.query(
         window.FB.collection(window.FB.db, 'leads'),
@@ -13929,18 +13942,9 @@ function iniciarListenerLeads() {
         });
       }, (err) => console.warn('[Leads por nombre]', err.message));
     }
-    // También procesar leads sin UID (uidAsesor vacío) que son del asesor SURA genérico
-    const leadsQuerySinUID = window.FB.query(
-      window.FB.collection(window.FB.db, 'leads'),
-      window.FB.where('uidAsesor', '==', ''),
-      window.FB.orderBy('creadoEn', 'desc')
-    );
-    window.FB.onSnapshot(leadsQuerySinUID, (snap3) => {
-      snap3.docChanges().forEach(change => {
-        if (change.type !== 'added') return;
-        _procesarLeadNuevo({ id: change.doc.id, ...change.doc.data() });
-      });
-    }, (err) => console.warn('[Leads sin UID]', err.message));
+
+    // NOTA: Ya NO escuchamos uidAsesor=='' porque capturaría leads de cualquier asesor.
+    // Los leads sin UID generados antes del fix llegarán por el query de nombre de asesor.
 
     _leadsUnsubscribe = window.FB.onSnapshot(leadsQuery, (snapshot) => {
       snapshot.docChanges().forEach(change => {
@@ -13952,13 +13956,19 @@ function iniciarListenerLeads() {
       console.warn('[Leads] onSnapshot error:', err.message);
     });
 
-    console.log('[Leads] Escuchando leads de landing...');
+    console.log('[Leads] Escuchando leads de landing... UID:', UID, '| Asesor:', nombreAsesor);
   } catch(e) {
     console.warn('[Leads] No se pudo iniciar listener:', e.message);
   }
 }
 
 function _procesarLeadNuevo(lead) {
+  // Si el lead llegó sin UID (URL vieja), parcharlo en Firestore silenciosamente
+  if (!lead.uidAsesor && UID && window.FB?.patchDoc) {
+    window.FB.patchDoc('leads', lead.id, { uidAsesor: UID });
+    lead.uidAsesor = UID; // actualizar en memoria también
+  }
+
   // Verificar si ya fue procesado
   let vistos = [];
   try { vistos = JSON.parse(localStorage.getItem(LEADS_VISTOS_KEY) || '[]'); } catch(e) {}
@@ -28768,26 +28778,48 @@ function actualizarVistaEnlace() {
   if (alerta) alerta.style.display = 'none';
   if (wrap) wrap.style.display = '';
 
-  // Construir URL final: añadir empresa como parámetro ?empresa=... o &empresa=...
-  let urlFinal = urlBase;
-  if (empresa) {
-    const sep = urlFinal.includes('?') ? '&' : '?';
-    urlFinal = urlFinal + sep + 'empresa=' + encodeURIComponent(empresa);
+  // Datos del asesor para incluir en la URL
+  const s = getState();
+  const nombreAsesor = (s?.config?.nombreAsesor || '').trim();
+
+  // Construir URL con empresa + uid + asesor para que los leads lleguen vinculados
+  // Limpiar la URL base de parámetros anteriores de uid/asesor/empresa
+  let urlObj;
+  try { urlObj = new URL(urlBase); } catch(e) { urlObj = null; }
+
+  let urlFinal;
+  if (urlObj) {
+    // Usar URL API para manejar parámetros limpiamente
+    if (empresa) urlObj.searchParams.set('empresa', empresa);
+    if (UID)     urlObj.searchParams.set('uid', UID);
+    if (nombreAsesor) urlObj.searchParams.set('asesor', nombreAsesor);
+    urlFinal = urlObj.toString();
+  } else {
+    // Fallback string concat si la URL base no es válida
+    const sep = urlBase.includes('?') ? '&' : '?';
+    urlFinal = urlBase
+      + (empresa ? sep + 'empresa=' + encodeURIComponent(empresa) : '')
+      + (UID ? '&uid=' + encodeURIComponent(UID) : '')
+      + (nombreAsesor ? '&asesor=' + encodeURIComponent(nombreAsesor) : '');
   }
 
   if (inputResult) inputResult.value = urlFinal;
   if (abrirBtn) abrirBtn.href = urlFinal;
 
+  // Mostrar advertencia si no hay UID disponible
+  const warnEl = document.getElementById('enlaceWarnUID');
+  if (warnEl) warnEl.style.display = UID ? 'none' : '';
+
   // Mensaje WA con el enlace
-  const asesor = (getState()?.config?.nombreAsesor || 'Tu asesor SURA').trim();
-  const msgWA = `Hola 👋 Te comparto el enlace de afiliación a SURA para *${empresa}*.
+  const asesorLabel = nombreAsesor || 'Tu asesor SURA';
+  const msgWA = `Hola 👋 Te comparto el enlace de afiliación a SURA para *${empresa || 'tu empresa'}*.
 
 Puedes registrarte directamente aquí:
 ${urlFinal}
 
 Cualquier duda estoy disponible.
 
-*${asesor} - Asesor SURA*`;
+*${asesorLabel} - Asesor SURA*`;
   if (waBtn) waBtn.href = `https://wa.me/?text=${encodeURIComponent(msgWA)}`;
 }
 
@@ -28937,6 +28969,9 @@ bootApp();
 
       <div id="enlaceAlertaBase" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);font-size:12px;margin-bottom:10px;">
         ⚠️ Ingresa la URL base para generar el enlace.
+      </div>
+      <div id="enlaceWarnUID" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);font-size:12px;margin-bottom:10px;">
+        ⚠️ No se detectó tu UID de sesión. Cierra sesión, vuelve a entrar y genera el enlace de nuevo para que los leads queden vinculados a tu cuenta.
       </div>
     </div>
     <div class="modal-footer">
