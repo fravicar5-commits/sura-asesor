@@ -2670,6 +2670,15 @@
               <input type="text" class="form-control" id="nombreAsesor" placeholder="Tu nombre" oninput="guardarConfig()">
             </div>
           </div>
+          <div class="form-group" style="margin-top:14px;">
+            <label class="form-label">🔗 URL de tu landing de captación (empresa.html)</label>
+            <input type="url" class="form-control" id="configLandingUrl"
+              placeholder="https://tu-usuario.github.io/sura-asesor/empresa.html"
+              oninput="guardarConfig()" style="font-size:13px;">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+              Esta URL se usará automáticamente al generar enlaces de captación por empresa.
+            </div>
+          </div>
         </div>
 
         <!-- Seguridad PIN -->
@@ -10290,6 +10299,8 @@ function renderTabla() {
 function renderConfig() {
   document.getElementById('tipoAsesor').value = state.config.tipoAsesor;
   document.getElementById('nombreAsesor').value = state.config.nombreAsesor || '';
+  const cfgLanding = document.getElementById('configLandingUrl');
+  if (cfgLanding) cfgLanding.value = getSyncConfig().landingUrl || '';
   actualizarNombreSidebar();
   buildConfigInputs('configPBS', 'pbs');
   buildConfigInputs('configSPTI', 'spti');
@@ -10317,6 +10328,13 @@ function guardarConfig() {
       if (el) state.config[key][i] = parseInt(el.value) || 0;
     });
   });
+  // Guardar URL de landing de captación
+  const landingEl = document.getElementById('configLandingUrl');
+  if (landingEl) {
+    const cfg = getSyncConfig();
+    cfg.landingUrl = landingEl.value.trim();
+    setSyncConfig(cfg);
+  }
   setState(state);
 }
 
@@ -28742,35 +28760,23 @@ function generarURLEmpresa(nombreEmpresa) {
   const el = document.getElementById('enlaceEmpresaNombre');
   if (el) el.textContent = nombreEmpresa || '';
 
-  // Autodetectar URL de GitHub Pages si no hay URL guardada
-  const urlAutodetect = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'empresa.html';
-  const urlGuardada = localStorage.getItem('sura_landing_url') || urlAutodetect;
-  const inputBase = document.getElementById('enlaceLandingBase');
-  if (inputBase) inputBase.value = urlGuardada;
-  // Guardar la autodetectada
-  try { localStorage.setItem('sura_landing_url', urlGuardada); } catch(e) {}
-
-  // Calcular enlace si hay URL base
+  // Calcular y mostrar el enlace directamente
   actualizarVistaEnlace();
 
   // Abrir modal
   const modal = document.getElementById('modalEnlaceEmpresa');
-  if (modal) { modal.classList.add('open'); setTimeout(() => { if (inputBase && !urlGuardada) inputBase.focus(); }, 100); }
+  if (modal) modal.classList.add('open');
 }
 
 function actualizarVistaEnlace() {
-  const urlBase = (document.getElementById('enlaceLandingBase')?.value || '').trim();
+  // Leer URL de landing desde la configuración central (Configurar Presupuesto > Mi Perfil)
+  const urlBase = (getSyncConfig().landingUrl || '').trim();
   const empresa = _enlaceEmpresaActual;
   const wrap = document.getElementById('enlaceResultadoWrap');
   const alerta = document.getElementById('enlaceAlertaBase');
   const inputResult = document.getElementById('enlaceResultado');
   const abrirBtn = document.getElementById('enlaceAbrirBtn');
   const waBtn = document.getElementById('enlaceWABtn');
-
-  // Guardar URL base en localStorage automáticamente
-  if (urlBase) {
-    try { localStorage.setItem('sura_landing_url', urlBase); } catch(e) {}
-  }
 
   if (!urlBase) {
     if (wrap) wrap.style.display = 'none';
@@ -28785,20 +28791,17 @@ function actualizarVistaEnlace() {
   const nombreAsesor = (s?.config?.nombreAsesor || '').trim();
   const UID = window.FB?.UID || '';
 
-  // Construir URL con empresa + uid + asesor para que los leads lleguen vinculados
-  // Limpiar la URL base de parámetros anteriores de uid/asesor/empresa
+  // Construir URL con empresa + uid + asesor
   let urlObj;
   try { urlObj = new URL(urlBase); } catch(e) { urlObj = null; }
 
   let urlFinal;
   if (urlObj) {
-    // Usar URL API para manejar parámetros limpiamente
     if (empresa) urlObj.searchParams.set('empresa', empresa);
     if (UID)     urlObj.searchParams.set('uid', UID);
     if (nombreAsesor) urlObj.searchParams.set('asesor', nombreAsesor);
     urlFinal = urlObj.toString();
   } else {
-    // Fallback string concat si la URL base no es válida
     const sep = urlBase.includes('?') ? '&' : '?';
     urlFinal = urlBase
       + (empresa ? sep + 'empresa=' + encodeURIComponent(empresa) : '')
@@ -28939,15 +28942,6 @@ bootApp();
     </div>
     <div style="padding:0 0 4px 0;">
       <div id="enlaceEmpresaNombre" style="font-size:15px;font-weight:700;margin-bottom:14px;color:var(--sura-lime);"></div>
-      <div class="form-group" style="margin-bottom:12px;">
-        <label class="form-label">URL base de tu landing / formulario de afiliación</label>
-        <input type="url" class="form-control" id="enlaceLandingBase"
-          placeholder="Ej: https://fravicar5-commits.github.io/sura-asesor/empresa.html"
-          oninput="actualizarVistaEnlace()" style="font-size:13px;">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
-          Se guarda automáticamente para los próximos enlaces.
-        </div>
-      </div>
       <div id="enlaceResultadoWrap" style="display:none;margin-bottom:14px;">
         <label class="form-label">Enlace generado con empresa pre-completada</label>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -28967,8 +28961,12 @@ bootApp();
           </a>
         </div>
       </div>
-      <div id="enlaceAlertaBase" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);font-size:12px;margin-bottom:10px;">
-        ⚠️ Ingresa la URL base para generar el enlace.
+      <div id="enlaceAlertaBase" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);font-size:12.5px;margin-bottom:10px;">
+        ⚠️ No tienes configurada la URL de tu landing. Ve a
+        <button onclick="closeModal('modalEnlaceEmpresa');navigate('config');" style="background:none;border:none;color:var(--amber);font-weight:700;cursor:pointer;text-decoration:underline;font-size:12.5px;padding:0;">
+          Configurar Presupuesto → Mi Perfil
+        </button>
+        y pega la URL de tu <code>empresa.html</code>.
       </div>
       <div id="enlaceWarnUID" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);font-size:12px;margin-bottom:10px;">
         ⚠️ No se detectó tu UID de sesión. Cierra sesión, vuelve a entrar y genera el enlace de nuevo.
