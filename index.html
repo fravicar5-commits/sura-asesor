@@ -2670,15 +2670,6 @@
               <input type="text" class="form-control" id="nombreAsesor" placeholder="Tu nombre" oninput="guardarConfig()">
             </div>
           </div>
-          <div class="form-group" style="margin-top:14px;">
-            <label class="form-label">🔗 URL de tu landing de captación (empresa.html)</label>
-            <input type="url" class="form-control" id="configLandingUrl"
-              placeholder="https://tu-usuario.github.io/sura-asesor/empresa.html"
-              oninput="guardarConfig()" style="font-size:13px;">
-            <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
-              Esta URL se usará automáticamente al generar enlaces de captación por empresa.
-            </div>
-          </div>
         </div>
 
         <!-- Seguridad PIN -->
@@ -10299,8 +10290,6 @@ function renderTabla() {
 function renderConfig() {
   document.getElementById('tipoAsesor').value = state.config.tipoAsesor;
   document.getElementById('nombreAsesor').value = state.config.nombreAsesor || '';
-  const cfgLanding = document.getElementById('configLandingUrl');
-  if (cfgLanding) cfgLanding.value = getSyncConfig().landingUrl || '';
   actualizarNombreSidebar();
   buildConfigInputs('configPBS', 'pbs');
   buildConfigInputs('configSPTI', 'spti');
@@ -10328,13 +10317,6 @@ function guardarConfig() {
       if (el) state.config[key][i] = parseInt(el.value) || 0;
     });
   });
-  // Guardar URL de landing de captación
-  const landingEl = document.getElementById('configLandingUrl');
-  if (landingEl) {
-    const cfg = getSyncConfig();
-    cfg.landingUrl = landingEl.value.trim();
-    setSyncConfig(cfg);
-  }
   setState(state);
 }
 
@@ -13940,31 +13922,20 @@ function iniciarListenerLeads() {
     const s = getState();
     const nombreAsesor = (s.config?.nombreAsesor || '').trim();
 
-    // Query principal: leads vinculados a este UID
+    // ── Query principal: leads vinculados a este UID ──────────────────────
+    // SIN orderBy — evita requerir índice compuesto en Firestore y errores silenciosos
     const leadsQuery = window.FB.query(
       window.FB.collection(window.FB.db, 'leads'),
-      window.FB.where('uidAsesor', '==', UID),
-      window.FB.orderBy('creadoEn', 'desc')
+      window.FB.where('uidAsesor', '==', UID)
     );
 
-    // Query secundaria: leads con nombre de asesor (por si uid no viajó en una URL antigua)
-    if (nombreAsesor && nombreAsesor !== 'Asesor SURA') {
-      const leadsQueryNombre = window.FB.query(
-        window.FB.collection(window.FB.db, 'leads'),
-        window.FB.where('asesor', '==', nombreAsesor),
-        window.FB.orderBy('creadoEn', 'desc')
-      );
-      window.FB.onSnapshot(leadsQueryNombre, (snap2) => {
-        snap2.docChanges().forEach(change => {
-          if (change.type !== 'added') return;
-          _procesarLeadNuevo({ id: change.doc.id, ...change.doc.data() });
-        });
-      }, (err) => console.warn('[Leads por nombre]', err.message));
-    }
+    // ── Recuperación inicial: leads existentes que nunca se importaron ────
+    // getDocs captura todos los leads actuales sin depender del listener en tiempo real
+    window.FB.getDocs(leadsQuery).then(snap => {
+      snap.forEach(d => _procesarLeadNuevo({ id: d.id, ...d.data() }));
+    }).catch(err => console.warn('[Leads] getDocs inicial error:', err.message));
 
-    // NOTA: Ya NO escuchamos uidAsesor=='' porque capturaría leads de cualquier asesor.
-    // Los leads sin UID generados antes del fix llegarán por el query de nombre de asesor.
-
+    // ── Listener en tiempo real: solo nuevos documentos ───────────────────
     _leadsUnsubscribe = window.FB.onSnapshot(leadsQuery, (snapshot) => {
       snapshot.docChanges().forEach(change => {
         if (change.type !== 'added') return;
@@ -13974,6 +13945,25 @@ function iniciarListenerLeads() {
     }, (err) => {
       console.warn('[Leads] onSnapshot error:', err.message);
     });
+
+    // ── Query secundaria: leads con nombre de asesor (URLs antiguas sin UID) ─
+    if (nombreAsesor && nombreAsesor !== 'Asesor SURA') {
+      const leadsQueryNombre = window.FB.query(
+        window.FB.collection(window.FB.db, 'leads'),
+        window.FB.where('asesor', '==', nombreAsesor)
+      );
+      // Recuperación inicial por nombre
+      window.FB.getDocs(leadsQueryNombre).then(snap2 => {
+        snap2.forEach(d => _procesarLeadNuevo({ id: d.id, ...d.data() }));
+      }).catch(() => {});
+      // Listener en tiempo real por nombre
+      window.FB.onSnapshot(leadsQueryNombre, (snap2) => {
+        snap2.docChanges().forEach(change => {
+          if (change.type !== 'added') return;
+          _procesarLeadNuevo({ id: change.doc.id, ...change.doc.data() });
+        });
+      }, (err) => console.warn('[Leads por nombre]', err.message));
+    }
 
     console.log('[Leads] Escuchando leads de landing... UID:', UID, '| Asesor:', nombreAsesor);
   } catch(e) {
@@ -13992,12 +13982,9 @@ function _procesarLeadNuevo(lead) {
   // Verificar si ya fue procesado
   let vistos = [];
   try { vistos = JSON.parse(localStorage.getItem(LEADS_VISTOS_KEY) || '[]'); } catch(e) {}
-  // En la primera carga: importar al pipeline aunque ya esté en vistos (por si no fue importado)
-  // Pero solo mostrar notificación si es genuinamente nuevo
   const esYaVisto = vistos.includes(lead.id);
-  // Verificar si ya está en pipeline
-  const pipActual2 = getPipeline();
-  const yaEnPipeline = pipActual2.some(p => p.cedula === lead.documento || p.id === lead.id);
+  // Verificar si ya está en pipeline (fuente fresca)
+  const yaEnPipeline = getPipeline().some(p => p.cedula === lead.documento || p.id === lead.id);
   if (esYaVisto && yaEnPipeline) return; // Ya procesado y ya en pipeline, nada que hacer
 
   // Marcar como visto
@@ -14005,13 +13992,13 @@ function _procesarLeadNuevo(lead) {
   if (vistos.length > 200) vistos = vistos.slice(-200);
   try { localStorage.setItem(LEADS_VISTOS_KEY, JSON.stringify(vistos)); } catch(e) {}
 
-  // Agregar al pipeline si no existe por cédula
+  // Agregar al pipeline si no existe por cédula o id
   const pipActual = getPipeline();
-  const yaExiste = pipActual.some(p =>
+  const yaEnPipelineFinal = pipActual.some(p =>
     p.cedula === lead.documento || p.id === lead.id
   );
 
-  if (!yaEnPipeline) {
+  if (!yaEnPipelineFinal) {
     const INTERES_PROD = {
       voluntario_si: 'SPTI', voluntario_no: 'SPTI',
       traslado_si: 'PBS', traslado_no: 'PBS'
@@ -28760,23 +28747,35 @@ function generarURLEmpresa(nombreEmpresa) {
   const el = document.getElementById('enlaceEmpresaNombre');
   if (el) el.textContent = nombreEmpresa || '';
 
-  // Calcular y mostrar el enlace directamente
+  // Autodetectar URL de GitHub Pages si no hay URL guardada
+  const urlAutodetect = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'empresa.html';
+  const urlGuardada = localStorage.getItem('sura_landing_url') || urlAutodetect;
+  const inputBase = document.getElementById('enlaceLandingBase');
+  if (inputBase) inputBase.value = urlGuardada;
+  // Guardar la autodetectada
+  try { localStorage.setItem('sura_landing_url', urlGuardada); } catch(e) {}
+
+  // Calcular enlace si hay URL base
   actualizarVistaEnlace();
 
   // Abrir modal
   const modal = document.getElementById('modalEnlaceEmpresa');
-  if (modal) modal.classList.add('open');
+  if (modal) { modal.classList.add('open'); setTimeout(() => { if (inputBase && !urlGuardada) inputBase.focus(); }, 100); }
 }
 
 function actualizarVistaEnlace() {
-  // Leer URL de landing desde la configuración central (Configurar Presupuesto > Mi Perfil)
-  const urlBase = (getSyncConfig().landingUrl || '').trim();
+  const urlBase = (document.getElementById('enlaceLandingBase')?.value || '').trim();
   const empresa = _enlaceEmpresaActual;
   const wrap = document.getElementById('enlaceResultadoWrap');
   const alerta = document.getElementById('enlaceAlertaBase');
   const inputResult = document.getElementById('enlaceResultado');
   const abrirBtn = document.getElementById('enlaceAbrirBtn');
   const waBtn = document.getElementById('enlaceWABtn');
+
+  // Guardar URL base en localStorage automáticamente
+  if (urlBase) {
+    try { localStorage.setItem('sura_landing_url', urlBase); } catch(e) {}
+  }
 
   if (!urlBase) {
     if (wrap) wrap.style.display = 'none';
@@ -28791,17 +28790,20 @@ function actualizarVistaEnlace() {
   const nombreAsesor = (s?.config?.nombreAsesor || '').trim();
   const UID = window.FB?.UID || '';
 
-  // Construir URL con empresa + uid + asesor
+  // Construir URL con empresa + uid + asesor para que los leads lleguen vinculados
+  // Limpiar la URL base de parámetros anteriores de uid/asesor/empresa
   let urlObj;
   try { urlObj = new URL(urlBase); } catch(e) { urlObj = null; }
 
   let urlFinal;
   if (urlObj) {
+    // Usar URL API para manejar parámetros limpiamente
     if (empresa) urlObj.searchParams.set('empresa', empresa);
     if (UID)     urlObj.searchParams.set('uid', UID);
     if (nombreAsesor) urlObj.searchParams.set('asesor', nombreAsesor);
     urlFinal = urlObj.toString();
   } else {
+    // Fallback string concat si la URL base no es válida
     const sep = urlBase.includes('?') ? '&' : '?';
     urlFinal = urlBase
       + (empresa ? sep + 'empresa=' + encodeURIComponent(empresa) : '')
@@ -28942,6 +28944,15 @@ bootApp();
     </div>
     <div style="padding:0 0 4px 0;">
       <div id="enlaceEmpresaNombre" style="font-size:15px;font-weight:700;margin-bottom:14px;color:var(--sura-lime);"></div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">URL base de tu landing / formulario de afiliación</label>
+        <input type="url" class="form-control" id="enlaceLandingBase"
+          placeholder="Ej: https://fravicar5-commits.github.io/sura-asesor/empresa.html"
+          oninput="actualizarVistaEnlace()" style="font-size:13px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+          Se guarda automáticamente para los próximos enlaces.
+        </div>
+      </div>
       <div id="enlaceResultadoWrap" style="display:none;margin-bottom:14px;">
         <label class="form-label">Enlace generado con empresa pre-completada</label>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -28961,12 +28972,8 @@ bootApp();
           </a>
         </div>
       </div>
-      <div id="enlaceAlertaBase" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);font-size:12.5px;margin-bottom:10px;">
-        ⚠️ No tienes configurada la URL de tu landing. Ve a
-        <button onclick="closeModal('modalEnlaceEmpresa');navigate('config');" style="background:none;border:none;color:var(--amber);font-weight:700;cursor:pointer;text-decoration:underline;font-size:12.5px;padding:0;">
-          Configurar Presupuesto → Mi Perfil
-        </button>
-        y pega la URL de tu <code>empresa.html</code>.
+      <div id="enlaceAlertaBase" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:var(--amber);font-size:12px;margin-bottom:10px;">
+        ⚠️ Ingresa la URL base para generar el enlace.
       </div>
       <div id="enlaceWarnUID" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);font-size:12px;margin-bottom:10px;">
         ⚠️ No se detectó tu UID de sesión. Cierra sesión, vuelve a entrar y genera el enlace de nuevo.
