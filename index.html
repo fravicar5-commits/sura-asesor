@@ -13914,6 +13914,7 @@ const LEADS_VISTOS_KEY = 'sura_leads_vistos';
 let _leadsListenerPrimeraCarga = true; // Para distinguir carga inicial vs nuevos
 
 function iniciarListenerLeads() {
+  const UID = window.FB?.UID || '';
   if (!window.FB || !window.FB.db || !UID) return;
   if (_leadsUnsubscribe) _leadsUnsubscribe(); // limpiar anterior
 
@@ -13964,6 +13965,7 @@ function iniciarListenerLeads() {
 
 function _procesarLeadNuevo(lead) {
   // Si el lead llegó sin UID (URL vieja), parcharlo en Firestore silenciosamente
+  const UID = window.FB?.UID || '';
   if (!lead.uidAsesor && UID && window.FB?.patchDoc) {
     window.FB.patchDoc('leads', lead.id, { uidAsesor: UID });
     lead.uidAsesor = UID; // actualizar en memoria también
@@ -28781,6 +28783,7 @@ function actualizarVistaEnlace() {
   // Datos del asesor para incluir en la URL
   const s = getState();
   const nombreAsesor = (s?.config?.nombreAsesor || '').trim();
+  const UID = window.FB?.UID || '';
 
   // Construir URL con empresa + uid + asesor para que los leads lleguen vinculados
   // Limpiar la URL base de parámetros anteriores de uid/asesor/empresa
