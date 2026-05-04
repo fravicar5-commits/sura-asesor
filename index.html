@@ -13923,19 +13923,19 @@ function iniciarListenerLeads() {
     const nombreAsesor = (s.config?.nombreAsesor || '').trim();
 
     // ── Query principal: leads vinculados a este UID ──────────────────────
-    // SIN orderBy — evita requerir índice compuesto en Firestore y errores silenciosos
+    // SIN orderBy — evita requerir índice compuesto en Firestore
     const leadsQuery = window.FB.query(
       window.FB.collection(window.FB.db, 'leads'),
       window.FB.where('uidAsesor', '==', UID)
     );
 
-    // ── Recuperación inicial: leads existentes que nunca se importaron ────
-    // getDocs captura todos los leads actuales sin depender del listener en tiempo real
+    // ── Recuperación inicial: leads ya existentes en Firestore ────────────
+    // Captura leads históricos que nunca entraron al pipeline (no los cubre el listener)
     window.FB.getDocs(leadsQuery).then(snap => {
       snap.forEach(d => _procesarLeadNuevo({ id: d.id, ...d.data() }));
     }).catch(err => console.warn('[Leads] getDocs inicial error:', err.message));
 
-    // ── Listener en tiempo real: solo nuevos documentos ───────────────────
+    // ── Listener en tiempo real: nuevos documentos desde este momento ─────
     _leadsUnsubscribe = window.FB.onSnapshot(leadsQuery, (snapshot) => {
       snapshot.docChanges().forEach(change => {
         if (change.type !== 'added') return;
@@ -13952,11 +13952,9 @@ function iniciarListenerLeads() {
         window.FB.collection(window.FB.db, 'leads'),
         window.FB.where('asesor', '==', nombreAsesor)
       );
-      // Recuperación inicial por nombre
       window.FB.getDocs(leadsQueryNombre).then(snap2 => {
         snap2.forEach(d => _procesarLeadNuevo({ id: d.id, ...d.data() }));
       }).catch(() => {});
-      // Listener en tiempo real por nombre
       window.FB.onSnapshot(leadsQueryNombre, (snap2) => {
         snap2.docChanges().forEach(change => {
           if (change.type !== 'added') return;
@@ -13976,29 +13974,30 @@ function _procesarLeadNuevo(lead) {
   const UID = window.FB?.UID || '';
   if (!lead.uidAsesor && UID && window.FB?.patchDoc) {
     window.FB.patchDoc('leads', lead.id, { uidAsesor: UID });
-    lead.uidAsesor = UID; // actualizar en memoria también
+    lead.uidAsesor = UID;
   }
 
-  // Verificar si ya fue procesado
+  // Respetar eliminados: si el asesor eliminó este lead del pipeline, no reimportar
+  let eliminados = [];
+  try { eliminados = JSON.parse(localStorage.getItem('sura_leads_eliminados') || '[]'); } catch(e) {}
+  if (eliminados.includes(lead.id)) return;
+
+  // Verificar si ya fue procesado y ya está en pipeline
   let vistos = [];
   try { vistos = JSON.parse(localStorage.getItem(LEADS_VISTOS_KEY) || '[]'); } catch(e) {}
   const esYaVisto = vistos.includes(lead.id);
-  // Verificar si ya está en pipeline (fuente fresca)
-  const yaEnPipeline = getPipeline().some(p => p.cedula === lead.documento || p.id === lead.id);
-  if (esYaVisto && yaEnPipeline) return; // Ya procesado y ya en pipeline, nada que hacer
+  const pipActual = getPipeline();
+  const yaEnPipeline = pipActual.some(p => p.cedula === lead.documento || p.id === lead.id);
+  if (esYaVisto && yaEnPipeline) return; // Ya en pipeline, nada que hacer
 
   // Marcar como visto
-  vistos.push(lead.id);
-  if (vistos.length > 200) vistos = vistos.slice(-200);
-  try { localStorage.setItem(LEADS_VISTOS_KEY, JSON.stringify(vistos)); } catch(e) {}
+  if (!esYaVisto) {
+    vistos.push(lead.id);
+    if (vistos.length > 200) vistos = vistos.slice(-200);
+    try { localStorage.setItem(LEADS_VISTOS_KEY, JSON.stringify(vistos)); } catch(e) {}
+  }
 
-  // Agregar al pipeline si no existe por cédula o id
-  const pipActual = getPipeline();
-  const yaEnPipelineFinal = pipActual.some(p =>
-    p.cedula === lead.documento || p.id === lead.id
-  );
-
-  if (!yaEnPipelineFinal) {
+  if (!yaEnPipeline) {
     const INTERES_PROD = {
       voluntario_si: 'SPTI', voluntario_no: 'SPTI',
       traslado_si: 'PBS', traslado_no: 'PBS'
@@ -15149,7 +15148,17 @@ function moverProspecto(id, nuevoEstado) {
 
 function eliminarProspecto(id) {
   if (!confirm('\u00bfEliminar este prospecto del pipeline?')) return;
+  const prospecto = getPipeline().find(p => p.id === id);
   setPipeline(getPipeline().filter(p => p.id !== id));
+  // Si el prospecto vino de landing, marcarlo como eliminado para que no se reimporte
+  if (prospecto?.origen === 'EMPRESA_LANDING') {
+    try {
+      const eliminados = JSON.parse(localStorage.getItem('sura_leads_eliminados') || '[]');
+      if (!eliminados.includes(id)) eliminados.push(id);
+      if (eliminados.length > 500) eliminados.splice(0, eliminados.length - 500);
+      localStorage.setItem('sura_leads_eliminados', JSON.stringify(eliminados));
+    } catch(e) {}
+  }
   renderPipeline();
   showToast('Prospecto eliminado');
 }
