@@ -696,6 +696,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
   import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, updateDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDQEMeKa8yGsdvyW3qoC9w1ITMCzNN0TTI",
@@ -708,8 +709,75 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const auth = getAuth(app);
   let _fcmMessaging = null;
   try { _fcmMessaging = getMessaging(app); } catch(_) {}
+
+  // ── Helpers Firebase Auth ─────────────────────────────────────────────────
+  // El email interno es {CC}@sura-asesor.app — invisible para el usuario
+  // La contraseña es el PIN hash + CC (nunca el PIN en texto plano)
+  function _authEmail(cc) { return `${cc}@sura-asesor.app`; }
+  function _authPassword(cc, pinHash) { return `sura_${cc}_${pinHash}`; }
+
+  // Crear cuenta en Firebase Auth (al registrar asesor o al crear PIN primera vez)
+  async function fbAuthCrear(cc, pinHash) {
+    try {
+      await createUserWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
+      return true;
+    } catch(e) {
+      // Si ya existe la cuenta (code: auth/email-already-in-use), intentar actualizar password
+      if (e.code === 'auth/email-already-in-use') {
+        return await fbAuthActualizar(cc, pinHash);
+      }
+      console.warn('[Auth] fbAuthCrear error:', e.code, e.message);
+      return false;
+    }
+  }
+
+  // Actualizar contraseña en Firebase Auth (al cambiar PIN)
+  async function fbAuthActualizar(cc, pinHash) {
+    try {
+      // Necesita estar autenticado para actualizar — usar signIn primero si hay sesión
+      // Este helper se llama siempre desde contexto donde el asesor conoce su PIN anterior
+      const { updatePassword } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+      if (auth.currentUser) {
+        await updatePassword(auth.currentUser, _authPassword(cc, pinHash));
+        return true;
+      }
+      return false;
+    } catch(e) {
+      console.warn('[Auth] fbAuthActualizar error:', e.code, e.message);
+      return false;
+    }
+  }
+
+  // Iniciar sesión en Firebase Auth (al verificar PIN correctamente)
+  async function fbAuthSignIn(cc, pinHash) {
+    try {
+      await signInWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
+      return true;
+    } catch(e) {
+      // Si no existe la cuenta Auth aún (asesor registrado antes de esta migración),
+      // crearla automáticamente con el pinHash que ya está en Firestore
+      if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+        return await fbAuthCrear(cc, pinHash);
+      }
+      console.warn('[Auth] fbAuthSignIn error:', e.code, e.message);
+      return false;
+    }
+  }
+
+  // Cerrar sesión Firebase Auth
+  async function fbAuthSignOut() {
+    try { await signOut(auth); } catch(e) { console.warn('[Auth] signOut error:', e.message); }
+  }
+
+  // Exponer al scope global
+  window.fbAuthSignIn    = fbAuthSignIn;
+  window.fbAuthCrear     = fbAuthCrear;
+  window.fbAuthActualizar = fbAuthActualizar;
+  window.fbAuthSignOut   = fbAuthSignOut;
+  window.fbGetAuthUID    = () => auth.currentUser?.uid || null;
 
   // ── ID de usuario fijo (app monousuario) ──────────────────────────────────
   // ── ID de usuario dinámico (multiusuario) ────────────────────────────────────────────
@@ -13922,20 +13990,31 @@ function iniciarListenerLeads() {
     const s = getState();
     const nombreAsesor = (s.config?.nombreAsesor || '').trim();
 
-    // ── Query principal: leads vinculados a este UID ──────────────────────
-    // SIN orderBy — evita requerir índice compuesto en Firestore
+    // Query principal: leads vinculados a este UID
     const leadsQuery = window.FB.query(
       window.FB.collection(window.FB.db, 'leads'),
-      window.FB.where('uidAsesor', '==', UID)
+      window.FB.where('uidAsesor', '==', UID),
+      window.FB.orderBy('creadoEn', 'desc')
     );
 
-    // ── Recuperación inicial: leads ya existentes en Firestore ────────────
-    // Captura leads históricos que nunca entraron al pipeline (no los cubre el listener)
-    window.FB.getDocs(leadsQuery).then(snap => {
-      snap.forEach(d => _procesarLeadNuevo({ id: d.id, ...d.data() }));
-    }).catch(err => console.warn('[Leads] getDocs inicial error:', err.message));
+    // Query secundaria: leads con nombre de asesor (por si uid no viajó en una URL antigua)
+    if (nombreAsesor && nombreAsesor !== 'Asesor SURA') {
+      const leadsQueryNombre = window.FB.query(
+        window.FB.collection(window.FB.db, 'leads'),
+        window.FB.where('asesor', '==', nombreAsesor),
+        window.FB.orderBy('creadoEn', 'desc')
+      );
+      window.FB.onSnapshot(leadsQueryNombre, (snap2) => {
+        snap2.docChanges().forEach(change => {
+          if (change.type !== 'added') return;
+          _procesarLeadNuevo({ id: change.doc.id, ...change.doc.data() });
+        });
+      }, (err) => console.warn('[Leads por nombre]', err.message));
+    }
 
-    // ── Listener en tiempo real: nuevos documentos desde este momento ─────
+    // NOTA: Ya NO escuchamos uidAsesor=='' porque capturaría leads de cualquier asesor.
+    // Los leads sin UID generados antes del fix llegarán por el query de nombre de asesor.
+
     _leadsUnsubscribe = window.FB.onSnapshot(leadsQuery, (snapshot) => {
       snapshot.docChanges().forEach(change => {
         if (change.type !== 'added') return;
@@ -13945,23 +14024,6 @@ function iniciarListenerLeads() {
     }, (err) => {
       console.warn('[Leads] onSnapshot error:', err.message);
     });
-
-    // ── Query secundaria: leads con nombre de asesor (URLs antiguas sin UID) ─
-    if (nombreAsesor && nombreAsesor !== 'Asesor SURA') {
-      const leadsQueryNombre = window.FB.query(
-        window.FB.collection(window.FB.db, 'leads'),
-        window.FB.where('asesor', '==', nombreAsesor)
-      );
-      window.FB.getDocs(leadsQueryNombre).then(snap2 => {
-        snap2.forEach(d => _procesarLeadNuevo({ id: d.id, ...d.data() }));
-      }).catch(() => {});
-      window.FB.onSnapshot(leadsQueryNombre, (snap2) => {
-        snap2.docChanges().forEach(change => {
-          if (change.type !== 'added') return;
-          _procesarLeadNuevo({ id: change.doc.id, ...change.doc.data() });
-        });
-      }, (err) => console.warn('[Leads por nombre]', err.message));
-    }
 
     console.log('[Leads] Escuchando leads de landing... UID:', UID, '| Asesor:', nombreAsesor);
   } catch(e) {
@@ -13974,28 +14036,30 @@ function _procesarLeadNuevo(lead) {
   const UID = window.FB?.UID || '';
   if (!lead.uidAsesor && UID && window.FB?.patchDoc) {
     window.FB.patchDoc('leads', lead.id, { uidAsesor: UID });
-    lead.uidAsesor = UID;
+    lead.uidAsesor = UID; // actualizar en memoria también
   }
 
-  // Respetar eliminados: si el asesor eliminó este lead del pipeline, no reimportar
-  let eliminados = [];
-  try { eliminados = JSON.parse(localStorage.getItem('sura_leads_eliminados') || '[]'); } catch(e) {}
-  if (eliminados.includes(lead.id)) return;
-
-  // Verificar si ya fue procesado y ya está en pipeline
+  // Verificar si ya fue procesado
   let vistos = [];
   try { vistos = JSON.parse(localStorage.getItem(LEADS_VISTOS_KEY) || '[]'); } catch(e) {}
+  // En la primera carga: importar al pipeline aunque ya esté en vistos (por si no fue importado)
+  // Pero solo mostrar notificación si es genuinamente nuevo
   const esYaVisto = vistos.includes(lead.id);
-  const pipActual = getPipeline();
-  const yaEnPipeline = pipActual.some(p => p.cedula === lead.documento || p.id === lead.id);
-  if (esYaVisto && yaEnPipeline) return; // Ya en pipeline, nada que hacer
+  // Verificar si ya está en pipeline
+  const pipActual2 = getPipeline();
+  const yaEnPipeline = pipActual2.some(p => p.cedula === lead.documento || p.id === lead.id);
+  if (esYaVisto && yaEnPipeline) return; // Ya procesado y ya en pipeline, nada que hacer
 
   // Marcar como visto
-  if (!esYaVisto) {
-    vistos.push(lead.id);
-    if (vistos.length > 200) vistos = vistos.slice(-200);
-    try { localStorage.setItem(LEADS_VISTOS_KEY, JSON.stringify(vistos)); } catch(e) {}
-  }
+  vistos.push(lead.id);
+  if (vistos.length > 200) vistos = vistos.slice(-200);
+  try { localStorage.setItem(LEADS_VISTOS_KEY, JSON.stringify(vistos)); } catch(e) {}
+
+  // Agregar al pipeline si no existe por cédula
+  const pipActual = getPipeline();
+  const yaExiste = pipActual.some(p =>
+    p.cedula === lead.documento || p.id === lead.id
+  );
 
   if (!yaEnPipeline) {
     const INTERES_PROD = {
@@ -15148,17 +15212,7 @@ function moverProspecto(id, nuevoEstado) {
 
 function eliminarProspecto(id) {
   if (!confirm('\u00bfEliminar este prospecto del pipeline?')) return;
-  const prospecto = getPipeline().find(p => p.id === id);
   setPipeline(getPipeline().filter(p => p.id !== id));
-  // Si el prospecto vino de landing, marcarlo como eliminado para que no se reimporte
-  if (prospecto?.origen === 'EMPRESA_LANDING') {
-    try {
-      const eliminados = JSON.parse(localStorage.getItem('sura_leads_eliminados') || '[]');
-      if (!eliminados.includes(id)) eliminados.push(id);
-      if (eliminados.length > 500) eliminados.splice(0, eliminados.length - 500);
-      localStorage.setItem('sura_leads_eliminados', JSON.stringify(eliminados));
-    } catch(e) {}
-  }
   renderPipeline();
   showToast('Prospecto eliminado');
 }
@@ -22768,6 +22822,8 @@ function loginSetLabel(txt, color) {
 
 function pinMostrarPantalla() {
   _pinBuffer = ''; _ccIngresada = ''; _pinModo = 'verificar'; _usuarioActual = null;
+  // Cerrar sesión Firebase Auth al volver al login
+  if (window.fbAuthSignOut) window.fbAuthSignOut().catch(() => {});
   _loginMostrarPaso('CC');
   loginSetLabel('Ingresa tu número de cédula');
   const inp = document.getElementById('loginCC');
@@ -22957,6 +23013,14 @@ async function pinVerificar() {
     // Guardar pinHash en Firestore
     const hash = pinGetHash(_pinBuffer);
     await window.fbSetUsuario(_ccIngresada, { pinHash: hash });
+    // Crear/actualizar cuenta en Firebase Auth con el nuevo PIN
+    if (window.fbAuthCrear) {
+      window.fbAuthCrear(_ccIngresada, hash).catch(() => {});
+    }
+    // Autenticar sesión en Firebase Auth
+    if (window.fbAuthSignIn) {
+      window.fbAuthSignIn(_ccIngresada, hash).catch(() => {});
+    }
     // Actualizar adminEmail en meta si es admin
     if (_usuarioActual && _usuarioActual.rol === 'admin' && _usuarioActual.email) {
       await window.fbSetUsuario('__meta__', { primerUsuarioCreado: true, adminEmail: _usuarioActual.email });
@@ -22972,6 +23036,10 @@ async function pinVerificar() {
   if (pinGetHash(_pinBuffer) === _usuarioActual.pinHash) {
     pinGuardarSesion(_ccIngresada);
     window.fbSetUID && window.fbSetUID(_ccIngresada);
+    // Autenticar en Firebase Auth (en background — no bloquea el flujo)
+    if (window.fbAuthSignIn) {
+      window.fbAuthSignIn(_ccIngresada, _usuarioActual.pinHash).catch(() => {});
+    }
     document.getElementById('pinScreen').style.display = 'none';
     pinOnLoginExitoso();
   } else {
@@ -23258,9 +23326,17 @@ function bootApp() {
   // Hay sesión activa — restaurar UID y arrancar
   window.fbSetUID && window.fbSetUID(_ccIngresada);
 
-  // Restaurar objeto usuario desde Firestore en background (no bloquea)
+  // Restaurar sesión Firebase Auth en background (no bloquea arranque)
   if (window.fbGetUsuario && _ccIngresada) {
-    window.fbGetUsuario(_ccIngresada).then(u => { if (u) _usuarioActual = u; });
+    window.fbGetUsuario(_ccIngresada).then(u => {
+      if (u) {
+        _usuarioActual = u;
+        // Re-autenticar en Firebase Auth si no hay sesión activa
+        if (window.fbAuthSignIn && u.pinHash && !window.fbGetAuthUID?.()) {
+          window.fbAuthSignIn(_ccIngresada, u.pinHash).catch(() => {});
+        }
+      }
+    });
   }
 
   _esperarFirebaseYArrancar();
