@@ -26987,9 +26987,23 @@ function concilRenderResultados(resultados) {
           </div>
           <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:5px;">${explicacion}</div>
           ${accion ? `<div style="font-size:11.5px;color:${cfg.reclamable?'var(--amber)':'var(--text-dim)'};">${accion}</div>` : ''}
-          ${cfg.reclamable && filas.length>0 ? `<a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
-            style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:4px 10px;border-radius:6px;background:rgba(245,158,11,0.12);color:var(--amber);font-size:11px;font-weight:700;text-decoration:none;border:1px solid rgba(245,158,11,0.3);">
-            🔗 Reclamar en portal SURA →</a>` : ''}
+          ${cfg.reclamable && filas.length>0 ? `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+              style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:7px;background:rgba(255,255,255,0.05);color:var(--text-muted);font-size:11px;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,0.15);">
+              📋 Revisar compensación en SURA →
+            </a>
+            <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+              style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:7px;background:rgba(245,158,11,0.12);color:var(--amber);font-size:11px;font-weight:700;text-decoration:none;border:1px solid rgba(245,158,11,0.3);">
+              🔗 Reclamar en portal SURA →
+            </a>
+          </div>` : (tipo === 'DIAS_COMPENSADOS' || tipo === 'SINIESTRALIDAD') ? `
+          <div style="margin-top:8px;">
+            <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+              style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:7px;background:rgba(255,255,255,0.05);color:var(--text-muted);font-size:11px;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,0.15);">
+              📋 Revisar estado de compensación en SURA →
+            </a>
+          </div>` : ''}
         </div>`;
       });
 
@@ -26998,29 +27012,57 @@ function concilRenderResultados(resultados) {
 
     // ── Sección 2: Diferencias (SURA pagó menos) ──────────────────────────
     const difReclamables = dif.filter(r => r.reclamable);
+    const difSuraPagoMas = dif.filter(r => !r.reclamable);
     if (difReclamables.length > 0) {
       const totalFaltante = difReclamables.reduce((s,r) => s + Math.abs(r.dif), 0);
-      html += `<div style="padding:14px 18px;border-radius:12px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.06);margin-bottom:14px;">
-        <div style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:4px;">💰 Pagos con valor inferior al esperado (${difReclamables.length} venta${difReclamables.length>1?'s':''})</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Total a tu favor pendiente de reclamar: <strong style="color:var(--amber);">${fmt(totalFaltante)}</strong></div>
-        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;">Para reclamar necesitas: <strong style="color:var(--text);">CC del afiliado</strong> + <strong style="color:var(--text);">NIT de la empresa</strong></div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-          ${difReclamables.slice(0,5).map(r=>`<span style="font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:5px;background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25);">CC ${r.cedula} · ${fmt(Math.abs(r.dif))}</span>`).join('')}
-          ${difReclamables.length>5?`<span style="font-size:11px;color:var(--text-dim);padding:3px 6px;">+${difReclamables.length-5} más</span>`:''}
+      html += `<div style="padding:14px 18px;border-radius:12px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.06);margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:6px;">💰 SURA pagó un valor inferior al esperado — ${difReclamables.length} venta${difReclamables.length>1?'s':''}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+          Tienes <strong style="color:var(--amber);">${fmt(totalFaltante)}</strong> pendiente de reclamar.
+          Estas ventas sí fueron pagadas pero por un monto menor al que corresponde según tu comisión registrada.
         </div>
-        <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
-          style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;background:rgba(245,158,11,0.15);color:var(--amber);font-size:12px;font-weight:700;text-decoration:none;border:1px solid rgba(245,158,11,0.35);">
-          🔗 Ir al portal de reclamaciones SURA →
-        </a>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;">
+          📋 Para reclamar ten a mano: <strong style="color:var(--text);">CC del afiliado</strong>, <strong style="color:var(--text);">NIT del empleador</strong> y <strong style="color:var(--text);">número de formulario</strong> de cada caso.
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+          ${difReclamables.map(r=>`<div style="font-family:var(--mono);font-size:10.5px;padding:4px 10px;border-radius:5px;background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.25);">
+            CC ${r.cedula} &nbsp;·&nbsp; esperado ${fmt(r.comEsp)} &nbsp;→&nbsp; pagó ${fmt(r.suraPago)} &nbsp;<strong>–${fmt(Math.abs(r.dif))}</strong>
+          </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+            style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;background:rgba(245,158,11,0.18);color:var(--amber);font-size:12.5px;font-weight:700;text-decoration:none;border:1px solid rgba(245,158,11,0.4);">
+            🔗 Reclamar diferencia en portal SURA →
+          </a>
+        </div>
       </div>`;
     }
 
     // ── Sección 3: Sin cruzar ─────────────────────────────────────────────
     if (sinC.length > 0) {
       const totalSinC = sinC.reduce((s,r)=>s+r.comEsp,0);
-      html += `<div style="padding:12px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">🔎 Sin cruzar (${sinC.length} venta${sinC.length>1?'s':''} — ${fmt(totalSinC)})</div>
-        <div style="font-size:11.5px;color:var(--text-dim);">Estas ventas no aparecen ni en pagadas ni en no pagadas del informe SURA. Puede ser que aún estén en proceso, fuera del período compensado, o que haya un error de cédula. <strong style="color:var(--text-muted);">⚠️ Revisa la venta para reclamar si el período ya debió pagar.</strong></div>
+      html += `<div style="padding:14px 18px;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">🔎 No aparecen en ningún informe SURA — ${sinC.length} venta${sinC.length>1?'s':''} (${fmt(totalSinC)})</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">
+          Estas ventas <strong style="color:var(--text);">no figuran ni en pagadas ni en no-pagadas</strong> del informe de este mes.
+          Pasos recomendados: primero verifica que estén en el período compensado correcto y que la cédula esté bien registrada.
+          Si ya debieron pagar, radica la reclamación.
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+          ${sinC.map(r=>`<div style="font-family:var(--mono);font-size:10.5px;padding:4px 10px;border-radius:5px;background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid var(--border);">
+            CC ${r.cedula} &nbsp;·&nbsp; rad. ${r.fecha ? new Date(r.fecha+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'}) : '—'} &nbsp;·&nbsp; ${fmt(r.comEsp)}
+          </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+            style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;background:rgba(255,255,255,0.06);color:var(--text-muted);font-size:12px;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,0.15);">
+            📋 Verificar compensación en SURA →
+          </a>
+          <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+            style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;background:rgba(245,158,11,0.12);color:var(--amber);font-size:12px;font-weight:700;text-decoration:none;border:1px solid rgba(245,158,11,0.3);">
+            🔗 Reclamar si ya debió pagar →
+          </a>
+        </div>
       </div>`;
     }
 
@@ -27067,14 +27109,33 @@ function concilRenderTabla(resultados) {
 
     // Botón de reclamación para NO_PAGADA reclamable y para DIFERENCIA reclamable
     let reclamacionBtn = '';
-    if (r.linkReclamacion && (r.reclamableNP || r.reclamable)) {
-      const color = r.estado === 'NO_PAGADA' ? 'var(--amber)' : 'var(--amber)';
-      const bgColor = r.estado === 'NO_PAGADA' ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.12)';
-      reclamacionBtn = `<a href="${r.linkReclamacion}" target="_blank" rel="noopener"
+    if (r.estado === 'DIFERENCIA' && r.reclamable) {
+      reclamacionBtn = `<a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
         style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:3px 8px;border-radius:6px;
-        background:${bgColor};color:${color};font-size:10.5px;font-weight:700;text-decoration:none;
+        background:rgba(245,158,11,0.12);color:var(--amber);font-size:10.5px;font-weight:700;text-decoration:none;
         border:1px solid rgba(245,158,11,0.3);white-space:nowrap;">
-        ⚠️ Revisar venta para reclamar →
+        🔗 Reclamar diferencia →
+      </a>`;
+    } else if (r.estado === 'NO_PAGADA') {
+      const btnRevisar = `<a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:3px;margin-top:4px;margin-right:4px;padding:3px 7px;border-radius:6px;
+        background:rgba(255,255,255,0.05);color:var(--text-muted);font-size:10px;font-weight:700;text-decoration:none;
+        border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">
+        📋 Ver compensación →
+      </a>`;
+      const btnReclamar = r.reclamableNP ? `<a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:3px 7px;border-radius:6px;
+        background:rgba(245,158,11,0.12);color:var(--amber);font-size:10px;font-weight:700;text-decoration:none;
+        border:1px solid rgba(245,158,11,0.3);white-space:nowrap;">
+        🔗 Reclamar →
+      </a>` : '';
+      reclamacionBtn = btnRevisar + btnReclamar;
+    } else if (r.estado === 'SIN_CRUZAR') {
+      reclamacionBtn = `<a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:3px 7px;border-radius:6px;
+        background:rgba(255,255,255,0.05);color:var(--text-muted);font-size:10px;font-weight:700;text-decoration:none;
+        border:1px solid rgba(255,255,255,0.12);white-space:nowrap;">
+        📋 Verificar / Reclamar →
       </a>`;
     }
 
