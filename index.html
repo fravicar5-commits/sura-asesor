@@ -23039,11 +23039,11 @@ async function pinVerificar() {
     await window.fbSetUsuario(_ccIngresada, { pinHash: hash });
     // Crear/actualizar cuenta en Firebase Auth con el nuevo PIN
     if (window.fbAuthCrear) {
-      window.fbAuthCrear(_ccIngresada, hash).catch(() => {});
+      await window.fbAuthCrear(_ccIngresada, hash).catch(() => {});
     }
-    // Autenticar sesión en Firebase Auth
+    // Autenticar sesión en Firebase Auth y ESPERAR antes de cargar datos
     if (window.fbAuthSignIn) {
-      window.fbAuthSignIn(_ccIngresada, hash).catch(() => {});
+      await window.fbAuthSignIn(_ccIngresada, hash).catch(() => {});
     }
     // Actualizar adminEmail en meta si es admin
     if (_usuarioActual && _usuarioActual.rol === 'admin' && _usuarioActual.email) {
@@ -23060,9 +23060,10 @@ async function pinVerificar() {
   if (pinGetHash(_pinBuffer) === _usuarioActual.pinHash) {
     pinGuardarSesion(_ccIngresada);
     window.fbSetUID && window.fbSetUID(_ccIngresada);
-    // Autenticar en Firebase Auth (en background — no bloquea el flujo)
+    // Autenticar en Firebase Auth y ESPERAR antes de cargar datos
+    // (Firestore rechaza lecturas si Auth no ha completado)
     if (window.fbAuthSignIn) {
-      window.fbAuthSignIn(_ccIngresada, _usuarioActual.pinHash).catch(() => {});
+      await window.fbAuthSignIn(_ccIngresada, _usuarioActual.pinHash).catch(() => {});
     }
     document.getElementById('pinScreen').style.display = 'none';
     pinOnLoginExitoso();
@@ -23350,20 +23351,23 @@ function bootApp() {
   // Hay sesión activa — restaurar UID y arrancar
   window.fbSetUID && window.fbSetUID(_ccIngresada);
 
-  // Restaurar sesión Firebase Auth en background (no bloquea arranque)
+  // Restaurar sesión Firebase Auth y ESPERAR antes de cargar datos de Firestore
+  // Sin esto, Firestore rechaza las lecturas porque Auth no ha completado
   if (window.fbGetUsuario && _ccIngresada) {
-    window.fbGetUsuario(_ccIngresada).then(u => {
+    window.fbGetUsuario(_ccIngresada).then(async u => {
       if (u) {
         _usuarioActual = u;
-        // Re-autenticar en Firebase Auth si no hay sesión activa
         if (window.fbAuthSignIn && u.pinHash && !window.fbGetAuthUID?.()) {
-          window.fbAuthSignIn(_ccIngresada, u.pinHash).catch(() => {});
+          await window.fbAuthSignIn(_ccIngresada, u.pinHash).catch(() => {});
         }
       }
+      _esperarFirebaseYArrancar();
+    }).catch(() => {
+      _esperarFirebaseYArrancar();
     });
+  } else {
+    _esperarFirebaseYArrancar();
   }
-
-  _esperarFirebaseYArrancar();
 }
 
 // Recarga forzada desde Firebase — para cuando el archivo se actualiza y los datos no aparecen
