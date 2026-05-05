@@ -721,6 +721,8 @@
 
   // Crear cuenta en Firebase Auth (al registrar asesor o al crear PIN primera vez)
   async function fbAuthCrear(cc, pinHash) {
+    // __meta__ es un documento de sistema, no un usuario real — no crear cuenta Auth
+    if (!cc || cc === '__meta__') return false;
     try {
       await createUserWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
       return true;
@@ -753,6 +755,8 @@
 
   // Iniciar sesión en Firebase Auth (al verificar PIN correctamente)
   async function fbAuthSignIn(cc, pinHash) {
+    // __meta__ es un documento de sistema, no un usuario real — no autenticar
+    if (!cc || cc === '__meta__') return false;
     try {
       await signInWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
       return true;
@@ -8491,6 +8495,17 @@ function getState() {
   return {};
 }
 function setState(s) {
+  // GUARD: nunca sobrescribir Firestore con un estado que tenga MENOS ventas que el actual
+  // Esto evita que una carga incompleta o initState() vacío destruya los datos reales
+  const ventasNuevas   = (s?.ventas || []).length;
+  const ventasActuales = (window.__FB_CACHE__?.estado?.ventas || []).length;
+  if (ventasActuales > 0 && ventasNuevas < ventasActuales) {
+    // Solo actualizar el caché en memoria, NO escribir en Firestore
+    console.warn(`[setState] Bloqueado: intento de guardar ${ventasNuevas} ventas sobre ${ventasActuales} existentes`);
+    if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
+    if (s && s.ventas) syncContactosDesdeVentas(s.ventas);
+    return;
+  }
   if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
   // Usar fbSetEstado (chunked) para superar el límite de 1MB de Firestore
   if (window.FB) window.FB.setEstado(s);
