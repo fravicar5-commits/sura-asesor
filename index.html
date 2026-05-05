@@ -1142,7 +1142,11 @@
       actividades: actividadesData, cierres: cierresData, configAnios: configAniosData,
       productosExtra: productosExtraData, empresas: empresasData,
       cotizaciones: cotizacionesData, syncConfig: syncConfigData,
-      plantillas: plantillasData, bdSiniestralidad: bdSinData, contactos: contactosData,
+      plantillas: plantillasData, bdSiniestralidad: bdSinData,
+      // Si Firestore devolvió vacío (posible carrera con Auth), usar localStorage como respaldo
+      contactos: (contactosData && contactosData.length > 0)
+        ? contactosData
+        : (() => { try { return JSON.parse(localStorage.getItem('sura_contactos_v1') || '[]'); } catch(e) { return []; } })(),
     };
   }
 
@@ -5861,9 +5865,6 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
           <div style="font-size:40px;margin-bottom:12px;">📒</div>
           <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Importa tu directorio de clientes SURA</div>
           <div style="font-size:12.5px;line-height:1.7;max-width:400px;margin:0 auto;">Descarga el reporte de clientes del aplicativo SURA y cárgalo aquí.<br>Los teléfonos de esta BD se usarán como fuente prioritaria en cartera y WhatsApp.</div>
-          <button onclick="recargarContactosDesdeFirestore(this)" style="margin-top:18px;padding:8px 20px;border-radius:8px;background:rgba(26,76,232,0.12);color:var(--sura-blue);border:1px solid rgba(26,76,232,0.3);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;">
-            🔄 Recuperar contactos guardados
-          </button>
         </div>
       </div>
       <!-- ===== FIN BD CONTACTOS ===== -->
@@ -13891,7 +13892,8 @@ async function initNotificaciones() {
     const token = await getToken(_fcmMessaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (token && UID) {
       try {
-        await setDoc(doc(db, 'usuarios', UID, 'dispositivos', 'fcmToken'),
+        // Guardar en colección raíz fcmToken/{UID} — cubierta por Security Rules
+        await setDoc(doc(db, 'fcmToken', UID),
           { token, updatedAt: new Date().toISOString(), ua: navigator.userAgent.slice(0,100) },
           { merge: true });
       } catch(_) {}
@@ -23530,7 +23532,10 @@ async function fbRecargarDatos() {
       actividades: actividadesData, cierres: cierresData, configAnios: configAniosData,
       productosExtra: productosExtraData, empresas: empresasData,
       cotizaciones: cotizacionesData, syncConfig: syncConfigData,
-      plantillas: plantillasData, bdSiniestralidad: bdSinData, contactos: contactosData,
+      plantillas: plantillasData, bdSiniestralidad: bdSinData,
+      contactos: (contactosData && contactosData.length > 0)
+        ? contactosData
+        : (() => { try { return JSON.parse(localStorage.getItem('sura_contactos_v1') || '[]'); } catch(e) { return []; } })(),
     };
 
     state = initState();
@@ -25790,35 +25795,6 @@ function renderContactos() {
   document.getElementById('kpiContactosCruzados').textContent = cruzados;
 
   renderTablaContactos();
-}
-
-async function recargarContactosDesdeFirestore(btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Recuperando…'; }
-  try {
-    if (!window.FB || !window.FB.get) {
-      showToast('⚠️ Firebase no está listo. Recarga la página e intenta de nuevo.');
-      return;
-    }
-    const datos = await window.FB.get('contactos', null);
-    if (datos === null) {
-      showToast('⚠️ No se pudo conectar a Firestore. Verifica tu sesión y recarga la página.');
-      return;
-    }
-    if (!Array.isArray(datos) || datos.length === 0) {
-      showToast('ℹ️ No se encontraron contactos guardados en Firestore.');
-      return;
-    }
-    // Restaurar en caché y localStorage
-    if (window.__FB_CACHE__) window.__FB_CACHE__.contactos = datos;
-    try { localStorage.setItem('sura_contactos_v1', JSON.stringify(datos)); } catch(e) {}
-    showToast(`✅ ${datos.length} contactos recuperados correctamente`);
-    renderContactos();
-  } catch(e) {
-    console.error('[recargarContactos]', e);
-    showToast('❌ Error al recuperar: ' + (e.message || 'intenta de nuevo'));
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🔄 Recuperar contactos guardados'; }
-  }
 }
 
 function renderTablaContactos() {
