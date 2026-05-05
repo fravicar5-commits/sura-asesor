@@ -26939,6 +26939,7 @@ function concilEjecutarCruce() {
 
   window._concilResultados = resultados;
   concilRenderResultados(resultados);
+  window._concilResultadosActuales = resultados;
   // Guardar en historial automáticamente
   histGuardarMes(mesPago, anio, resultados);
   const badge = document.getElementById('concilGuardadoBadge');
@@ -27021,100 +27022,162 @@ function concilRenderResultados(resultados) {
   if (elComX) elComX.textContent = rangoActual ? fmt(rangoActual.comCot) : '—';
   if (elComXS) elComXS.textContent = rangoActual ? 'cotizante · ' + fmt(rangoActual.comBen) + ' beneficiario' : 'sin datos';
 
-  // ─── Panel de análisis inteligente ────────────────────────────────────────
+  // ─── Panel de análisis inteligente — Guía de acción ──────────────────────
   const alertWrap = document.getElementById('concilAlertasWrap');
   if (alertWrap) {
     let html = '';
 
-    // ── Sección 1: No pagadas agrupadas por causa ──────────────────────────
-    if (np.length > 0) {
-      const CAUSA_LABELS = {
-        SINIESTRALIDAD:  { icon:'🔴', label:'Alta siniestralidad de empresa', color:'var(--red)', reclamable: false },
-        DIAS_COMPENSADOS:{ icon:'🟠', label:'Días compensados < 30',          color:'var(--amber)', reclamable: false },
-        SIN_POLIZA:      { icon:'🟡', label:'Afiliado sin póliza',             color:'var(--amber)', reclamable: false },
-        SIN_PAC_POLIZA:  { icon:'🟡', label:'Independiente sin PAC ni póliza', color:'var(--amber)', reclamable: false },
-        DESAFILIACION:   { icon:'🟠', label:'Desafiliación / retiro',          color:'var(--amber)', reclamable: true },
-        DUPLICADO:       { icon:'🔵', label:'Venta duplicada',                  color:'var(--teal)',  reclamable: true },
-        DOCUMENTACION:   { icon:'🔵', label:'Documentación incompleta',         color:'var(--teal)',  reclamable: true },
-        TRASLADO:        { icon:'🟤', label:'Traslado a otra EPS',              color:'var(--text-muted)', reclamable: false },
-        OTRO:            { icon:'⚪', label:'Otra causa',                        color:'var(--text-dim)', reclamable: true },
-      };
+    const CAUSA_LABELS = {
+      SINIESTRALIDAD:  { icon:'🔴', label:'Alta siniestralidad de empresa', color:'var(--red)',       reclamable: false,
+        pasos: ['Verifica el índice de siniestralidad de la empresa con tu jefe de zona.','Evalúa si la empresa puede mejorar su perfil antes del próximo trimestre.','No radiques reclamación — SURA no la acepta por esta causa.'] },
+      DIAS_COMPENSADOS:{ icon:'🟠', label:'Días compensados < 30',          color:'var(--amber)',      reclamable: false,
+        pasos: ['Confirma con el empleador que el afiliado completó los 30 días cotizados.','Si el empleador reportó tarde, solicita corrección de novedades en SURA.','Espera el siguiente ciclo de compensación — puede aparecer pagada el próximo mes.'] },
+      SIN_POLIZA:      { icon:'🟡', label:'Afiliado sin póliza activa',      color:'var(--amber)',      reclamable: false,
+        pasos: ['Verifica con el afiliado si la póliza fue emitida correctamente.','Contacta soporte SURA para revisar el estado del contrato.','Si aplica, gestiona la reactivación antes del siguiente corte.'] },
+      SIN_PAC_POLIZA:  { icon:'🟡', label:'Independiente sin PAC ni póliza', color:'var(--amber)',      reclamable: false,
+        pasos: ['Solicita al afiliado que tramite su vinculación PAC con el empleador o de forma independiente.','Una vez vinculado, la comisión entrará en el siguiente período de compensación.'] },
+      DESAFILIACION:   { icon:'🟠', label:'Desafiliación / retiro',          color:'var(--amber)',      reclamable: true,
+        pasos: ['Verifica si la desafiliación fue voluntaria o por mora del empleador.','Si fue por error del empleador: solicita carta de la empresa y radica reclamación con CC del afiliado + NIT empresa.','Adjunta: afiliación original + novedad de retiro + carta empleador.'] },
+      DUPLICADO:       { icon:'🔵', label:'Venta duplicada',                  color:'var(--teal)',       reclamable: true,
+        pasos: ['Identifica cuál de las dos afiliaciones es la correcta con el afiliado.','Solicita anulación de la duplicada en el portal SURA.','Radica reclamación indicando número de formulario correcto.'] },
+      DOCUMENTACION:   { icon:'🔵', label:'Documentación incompleta',         color:'var(--teal)',       reclamable: true,
+        pasos: ['Obtén los documentos faltantes con el afiliado o empleador.','Sube la documentación en el portal de afiliaciones SURA.','Radica reclamación de comisión adjuntando el radicado de documentación.'] },
+      TRASLADO:        { icon:'🟤', label:'Traslado a otra EPS',              color:'var(--text-muted)', reclamable: false,
+        pasos: ['El afiliado se trasladó a otra EPS — no hay comisión a reclamar.','Registra la cancelación en tu pipeline para actualizar tu cartera.'] },
+      OTRO:            { icon:'⚪', label:'Otra causa',                        color:'var(--text-dim)',   reclamable: true,
+        pasos: ['Consulta el código de no pago en la tabla de causas SURA.','Contacta a tu jefe de zona para determinar si aplica reclamación.','Si aplica: radica en el portal con CC del afiliado + número de formulario.'] },
+    };
 
-      // Agrupar por tipoCausa
-      const grupos = {};
-      np.forEach(r => {
-        const t = r.tipoCausa || 'OTRO';
-        if (!grupos[t]) grupos[t] = [];
-        grupos[t].push(r);
-      });
+    // ── BLOQUE 0: Resumen ejecutivo con semáforo ─────────────────────────
+    const difReclamables = dif.filter(r => r.reclamable);
+    const npReclamables  = np.filter(r => r.reclamableNP);
+    const totalRecuperable = difReclamables.reduce((s,r)=>s+Math.abs(r.dif),0)
+                           + npReclamables.reduce((s,r)=>s+r.comEsp,0);
+    const hayAccionUrgente = difReclamables.length > 0 || npReclamables.length > 0;
+    const hayVerificar     = sinC.length > 0;
 
-      const reclamables = np.filter(r => r.reclamableNP);
-      const noReclamables = np.filter(r => !r.reclamableNP);
-      const totalComNP = np.reduce((s,r)=>s+r.comEsp,0);
-      const totalReclamable = reclamables.reduce((s,r)=>s+r.comEsp,0);
-
-      html += `<div style="padding:16px 18px;border-radius:12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);margin-bottom:14px;">
-        <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:4px;">❌ Análisis de ventas no pagadas (${np.length} venta${np.length>1?'s':''})</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Comisión total no recibida: <strong style="color:var(--text);">${fmt(totalComNP)}</strong>${reclamables.length>0?' · <span style="color:var(--amber);">'+fmt(totalReclamable)+' potencialmente reclamable'+( reclamables.length>1?'s':'')+' ('+reclamables.length+' venta'+(reclamables.length>1?'s':'')+')</span>':''}</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">`;
-
-      Object.entries(grupos).forEach(([tipo, filas]) => {
-        const cfg = CAUSA_LABELS[tipo] || CAUSA_LABELS.OTRO;
-        const totalGrupo = filas.reduce((s,r)=>s+r.comEsp,0);
-        const nombres = filas.slice(0,2).map(r=>r.nombre.split(' ')[0]).join(', ');
-        const explicacion = filas[0]?.explicacion || '';
-        const accion = filas[0]?.accionRecomendada || '';
-
-        html += `<div style="padding:10px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
-            <span style="font-size:12.5px;font-weight:700;color:${cfg.color};">${cfg.icon} ${cfg.label} <span style="font-weight:400;color:var(--text-muted);">(${filas.length} afiliado${filas.length>1?'s':''})</span></span>
-            <span style="font-size:11.5px;font-family:var(--mono);color:${cfg.color};font-weight:700;">${fmt(totalGrupo)}</span>
-          </div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:5px;">${explicacion}</div>
-          ${accion ? `<div style="font-size:11.5px;color:${cfg.reclamable?'var(--amber)':'var(--text-dim)'};">${accion}</div>` : ''}
-          ${cfg.reclamable && filas.length>0 ? `<a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
-            style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:4px 10px;border-radius:6px;background:rgba(245,158,11,0.12);color:var(--amber);font-size:11px;font-weight:700;text-decoration:none;border:1px solid rgba(245,158,11,0.3);">
-            🔗 Reclamar en portal SURA →</a>` : ''}
-        </div>`;
-      });
-
-      html += `</div></div>`;
+    let semColor, semIcono, semTitulo, semDesc;
+    if (totalRecuperable > 0) {
+      semColor = 'var(--amber)'; semIcono = '⚠️';
+      semTitulo = `Puedes recuperar hasta ${fmt(totalRecuperable)}`;
+      semDesc = `Tienes ${difReclamables.length + npReclamables.length} caso${(difReclamables.length+npReclamables.length)>1?'s':''} accionables. Sigue el plan de reclamación abajo.`;
+    } else if (hayVerificar) {
+      semColor = 'var(--text-muted)'; semIcono = '🔎';
+      semTitulo = 'Sin reclamaciones urgentes — hay ventas por verificar';
+      semDesc = `${sinC.length} venta${sinC.length>1?'s':''} no aparecen en los informes SURA. Verifica el período y la cédula.`;
+    } else {
+      semColor = 'var(--green)'; semIcono = '✅';
+      semTitulo = 'Todo en orden — sin reclamaciones pendientes';
+      semDesc = `${ok.length} venta${ok.length>1?'s':''} confirmadas pagadas correctamente.`;
     }
 
-    // ── Sección 2: Diferencias (SURA pagó menos) ──────────────────────────
-    const difReclamables = dif.filter(r => r.reclamable);
-    if (difReclamables.length > 0) {
-      const totalFaltante = difReclamables.reduce((s,r) => s + Math.abs(r.dif), 0);
-      html += `<div style="padding:14px 18px;border-radius:12px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.06);margin-bottom:14px;">
-        <div style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:4px;">💰 Pagos con valor inferior al esperado (${difReclamables.length} venta${difReclamables.length>1?'s':''})</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Total a tu favor pendiente de reclamar: <strong style="color:var(--amber);">${fmt(totalFaltante)}</strong></div>
-        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;">Para reclamar necesitas: <strong style="color:var(--text);">CC del afiliado</strong> + <strong style="color:var(--text);">NIT de la empresa</strong></div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-          ${difReclamables.slice(0,5).map(r=>`<span style="font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:5px;background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25);">CC ${r.cedula} · ${fmt(Math.abs(r.dif))}</span>`).join('')}
-          ${difReclamables.length>5?`<span style="font-size:11px;color:var(--text-dim);padding:3px 6px;">+${difReclamables.length-5} más</span>`:''}
+    html += `<div style="padding:16px 20px;border-radius:12px;border:1px solid ${semColor};background:rgba(0,0,0,0.2);margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="font-size:32px;flex-shrink:0;">${semIcono}</div>
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:15px;font-weight:700;color:${semColor};margin-bottom:3px;">${semTitulo}</div>
+        <div style="font-size:12px;color:var(--text-muted);">${semDesc}</div>
+      </div>
+      ${hayAccionUrgente ? `<button onclick="concilCopiarListaReclamaciones()" style="padding:8px 16px;border-radius:8px;background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📋 Copiar lista para reclamar</button>
+      <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener" style="padding:8px 16px;border-radius:8px;background:rgba(26,76,232,0.15);color:var(--sura-blue);border:1px solid rgba(26,76,232,0.3);font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;">🔗 Abrir portal SURA</a>` : ''}
+    </div>`;
+
+    // ── BLOQUE 1: Plan de reclamación (casos accionables ordenados por valor) ─
+    if (hayAccionUrgente) {
+      const todosReclamables = [
+        ...difReclamables.map(r => ({ ...r, _tipo: 'DIF', _valor: Math.abs(r.dif) })),
+        ...npReclamables.map(r  => ({ ...r, _tipo: 'NP',  _valor: r.comEsp })),
+      ].sort((a,b) => b._valor - a._valor);
+
+      html += `<div style="padding:16px 18px;border-radius:12px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.05);margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:10px;">🎯 Plan de reclamación — ${todosReclamables.length} caso${todosReclamables.length>1?'s':''} · ${fmt(totalRecuperable)} a recuperar</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+          ${todosReclamables.map((r,i) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);">
+            <div style="width:22px;height:22px;border-radius:50%;background:rgba(245,158,11,0.2);color:var(--amber);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.nombre||'—'}</div>
+              <div style="font-size:10.5px;color:var(--text-muted);">CC: <span style="font-family:var(--mono);">${r.cedula||'—'}</span> &nbsp;·&nbsp; ${r._tipo==='DIF'?'Diferencia de tarifa':'No pagada'} &nbsp;·&nbsp; ${r.empresa||'—'}</div>
+            </div>
+            <div style="font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--amber);flex-shrink:0;">+${fmt(r._valor)}</div>
+          </div>`).join('')}
         </div>
-        <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener"
-          style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;background:rgba(245,158,11,0.15);color:var(--amber);font-size:12px;font-weight:700;text-decoration:none;border:1px solid rgba(245,158,11,0.35);">
-          🔗 Ir al portal de reclamaciones SURA →
-        </a>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:10px 14px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border);">
+          <strong style="color:var(--text);display:block;margin-bottom:6px;">📋 Pasos para reclamar en el portal SURA:</strong>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div>1. Ingresa al portal con tu código de asesor</div>
+            <div>2. Ve a <strong>Comisiones → Reclamaciones → Nueva reclamación</strong></div>
+            <div>3. Busca por <strong>CC del afiliado</strong> o <strong>número de formulario</strong></div>
+            <div>4. Selecciona el tipo: <em>Diferencia de tarifa</em> o <em>Comisión no pagada</em></div>
+            <div>5. Adjunta soporte si aplica (afiliación, carta empleador, formulario)</div>
+            <div>6. <strong>Guarda el número de radicado</strong> — es tu comprobante</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="concilCopiarListaReclamaciones()" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.35);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">📋 Copiar lista completa</button>
+          <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;background:rgba(26,76,232,0.12);color:var(--sura-blue);border:1px solid rgba(26,76,232,0.25);font-size:12px;font-weight:700;text-decoration:none;">🔗 Abrir portal SURA</a>
+        </div>
       </div>`;
     }
 
-    // ── Sección 3: Sin cruzar ─────────────────────────────────────────────
+    // ── BLOQUE 2: No pagadas — checklist por causa ─────────────────────────
+    if (np.length > 0) {
+      const grupos = {};
+      np.forEach(r => { const t = r.tipoCausa||'OTRO'; if(!grupos[t]) grupos[t]=[]; grupos[t].push(r); });
+
+      const noReclamables = np.filter(r => !r.reclamableNP);
+      if (noReclamables.length > 0) {
+        html += `<div style="padding:14px 18px;border-radius:12px;border:1px solid rgba(239,68,68,0.25);background:rgba(239,68,68,0.04);margin-bottom:14px;">
+          <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:10px;">❌ No pagadas — plan de seguimiento por causa</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">`;
+
+        Object.entries(grupos).forEach(([tipo, filas]) => {
+          const cfg = CAUSA_LABELS[tipo] || CAUSA_LABELS.OTRO;
+          if (filas.some(r => r.reclamableNP)) return; // reclamables ya están en bloque 1
+          const totalGrupo = filas.reduce((s,r)=>s+r.comEsp,0);
+          const pasos = cfg.pasos || [];
+          html += `<div style="padding:10px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+              <span style="font-size:12.5px;font-weight:700;color:${cfg.color};">${cfg.icon} ${cfg.label} <span style="font-weight:400;color:var(--text-muted);">(${filas.length})</span></span>
+              <span style="font-family:var(--mono);font-size:11.5px;color:${cfg.color};">${fmt(totalGrupo)}</span>
+            </div>
+            <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:5px;">Afiliados: ${filas.map(r=>(r.nombre||'').split(' ')[0]||r.cedula).slice(0,4).join(', ')}${filas.length>4?'…':''}</div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              ${pasos.map((p,i)=>`<div style="font-size:11px;color:var(--text-dim);display:flex;gap:6px;"><span style="flex-shrink:0;color:${cfg.color};font-weight:700;">${i+1}.</span><span>${p}</span></div>`).join('')}
+            </div>
+          </div>`;
+        });
+
+        html += `</div></div>`;
+      }
+    }
+
+    // ── BLOQUE 3: Sin cruzar — checklist de verificación ──────────────────
     if (sinC.length > 0) {
       const totalSinC = sinC.reduce((s,r)=>s+r.comEsp,0);
-      html += `<div style="padding:12px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">🔎 Sin cruzar (${sinC.length} venta${sinC.length>1?'s':''} — ${fmt(totalSinC)})</div>
-        <div style="font-size:11.5px;color:var(--text-dim);">Estas ventas no aparecen ni en pagadas ni en no pagadas del informe SURA. Puede ser que aún estén en proceso, fuera del período compensado, o que haya un error de cédula. <strong style="color:var(--text-muted);">⚠️ Revisa la venta para reclamar si el período ya debió pagar.</strong></div>
+      html += `<div style="padding:14px 18px;border-radius:12px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.02);margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">🔎 Sin cruzar — ${sinC.length} venta${sinC.length>1?'s':''} · ${fmt(totalSinC)} · verificación requerida</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+          ${sinC.map(r=>`<span style="font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid var(--border);">CC ${r.cedula}</span>`).join('')}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--text-dim);">
+          <div style="display:flex;gap:6px;"><span style="color:var(--text-muted);font-weight:700;flex-shrink:0;">1.</span><span><strong style="color:var(--text);">Verifica la cédula</strong> — confirma que la CC registrada en tu app coincide exactamente con la del formulario de afiliación.</span></div>
+          <div style="display:flex;gap:6px;"><span style="color:var(--text-muted);font-weight:700;flex-shrink:0;">2.</span><span><strong style="color:var(--text);">Verifica el período</strong> — la radicación debe estar entre el DH6 del mes de ventas y el DH5 del mes compensado.</span></div>
+          <div style="display:flex;gap:6px;"><span style="color:var(--text-muted);font-weight:700;flex-shrink:0;">3.</span><span><strong style="color:var(--text);">Consulta con SURA</strong> — si la cédula y el período son correctos, contacta a tu jefe de zona para rastrear la afiliación.</span></div>
+          <div style="display:flex;gap:6px;"><span style="color:var(--amber);font-weight:700;flex-shrink:0;">4.</span><span><strong style="color:var(--amber);">Si ya debió pagar</strong> — radica reclamación en el portal con número de formulario y adjunta la afiliación original.</span></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid rgba(255,255,255,0.12);font-size:11.5px;font-weight:700;text-decoration:none;">📋 Verificar en portal SURA →</a>
+          <a href="https://epsapps.suramericana.com/comisiones/menu/index.jsp" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.25);font-size:11.5px;font-weight:700;text-decoration:none;">🔗 Reclamar si ya debió pagar →</a>
+        </div>
       </div>`;
     }
 
-    // ── Sección 4: Ventas pasivas (extra SURA) ────────────────────────────
+    // ── BLOQUE 4: Ventas pasivas — solo informativo ────────────────────────
     if (extra.length > 0) {
       const totalExtra = extra.reduce((s,r)=>s+r.suraPago,0);
-      html += `<div style="padding:12px 16px;border-radius:12px;border:1px solid rgba(168,85,247,0.25);background:rgba(168,85,247,0.06);margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:4px;">💡 Ventas pasivas recibidas (${extra.length} registro${extra.length>1?'s':''} — ${fmt(totalExtra)})</div>
-        <div style="font-size:11.5px;color:var(--text-muted);">SURA pagó comisión a tu nombre por afiliados que no están registrados en tu app. Son ingresos adicionales por afiliaciones pasivas o que provienen de tu código de asesor directo.</div>
+      html += `<div style="padding:12px 16px;border-radius:12px;border:1px solid rgba(168,85,247,0.2);background:rgba(168,85,247,0.04);margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:4px;">💡 Ventas pasivas — ${extra.length} registro${extra.length>1?'s':''} · ${fmt(totalExtra)}</div>
+        <div style="font-size:11.5px;color:var(--text-muted);">SURA pagó comisión a tu código por afiliados no registrados en tu app. Son ingresos adicionales — no requieren acción, solo registro para control.</div>
       </div>`;
     }
 
@@ -27123,6 +27186,47 @@ function concilRenderResultados(resultados) {
   }
 
   concilRenderTabla(resultados);
+}
+
+function concilCopiarListaReclamaciones() {
+  const resultados = window._concilResultadosActuales || [];
+  if (!resultados.length) { showToast('⚠️ Ejecuta el cruce primero'); return; }
+
+  const reclamables = [
+    ...resultados.filter(r => r.estado === 'DIFERENCIA' && r.reclamable)
+      .map(r => ({ ...r, _tipo: 'Diferencia de tarifa', _valor: Math.abs(r.dif) })),
+    ...resultados.filter(r => r.estado === 'NO_PAGADA' && r.reclamableNP)
+      .map(r => ({ ...r, _tipo: 'No pagada', _valor: r.comEsp })),
+  ].sort((a,b) => b._valor - a._valor);
+
+  if (!reclamables.length) { showToast('ℹ️ No hay casos reclamables en este cruce'); return; }
+
+  const total = reclamables.reduce((s,r) => s + r._valor, 0);
+  const lineas = [
+    `LISTA DE RECLAMACIONES PBS — ${new Date().toLocaleDateString('es-CO')}`,
+    `Total a recuperar: $${total.toLocaleString('es-CO')}`,
+    `Casos: ${reclamables.length}`,
+    '',
+    ...reclamables.map((r,i) =>
+      `${i+1}. ${r.nombre||'—'}\n   CC: ${r.cedula||'—'} | Empresa: ${r.empresa||'—'}\n   Tipo: ${r._tipo} | Valor: $${r._valor.toLocaleString('es-CO')}\n   Causa: ${r.causa||'—'}`
+    ),
+    '',
+    'Portal reclamaciones: https://epsapps.suramericana.com/comisiones/menu/index.jsp',
+  ];
+
+  try {
+    navigator.clipboard.writeText(lineas.join('\n'));
+    showToast(`✅ Lista de ${reclamables.length} reclamaciones copiada al portapapeles`);
+  } catch(e) {
+    // Fallback para navegadores que bloquean clipboard sin interacción directa
+    const ta = document.createElement('textarea');
+    ta.value = lineas.join('\n');
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast(`✅ Lista copiada — ${reclamables.length} casos`);
+  }
 }
 
 function concilRenderTabla(resultados) {
