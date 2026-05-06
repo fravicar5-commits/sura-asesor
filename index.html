@@ -721,7 +721,6 @@
 
   // Crear cuenta en Firebase Auth (al registrar asesor o al crear PIN primera vez)
   async function fbAuthCrear(cc, pinHash) {
-    // __meta__ es un documento de sistema, no un usuario real — no crear cuenta Auth
     if (!cc || cc === '__meta__') return false;
     try {
       await createUserWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
@@ -755,7 +754,6 @@
 
   // Iniciar sesión en Firebase Auth (al verificar PIN correctamente)
   async function fbAuthSignIn(cc, pinHash) {
-    // __meta__ es un documento de sistema, no un usuario real — no autenticar
     if (!cc || cc === '__meta__') return false;
     try {
       await signInWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
@@ -806,9 +804,22 @@
     try { await setDoc(doc(db, 'usuarios', cc), data, { merge: true }); return true; }
     catch(e) { console.error('fbSetUsuario', e); return false; }
   }
+  // appMeta: documento de sistema en colección separada (evita ID reservado __meta__)
+  async function fbGetAppMeta() {
+    try {
+      const snap = await getDoc(doc(db, 'appMeta', 'config'));
+      return snap.exists() ? snap.data() : null;
+    } catch(e) { return null; }
+  }
+  async function fbSetAppMeta(data) {
+    try { await setDoc(doc(db, 'appMeta', 'config'), data, { merge: true }); return true; }
+    catch(e) { console.warn('fbSetAppMeta', e); return false; }
+  }
   window.fbGetUsuario     = fbGetUsuario;
   window.fbSetUsuario     = fbSetUsuario;
   window.fbSetUID         = fbSetUID;
+  window.fbGetAppMeta     = fbGetAppMeta;
+  window.fbSetAppMeta     = fbSetAppMeta;
 
 
   // ── Helper genérico: leer un documento ───────────────────────────────────
@@ -1128,7 +1139,7 @@
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, setBdSinShared: fbSetBdSinShared, setIpsDbShared: fbSetIpsDbShared, patchDoc: fbPatchDoc, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, setBdSinShared: fbSetBdSinShared, setIpsDbShared: fbSetIpsDbShared, patchDoc: fbPatchDoc, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase, messaging: _fcmMessaging, onMessage };
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
   // ── Migración datos de 'fran' → UID actual ───────────────────────────────
@@ -1250,11 +1261,10 @@
     // Solo verificar que Firebase SDK cargó correctamente y señalar que está listo.
     // La carga real de datos ocurre DESPUÉS del login, cuando UID ya está establecido.
     try {
-      // Ping de conexión: leer un documento que siempre existe (meta de usuarios)
-      await getDoc(doc(db, 'usuarios', '__meta__'));
+      // Ping de conexión: leer appMeta (colección de sistema siempre accesible)
+      await getDoc(doc(db, 'appMeta', 'config'));
       console.log('[Firebase] Conexión verificada ✓');
     } catch(e) {
-      // Si falla la conexión, igual señalamos ready (puede ser que el doc no exista)
       console.warn('[Firebase] Ping falló (puede ser normal):', e.message);
     }
     window.__FB_READY__ = true;
@@ -1379,7 +1389,7 @@
 </div>
 <!-- ===== MODAL VIGENCIA ADMIN ===== -->
 <div id="modalAdminVigencia" style="display:none;position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:16px;">
-  <div style="background:var(--surface1);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+  <div style="background:var(--surface1);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:460px;box-shadow:0 24px 64px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;">
     <div style="font-size:16px;font-weight:700;margin-bottom:4px;">🗓️ Gestionar Acceso</div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Asesor: <strong id="mavNombre"></strong></div>
     <input type="hidden" id="mavCC">
@@ -1408,6 +1418,40 @@
     <div id="mavRowFecha" style="display:none;margin-bottom:14px;">
       <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px;">Fecha de vencimiento</label>
       <input type="date" class="form-control" id="mavFecha">
+    </div>
+
+    <!-- Control de pago -->
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:10px;">💳 Registro de pago</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Plan</label>
+          <select class="form-control" id="mavPlan" style="font-size:12px;">
+            <option value="">Sin especificar</option>
+            <option value="mensual">Mensual</option>
+            <option value="trimestral">Trimestral (3 m)</option>
+            <option value="semestral">Semestral (6 m)</option>
+            <option value="anual">Anual (12 m)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Monto pagado ($)</label>
+          <input type="number" class="form-control" id="mavMonto" placeholder="0" min="0" style="font-size:12px;">
+        </div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Método de pago</label>
+        <select class="form-control" id="mavMetodoPago" style="font-size:12px;">
+          <option value="">Sin especificar</option>
+          <option value="transferencia">Transferencia / Nequi / Daviplata</option>
+          <option value="efectivo">Efectivo</option>
+          <option value="tarjeta">Tarjeta</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Notas del pago</label>
+        <input type="text" class="form-control" id="mavNotasPago" placeholder="Referencia, observaciones..." style="font-size:12px;">
+      </div>
     </div>
 
     <div style="background:rgba(26,76,232,0.08);border:1px solid rgba(26,76,232,0.2);border-radius:8px;padding:12px;margin-bottom:20px;font-size:12px;color:var(--text-muted);line-height:1.6;">
@@ -5447,12 +5491,13 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Rol</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Estado</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Vigencia</th>
+                <th style="padding:10px 8px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Último pago</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Registro</th>
                 <th style="padding:10px 14px;text-align:left;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;">Acciones</th>
               </tr>
             </thead>
             <tbody id="adminUsuariosTabla">
-              <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-dim);">Cargando usuarios…</td></tr>
+              <tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-dim);">Cargando usuarios…</td></tr>
             </tbody>
           </table>
         </div>
@@ -8495,21 +8540,17 @@ function getState() {
   return {};
 }
 function setState(s) {
-  // GUARD: nunca sobrescribir Firestore con un estado que tenga MENOS ventas que el actual
-  // Esto evita que una carga incompleta o initState() vacío destruya los datos reales
+  // GUARD: nunca sobrescribir Firestore con menos ventas de las que hay en caché
   const ventasNuevas   = (s?.ventas || []).length;
   const ventasActuales = (window.__FB_CACHE__?.estado?.ventas || []).length;
   if (ventasActuales > 0 && ventasNuevas < ventasActuales) {
-    // Solo actualizar el caché en memoria, NO escribir en Firestore
-    console.warn(`[setState] Bloqueado: intento de guardar ${ventasNuevas} ventas sobre ${ventasActuales} existentes`);
+    console.warn(`[setState] Bloqueado: ${ventasNuevas} ventas < ${ventasActuales} en caché`);
     if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
     if (s && s.ventas) syncContactosDesdeVentas(s.ventas);
     return;
   }
   if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
-  // Usar fbSetEstado (chunked) para superar el límite de 1MB de Firestore
   if (window.FB) window.FB.setEstado(s);
-  // Sincronizar BD de contactos automáticamente
   if (s && s.ventas) syncContactosDesdeVentas(s.ventas);
 }
 
@@ -13983,7 +14024,8 @@ const NOTIF_CHECK_KEY = 'sura_notif_last_check';
 async function initNotificaciones() {
   // Siempre ejecutar check in-app aunque no haya SW/FCM
   checkNotifRenovacionesDiarias();
-  if (!('Notification' in window) || !('serviceWorker' in navigator) || !_fcmMessaging) return;
+  const _msg = window.FB?.messaging || null;
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !_msg) return;
   try {
     // Detectar base path para GitHub Pages (ej: /sura-asesor/) o raíz
     const _swBase = (location.pathname.split('/').slice(0,2).join('/') + '/').replace('//','/') || '/';
@@ -13996,7 +14038,7 @@ async function initNotificaciones() {
     if (Notification.permission !== 'granted') return;
     // Limpiar flag diario para que el check corra en esta sesión
     localStorage.removeItem(NOTIF_CHECK_KEY);
-    const token = await getToken(_fcmMessaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    const token = await getToken(_msg, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (token && UID) {
       try {
         // Guardar en colección raíz fcmToken/{UID} — cubierta por Security Rules
@@ -14005,7 +14047,7 @@ async function initNotificaciones() {
           { merge: true });
       } catch(_) {}
     }
-    onMessage(_fcmMessaging, payload => {
+    if (window.FB?.onMessage) window.FB.onMessage(_msg, payload => {
       const { title, body } = payload.notification || {};
       showNotifBanner(title || '\uD83C\uDFE5 SURA', body || '');
     });
@@ -23063,7 +23105,7 @@ async function loginEnviarSolicitud() {
   // Verificar si es el primer usuario — se convierte en admin automáticamente
   let esAdmin = false;
   try {
-    const metaSnap = await window.fbGetUsuario('__meta__');
+    const metaSnap = await window.fbGetAppMeta();
     if (!metaSnap || !metaSnap.primerUsuarioCreado) esAdmin = true;
   } catch(e) {}
 
@@ -23082,7 +23124,7 @@ async function loginEnviarSolicitud() {
 
   // Marcar que ya existe al menos un usuario
   if (esAdmin) {
-    await window.fbSetUsuario('__meta__', { primerUsuarioCreado: true });
+    await window.fbSetAppMeta({ primerUsuarioCreado: true });
     // Admin va directo a crear PIN
     _ccIngresada = cc;
     _usuarioActual = nuevoUsuario;
@@ -23105,7 +23147,7 @@ async function loginMostrarRecuperacion() {
   if (!infoEl) return;
   try {
     // Buscar el primer admin registrado
-    const meta = await window.fbGetUsuario('__meta__');
+    const meta = await window.fbGetAppMeta();
     if (meta && meta.adminEmail) {
       infoEl.innerHTML = `Escríbele al administrador:<br><strong style="color:#93C5FD;">${meta.adminEmail}</strong><br><span style="font-size:11px;opacity:.7;">Indica tu cédula y solicita restablecimiento de PIN</span>`;
     } else {
@@ -23159,7 +23201,7 @@ async function pinVerificar() {
     }
     // Actualizar adminEmail en meta si es admin
     if (_usuarioActual && _usuarioActual.rol === 'admin' && _usuarioActual.email) {
-      await window.fbSetUsuario('__meta__', { primerUsuarioCreado: true, adminEmail: _usuarioActual.email });
+      await window.fbSetAppMeta({ primerUsuarioCreado: true, adminEmail: _usuarioActual.email });
     }
     pinGuardarSesion(_ccIngresada);
     window.fbSetUID && window.fbSetUID(_ccIngresada);
@@ -23236,7 +23278,14 @@ async function adminCargarUsuarios() {
   try {
     const snap = await window.FB.getDocs(window.FB.collection(window.FB.db, 'usuarios'));
     usuarios = snap.docs.map(d => d.data()).filter(u => u.cc && u.cc !== '__meta__');
-  } catch(e) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--red);">❌ Error al cargar usuarios</td></tr>'; return; }
+  } catch(e) {
+    console.error('[Admin] Error cargando usuarios:', e.code, e.message);
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--red);">
+      ❌ Error al cargar usuarios<br>
+      <span style="font-size:11px;color:var(--text-dim);">${e.code === 'permission-denied' ? 'Sin permiso — actualiza las Security Rules de Firestore' : e.message}</span>
+    </td></tr>`;
+    return;
+  }
 
   // Auto-suspender por vigencia vencida
   for (const u of usuarios) {
@@ -23258,7 +23307,7 @@ async function adminCargarUsuarios() {
   document.getElementById('adminKpiRechazados').textContent = rechazados + vencidos;
 
   if (!usuarios.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-dim);">Sin usuarios registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-dim);">Sin usuarios registrados</td></tr>';
     return;
   }
 
@@ -23302,12 +23351,16 @@ async function adminCargarUsuarios() {
         </div>`;
 
     return `<tr style="background:${bg};border-top:1px solid var(--border);">
-      <td style="padding:10px 14px;font-weight:500;">${u.nombre||'—'}${esMiCuenta ? ' <span style=\"font-size:10px;color:var(--sura-lime);\">(útú)</span>' : ''}</td>
+      <td style="padding:10px 14px;font-weight:500;">${u.nombre||'—'}${esMiCuenta ? ' <span style=\"font-size:10px;color:var(--sura-lime);\">(tú)</span>' : ''}</td>
       <td style="padding:10px 14px;font-family:var(--mono);font-size:12px;">${u.cc}</td>
-      <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${u.email||''}">${u.email||'—'}</td>
+      <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${u.email||''}">${u.email||'—'}</td>
       <td style="padding:10px 14px;">${rolChip[u.rol]||u.rol||'—'}</td>
       <td style="padding:10px 14px;">${estadoChip[u.estado]||u.estado}</td>
       <td style="padding:10px 14px;">${vigCell}</td>
+      <td style="padding:10px 8px;font-size:11px;color:var(--text-muted);">
+        ${u.ultimoPago ? `<div style="font-family:var(--mono);color:var(--green);font-weight:600;">$${(u.ultimoPago.monto||0).toLocaleString('es-CO')}</div>
+        <div style="font-size:10px;">${u.ultimoPago.plan||'—'} · ${u.ultimoPago.fecha||'—'}</div>` : '<span style="color:var(--text-dim);">Sin registro</span>'}
+      </td>
       <td style="padding:10px 14px;font-size:12px;color:var(--text-muted);">${fecha}</td>
       <td style="padding:10px 14px;">${acciones}</td>
     </tr>`;
@@ -23355,20 +23408,40 @@ async function adminGuardarVigencia() {
     vigenciaHasta = document.getElementById('mavFecha').value;
     if (!vigenciaHasta) { showToast('⚠️ Ingresa una fecha válida'); return; }
   }
-  // tipo === 'ilimitado' → vigenciaHasta = null
+
+  // Capturar datos de pago
+  const plan        = document.getElementById('mavPlan')?.value || '';
+  const monto       = parseFloat(document.getElementById('mavMonto')?.value) || 0;
+  const metodoPago  = document.getElementById('mavMetodoPago')?.value || '';
+  const notasPago   = document.getElementById('mavNotasPago')?.value?.trim() || '';
+
+  // Construir registro de pago si hay monto
+  const pagoData = monto > 0 ? {
+    ultimoPago: {
+      fecha: new Date().toISOString().slice(0,10),
+      monto,
+      plan,
+      metodoPago,
+      notas: notasPago,
+      registradoPor: _ccIngresada,
+    }
+  } : {};
 
   const ok = await window.fbSetUsuario(cc, {
     estado: 'aprobado',
     vigenciaHasta,
     aprobadoEn: new Date().toISOString(),
     aprobadoPor: _ccIngresada,
+    plan: plan || undefined,
+    ...pagoData,
   });
 
   if (ok) {
     const fechaStr = vigenciaHasta
       ? new Date(vigenciaHasta + 'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})
       : 'sin límite';
-    showToast(`✅ Acceso aprobado hasta ${fechaStr}`);
+    const pagoStr = monto > 0 ? ` · Pago $${monto.toLocaleString('es-CO')} registrado` : '';
+    showToast(`✅ Acceso aprobado hasta ${fechaStr}${pagoStr}`);
     document.getElementById('modalAdminVigencia').style.display = 'none';
     adminCargarUsuarios();
   } else {
@@ -23384,6 +23457,11 @@ function adminEditarVigencia(cc, nombre, vigActual) {
   document.getElementById('mavFecha').value        = vigActual || '';
   document.getElementById('mavMeses').value        = '1';
   document.getElementById('mavTipo').value         = vigActual ? 'fecha' : 'ilimitado';
+  // Limpiar campos de pago
+  if (document.getElementById('mavPlan'))       document.getElementById('mavPlan').value = '';
+  if (document.getElementById('mavMonto'))      document.getElementById('mavMonto').value = '';
+  if (document.getElementById('mavMetodoPago')) document.getElementById('mavMetodoPago').value = '';
+  if (document.getElementById('mavNotasPago'))  document.getElementById('mavNotasPago').value = '';
   adminVigenciaTipoChange();
   modal.style.display = 'flex';
 }
@@ -23414,7 +23492,7 @@ function adminResetearPIN() {
 async function _migrarUsuarioFran() {
   if (!window.fbGetUsuario || !window.fbSetUsuario) return;
   try {
-    const meta = await window.fbGetUsuario('__meta__');
+    const meta = await window.fbGetAppMeta();
     if (meta && meta.primerUsuarioCreado) return; // ya migrado
     // Verificar si existe el usuario 'fran' en datos (UID anterior)
     // Crear el usuario admin con la CC real del asesor actual
@@ -23429,7 +23507,7 @@ async function _migrarUsuarioFran() {
         migrado: true,
       });
     }
-    await window.fbSetUsuario('__meta__', { primerUsuarioCreado: true });
+    await window.fbSetAppMeta({ primerUsuarioCreado: true });
   } catch(e) { console.warn('_migrarUsuarioFran', e); }
 }
 
