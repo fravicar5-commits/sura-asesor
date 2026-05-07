@@ -1389,7 +1389,7 @@
 </div>
 <!-- ===== MODAL VIGENCIA ADMIN ===== -->
 <div id="modalAdminVigencia" style="display:none;position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:16px;">
-  <div style="background:var(--surface1);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:460px;box-shadow:0 24px 64px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:460px;box-shadow:0 24px 64px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;">
     <div style="font-size:16px;font-weight:700;margin-bottom:4px;">🗓️ Gestionar Acceso</div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Asesor: <strong id="mavNombre"></strong></div>
     <input type="hidden" id="mavCC">
@@ -14834,7 +14834,9 @@ function calcPrimaMensualSinIVA(v) {
   return v.primaSinIVA || Math.round((v.prima||0)/1.05);
 }
 
-// Calcula impacto presupuestal de una cancelación
+// Calcula impacto presupuestal de una cancelación — Flujo oficial SURA
+// No pago: 3 facturas (60 días) en mes cancelación + excedente proyección en mes siguiente
+// Otro motivo: mes que se deja de pagar en mes cancelación + excedente proyección en mes siguiente
 function calcImpactoCancelacion(v, pagosState) {
   const pList = pagosState[v.id] || [];
   const mesesPagados = pList.length;
@@ -14842,11 +14844,33 @@ function calcImpactoCancelacion(v, pagosState) {
   const proyAnual = primaMens * 12;
   const pagado = primaMens * mesesPagados;
   const mesesPendientes = Math.max(0, 12 - mesesPagados);
-  const impacto = mesesPendientes * primaMens;
-  const mesCancelacion = v.fechaCancelacion
-    ? new Date(v.fechaCancelacion + 'T12:00:00').getMonth()
-    : (v.fechaExp ? new Date(v.fechaExp + 'T12:00:00').getMonth() : -1);
-  return { mesesPagados, mesesPendientes, primaMens, proyAnual, pagado, impacto, mesCancelacion };
+
+  const mesCancelacion = v.cancelacionMes !== undefined
+    ? v.cancelacionMes
+    : (v.fechaCancelacion ? new Date(v.fechaCancelacion + 'T12:00:00').getMonth()
+      : (v.fechaExp ? new Date(v.fechaExp + 'T12:00:00').getMonth() : -1));
+
+  const mesSiguiente = mesCancelacion >= 0 ? (mesCancelacion + 1) % 12 : -1;
+  const esNoPago = v.cancelacionEsNoPago === true ||
+    (v.motivoCancelacion && v.motivoCancelacion.toLowerCase().includes('no pago'));
+
+  // Impacto en el mes de cancelación
+  let impactoMesCancelacion = v.cancelacionImpactoMes !== undefined
+    ? v.cancelacionImpactoMes
+    : (esNoPago ? primaMens * 3 : primaMens);
+
+  // Excedente en el mes siguiente (primas faltantes, no es cancelación adicional)
+  let impactoMesSiguiente = v.cancelacionImpactoSiguiente !== undefined
+    ? v.cancelacionImpactoSiguiente
+    : Math.max(0, proyAnual - pagado - impactoMesCancelacion);
+
+  const impacto = impactoMesCancelacion + impactoMesSiguiente;
+
+  return {
+    mesesPagados, mesesPendientes, primaMens, proyAnual, pagado, impacto,
+    mesCancelacion, mesSiguiente, esNoPago,
+    impactoMesCancelacion, impactoMesSiguiente
+  };
 }
 
 function renderCancelados() {
@@ -14915,6 +14939,34 @@ function renderImpactoCancelaciones() {
   const MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const canceladas = s.ventas.filter(v => ['SPTI','SPD','PSM','PAC60'].includes(v.producto) && v.tipo === 'CANCELACION');
 
+  // ── Indicador KPI SURA 2026: metas de cancelación por semestre ───────────
+  // S1 (Ene–Jun): 4.5% · S2 (Jul–Dic): 3.5%
+  const hoy = new Date();
+  const mesActual = hoy.getMonth(); // 0=Ene
+  const esPrimerSemestre = mesActual <= 5;
+  const metaCancelacionPct = esPrimerSemestre ? 4.5 : 3.5;
+  const semestral = esPrimerSemestre ? '1° semestre (Ene–Jun)' : '2° semestre (Jul–Dic)';
+
+  // Total pólizas vigentes voluntarias
+  const polizasVigentes = s.ventas.filter(v =>
+    ['SPTI','SPD','PSM','PAC60'].includes(v.producto) && v.tipo !== 'CANCELACION' && v.fechaExp
+  ).length;
+
+  // Cancelaciones del semestre actual
+  const cancelSemestre = canceladas.filter(v => {
+    if (!v.fechaCancelacion) return false;
+    const mc = new Date(v.fechaCancelacion + 'T12:00:00').getMonth();
+    return esPrimerSemestre ? mc <= 5 : mc >= 6;
+  }).length;
+
+  const canceladasPermitidas = Math.floor((polizasVigentes + cancelSemestre) * (metaCancelacionPct / 100));
+  const cancelRestantes = Math.max(0, canceladasPermitidas - cancelSemestre);
+  const superaMeta = cancelSemestre > canceladasPermitidas;
+  const pctRealCancelacion = (polizasVigentes + cancelSemestre) > 0
+    ? ((cancelSemestre / (polizasVigentes + cancelSemestre)) * 100).toFixed(2)
+    : '0.00';
+  const colorKpi = superaMeta ? 'var(--red)' : cancelRestantes <= 1 ? 'var(--amber)' : 'var(--green)';
+
   // Poblar filtro de meses
   const sel = document.getElementById('cancelImpactoMesFiltro');
   if (sel) {
@@ -14922,7 +14974,6 @@ function renderImpactoCancelaciones() {
       .filter(v => v.fechaCancelacion)
       .map(v => new Date(v.fechaCancelacion + 'T12:00:00').getMonth())
     )].sort((a,b)=>a-b);
-    // Reconstruir options
     const valorActual = sel.value;
     while (sel.options.length > 1) sel.remove(1);
     mesesConCancelaciones.forEach(m => {
@@ -14935,70 +14986,113 @@ function renderImpactoCancelaciones() {
   }
 
   const filtroMes = sel ? sel.value : 'todos';
+  // Filtrar SOLO por mes de cancelación (no por mes siguiente del excedente)
   const filtradas = filtroMes === 'todos' ? canceladas
     : canceladas.filter(v => {
         if (!v.fechaCancelacion) return false;
-        return new Date(v.fechaCancelacion + 'T12:00:00').getMonth() === parseInt(filtroMes);
+        const mc = v.cancelacionMes !== undefined ? v.cancelacionMes
+          : new Date(v.fechaCancelacion + 'T12:00:00').getMonth();
+        return mc === parseInt(filtroMes);
       });
 
+  // ── KPI SURA HTML ────────────────────────────────────────────────────────
+  const kpiSuraHtml = `
+    <div style="background:var(--surface2);border-radius:10px;padding:16px;margin-bottom:16px;border:1px solid var(--border);border-left:3px solid ${colorKpi};">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.07em;">📊 Indicador SURA — % Cancelación ${semestral}</div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">Meta: máx. ${metaCancelacionPct}% de cancelación · Fórmula: pólizas vigentes totales × ${metaCancelacionPct}%</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:var(--mono);font-size:24px;font-weight:800;color:${colorKpi};">${pctRealCancelacion}%</div>
+          <div style="font-size:10px;color:var(--text-dim);">% real vs meta ${metaCancelacionPct}%</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
+        <div style="background:var(--surface3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px;text-transform:uppercase;">Pólizas vigentes</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text);">${polizasVigentes}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">activas en cartera</div>
+        </div>
+        <div style="background:var(--surface3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px;text-transform:uppercase;">Canceladas semestre</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${cancelSemestre > 0 ? 'var(--red)' : 'var(--text)'};">${cancelSemestre}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">registradas</div>
+        </div>
+        <div style="background:var(--surface3);border-radius:8px;padding:10px;">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px;text-transform:uppercase;">Permitidas por meta</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text);">${canceladasPermitidas}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${metaCancelacionPct}% del total</div>
+        </div>
+        <div style="background:${superaMeta ? 'rgba(220,38,38,0.1)' : 'rgba(52,211,153,0.08)'};border-radius:8px;padding:10px;border:1px solid ${superaMeta ? 'rgba(220,38,38,0.2)' : 'rgba(52,211,153,0.2)'};">
+          <div style="font-size:10px;color:${colorKpi};margin-bottom:3px;text-transform:uppercase;">${superaMeta ? '⚠️ Exceso' : '✅ Margen'}</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${colorKpi};">${superaMeta ? '+' + (cancelSemestre - canceladasPermitidas) : cancelRestantes}</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${superaMeta ? 'sobre la meta' : 'cancelaciones restantes'}</div>
+        </div>
+      </div>
+      <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-bottom:6px;">
+        <div style="width:${Math.min(parseFloat(pctRealCancelacion) / metaCancelacionPct * 100, 100)}%;height:100%;background:${colorKpi};border-radius:4px;transition:width .5s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-dim);">
+        <span>${superaMeta ? '⛔ Superaste la meta — revisa causas de cancelación' : cancelRestantes === 0 ? '⚠️ En el límite — sin margen adicional' : 'Dentro del rango aceptable'}</span>
+        <span style="color:${colorKpi};font-weight:600;">${pctRealCancelacion}% / ${metaCancelacionPct}% meta</span>
+      </div>
+    </div>`;
+
   if (!filtradas.length) {
-    cont.innerHTML = '<div style="color:var(--text-dim);font-size:12.5px;padding:12px 0;">Sin cancelaciones en este período.</div>';
+    cont.innerHTML = kpiSuraHtml + '<div style="color:var(--text-dim);font-size:12.5px;padding:12px 0;">Sin cancelaciones registradas en este período.</div>';
     return;
   }
 
-  // Calcular totales
+  // ── Calcular totales e impacto con lógica SURA ───────────────────────────
+  let totalImpactoMesCancelacion = 0, totalImpactoSiguiente = 0;
   let totalImpacto = 0, totalPagado = 0, totalProyAnual = 0;
   const detalles = filtradas.map(v => {
     const imp = calcImpactoCancelacion(v, pagos);
     totalImpacto += imp.impacto;
+    totalImpactoMesCancelacion += imp.impactoMesCancelacion;
+    totalImpactoSiguiente += imp.impactoMesSiguiente;
     totalPagado += imp.pagado;
     totalProyAnual += imp.proyAnual;
     return { v, imp };
   });
 
-  // ── Constantes base presupuesto ──────────────────────────────────────────
-  const PRIMA_MENSUAL_BASE = 159120;  // Preferencial 0-40 sin IVA
-  const PRIMA_ANUAL_BASE   = PRIMA_MENSUAL_BASE * 12; // 1.909.440
+  const PRIMA_MENSUAL_BASE = 159120;
+  const PRIMA_ANUAL_BASE   = PRIMA_MENSUAL_BASE * 12;
   const planesEquivalentes = totalImpacto / PRIMA_MENSUAL_BASE;
   const tituloMes = filtroMes === 'todos' ? 'acumulado total' : 'mes de ' + MESES_NOM[parseInt(filtroMes)];
+  const colorImpacto = totalImpacto > 3000000 ? 'var(--red)' : totalImpacto > 1000000 ? 'var(--amber)' : 'var(--text-muted)';
 
-  // ── Cálculo impacto vs presupuesto por mes ────────────────────────────────
-  // Para cada mes con cancelaciones, calcular cuánto del ppto SPTI+SPD representa el impacto
-  const impactoPorMes = {};
-  filtradas.forEach(v => {
-    if (!v.fechaCancelacion) return;
-    const mes = new Date(v.fechaCancelacion + 'T12:00:00').getMonth();
-    if (!impactoPorMes[mes]) impactoPorMes[mes] = 0;
-    impactoPorMes[mes] += calcImpactoCancelacion(v, pagos).impacto;
-  });
-
-  // Presupuesto anual SPTI+SPD: planes × prima anual base
-  const pptoSptiAnual = (s.config.spti || []).reduce((sum,n) => sum + (n||0), 0) * PRIMA_ANUAL_BASE;
-  const pptoSpdAnual  = (s.config.spd  || []).reduce((sum,n) => sum + (n||0), 0) * PRIMA_ANUAL_BASE;
-  const pptoVolAnual  = pptoSptiAnual + pptoSpdAnual;
-
-  // Para el mes filtrado: ppto SPTI+SPD de ese mes × prima anual
+  // Presupuesto SPTI+SPD — prima real por producto desde pólizas vigentes
   const mesIdx = filtroMes !== 'todos' ? parseInt(filtroMes) : -1;
-  const pptoMesSpti = mesIdx >= 0 ? ((s.config.spti||[])[mesIdx]||0) * PRIMA_ANUAL_BASE : 0;
-  const pptoMesSpd  = mesIdx >= 0 ? ((s.config.spd ||[])[mesIdx]||0) * PRIMA_ANUAL_BASE : 0;
-  const pptoMesVol  = pptoMesSpti + pptoMesSpd;
-  const pctImpactoMes = pptoMesVol > 0 ? Math.min(Math.round(totalImpacto / pptoMesVol * 100), 999) : 0;
-  const pctImpactoAnual = pptoVolAnual > 0 ? (totalImpacto / pptoVolAnual * 100).toFixed(1) : 0;
-  const planesExtraMes = pptoMesVol > 0 ? Math.ceil(totalImpacto / PRIMA_ANUAL_BASE) : 0;
-
-  // Planes registrados en presupuesto para el mes
   const nPlanesSptiMes = mesIdx >= 0 ? ((s.config.spti||[])[mesIdx]||0) : 0;
   const nPlanesSpdMes  = mesIdx >= 0 ? ((s.config.spd ||[])[mesIdx]||0) : 0;
   const nPlanesMes     = nPlanesSptiMes + nPlanesSpdMes;
-  const planesConCancelacion = nPlanesMes + planesExtraMes;
 
-  // KPIs del resumen
-  const colorImpacto = totalImpacto > 3000000 ? 'var(--red)' : totalImpacto > 1000000 ? 'var(--amber)' : 'var(--text-muted)';
+  // Prima mensual promedio real por producto (desde pólizas vigentes en cartera)
+  // Prima base fija por producto (SURA): SPTI Preferencial 0-40 = 159.120 / SPD = 92.070
+  const PRIMA_MENS_SPTI = 159120;
+  const PRIMA_MENS_SPD  = 92070;
+  const primaAnualSpti  = PRIMA_MENS_SPTI * 12; // 1.909.440
+  const primaAnualSpd   = PRIMA_MENS_SPD  * 12; // 1.104.840
+
+  const pptoSptiAnual = (s.config.spti || []).reduce((sum,n) => sum + (n||0), 0) * primaAnualSpti;
+  const pptoSpdAnual  = (s.config.spd  || []).reduce((sum,n) => sum + (n||0), 0) * primaAnualSpd;
+  const pptoVolAnual  = pptoSptiAnual + pptoSpdAnual;
+  const pptoMesVol    = nPlanesSptiMes * primaAnualSpti + nPlanesSpdMes * primaAnualSpd;
+  const pctImpactoMes   = pptoMesVol > 0 ? Math.min(Math.round(totalImpacto / pptoMesVol * 100), 999) : 0;
+  const pctImpactoAnual = pptoVolAnual > 0 ? (totalImpacto / pptoVolAnual * 100).toFixed(1) : 0;
+  const planesExtraMes  = Math.ceil(totalImpacto / PRIMA_ANUAL_BASE);
+  const planesConCancelacion = nPlanesMes + planesExtraMes;
   const colorPct = pctImpactoMes >= 20 ? 'var(--red)' : pctImpactoMes >= 10 ? 'var(--amber)' : 'var(--green)';
 
-  cont.innerHTML = `
-    <!-- KPIs resumen -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
+  // Nombre del mes siguiente para mostrar en resumen
+  const MESES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const mesSigNom = mesIdx >= 0 ? MESES_ABR[(mesIdx + 1) % 12] : '—';
+
+  cont.innerHTML = kpiSuraHtml + `
+    <!-- KPIs resumen impacto -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
       <div style="background:var(--surface2);border-radius:10px;padding:14px;border:1px solid var(--border);">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-dim);margin-bottom:6px;">Pólizas canceladas</div>
         <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);">${filtradas.length}</div>
@@ -15015,60 +15109,132 @@ function renderImpactoCancelaciones() {
         <div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;">Lo que efectivamente entró</div>
       </div>
       <div style="background:rgba(220,38,38,0.08);border-radius:10px;padding:14px;border:1px solid rgba(220,38,38,0.25);">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--red);margin-bottom:6px;">⚠️ Impacto a reponer</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--red);margin-bottom:6px;">⚠️ Impacto total a reponer</div>
         <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:${colorImpacto};">−${fmt(totalImpacto)}</div>
         <div style="font-size:10.5px;color:var(--text-dim);margin-top:2px;">≈ ${planesEquivalentes.toFixed(1)} planes mensuales</div>
       </div>
     </div>
 
-    <!-- Barra de impacto -->
-    <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-size:12px;font-weight:600;color:var(--text);">Relación pagado vs impacto pendiente</span>
-        <span style="font-size:11.5px;color:var(--text-muted);">${fmt(totalPagado)} cobrado + <span style="color:${colorImpacto};">−${fmt(totalImpacto)}</span> = ${fmt(totalProyAnual)} proy.</span>
+    <!-- Distribución del impacto SURA por mes -->
+    ${mesIdx >= 0 ? `
+    <div style="background:var(--surface2);border-radius:10px;padding:16px;margin-bottom:14px;border:1px solid var(--border);border-left:3px solid var(--red);">
+      <div style="font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;">Distribución de primas faltantes — Flujo SURA</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div style="background:rgba(220,38,38,0.08);border-radius:8px;padding:12px;border:1px solid rgba(220,38,38,0.2);">
+          <div style="font-size:10px;color:var(--red);margin-bottom:4px;text-transform:uppercase;">📅 ${MESES_NOM[mesIdx]} — Mes cancelación</div>
+          <div style="font-family:var(--mono);font-size:20px;font-weight:800;color:var(--red);">−${fmt(totalImpactoMesCancelacion)}</div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;">Se carga en este mes · afecta indicador de cancelaciones</div>
+        </div>
+        <div style="background:rgba(251,191,36,0.08);border-radius:8px;padding:12px;border:1px solid rgba(251,191,36,0.2);">
+          <div style="font-size:10px;color:var(--amber);margin-bottom:4px;text-transform:uppercase;">📅 ${mesSigNom} — Mes siguiente (excedente)</div>
+          <div style="font-family:var(--mono);font-size:20px;font-weight:800;color:var(--amber);">−${fmt(totalImpactoSiguiente)}</div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;">Excedente proyección anual · solo primas, no cuenta como cancelación</div>
+        </div>
       </div>
-      <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;display:flex;">
-        <div style="width:${totalProyAnual>0?Math.round(totalPagado/totalProyAnual*100):0}%;background:var(--green);border-radius:4px 0 0 4px;transition:width .5s;"></div>
-        <div style="flex:1;background:rgba(220,38,38,0.45);border-radius:0 4px 4px 0;"></div>
+      <div style="font-size:11px;color:var(--text-dim);padding:8px;background:var(--surface3);border-radius:6px;">
+        💡 El excedente en ${mesSigNom} indica planes que debes reponer ese mes para cubrir la proyección anual afectada.
       </div>
-      <div style="display:flex;gap:16px;margin-top:6px;">
-        <span style="font-size:10.5px;color:var(--green);">■ Pagado (${totalProyAnual>0?Math.round(totalPagado/totalProyAnual*100):0}%)</span>
-        <span style="font-size:10.5px;color:var(--red);">■ Impacto pendiente (${totalProyAnual>0?Math.round(totalImpacto/totalProyAnual*100):0}%)</span>
-      </div>
-    </div>
+    </div>` : ''}
 
-    <!-- Impacto vs Presupuesto SPTI+SPD -->
+    <!-- Impacto vs Presupuesto -->
     ${mesIdx >= 0 && pptoMesVol > 0 ? `
-    <div style="background:var(--surface2);border-radius:10px;padding:16px;margin-bottom:14px;border:1px solid var(--border);border-left:3px solid ${colorPct};">
-      <div style="font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;">Impacto vs Presupuesto ${MESES_NOM[mesIdx]} — Voluntarios SPTI + SPD</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
-        <div style="background:var(--surface3);border-radius:8px;padding:12px;">
-          <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;text-transform:uppercase;">Ppto. del mes</div>
-          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text);">${fmt(pptoMesVol)}</div>
-          <div style="font-size:10.5px;color:var(--text-dim);margin-top:3px;">${nPlanesSptiMes} SPTI + ${nPlanesSpdMes} SPD · ${nPlanesMes} planes × ${fmt(PRIMA_ANUAL_BASE)}</div>
+    <div id="impactoPptoCard" style="background:var(--surface2);border-radius:10px;padding:16px;margin-bottom:14px;border:1px solid var(--border);border-left:3px solid ${colorPct};">
+      <!-- Header con toggle -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.07em;">Impacto vs Presupuesto ${MESES_NOM[mesIdx]} \u2014 Voluntarios</div>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;">
+          <span style="font-size:10.5px;color:var(--text-muted);">SPTI+SPD</span>
+          <div id="toggleImpactoPpto" data-sep="0" onclick="toggleImpactoPptoSeparado(this)"
+            style="position:relative;width:36px;height:20px;border-radius:10px;background:var(--surface3);border:1px solid var(--border);cursor:pointer;transition:background .2s;flex-shrink:0;">
+            <div style="position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:var(--text-muted);transition:left .2s,background .2s;"></div>
+          </div>
+          <span style="font-size:10.5px;color:var(--text-muted);">Separado</span>
+        </label>
+      </div>
+
+      <!-- Vista UNIFICADA -->
+      <div id="impactoPptoUnif">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">
+          <div style="background:var(--surface3);border-radius:8px;padding:12px;">
+            <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;text-transform:uppercase;">Ppto. del mes</div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text);">${fmt(pptoMesVol)}</div>
+            <div style="font-size:10.5px;color:var(--text-dim);margin-top:3px;">${nPlanesSptiMes} SPTI + ${nPlanesSpdMes} SPD \u00b7 ${nPlanesMes} planes</div>
+          </div>
+          <div style="background:rgba(220,38,38,0.08);border-radius:8px;padding:12px;border:1px solid rgba(220,38,38,0.15);">
+            <div style="font-size:10px;color:var(--red);margin-bottom:4px;text-transform:uppercase;">Impacto cancelaciones</div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${colorPct};">\u2212${fmt(totalImpacto)}</div>
+            <div style="font-size:10.5px;color:var(--text-dim);margin-top:3px;">${pctImpactoMes}% del presupuesto del mes</div>
+          </div>
+          <div style="background:rgba(37,88,240,0.08);border-radius:8px;padding:12px;border:1px solid rgba(37,88,240,0.15);">
+            <div style="font-size:10px;color:var(--sura-blue);margin-bottom:4px;text-transform:uppercase;">Planes que debes reponer</div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--sura-lime);">${planesExtraMes > 0 ? '+' + planesExtraMes : '0'} planes</div>
+            <div style="font-size:10.5px;color:var(--text-dim);margin-top:3px;">Meta real: ${nPlanesMes} + ${planesExtraMes} = <strong style="color:var(--text);">${planesConCancelacion}</strong></div>
+          </div>
         </div>
-        <div style="background:rgba(220,38,38,0.08);border-radius:8px;padding:12px;border:1px solid rgba(220,38,38,0.15);">
-          <div style="font-size:10px;color:var(--red);margin-bottom:4px;text-transform:uppercase;">Impacto cancelaciones</div>
-          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${colorPct};">−${fmt(totalImpacto)}</div>
-          <div style="font-size:10.5px;color:var(--text-dim);margin-top:3px;">${pctImpactoMes}% del presupuesto del mes</div>
+        <div style="position:relative;height:10px;background:var(--surface3);border-radius:5px;overflow:hidden;">
+          <div style="width:100%;height:100%;background:var(--sura-blue);border-radius:5px;opacity:0.25;position:absolute;top:0;left:0;"></div>
+          <div style="position:absolute;top:0;left:0;width:${Math.min(pctImpactoMes,100)}%;height:100%;background:${colorPct};border-radius:5px;transition:width .5s;"></div>
         </div>
-        <div style="background:rgba(37,88,240,0.08);border-radius:8px;padding:12px;border:1px solid rgba(37,88,240,0.15);">
-          <div style="font-size:10px;color:var(--sura-blue);margin-bottom:4px;text-transform:uppercase;">Planes que debes reponer</div>
-          <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--sura-lime);">${planesExtraMes > 0 ? '+' + planesExtraMes : '0'} planes</div>
-          <div style="font-size:10.5px;color:var(--text-dim);margin-top:3px;">Meta real: ${nPlanesMes} + ${planesExtraMes} = <strong style="color:var(--text);">${planesConCancelacion} planes</strong></div>
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-muted);margin-top:6px;">
+          <span>Presupuesto original: ${nPlanesMes} planes</span>
+          <span style="color:${colorPct};">Con cancelaciones necesitas: ${planesConCancelacion} planes</span>
         </div>
       </div>
-      <!-- Barra ppto vs impacto -->
-      <div style="margin-bottom:6px;font-size:11.5px;color:var(--text-muted);display:flex;justify-content:space-between;">
-        <span>Presupuesto original: ${nPlanesMes} planes</span>
-        <span style="color:${colorPct};">Con cancelaciones necesitas: ${planesConCancelacion} planes</span>
+
+      <!-- Vista SEPARADA SPTI / SPD -->
+      <div id="impactoPptoSep" style="display:none;">
+        ${(()=>{
+          // Impacto REAL por producto: sumar solo las cancelaciones de cada producto
+          const sptiPpto = nPlanesSptiMes * primaAnualSpti;
+          const spdPpto  = nPlanesSpdMes  * primaAnualSpd;
+          const impSpti  = filtradas.filter(v => v.producto === 'SPTI')
+            .reduce((s, v) => s + calcImpactoCancelacion(v, pagos).impacto, 0);
+          const impSpd   = filtradas.filter(v => v.producto === 'SPD')
+            .reduce((s, v) => s + calcImpactoCancelacion(v, pagos).impacto, 0);
+          const nCancelSpti = filtradas.filter(v => v.producto === 'SPTI').length;
+          const nCancelSpd  = filtradas.filter(v => v.producto === 'SPD').length;
+          const extraSpti = primaAnualSpti > 0 ? Math.ceil(impSpti / primaAnualSpti) : 0;
+          const extraSpd  = primaAnualSpd  > 0 ? Math.ceil(impSpd  / primaAnualSpd)  : 0;
+          const pctSpti = sptiPpto > 0 ? Math.min(Math.round(impSpti / sptiPpto * 100), 999) : 0;
+          const pctSpd  = spdPpto  > 0 ? Math.min(Math.round(impSpd  / spdPpto  * 100), 999) : 0;
+          const cSpti = pctSpti >= 20 ? 'var(--red)' : pctSpti >= 10 ? 'var(--amber)' : 'var(--green)';
+          const cSpd  = pctSpd  >= 20 ? 'var(--red)' : pctSpd  >= 10 ? 'var(--amber)' : 'var(--green)';
+          const rows = [
+            { prod:'SPTI', label:'\ud83d\udfe6 SPTI \u2014 Salud Para Todos Individual', ppto:sptiPpto, planes:nPlanesSptiMes, imp:impSpti, extra:extraSpti, pct:pctSpti, c:cSpti, nCancel:nCancelSpti, primaMensAnual:PRIMA_MENS_SPTI },
+            { prod:'SPD',  label:'\ud83d\udfe8 SPD \u2014 Salud Para Dos',               ppto:spdPpto,  planes:nPlanesSpdMes,  imp:impSpd,  extra:extraSpd,  pct:pctSpd,  c:cSpd,  nCancel:nCancelSpd,  primaMensAnual:PRIMA_MENS_SPD  },
+          ];
+          return rows.map(r => `
+          <div style="margin-bottom:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;border-bottom:1px solid var(--border);padding-bottom:5px;">
+              <span style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">${r.label}</span>
+              <span style="font-size:10px;color:var(--text-dim);">${r.nCancel} cancelación${r.nCancel !== 1 ? 'es' : ''}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:7px;">
+              <div style="background:var(--surface3);border-radius:8px;padding:10px;">
+                <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px;text-transform:uppercase;">Ppto. ${r.prod}</div>
+                <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text);">${r.ppto > 0 ? fmt(r.ppto) : '\u2014'}</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${r.planes} planes \u00d7 ${fmt(r.primaMensAnual)}</div>
+              </div>
+              <div style="background:${r.imp > 0 ? 'rgba(220,38,38,0.08)' : 'var(--surface3)'};border-radius:8px;padding:10px;border:1px solid ${r.imp > 0 ? 'rgba(220,38,38,0.12)' : 'var(--border)'};">
+                <div style="font-size:10px;color:${r.imp > 0 ? 'var(--red)' : 'var(--text-dim)'};margin-bottom:3px;text-transform:uppercase;">Impacto ${r.prod}</div>
+                <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:${r.imp > 0 ? r.c : 'var(--text-muted)'};">${r.imp > 0 ? '\u2212'+fmt(r.imp) : 'Sin impacto'}</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${r.imp > 0 ? r.pct+'% del ppto. '+r.prod : 'No hay cancelaciones '+r.prod}</div>
+              </div>
+              <div style="background:${r.extra > 0 ? 'rgba(37,88,240,0.08)' : 'var(--surface3)'};border-radius:8px;padding:10px;border:1px solid ${r.extra > 0 ? 'rgba(37,88,240,0.12)' : 'var(--border)'};">
+                <div style="font-size:10px;color:var(--sura-blue);margin-bottom:3px;text-transform:uppercase;">Reponer ${r.prod}</div>
+                <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--sura-lime);">${r.extra > 0 ? '+'+r.extra : '0'} planes</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px;">Meta: ${r.planes} + ${r.extra} = ${r.planes + r.extra}</div>
+              </div>
+            </div>
+            <div style="position:relative;height:7px;background:var(--surface3);border-radius:4px;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;width:${Math.min(r.pct,100)}%;height:100%;background:${r.c};border-radius:4px;transition:width .5s;"></div>
+            </div>
+          </div>`).join('');
+        })()}
+        <div style="font-size:10.5px;color:var(--text-dim);padding:8px;background:var(--surface3);border-radius:6px;margin-top:4px;">
+          \ud83d\udca1 Cada producto muestra solo el impacto de sus propias cancelaciones. SPTI no afecta el presupuesto de SPD ni viceversa.
+        </div>
       </div>
-      <div style="position:relative;height:10px;background:var(--surface3);border-radius:5px;overflow:visible;">
-        <div style="width:100%;height:100%;background:var(--sura-blue);border-radius:5px;opacity:0.3;"></div>
-        <div style="position:absolute;top:0;left:0;width:${Math.min(pctImpactoMes,100)}%;height:100%;background:${colorPct};border-radius:5px;"></div>
-        ${pctImpactoMes > 0 ? `<div style="position:absolute;top:-18px;right:0;font-size:10px;font-weight:700;color:${colorPct};">${pctImpactoMes}% del ppto. cancelado</div>` : ''}
-      </div>
-      <div style="margin-top:10px;font-size:11px;color:var(--text-dim);">Base de cálculo: Plan Preferencial sin IVA · ${fmt(PRIMA_MENSUAL_BASE)}/mes · ${fmt(PRIMA_ANUAL_BASE)}/año</div>
     </div>
     ` : mesIdx < 0 && pptoVolAnual > 0 ? `
     <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
@@ -15082,30 +15248,37 @@ function renderImpactoCancelaciones() {
     </div>
     ` : ''}
 
-    <!-- Detalle por cancelación -->
-    <div style="font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Detalle por póliza</div>
-    <div style="display:flex;flex-direction:column;gap:6px;">
+    <!-- Detalle por póliza cancelada -->
+    <div style="font-size:10.5px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Detalle por póliza — Flujo SURA</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
     ${detalles.map(({v, imp}) => {
       const nombre = tc(v.tomadorNombre || v.nombre || '—');
       const cancelFmt = v.fechaCancelacion ? new Date(v.fechaCancelacion+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-      const impColor2 = imp.mesesPendientes >= 10 ? 'var(--red)' : imp.mesesPendientes >= 6 ? 'var(--amber)' : 'var(--green)';
-      const barW = Math.round(imp.mesesPagados/12*100);
+      const impColor2 = imp.impacto > (imp.primaMens * 6) ? 'var(--red)' : imp.impacto > imp.primaMens ? 'var(--amber)' : 'var(--green)';
+      const barW = Math.round(imp.mesesPagados / 12 * 100);
+      const mesCancNom = imp.mesCancelacion >= 0 ? MESES_ABR[imp.mesCancelacion] : '—';
+      const mesSigDetNom = imp.mesSiguiente >= 0 ? MESES_ABR[imp.mesSiguiente] : '—';
+      const etiquetaTipo = imp.esNoPago
+        ? '<span style="font-size:10px;background:rgba(220,38,38,0.12);color:var(--red);padding:1px 6px;border-radius:4px;font-weight:600;">No pago</span>'
+        : '<span style="font-size:10px;background:rgba(251,191,36,0.12);color:var(--amber);padding:1px 6px;border-radius:4px;font-weight:600;">Otro motivo</span>';
       return `<div style="background:var(--surface2);border-radius:8px;padding:12px 14px;border:1px solid var(--border);border-left:3px solid ${impColor2};">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
           <div>
             <span style="font-weight:600;font-size:13px;color:var(--text);">${nombre}</span>
             <span style="font-size:11px;color:var(--text-dim);margin-left:8px;">${v.producto} · ${v.plan||''}</span>
+            <span style="margin-left:6px;">${etiquetaTipo}</span>
           </div>
           <div style="text-align:right;">
             <span style="font-family:var(--mono);font-size:15px;font-weight:800;color:${impColor2};">${imp.impacto > 0 ? '−'+fmt(imp.impacto) : 'Sin impacto'}</span>
             <div style="font-size:10px;color:var(--text-dim);">Cancelado: ${cancelFmt} · ${v.motivoCancelacion||'sin motivo'}</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;font-size:11px;">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px;font-size:11px;">
           <div><div style="color:var(--text-dim);">Proy. anual</div><div style="font-family:var(--mono);font-weight:600;">${fmt(imp.proyAnual)}</div></div>
-          <div><div style="color:var(--text-dim);">Prima mensual</div><div style="font-family:var(--mono);font-weight:600;">${fmt(imp.primaMens)}</div></div>
-          <div><div style="color:var(--green);">Pagado</div><div style="font-family:var(--mono);font-weight:600;color:var(--green);">${fmt(imp.pagado)} (${imp.mesesPagados} m.)</div></div>
-          <div><div style="color:${impColor2};">Impacto</div><div style="font-family:var(--mono);font-weight:700;color:${impColor2};">${imp.impacto>0?'−'+fmt(imp.impacto)+' ('+imp.mesesPendientes+' m.)':'—'}</div></div>
+          <div><div style="color:var(--text-dim);">Prima mens.</div><div style="font-family:var(--mono);font-weight:600;">${fmt(imp.primaMens)}</div></div>
+          <div><div style="color:var(--green);">Pagado</div><div style="font-family:var(--mono);font-weight:600;color:var(--green);">${fmt(imp.pagado)} (${imp.mesesPagados}m)</div></div>
+          <div><div style="color:var(--red);">Impacto ${mesCancNom}</div><div style="font-family:var(--mono);font-weight:700;color:var(--red);">−${fmt(imp.impactoMesCancelacion)}</div></div>
+          <div><div style="color:var(--amber);">Excedente ${mesSigDetNom}</div><div style="font-family:var(--mono);font-weight:700;color:var(--amber);">${imp.impactoMesSiguiente > 0 ? '−'+fmt(imp.impactoMesSiguiente) : '—'}</div></div>
         </div>
         <div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;display:flex;">
           <div style="width:${barW}%;background:var(--green);border-radius:2px;"></div>
@@ -15113,12 +15286,29 @@ function renderImpactoCancelaciones() {
         </div>
         <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-top:3px;">
           <span>${imp.mesesPagados} meses pagados</span>
-          <span>${imp.mesesPendientes} meses pendientes de reponer</span>
+          <span>Excedente en ${mesSigDetNom}: solo primas, no cuenta como cancelación adicional</span>
         </div>
       </div>`;
     }).join('')}
     </div>
   `;
+}
+
+function toggleImpactoPptoSeparado(btn) {
+  const sep = btn.getAttribute('data-sep') === '1';
+  const newSep = !sep;
+  btn.setAttribute('data-sep', newSep ? '1' : '0');
+  // Animar el thumb del toggle
+  const thumb = btn.querySelector('div');
+  if (thumb) {
+    thumb.style.left = newSep ? '21px' : '3px';
+    thumb.style.background = newSep ? 'var(--sura-blue)' : 'var(--text-muted)';
+  }
+  btn.style.background = newSep ? 'rgba(37,88,240,0.25)' : 'var(--surface3)';
+  const unif = document.getElementById('impactoPptoUnif');
+  const sepEl = document.getElementById('impactoPptoSep');
+  if (unif) unif.style.display = newSep ? 'none' : '';
+  if (sepEl) sepEl.style.display = newSep ? '' : 'none';
 }
 
 function reactivarPoliza(id) {
@@ -25388,7 +25578,7 @@ function enviarWACarteraV2(tel, nombre, estado, producto, extra) {
   window.open(`https://wa.me/57${clean}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// ── Cancelación con razón obligatoria ────────────────────────────────────────
+// ── Cancelación con razón obligatoria y selector de mes (flujo SURA) ─────────
 const RAZONES_CANCELACION = [
   'No pago / mora',
   'Insatisfacción con el servicio',
@@ -25399,33 +25589,192 @@ const RAZONES_CANCELACION = [
   'Otra razón',
 ];
 
+// Razones que se clasifican como "no pago" para el flujo SURA
+const RAZONES_NO_PAGO = new Set(['No pago / mora']);
+
 function cancelarVentaCartera(id) {
   const state = getState();
   const v = state.ventas.find(x => x.id === id);
   if (!v) return;
+
   const nombre = tc(v.tomadorNombre || v.nombre || '—');
+  const MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const hoy = new Date();
+  const mesActual = hoy.getMonth();
+  const anioActual = hoy.getFullYear();
 
-  // Mostrar modal de razón
-  const razon = prompt(
-    `⛔ Cancelar plan de ${nombre}\n\nSelecciona la razón (escribe el número):\n` +
-    RAZONES_CANCELACION.map((r,i) => `${i+1}. ${r}`).join('\n') +
-    '\n\nNúmero:'
-  );
-  if (!razon) return;
-  const idx = parseInt(razon) - 1;
-  const razonTexto = RAZONES_CANCELACION[idx] || razon;
+  // Construir opciones de mes (mes actual y los 2 anteriores)
+  const opcionesMes = [];
+  for (let i = 2; i >= 0; i--) {
+    const m = ((mesActual - i) + 12) % 12;
+    const a = mesActual - i < 0 ? anioActual - 1 : anioActual;
+    opcionesMes.push({ mes: m, anio: a, label: `${MESES_NOM[m]} ${a}` });
+  }
+  // Agregar mes siguiente (por si la cancelación proyecta al próximo)
+  const mSig = (mesActual + 1) % 12;
+  const aSig = mesActual === 11 ? anioActual + 1 : anioActual;
+  opcionesMes.push({ mes: mSig, anio: aSig, label: `${MESES_NOM[mSig]} ${aSig}` });
 
-  if (!confirm(`¿Confirmar cancelación de ${v.producto} de ${nombre}?\nRazón: ${razonTexto}`)) return;
+  const opsMesHtml = opcionesMes.map((o, i) =>
+    `<option value="${o.mes}|${o.anio}" ${i === opcionesMes.length - 2 ? 'selected' : ''}>${o.label}</option>`
+  ).join('');
+
+  const opsRazonHtml = RAZONES_CANCELACION.map((r, i) =>
+    `<option value="${i}">${r}</option>`
+  ).join('');
+
+  // Crear modal
+  const overlayId = 'modalCancelacionOverlay';
+  let existing = document.getElementById(overlayId);
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = overlayId;
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  const boxHtml = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 24px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <span style="font-size:22px;">⛔</span>
+        <div style="font-size:15px;font-weight:700;color:var(--text);">Registrar cancelación</div>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:20px;">${v.producto} · <strong>${nombre}</strong></div>
+
+      <div style="margin-bottom:16px;">
+        <label style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);font-weight:600;display:block;margin-bottom:6px;">Mes en que cae la cancelación</label>
+        <select id="cancelModalMes" style="width:100%;padding:9px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:var(--font);">
+          ${opsMesHtml}
+        </select>
+        <div style="font-size:10.5px;color:var(--text-dim);margin-top:5px;">El mes seleccionado determina cómo se distribuye el impacto en la proyección anual.</div>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);font-weight:600;display:block;margin-bottom:6px;">Motivo de cancelación</label>
+        <select id="cancelModalRazon" style="width:100%;padding:9px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;font-family:var(--font);">
+          ${opsRazonHtml}
+        </select>
+      </div>
+
+      <div id="cancelModalPreview" style="background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.2);border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--text-muted);display:none;"></div>
+
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('${overlayId}').remove()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;">Cancelar</button>
+        <button onclick="confirmarCancelacionModal('${id}')" style="flex:2;padding:10px;border-radius:8px;border:none;background:var(--red);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">⛔ Confirmar cancelación</button>
+      </div>
+    </div>`;
+
+  overlay.innerHTML = boxHtml;
+  document.body.appendChild(overlay);
+
+  // Preview dinámico
+  function actualizarPreview() {
+    const selMes = document.getElementById('cancelModalMes');
+    const selRazon = document.getElementById('cancelModalRazon');
+    const prev = document.getElementById('cancelModalPreview');
+    if (!selMes || !selRazon || !prev) return;
+
+    const [mesStr, anioStr] = selMes.value.split('|');
+    const mesCancelacion = parseInt(mesStr);
+    const mesSiguiente = (mesCancelacion + 1) % 12;
+    const razonIdx = parseInt(selRazon.value);
+    const razonTexto = RAZONES_CANCELACION[razonIdx];
+    const esNoPago = RAZONES_NO_PAGO.has(razonTexto);
+
+    const pagos = getPagos();
+    const pList = pagos[v.id] || [];
+    const mesesPagados = pList.length;
+    const primaMens = calcPrimaMensualSinIVA(v);
+    const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+    let previewHtml = '';
+    if (esNoPago) {
+      const val3Fact = primaMens * 3;
+      const valExcedente = Math.max(0, (primaMens * 12) - val3Fact - (primaMens * (mesesPagados)));
+      previewHtml = `
+        <div style="font-weight:700;color:var(--red);margin-bottom:8px;">Flujo SURA · No pago</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;justify-content:space-between;"><span>📅 Mes cancelación (<b>${MESES[mesCancelacion]}</b>):</span><span style="color:var(--red);font-weight:700;">−${fmt(val3Fact)}</span></div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:-3px;margin-bottom:2px;">3 facturas (60 días) + mes proyectado siguiente</div>
+          <div style="display:flex;justify-content:space-between;"><span>📅 Mes siguiente (<b>${MESES[mesSiguiente]}</b>) — excedente:</span><span style="color:var(--amber);font-weight:700;">−${fmt(valExcedente)}</span></div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:-3px;">Primas faltantes en proyección anual · no cuenta como nueva cancelación</div>
+        </div>`;
+    } else {
+      const valMesCancelacion = primaMens;
+      const valExcedente = Math.max(0, (primaMens * 12) - (primaMens * mesesPagados) - valMesCancelacion);
+      previewHtml = `
+        <div style="font-weight:700;color:var(--amber);margin-bottom:8px;">Flujo SURA · Otro motivo</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;justify-content:space-between;"><span>📅 Mes cancelación (<b>${MESES[mesCancelacion]}</b>):</span><span style="color:var(--red);font-weight:700;">−${fmt(valMesCancelacion)}</span></div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:-3px;margin-bottom:2px;">Mes que se deja de pagar · ${mesesPagados} meses pagados desde expedición</div>
+          <div style="display:flex;justify-content:space-between;"><span>📅 Mes siguiente (<b>${MESES[mesSiguiente]}</b>) — excedente:</span><span style="color:var(--amber);font-weight:700;">−${fmt(valExcedente)}</span></div>
+          <div style="font-size:10.5px;color:var(--text-dim);margin-top:-3px;">Primas faltantes en proyección anual · no cuenta como nueva cancelación</div>
+        </div>`;
+    }
+    prev.innerHTML = previewHtml;
+    prev.style.display = 'block';
+  }
+
+  document.getElementById('cancelModalMes').addEventListener('change', actualizarPreview);
+  document.getElementById('cancelModalRazon').addEventListener('change', actualizarPreview);
+  actualizarPreview();
+
+  // Cerrar al hacer click fuera del box
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function confirmarCancelacionModal(id) {
+  const selMes = document.getElementById('cancelModalMes');
+  const selRazon = document.getElementById('cancelModalRazon');
+  if (!selMes || !selRazon) return;
+
+  const [mesStr, anioStr] = selMes.value.split('|');
+  const mes = parseInt(mesStr);
+  const anio = parseInt(anioStr);
+  const razonIdx = parseInt(selRazon.value);
+  const razonTexto = RAZONES_CANCELACION[razonIdx] || 'Otra razón';
+
+  // Construir fecha de cancelación: día 1 del mes seleccionado
+  const fechaCancelacion = `${anio}-${String(mes + 1).padStart(2,'0')}-01`;
+  const esNoPago = RAZONES_NO_PAGO.has(razonTexto);
 
   const s = getState();
   const vi = s.ventas.findIndex(x => x.id === id);
   if (vi < 0) return;
+
+  const v = s.ventas[vi];
+  const pagos = getPagos();
+  const pList = pagos[v.id] || [];
+  const mesesPagados = pList.length;
+  const primaMens = calcPrimaMensualSinIVA(v);
+
+  // Calcular impacto según flujo SURA
+  let impactoMesCancelacion, impactoMesSiguiente;
+  if (esNoPago) {
+    // No pago: 3 facturas (60 días) en mes cancelación + excedente en siguiente
+    impactoMesCancelacion = primaMens * 3;
+    impactoMesSiguiente = Math.max(0, (primaMens * 12) - impactoMesCancelacion - (primaMens * mesesPagados));
+  } else {
+    // Otro motivo: mes que se deja de pagar en mes cancelación + excedente en siguiente
+    impactoMesCancelacion = primaMens;
+    impactoMesSiguiente = Math.max(0, (primaMens * 12) - (primaMens * mesesPagados) - impactoMesCancelacion);
+  }
+
   s.ventas[vi].tipo = 'CANCELACION';
   s.ventas[vi].motivoCancelacion = razonTexto;
-  s.ventas[vi].fechaCancelacion = new Date().toISOString().slice(0,10);
+  s.ventas[vi].fechaCancelacion = fechaCancelacion;
+  s.ventas[vi].cancelacionEsNoPago = esNoPago;
+  s.ventas[vi].cancelacionMes = mes;
+  s.ventas[vi].cancelacionAnio = anio;
+  s.ventas[vi].cancelacionImpactoMes = impactoMesCancelacion;
+  s.ventas[vi].cancelacionImpactoSiguiente = impactoMesSiguiente;
+
   setState(s);
+
+  const overlay = document.getElementById('modalCancelacionOverlay');
+  if (overlay) overlay.remove();
+
   renderCartera();
-  showToast(`⛔ ${v.producto} de ${nombre} cancelado · Razón: ${razonTexto}`);
+  showToast(`⛔ ${v.producto} de ${tc(v.tomadorNombre || v.nombre || '—')} cancelado · ${razonTexto}`);
 }
 
 // ── Sincronizar desde reporte SURA → app ────────────────────────────────────
@@ -25586,39 +25935,6 @@ function importarClienteDesdeCarteraSura(item) {
 }
 
 // ── Dashboard mini de cancelaciones ─────────────────────────────────────────
-function renderDashboardCancelaciones() {
-  const cont = document.getElementById('ctCancelacionesAnalisis');
-  if (!cont) return;
-  const s = getState();
-  const canceladas = s.ventas.filter(v =>
-    ['SPTI','SPD','PSM','PAC60'].includes(v.producto) && v.tipo === 'CANCELACION' && v.motivoCancelacion
-  );
-  if (!canceladas.length) {
-    cont.innerHTML = '<div style="color:var(--text-dim);font-size:12.5px;text-align:center;padding:16px;">Sin cancelaciones con razón registrada aún.</div>';
-    return;
-  }
-  // Agrupar por razón
-  const conteo = {};
-  canceladas.forEach(v => { conteo[v.motivoCancelacion] = (conteo[v.motivoCancelacion]||0) + 1; });
-  const sorted = Object.entries(conteo).sort((a,b) => b[1]-a[1]);
-  const total = canceladas.length;
-  const colors = ['var(--red)','var(--amber)','var(--purple)','var(--teal)','var(--sura-blue)','var(--green)','var(--text-muted)'];
-
-  cont.innerHTML = sorted.map(([razon, n], i) => {
-    const pct = Math.round(n/total*100);
-    return `
-      <div style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span style="font-size:12.5px;font-weight:500;">${razon}</span>
-          <span style="font-size:12px;font-weight:700;color:${colors[i%colors.length]};">${n} (${pct}%)</span>
-        </div>
-        <div style="height:5px;background:var(--surface3);border-radius:3px;overflow:hidden;">
-          <div style="width:${pct}%;height:100%;background:${colors[i%colors.length]};border-radius:3px;transition:width .5s;"></div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
 function esPeorCategoria(nueva, anterior) {
   const orden = ['<=75%', '76% - 90%', '>=91% EXCEPCIONADA', '>=91% NO AGIL'];
   const iNueva = orden.indexOf(nueva);
