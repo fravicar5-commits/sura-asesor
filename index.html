@@ -7408,10 +7408,10 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
       </div>
 
-      <!-- ASEGURADO -->
+      <!-- ASEGURADO 1 -->
       <div style="border:1px solid rgba(6,182,212,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
         <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          🏥 ASEGURADO <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien recibe el servicio)</span>
+          🏥 ASEGURADO 1 <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien recibe el servicio)</span>
           <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
             <input type="checkbox" id="vAseguradoMismoTomador" onchange="copiarTomadorAsegurado()" style="accent-color:var(--teal);">
             Mismo que el tomador
@@ -7445,6 +7445,47 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
           <div class="form-group">
             <label class="form-label">Edad</label>
             <input type="text" class="form-control" id="vAseguradoEdad" readonly style="background:var(--surface3);color:var(--sura-lime);font-weight:600;" placeholder="Auto">
+          </div>
+        </div>
+      </div>
+
+      <!-- ASEGURADO 2 -->
+      <div style="border:1px solid rgba(168,85,247,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          🏥 ASEGURADO 2 <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(opcional · misma tarifa del plan)</span>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="vAsegurado2SoloUno" onchange="toggleAsegurado2()" style="accent-color:var(--purple);">
+            Solo un asegurado
+          </label>
+        </div>
+        <div class="form-grid" id="asegurado2Fields">
+          <div class="form-group">
+            <label class="form-label">Nombre Completo</label>
+            <input type="text" class="form-control" id="vAsegurado2Nombre" placeholder="Nombre del segundo asegurado">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de Documento</label>
+            <select class="form-control" id="vAsegurado2TipoDoc">
+              <option value="CC">CC — Cédula de Ciudadanía</option>
+              <option value="TI">TI — Tarjeta de Identidad</option>
+              <option value="RC">RC — Registro Civil</option>
+              <option value="CE">CE — Cédula de Extranjería</option>
+              <option value="PPT">PPT — Permiso de Protección Temporal</option>
+              <option value="PA">PA — Pasaporte</option>
+              <option value="PEP">PEP — Permiso Esp. de Permanencia</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">No. Documento</label>
+            <input type="text" class="form-control" id="vAsegurado2Doc" placeholder="Número de documento">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha de Nacimiento</label>
+            <input type="date" class="form-control" id="vAsegurado2FechaNac" onchange="calcEdadSPD('asegurado2')">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Edad</label>
+            <input type="text" class="form-control" id="vAsegurado2Edad" readonly style="background:var(--surface3);color:var(--purple);font-weight:600;" placeholder="Auto">
           </div>
         </div>
       </div>
@@ -10452,6 +10493,20 @@ function editarVenta(id) {
         if (s('vAseguradoDoc'))     s('vAseguradoDoc').value     = v.aseguradoDoc       || '';
         if (s('vCiudadSPD'))        s('vCiudadSPD').value        = v.ciudad             || '';
         if (s('vNotasSPD'))         s('vNotasSPD').value         = v.notas              || '';
+        // Asegurado 2
+        if (s('vAsegurado2Nombre'))   s('vAsegurado2Nombre').value   = v.asegurado2Nombre   || '';
+        if (s('vAsegurado2TipoDoc'))  s('vAsegurado2TipoDoc').value  = v.asegurado2TipoDoc  || 'CC';
+        if (s('vAsegurado2Doc'))      s('vAsegurado2Doc').value      = v.asegurado2Doc      || '';
+        if (s('vAsegurado2FechaNac')) s('vAsegurado2FechaNac').value = v.asegurado2FechaNac || '';
+        if (s('vAsegurado2Edad'))     s('vAsegurado2Edad').value     = v.asegurado2Edad     || '';
+        const ck2 = s('vAsegurado2SoloUno');
+        const f2  = s('asegurado2Fields');
+        if (ck2 && f2) {
+          const sinA2 = !v.asegurado2Nombre && !v.asegurado2Doc;
+          ck2.checked = sinA2;
+          f2.style.opacity = sinA2 ? '0.35' : '';
+          f2.style.pointerEvents = sinA2 ? 'none' : '';
+        }
         calcTotalSPD();
 
       } else if (tab === 'psm') {
@@ -10807,12 +10862,17 @@ function openModal(id) {
     // Reset SPD fields
     ['vPolizaSPD','vFechaSPD','vFechaExpSPD','vPlanSPD','vNotasSPD',
      'vTomadorNombre','vTomadorDoc','vTomadorFechaNac','vTomadorEdad','vTomadorTel','vTomadorCorreo',
-     'vAseguradoNombre','vAseguradoDoc','vAseguradoFechaNac','vAseguradoEdad'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+     'vAseguradoNombre','vAseguradoDoc','vAseguradoFechaNac','vAseguradoEdad',
+     'vAsegurado2Nombre','vAsegurado2Doc','vAsegurado2FechaNac','vAsegurado2Edad'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     document.getElementById('vPrimaSPD').value = '';
     document.getElementById('vPrimaTotalSPD').value = '';
     document.getElementById('vAseguradoMismoTomador').checked = false;
     document.getElementById('aseguradoFields').style.opacity = '';
     document.getElementById('aseguradoFields').style.pointerEvents = '';
+    const ck2 = document.getElementById('vAsegurado2SoloUno');
+    if (ck2) ck2.checked = false;
+    const f2 = document.getElementById('asegurado2Fields');
+    if (f2) { f2.style.opacity = ''; f2.style.pointerEvents = ''; }
     document.getElementById('vFechaSPTI').value = today;
     document.getElementById('vFechaSPD').value = today;
   }
@@ -11424,16 +11484,21 @@ function calcDatosPAC60() {
 }
 
 function calcEdadSPD(quien) {
-  const fnId = quien === 'tomador' ? 'vTomadorFechaNac' : 'vAseguradoFechaNac';
-  const edadId = quien === 'tomador' ? 'vTomadorEdad' : 'vAseguradoEdad';
-  const fn = document.getElementById(fnId).value;
-  if (!fn) return;
-  const nac = new Date(fn + 'T12:00:00');
+  const map = {
+    tomador:    { fn: 'vTomadorFechaNac',    edad: 'vTomadorEdad' },
+    asegurado:  { fn: 'vAseguradoFechaNac',  edad: 'vAseguradoEdad' },
+    asegurado2: { fn: 'vAsegurado2FechaNac', edad: 'vAsegurado2Edad' },
+  };
+  const ids = map[quien];
+  if (!ids) return;
+  const fnEl = document.getElementById(ids.fn);
+  if (!fnEl || !fnEl.value) return;
+  const nac = new Date(fnEl.value + 'T12:00:00');
   const hoy = new Date();
   let edad = hoy.getFullYear() - nac.getFullYear();
   const m = hoy.getMonth() - nac.getMonth();
   if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
-  document.getElementById(edadId).value = edad + ' años';
+  document.getElementById(ids.edad).value = edad + ' años';
 }
 
 function copiarTomadorAsegurado() {
@@ -11450,6 +11515,26 @@ function copiarTomadorAsegurado() {
   } else {
     fields.style.opacity = '';
     fields.style.pointerEvents = '';
+  }
+  // Asegurado 2 siempre queda visible e independiente
+}
+
+function toggleAsegurado2() {
+  const soloUno = document.getElementById('vAsegurado2SoloUno').checked;
+  const fields2 = document.getElementById('asegurado2Fields');
+  if (soloUno) {
+    fields2.style.opacity = '0.35';
+    fields2.style.pointerEvents = 'none';
+    // Limpiar campos de asegurado 2 al desactivar
+    ['vAsegurado2Nombre','vAsegurado2Doc','vAsegurado2FechaNac','vAsegurado2Edad'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const sel = document.getElementById('vAsegurado2TipoDoc');
+    if (sel) sel.value = 'CC';
+  } else {
+    fields2.style.opacity = '';
+    fields2.style.pointerEvents = '';
   }
 }
 
@@ -12351,6 +12436,11 @@ function guardarVenta() {
       aseguradoDoc: document.getElementById('vAseguradoDoc').value,
       aseguradoFechaNac: document.getElementById('vAseguradoFechaNac').value,
       aseguradoEdad: document.getElementById('vAseguradoEdad').value,
+      asegurado2Nombre: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Nombre')?.value || ''),
+      asegurado2TipoDoc: document.getElementById('vAsegurado2SoloUno')?.checked ? 'CC' : (document.getElementById('vAsegurado2TipoDoc')?.value || 'CC'),
+      asegurado2Doc: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Doc')?.value || ''),
+      asegurado2FechaNac: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2FechaNac')?.value || ''),
+      asegurado2Edad: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Edad')?.value || ''),
       nombre: document.getElementById('vTomadorNombre').value,
       tipoDoc: document.getElementById('vTomadorTipoDoc').value,
       doc: document.getElementById('vTomadorDoc').value,
