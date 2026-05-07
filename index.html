@@ -3523,7 +3523,7 @@
         </div>
         <!-- SPD -->
         <div id="ptWrapSPD" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
-          <table style="font-size:12.5px;min-width:1350px;width:100%;border-collapse:collapse;">
+          <table style="font-size:12.5px;min-width:1750px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--purple);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">No. Póliza</th>
@@ -3544,6 +3544,10 @@
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Tipo Doc. Aseg.</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Doc. Asegurado</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Edad Aseg.</th>
+              <th style="color:white;padding:10px 12px;white-space:nowrap;">Asegurado 2</th>
+              <th style="color:white;padding:10px 12px;white-space:nowrap;">Tipo Doc. Aseg. 2</th>
+              <th style="color:white;padding:10px 12px;white-space:nowrap;">Doc. Asegurado 2</th>
+              <th style="color:white;padding:10px 12px;white-space:nowrap;">Edad Aseg. 2</th>
               <th style="color:white;padding:10px 12px;white-space:nowrap;">Editar</th>
             </tr></thead>
             <tbody id="ptBodySPD2"></tbody>
@@ -12046,8 +12050,16 @@ function guardarVenta() {
           tomadorDoc:   document.getElementById('vTomadorDoc')?.value     || vOld.tomadorDoc,
           tomadorTel:   document.getElementById('vTomadorTel')?.value     || vOld.tomadorTel,
           tomadorCorreo:document.getElementById('vTomadorCorreo')?.value  || vOld.tomadorCorreo,
-          aseguradoNombre: document.getElementById('vAseguradoNombre')?.value || vOld.aseguradoNombre,
-          aseguradoDoc:    document.getElementById('vAseguradoDoc')?.value    || vOld.aseguradoDoc,
+          aseguradoNombre:   document.getElementById('vAseguradoNombre')?.value    || vOld.aseguradoNombre,
+          aseguradoTipoDoc:  document.getElementById('vAseguradoTipoDoc')?.value   || vOld.aseguradoTipoDoc,
+          aseguradoDoc:      document.getElementById('vAseguradoDoc')?.value        || vOld.aseguradoDoc,
+          aseguradoFechaNac: document.getElementById('vAseguradoFechaNac')?.value  || vOld.aseguradoFechaNac,
+          edadAsegurado:     document.getElementById('vAseguradoEdad')?.value      || vOld.edadAsegurado,
+          asegurado2Nombre:   document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Nombre')?.value  || vOld.asegurado2Nombre  || ''),
+          asegurado2TipoDoc:  document.getElementById('vAsegurado2SoloUno')?.checked ? 'CC': (document.getElementById('vAsegurado2TipoDoc')?.value || vOld.asegurado2TipoDoc || 'CC'),
+          asegurado2Doc:      document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Doc')?.value      || vOld.asegurado2Doc      || ''),
+          asegurado2FechaNac: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2FechaNac')?.value || vOld.asegurado2FechaNac || ''),
+          asegurado2Edad:     document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Edad')?.value     || vOld.asegurado2Edad     || ''),
           nombre:  document.getElementById('vTomadorNombre')?.value || vOld.nombre,
           doc:     document.getElementById('vTomadorDoc')?.value    || vOld.doc,
           telefono:document.getElementById('vTomadorTel')?.value    || vOld.telefono,
@@ -12099,7 +12111,15 @@ function guardarVenta() {
       _editId = null;
       closeModal('modalVenta');
       showToast(`✅ ${vOld.producto} actualizado correctamente`);
-      refreshPage(currentPage);
+      // Redirigir a la plantilla correcta según producto editado
+      const _prodTabMap = { SPTI:'SPTI', SPD:'SPD', PSM:'PSM', PAC60:'PAC60' };
+      if (_prodTabMap[vOld.producto]) {
+        const _selPt = document.getElementById('ptProductoVol');
+        if (_selPt) _selPt.value = _prodTabMap[vOld.producto];
+        navigate('plantilla-vol');
+      } else {
+        refreshPage(currentPage);
+      }
       return;
     }
     // Si no encontró el registro, resetear _editId y continuar como nuevo
@@ -12958,7 +12978,7 @@ function renderPlantillaVol() {
 
   if (producto === 'SPD') {
     const tbody = document.getElementById('ptBodySPD2');
-    if (!ventas.length) { tbody.innerHTML = empty(20); return; }
+    if (!ventas.length) { tbody.innerHTML = empty(24); return; }
     // Calcular descuento SPD: diferencia entre prima mensual × meses y prima de periodicidad
     const SPD_DCTOS = {
       MENSUAL: 0,
@@ -12990,6 +13010,10 @@ function renderPlantillaVol() {
         <td style="padding:8px 10px;"><span class="chip chip-teal" style="font-size:10px;">${v.aseguradoTipoDoc||'CC'}</span></td>
         <td style="font-family:var(--mono);font-size:12px;padding:8px 10px;">${v.aseguradoDoc||'—'}</td>
         <td style="font-family:var(--mono);font-size:12px;padding:8px 10px;">${v.edadAsegurado||'—'}</td>
+        <td style="font-weight:500;padding:8px 10px;color:${v.asegurado2Nombre?'':'var(--text-dim)'};">${v.asegurado2Nombre?tc(v.asegurado2Nombre):'—'}</td>
+        <td style="padding:8px 10px;">${v.asegurado2Nombre?`<span class="chip chip-purple" style="font-size:10px;">${v.asegurado2TipoDoc||'CC'}</span>`:'—'}</td>
+        <td style="font-family:var(--mono);font-size:12px;padding:8px 10px;">${v.asegurado2Doc||'—'}</td>
+        <td style="font-family:var(--mono);font-size:12px;padding:8px 10px;">${v.asegurado2Edad||'—'}</td>
         ${acciones(v)}
       </tr>`;
     }).join('');
