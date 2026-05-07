@@ -9168,7 +9168,8 @@ function getPbsCotizantes(month) {
 }
 
 function calcMesComisionTotal(month) {
-  const ventas = getVentasByProduct(month, 'PBS');
+  // Solo ventas desde DH6: las de DH1-DH5 compensan en el mes anterior.
+  const ventas = getVentasByProduct(month, 'PBS').filter(v => !calcMesCompensado(v.fecha).esZonaCorte);
   return ventas.reduce((sum, v) => sum + (v.comision || 0), 0);
 }
 
@@ -9197,7 +9198,7 @@ function renderInicio() {
   if (elVol) elVol.textContent = accVol;
 
   // KPI comisión total
-  const pbsAcc = MESES.reduce((sum, _, i) => sum + getVentasByProduct(i,'PBS').reduce((ss,v) => ss+(v.comision||0), 0), 0);
+  const pbsAcc = MESES.reduce((sum, _, i) => sum + calcMesComisionTotal(i), 0);
   const { totalProy } = getVolComisionesSummary();
   const comTotal = pbsAcc + totalProy;
   const elCom = document.getElementById('inicioKpiCom');
@@ -9296,7 +9297,7 @@ function renderDashboard() {
 
   // Comisiones todos los productos
   const { sptiProy, spdProy, psmProy, pac60Proy, totalProy, real: volReal } = getVolComisionesSummary();
-  const pbsTotalAcc = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'PBS').reduce((ss,v)=>ss+(v.comision||0),0), 0);
+  const pbsTotalAcc = MESES.reduce((s,_,i) => s + calcMesComisionTotal(i), 0);
   document.getElementById('dash-com-spti').textContent  = fmt(sptiProy);
   document.getElementById('dash-com-spd').textContent   = fmt(spdProy);
   document.getElementById('dash-com-psm').textContent   = fmt(psmProy);
@@ -9494,7 +9495,7 @@ function renderPBS() {
   const beneficiarios = ventas.filter(v => v.tipo === 'BENEFICIARIO').length;
   const total = ventas.length;
   const ppto = state.config.pbs[selectedMonth];
-  const comTotal = ventas.reduce((s, v) => s + (v.comision || 0), 0);
+  const comTotal = calcMesComisionTotal(selectedMonth);
 
   document.getElementById('pbs-cotizantes').textContent = cotizantes;
   document.getElementById('pbs-beneficiarios').textContent = beneficiarios;
@@ -9545,7 +9546,9 @@ function renderPBS() {
     const mt = mv.length;
     const mp = state.config.pbs[i];
     const pctCumpl = pct(mt, mp);
-    const mcom = mv.reduce((s,v) => s+(v.comision||0),0);
+    // Solo sumar comisión de ventas desde DH6 en adelante (compensan en este mes).
+    // Ventas en DH1-DH5 compensan en el mes anterior y no deben sumar aquí.
+    const mcom = mv.filter(v => !calcMesCompensado(v.fecha).esZonaCorte).reduce((s,v) => s+(v.comision||0),0);
     const rng = mc > 0 ? getRango(mc).label : '—';
     const pctColor = pctCumpl >= 100 ? 'chip-green' : pctCumpl >= 70 ? 'chip-amber' : pctCumpl > 0 ? 'chip-red' : '';
     const isX2 = X2_MONTHS.includes(i);
