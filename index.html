@@ -2962,11 +2962,8 @@
           </div>
           <span id="ptBuscadorPBSCount" style="font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
         </div>
-        <!-- Barra de scroll horizontal proxy (siempre visible, izquierda) -->
-        <div id="ptScrollBarPBS" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:6px;"
-             onscroll="document.getElementById('plantillaPBSwrap2').scrollLeft=this.scrollLeft">
-          <div id="ptScrollInnerPBS" style="height:1px;min-width:100%;"></div>
-        </div>
+        <!-- Sentinel para scroll flotante PBS -->
+        <div id="ptSentinelPBS" style="height:0;overflow:hidden;"></div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div>
@@ -2977,7 +2974,7 @@
         </div>
 
         <div id="plantillaPBSwrap2" style="overflow-x:auto;overflow-y:auto;max-height:65vh;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);transition:max-height .3s;"
-             onscroll="document.getElementById('ptScrollBarPBS').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerPBS',this)">
+             onscroll="ptSyncInner('ptScrollInnerPBS',this)">
           <table id="tablaPlanPBS2" style="font-size:12.5px;min-width:900px;width:100%;border-collapse:collapse;">
             <thead style="position:sticky;top:0;z-index:3;">
               <tr style="background:var(--sura-blue);">
@@ -3483,10 +3480,8 @@
           </div>
           <span id="ptBuscadorVolCount" style="font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
         </div>
-        <div id="ptScrollBarVol" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:6px;"
-             onscroll="ptSyncVolTable(this)">
-          <div id="ptScrollInnerVol" style="height:1px;min-width:100%;"></div>
-        </div>
+        <!-- Sentinel para scroll flotante Voluntarios -->
+        <div id="ptSentinelVol" style="height:0;overflow:hidden;"></div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div>
@@ -3497,7 +3492,7 @@
         </div>
 
         <!-- SPTI -->
-        <div id="ptWrapSPTI" style="overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
+        <div id="ptWrapSPTI" style="overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="ptFloatScrollSyncFrom(this)">
           <table style="font-size:12.5px;min-width:1100px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--teal);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
@@ -3522,7 +3517,7 @@
           </table>
         </div>
         <!-- SPD -->
-        <div id="ptWrapSPD" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
+        <div id="ptWrapSPD" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="ptFloatScrollSyncFrom(this)">
           <table style="font-size:12.5px;min-width:1750px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--purple);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
@@ -3554,7 +3549,7 @@
           </table>
         </div>
         <!-- PSM -->
-        <div id="ptWrapPSM" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
+        <div id="ptWrapPSM" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="ptFloatScrollSyncFrom(this)">
           <table style="font-size:12.5px;min-width:1100px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--teal);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
@@ -3580,7 +3575,7 @@
           </table>
         </div>
         <!-- PAC60 -->
-        <div id="ptWrapPAC60" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="document.getElementById('ptScrollBarVol').scrollLeft=this.scrollLeft;ptSyncInner('ptScrollInnerVol',this)">
+        <div id="ptWrapPAC60" style="display:none;overflow-x:auto;overflow-y:auto;max-height:65vh;border-radius:var(--radius);border:1px solid var(--border);" onscroll="ptFloatScrollSyncFrom(this)">
           <table style="font-size:12.5px;min-width:1000px;width:100%;border-collapse:collapse;">
             <thead><tr style="background:var(--green);">
               <th style="color:white;padding:10px 12px;white-space:nowrap;">#</th>
@@ -27229,6 +27224,145 @@ const _ptZoomTargets = {
   },
   cartera: () => document.getElementById('ctTable'),
 };
+
+// ─── SCROLL FLOTANTE HORIZONTAL (thumb draggable tipo Outlook) ───────────────
+(function () {
+  const TRACK_H  = 18;
+  const THUMB_H  = 12;
+  const THUMB_MIN = 48;
+
+  const track = document.createElement('div');
+  track.id = 'ptFloatTrack';
+  track.style.cssText = [
+    'position:fixed','bottom:0','left:0','right:0',
+    'height:' + TRACK_H + 'px',
+    'background:var(--surface2,#1e2a3a)',
+    'border-top:1px solid var(--border,#2d3d50)',
+    'box-shadow:0 -2px 10px rgba(0,0,0,.25)',
+    'display:none','z-index:9999',
+    'align-items:center','padding:0 4px',
+    'box-sizing:border-box','user-select:none'
+  ].join(';');
+
+  const thumb = document.createElement('div');
+  thumb.id = 'ptFloatThumb';
+  thumb.style.cssText = [
+    'position:absolute',
+    'top:' + Math.round((TRACK_H - THUMB_H) / 2) + 'px',
+    'height:' + THUMB_H + 'px',
+    'min-width:' + THUMB_MIN + 'px',
+    'border-radius:' + Math.round(THUMB_H / 2) + 'px',
+    'background:var(--teal,#06b6d4)',
+    'opacity:0.72',
+    'cursor:grab',
+    'transition:opacity .15s,background .15s',
+    'will-change:left,width'
+  ].join(';');
+  thumb.onmouseenter = () => { thumb.style.opacity = '1'; };
+  thumb.onmouseleave = () => { if (!_drag.on) thumb.style.opacity = '0.72'; };
+  track.appendChild(thumb);
+
+  let _wrap    = null;
+  let _syncing = false;
+  let _trackW  = 0;
+  let _thumbW  = THUMB_MIN;
+  const _drag  = { on:false, startX:0, startLeft:0 };
+
+  function _updateThumb() {
+    if (!_wrap) return;
+    const scrollW = _wrap.scrollWidth;
+    const clientW = _wrap.clientWidth;
+    if (scrollW <= clientW + 2) { track.style.display = 'none'; return; }
+    const rect = _wrap.getBoundingClientRect();
+    track.style.left  = rect.left + 'px';
+    track.style.right = (window.innerWidth - rect.right) + 'px';
+    track.style.display = 'flex';
+    _trackW = rect.width - 8;
+    _thumbW = Math.max(THUMB_MIN, Math.round(_trackW * clientW / scrollW));
+    thumb.style.width = _thumbW + 'px';
+    const maxScroll = scrollW - clientW;
+    const maxLeft   = _trackW - _thumbW;
+    const leftPx    = maxScroll > 0 ? Math.round(_wrap.scrollLeft / maxScroll * maxLeft) : 0;
+    thumb.style.left = (leftPx + 4) + 'px';
+  }
+
+  thumb.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    _drag.on = true;
+    _drag.startX    = e.clientX;
+    _drag.startLeft = parseInt(thumb.style.left, 10) - 4;
+    thumb.style.cursor  = 'grabbing';
+    thumb.style.opacity = '1';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_drag.on || !_wrap) return;
+    const dx      = e.clientX - _drag.startX;
+    const maxLeft = _trackW - _thumbW;
+    const newLeft = Math.min(maxLeft, Math.max(0, _drag.startLeft + dx));
+    thumb.style.left = (newLeft + 4) + 'px';
+    const maxScroll = _wrap.scrollWidth - _wrap.clientWidth;
+    _syncing = true;
+    _wrap.scrollLeft = maxLeft > 0 ? Math.round(newLeft / maxLeft * maxScroll) : 0;
+    _syncing = false;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!_drag.on) return;
+    _drag.on = false;
+    thumb.style.cursor  = 'grab';
+    thumb.style.opacity = '0.72';
+    document.body.style.userSelect = '';
+  });
+
+  track.addEventListener('mousedown', (e) => {
+    if (e.target === thumb) return;
+    e.preventDefault();
+    if (!_wrap) return;
+    const rect    = track.getBoundingClientRect();
+    const clickX  = e.clientX - rect.left - 4;
+    const maxLeft = _trackW - _thumbW;
+    const ratio   = maxLeft > 0 ? clickX / maxLeft : 0;
+    _wrap.scrollLeft = Math.round(Math.min(1, Math.max(0, ratio)) * (_wrap.scrollWidth - _wrap.clientWidth));
+  });
+
+  window.ptFloatScrollSyncFrom = function (wrapEl) {
+    if (_syncing || _drag.on) return;
+    if (wrapEl === _wrap) _updateThumb();
+  };
+
+  function _resolveWrap() {
+    const pbsWrap = document.getElementById('plantillaPBSwrap2');
+    if (pbsWrap && _vis(pbsWrap)) return pbsWrap;
+    const prod    = document.getElementById('ptProductoVol')?.value || 'SPTI';
+    const volIds  = { SPTI:'ptWrapSPTI', SPD:'ptWrapSPD', PSM:'ptWrapPSM', PAC60:'ptWrapPAC60' };
+    const volWrap = document.getElementById(volIds[prod]);
+    if (volWrap && _vis(volWrap)) return volWrap;
+    return null;
+  }
+
+  function _vis(el) {
+    if (!el || el.style.display === 'none') return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.bottom > 60 && r.top < window.innerHeight - 20;
+  }
+
+  function _tick() {
+    const w = _resolveWrap();
+    if (w !== _wrap) { _wrap = w; }
+    if (_wrap && !_drag.on) _updateThumb();
+    else if (!_wrap) track.style.display = 'none';
+    requestAnimationFrame(_tick);
+  }
+
+  function _init() { document.body.appendChild(track); requestAnimationFrame(_tick); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _init);
+  } else { _init(); }
+})();
+
+// ─── FIN SCROLL FLOTANTE ────────────────────────────────────────────────────
 
 // Sincroniza el ancho del inner div del scroll proxy con el contenido real
 function ptSyncInner(innerId, wrapEl) {
