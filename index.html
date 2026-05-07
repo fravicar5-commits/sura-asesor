@@ -204,6 +204,37 @@
   .nav::-webkit-scrollbar-track { background: transparent; }
   .nav::-webkit-scrollbar-thumb { background: rgba(37,88,240,0.35); border-radius: 99px; }
   .nav::-webkit-scrollbar-thumb:hover { background: rgba(37,88,240,0.6); }
+
+  /* Scrollbar de plantillas — igual que el sidebar */
+  #plantillaPBSwrap2,
+  #ptWrapSPTI, #ptWrapSPD, #ptWrapPSM, #ptWrapPAC60,
+  #ctTableWrap {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(26,76,232,0.45) transparent;
+  }
+  #plantillaPBSwrap2::-webkit-scrollbar,
+  #ptWrapSPTI::-webkit-scrollbar, #ptWrapSPD::-webkit-scrollbar,
+  #ptWrapPSM::-webkit-scrollbar, #ptWrapPAC60::-webkit-scrollbar,
+  #ctTableWrap::-webkit-scrollbar { width: 5px; height: 5px; }
+  #plantillaPBSwrap2::-webkit-scrollbar-track,
+  #ptWrapSPTI::-webkit-scrollbar-track, #ptWrapSPD::-webkit-scrollbar-track,
+  #ptWrapPSM::-webkit-scrollbar-track, #ptWrapPAC60::-webkit-scrollbar-track,
+  #ctTableWrap::-webkit-scrollbar-track { background: transparent; }
+  #plantillaPBSwrap2::-webkit-scrollbar-thumb,
+  #ptWrapSPTI::-webkit-scrollbar-thumb, #ptWrapSPD::-webkit-scrollbar-thumb,
+  #ptWrapPSM::-webkit-scrollbar-thumb, #ptWrapPAC60::-webkit-scrollbar-thumb,
+  #ctTableWrap::-webkit-scrollbar-thumb {
+    background: rgba(37,88,240,0.4);
+    border-radius: 99px;
+  }
+  #plantillaPBSwrap2::-webkit-scrollbar-thumb:hover,
+  #ptWrapSPTI::-webkit-scrollbar-thumb:hover, #ptWrapSPD::-webkit-scrollbar-thumb:hover,
+  #ptWrapPSM::-webkit-scrollbar-thumb:hover, #ptWrapPAC60::-webkit-scrollbar-thumb:hover,
+  #ctTableWrap::-webkit-scrollbar-thumb:hover { background: rgba(37,88,240,0.7); }
+  #plantillaPBSwrap2::-webkit-scrollbar-corner,
+  #ptWrapSPTI::-webkit-scrollbar-corner, #ptWrapSPD::-webkit-scrollbar-corner,
+  #ptWrapPSM::-webkit-scrollbar-corner, #ptWrapPAC60::-webkit-scrollbar-corner,
+  #ctTableWrap::-webkit-scrollbar-corner { background: transparent; }
   .nav-section {
     font-size: 10px;
     font-weight: 600;
@@ -2974,7 +3005,7 @@
         </div>
 
         <div id="plantillaPBSwrap2" style="overflow-x:auto;overflow-y:auto;max-height:65vh;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);transition:max-height .3s;"
-             onscroll="ptSyncInner('ptScrollInnerPBS',this)">
+             onscroll="ptSyncInner('ptScrollInnerPBS',this);ptFloatScrollSyncFrom(this)">
           <table id="tablaPlanPBS2" style="font-size:12.5px;min-width:900px;width:100%;border-collapse:collapse;">
             <thead style="position:sticky;top:0;z-index:3;">
               <tr style="background:var(--sura-blue);">
@@ -27314,6 +27345,36 @@ const _ptZoomTargets = {
     thumb.style.cursor  = 'grab';
     thumb.style.opacity = '0.72';
     document.body.style.userSelect = '';
+  });
+
+  // ── Touch support (móvil / tablet) ───────────────────────────────────
+  thumb.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    _drag.on = true;
+    _drag.startX    = e.touches[0].clientX;
+    _drag.startLeft = parseInt(thumb.style.left, 10) - 4;
+    thumb.style.background = 'var(--sura-blue,#1A4CE8)';
+    thumb.style.opacity = '1';
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!_drag.on || !_wrap) return;
+    e.preventDefault();
+    const dx      = e.touches[0].clientX - _drag.startX;
+    const maxLeft = _trackW - _thumbW;
+    const newLeft = Math.min(maxLeft, Math.max(0, _drag.startLeft + dx));
+    thumb.style.left = (newLeft + 4) + 'px';
+    const maxScroll = _wrap.scrollWidth - _wrap.clientWidth;
+    _syncing = true;
+    _wrap.scrollLeft = maxLeft > 0 ? Math.round(newLeft / maxLeft * maxScroll) : 0;
+    _syncing = false;
+  }, { passive: false });
+
+  document.addEventListener('touchend', () => {
+    if (!_drag.on) return;
+    _drag.on = false;
+    thumb.style.background = 'var(--teal,#06b6d4)';
+    thumb.style.opacity = '0.72';
   });
 
   track.addEventListener('mousedown', (e) => {
