@@ -599,6 +599,31 @@
   .modal-close:hover { color: var(--text); }
   .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; gap: 10px; }
 
+  /* ── Tarifa Congelada — Toggle Oferta Diciembre ── */
+  .tarifa-congelada-toggle {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 14px;
+    background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.25);
+    transition: background .2s, border-color .2s;
+  }
+  .tarifa-congelada-toggle.activa {
+    background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.5);
+  }
+  .tarifa-congelada-toggle label { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--amber); user-select: none; }
+  .tarifa-congelada-toggle input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--amber); cursor: pointer; }
+  .tarifa-congelada-badge {
+    display: none; font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 20px; background: rgba(245,158,11,0.2); color: var(--amber);
+    border: 1px solid rgba(245,158,11,0.4); letter-spacing: .04em;
+  }
+  .tarifa-congelada-toggle.activa .tarifa-congelada-badge { display: inline-block; }
+  .tarifa-congelada-info {
+    display: none; font-size: 11.5px; color: var(--amber); line-height: 1.6;
+    padding: 8px 12px; border-radius: 6px; margin-bottom: 14px;
+    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
+  }
+  .tarifa-congelada-info.visible { display: block; }
+
   /* Pill tabs */
   .tab-pills { display: flex; gap: 6px; margin-bottom: 20px; }
   .tab-pill {
@@ -7328,6 +7353,18 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         <label class="form-label">Notas / Observaciones</label>
         <input type="text" class="form-control" id="vNotasSPTI" placeholder="Observaciones adicionales">
       </div>
+
+      <!-- Toggle Tarifa Congelada SPTI -->
+      <div class="tarifa-congelada-toggle" id="tcToggleSPTI">
+        <label>
+          <input type="checkbox" id="chkTarifaCongeladaSPTI" onchange="toggleTarifaCongelada('SPTI')">
+          🧊 Tarifa Congelada — Oferta Diciembre
+        </label>
+        <span class="tarifa-congelada-badge">✅ Tarifa 2026 fijada</span>
+      </div>
+      <div class="tarifa-congelada-info" id="tcInfoSPTI">
+        🎁 <strong>Oferta vigente:</strong> Esta póliza mantiene las tarifas 2026 durante todo 2027. El sistema no solicitará cambio de tarifa para este asegurado en enero de 2027.
+      </div>
     </div>
 
     <div id="tabSPD" style="display:none;">
@@ -7523,6 +7560,18 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
       <div class="form-group">
         <label class="form-label">Notas / Observaciones</label>
         <input type="text" class="form-control" id="vNotasSPD" placeholder="Observaciones adicionales">
+      </div>
+
+      <!-- Toggle Tarifa Congelada SPD -->
+      <div class="tarifa-congelada-toggle" id="tcToggleSPD">
+        <label>
+          <input type="checkbox" id="chkTarifaCongeladaSPD" onchange="toggleTarifaCongelada('SPD')">
+          🧊 Tarifa Congelada — Oferta Diciembre
+        </label>
+        <span class="tarifa-congelada-badge">✅ Tarifa 2026 fijada</span>
+      </div>
+      <div class="tarifa-congelada-info" id="tcInfoSPD">
+        🎁 <strong>Oferta vigente:</strong> Esta póliza mantiene la tarifa SPD 2026 durante todo 2027. El sistema no aplicará incremento de tarifa en enero de 2027.
       </div>
     </div>
 
@@ -7720,6 +7769,18 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         <label class="form-label">Notas / Observaciones</label>
         <input type="text" class="form-control" id="vNotasPSM" placeholder="Observaciones adicionales">
       </div>
+
+      <!-- Toggle Tarifa Congelada PSM -->
+      <div class="tarifa-congelada-toggle" id="tcTogglePSM">
+        <label>
+          <input type="checkbox" id="chkTarifaCongeladaPSM" onchange="toggleTarifaCongelada('PSM')">
+          🧊 Tarifa Congelada — Oferta Diciembre
+        </label>
+        <span class="tarifa-congelada-badge">✅ Tarifa 2026 fijada</span>
+      </div>
+      <div class="tarifa-congelada-info" id="tcInfoPSM">
+        🎁 <strong>Oferta vigente:</strong> Esta póliza mantiene las tarifas modulares 2026 durante todo 2027. El sistema no aplicará incremento de tarifa en enero de 2027.
+      </div>
     </div>
 
     <!-- TAB: Plan Complementario 60+ (PAC60) -->
@@ -7871,6 +7932,18 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
       <div class="form-group">
         <label class="form-label">Notas / Observaciones</label>
         <input type="text" class="form-control" id="vNotasPAC60" placeholder="Observaciones adicionales">
+      </div>
+
+      <!-- Toggle Tarifa Congelada PAC60 -->
+      <div class="tarifa-congelada-toggle" id="tcTogglePAC60">
+        <label>
+          <input type="checkbox" id="chkTarifaCongeladaPAC60" onchange="toggleTarifaCongelada('PAC60')">
+          🧊 Tarifa Congelada — Oferta Diciembre
+        </label>
+        <span class="tarifa-congelada-badge">✅ Tarifa 2026 fijada</span>
+      </div>
+      <div class="tarifa-congelada-info" id="tcInfoPAC60">
+        🎁 <strong>Oferta vigente:</strong> Esta póliza Plan 60+ mantiene las tarifas 2026 durante todo 2027. El sistema no aplicará incremento de tarifa en enero de 2027.
       </div>
     </div>
 
@@ -9238,11 +9311,26 @@ function getPbsCotizantes(month) {
   return getVentasByProduct(month, 'PBS').filter(v => v.tipo === 'COTIZANTE');
 }
 
+// ── Helper: calcula la comisión real de un conjunto de ventas PBS
+//    usando el rango final acumulado del período (no el valor guardado).
+function calcComisionPeriodoPBS(ventas) {
+  const mc = ventas.filter(v => v.tipo === 'COTIZANTE').length;
+  const rangoFinal = getRango(mc);
+  return ventas.reduce((s, v) => {
+    if (v.tipo === 'BENEFICIARIO') return s + 10000;
+    const rowV = COM_TABLE[v.criterio] || COM_TABLE['<=75%'];
+    return s + (rowV[rangoFinal.n - 1] || 0);
+  }, 0);
+}
+
 function calcMesComisionTotal(month) {
   // Solo ventas desde DH6: las de DH1-DH5 compensan en el mes anterior.
+  // Modo bruto: suma comision guardada (ya corregida retroactivamente al guardar).
+  // No se recalcula rango: el mes calendario mezcla ventas de distintos periodos compensados.
   const ventas = getVentasByProduct(month, 'PBS').filter(v => !calcMesCompensado(v.fecha).esZonaCorte);
   return ventas.reduce((sum, v) => sum + (v.comision || 0), 0);
 }
+
 
 // =============================================
 // DASHBOARD
@@ -9324,7 +9412,7 @@ function renderDashboard() {
   const sptiPpto = state.config.spti[selectedMonth];
   const spdPpto  = state.config.spd[selectedMonth];
   const comMes = _comPBSMesVista === "compensado"
-    ? getVentasPBSCompensado(selectedMonth, AÑO_ACTUAL).reduce((s,v) => s+(v.comision||0), 0)
+    ? calcComisionPeriodoPBS(getVentasPBSCompensado(selectedMonth, AÑO_ACTUAL))
     : calcMesComisionTotal(selectedMonth);
   const efect    = pct(pbsVentas, pbsPpto);
 
@@ -9541,8 +9629,10 @@ function renderPBSCompensado() {
     const mt = ventas.length;
     const mp = state.config.pbs[i];
     const pctCumpl = pct(mt, mp);
-    const mcom = ventas.reduce((s,v) => s+(v.comision||0), 0);
-    const rng = mc > 0 ? getRango(mc).label : '—';
+    // Recalcular comisión del período usando el rango final acumulado (no el valor guardado)
+    const rangoFinalPer = getRango(mc);
+    const mcom = calcComisionPeriodoPBS(ventas);
+    const rng = mc > 0 ? rangoFinalPer.label : '—';
     const pctColor = pctCumpl >= 100 ? 'chip-green' : pctCumpl >= 70 ? 'chip-amber' : pctCumpl > 0 ? 'chip-red' : '';
     const isX2 = X2_MONTHS.includes(i);
     return `<tr class="${isX2 ? 'highlight-row' : ''}">
@@ -10071,7 +10161,7 @@ function renderVolComisiones() {
     const baseSinIVA = getSinIVABase(v);
     const rowBg = i%2===0?'':'background:rgba(255,255,255,0.015)';
     return `<tr style="${rowBg};border-top:1px solid var(--border);">
-      <td style="padding:9px 12px;font-weight:500;">${nombre}</td>
+      <td style="padding:9px 12px;font-weight:500;">${nombre}${v.tarifaCongelada ? ' <span title="Tarifa congelada 2026 — no reajusta en 2027" style="font-size:10px;color:var(--amber);font-weight:700;background:rgba(245,158,11,0.12);padding:1px 6px;border-radius:10px;border:1px solid rgba(245,158,11,0.3);">🧊 T.Fija</span>' : ''}</td>
       <td style="padding:9px 12px;"><span class="chip ${v.producto==='SPTI'?'chip-teal':'chip-purple'}" style="font-size:10px;">${v.producto}</span></td>
       <td style="padding:9px 12px;font-size:12px;">${planLabel[v.plan]||v.plan||'—'}</td>
       <td style="padding:9px 12px;"><span class="chip chip-blue" style="font-size:10px;">${perLabel[v.periodicidad]||'—'}</span></td>
@@ -10486,8 +10576,10 @@ function editarVenta(id) {
         });
       }
 
+      // Helper único para toda la función — evita redeclaración de const s
+      const s = id => document.getElementById(id);
+
       if (tab === 'spti') {
-        const s = id => document.getElementById(id);
         if (s('vFechaSPTI'))      s('vFechaSPTI').value      = v.fecha      || '';
         if (s('vFechaExpSPTI'))   s('vFechaExpSPTI').value   = v.fechaExp   || '';
         if (s('vPolizaSPTI'))     s('vPolizaSPTI').value      = v.poliza     || '';
@@ -10507,9 +10599,11 @@ function editarVenta(id) {
         if (s('vAseguradoDocSPTI'))      s('vAseguradoDocSPTI').value      = v.doc     || '';
         if (s('vFechaNacSPTI'))          s('vFechaNacSPTI').value          = v.fechaNac || '';
         calcDatosSPTI();
+        // Restaurar toggle tarifa congelada
+        const chkTcSPTI = s('chkTarifaCongeladaSPTI');
+        if (chkTcSPTI) { chkTcSPTI.checked = !!v.tarifaCongelada; toggleTarifaCongelada('SPTI'); }
 
       } else if (tab === 'spd') {
-        const s = id => document.getElementById(id);
         if (s('vPolizaSPD'))        s('vPolizaSPD').value        = v.poliza            || '';
         if (s('vFechaSPD'))         s('vFechaSPD').value         = v.fecha             || '';
         if (s('vFechaExpSPD'))      s('vFechaExpSPD').value      = v.fechaExp          || '';
@@ -10538,9 +10632,11 @@ function editarVenta(id) {
           f2.style.pointerEvents = sinA2 ? 'none' : '';
         }
         calcTotalSPD();
+        // Restaurar toggle tarifa congelada
+        const chkTcSPD = s('chkTarifaCongeladaSPD');
+        if (chkTcSPD) { chkTcSPD.checked = !!v.tarifaCongelada; toggleTarifaCongelada('SPD'); }
 
       } else if (tab === 'psm') {
-        const s = id => document.getElementById(id);
         if (s('vPolizaPSM'))     s('vPolizaPSM').value     = v.poliza    || '';
         if (s('vFechaPSM'))      s('vFechaPSM').value      = v.fecha     || '';
         if (s('vFechaExpPSM'))   s('vFechaExpPSM').value   = v.fechaExp  || '';
@@ -10560,9 +10656,11 @@ function editarVenta(id) {
         if (s('chkMaternidad')) s('chkMaternidad').checked = modulos.includes('Maternidad');
         if (s('chkEMD')) s('chkEMD').checked = modulos.includes('EMD') || modulos.includes('Atención Domiciliaria');
         calcDatosPSM();
+        // Restaurar toggle tarifa congelada
+        const chkTcPSM = s('chkTarifaCongeladaPSM');
+        if (chkTcPSM) { chkTcPSM.checked = !!v.tarifaCongelada; toggleTarifaCongelada('PSM'); }
 
       } else if (tab === 'pac60') {
-        const s = id => document.getElementById(id);
         if (s('vPolizaPAC60'))    s('vPolizaPAC60').value    = v.poliza    || '';
         if (s('vFechaPAC60'))     s('vFechaPAC60').value     = v.fecha     || '';
         if (s('vFechaExpPAC60'))  s('vFechaExpPAC60').value  = v.fechaExp  || '';
@@ -10578,6 +10676,9 @@ function editarVenta(id) {
         const chkAnexo = document.getElementById('chkAnexoPAC60');
         if (chkAnexo) chkAnexo.checked = !!v.conAnexo;
         calcDatosPAC60();
+        // Restaurar toggle tarifa congelada
+        const chkTcPAC60 = s('chkTarifaCongeladaPAC60');
+        if (chkTcPAC60) { chkTcPAC60.checked = !!v.tarifaCongelada; toggleTarifaCongelada('PAC60'); }
       }
       showToast(`✏️ Editando ${v.producto} — ${tc(v.nombre || v.tomadorNombre || '')}`);
     }
@@ -10957,6 +11058,15 @@ function openModal(id) {
     document.getElementById('pac60Resumen').style.display = 'none';
     // Reset SPD auto-tariff
     calcTotalSPD();
+    // Reset toggles tarifa congelada
+    ['SPTI','SPD','PSM','PAC60'].forEach(prod => {
+      const chk = document.getElementById('chkTarifaCongelada' + prod);
+      if (chk) { chk.checked = false; }
+      const tog = document.getElementById('tcToggle' + prod);
+      if (tog) tog.classList.remove('activa');
+      const inf = document.getElementById('tcInfo' + prod);
+      if (inf) inf.classList.remove('visible');
+    });
   }
 }
 function closeModal(id) {
@@ -11513,6 +11623,34 @@ function calcDatosPAC60() {
   document.getElementById('pac60Desglose').innerHTML = desgloseHTML60 + multLine60HTML + dctoLine60HTML;
 }
 
+// ── Tarifa Congelada — Oferta Diciembre ──────────────────────────────────────
+// Activa/desactiva el toggle y muestra/oculta el banner informativo.
+// El campo tarifaCongelada:true + anioTarifa:YYYY se guarda en el objeto de venta
+// para que la cartera no aplique reajuste en enero del siguiente año.
+function toggleTarifaCongelada(producto) {
+  const map = { SPTI: 'SPTI', SPD: 'SPD', PSM: 'PSM', PAC60: 'PAC60' };
+  const key = map[producto];
+  if (!key) return;
+  const chk    = document.getElementById('chkTarifaCongelada' + key);
+  const toggle = document.getElementById('tcToggle' + key);
+  const info   = document.getElementById('tcInfo' + key);
+  if (!chk || !toggle || !info) return;
+  if (chk.checked) {
+    toggle.classList.add('activa');
+    info.classList.add('visible');
+  } else {
+    toggle.classList.remove('activa');
+    info.classList.remove('visible');
+  }
+}
+
+// Helper: devuelve el año de la tarifa que aplica para una venta.
+// Si tarifaCongelada es true, devuelve anioTarifa; si no, devuelve el año actual.
+function getAnioTarifaEfectivo(v) {
+  if (v && v.tarifaCongelada === true && v.anioTarifa) return v.anioTarifa;
+  return AÑO_ACTUAL;
+}
+
 function calcEdadSPD(quien) {
   const map = {
     tomador:    { fn: 'vTomadorFechaNac',    edad: 'vTomadorEdad' },
@@ -12062,6 +12200,8 @@ function guardarVenta() {
           ciudad:   document.getElementById('vCiudadSPTI')?.value   || vOld.ciudad,
           notas:    document.getElementById('vNotasSPTI')?.value    || vOld.notas,
           plan: planEdit, periodicidad: perEdit, dcto: dctoEdit,
+          tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaSPTI')?.checked),
+          anioTarifa: document.getElementById('chkTarifaCongeladaSPTI')?.checked ? (vOld.anioTarifa || AÑO_ACTUAL) : null,
         };
       } else if (modalTab === 'spd') {
         const fecha = document.getElementById('vFechaSPD')?.value || vOld.fecha;
@@ -12092,6 +12232,8 @@ function guardarVenta() {
           correo:  document.getElementById('vTomadorCorreo')?.value || vOld.correo,
           ciudad:  document.getElementById('vCiudadSPD')?.value     || vOld.ciudad,
           notas:   document.getElementById('vNotasSPD')?.value      || vOld.notas,
+          tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaSPD')?.checked),
+          anioTarifa: document.getElementById('chkTarifaCongeladaSPD')?.checked ? (vOld.anioTarifa || AÑO_ACTUAL) : null,
         };
       } else if (modalTab === 'psm') {
         const fecha = document.getElementById('vFechaPSM')?.value || vOld.fecha;
@@ -12111,6 +12253,8 @@ function guardarVenta() {
           ciudad:   document.getElementById('vCiudadPSM')?.value    || vOld.ciudad,
           empresa:  document.getElementById('vEmpresaPSM')?.value   || vOld.empresa,
           notas:    document.getElementById('vNotasPSM')?.value     || vOld.notas,
+          tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPSM')?.checked),
+          anioTarifa: document.getElementById('chkTarifaCongeladaPSM')?.checked ? (vOld.anioTarifa || AÑO_ACTUAL) : null,
         };
       } else if (modalTab === 'pac60') {
         const fecha = document.getElementById('vFechaPAC60')?.value || vOld.fecha;
@@ -12130,6 +12274,8 @@ function guardarVenta() {
           ciudad:   document.getElementById('vCiudadPAC60')?.value   || vOld.ciudad,
           notas:    document.getElementById('vNotasPAC60')?.value    || vOld.notas,
           conAnexo: document.getElementById('chkAnexoPAC60')?.checked ?? vOld.conAnexo,
+          tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPAC60')?.checked),
+          anioTarifa: document.getElementById('chkTarifaCongeladaPAC60')?.checked ? (vOld.anioTarifa || AÑO_ACTUAL) : null,
         };
       }
       setState(state);
@@ -12185,10 +12331,26 @@ function guardarVenta() {
         const pV = mcV.split('.');
         return MESES_IDX2[pV[0]] === mesConteoV && (parseInt(pV[1])||0) === anioConteoV;
       }).length;
+      const rangoAnterior = getRango(cotizAcumV);
       const rangoObj = getRango(cotizAcumV + cotizantes);
       rango = rangoObj.label;
       const row = COM_TABLE[criterio] || COM_TABLE['<=75%'];
       com = row[rangoObj.n - 1] || 0;
+
+      // ── Si la nueva venta sube de rango, recalcular todas las ventas
+      //    COTIZANTE del mismo período compensado con las tarifas del nuevo rango ──
+      if (rangoObj.n > rangoAnterior.n) {
+        state.ventas.forEach(v => {
+          if (v.producto !== 'PBS' || v.tipo !== 'COTIZANTE' || !v.fecha) return;
+          const { mesComp: mcV } = calcMesCompensado(v.fecha);
+          if (!mcV) return;
+          const pV = mcV.split('.');
+          if (MESES_IDX2[pV[0]] !== mesConteoV || (parseInt(pV[1])||0) !== anioConteoV) return;
+          const rowV = COM_TABLE[v.criterio] || COM_TABLE['<=75%'];
+          v.comision = rowV[rangoObj.n - 1] || 0;
+          v.rango = rangoObj.label;
+        });
+      }
     }
     const tramite = document.getElementById('vTramite').value;
     const { mesComp } = calcMesCompensado(fecha);
@@ -12349,6 +12511,8 @@ function guardarVenta() {
       notas: document.getElementById('vNotasSPTI').value,
       ciudad: document.getElementById('vCiudadSPTI').value,
       comision: 0, rango: '—', criterio: '—', empresa: '—', tramite: '—',
+      tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaSPTI')?.checked),
+      anioTarifa: document.getElementById('chkTarifaCongeladaSPTI')?.checked ? AÑO_ACTUAL : null,
     });
 
   } else if (modalTab === 'psm') {
@@ -12402,6 +12566,8 @@ function guardarVenta() {
       tipoNegocio: 'NUEVO',
       comPct: edadNum <= 50 ? 12 : 6,
       rango: k, criterio: '—', tramite: '—', bd: '—',
+      tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPSM')?.checked),
+      anioTarifa: document.getElementById('chkTarifaCongeladaPSM')?.checked ? AÑO_ACTUAL : null,
     });
     if (empNombrePSM) autoRegistrarEmpresaDesdeVenta(empNombrePSM, '', ciudadPSM);
 
@@ -12447,9 +12613,11 @@ function guardarVenta() {
       comision,
       comPct: 5,
       rango, criterio: '—', tramite: '—', bd: '—',
+      tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPAC60')?.checked),
+      anioTarifa: document.getElementById('chkTarifaCongeladaPAC60')?.checked ? AÑO_ACTUAL : null,
     });
 
-  } else {
+  } else if (modalTab === 'spd') {
     const fecha = document.getElementById('vFechaSPD').value;
     if (!fecha) return alert('Ingresa la fecha');
     const parsePrimaCOP = (str) => {
@@ -12495,10 +12663,14 @@ function guardarVenta() {
       ciudad: document.getElementById('vCiudadSPD').value,
       notas: document.getElementById('vNotasSPD').value,
       comision: 0, rango: '—', criterio: '—', empresa: '—', tramite: '—',
+      tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaSPD')?.checked),
+      anioTarifa: document.getElementById('chkTarifaCongeladaSPD')?.checked ? AÑO_ACTUAL : null,
     });
+  } else {
+    // Tab desconocido — no guardar nada, evita registro silencioso con datos incorrectos
+    console.warn('[guardarVenta] modalTab desconocido:', modalTab);
+    return;
   }
-
-  setState(state);
   state = getState();
   closeModal('modalVenta');
 
@@ -14961,6 +15133,17 @@ function eliminarPagoIndividual(ventaId, pagoId) {
 
 // Calcula prima mensual sin IVA de una venta según producto/plan/rango edad
 function calcPrimaMensualSinIVA(v) {
+  // ── Tarifa Congelada: siempre usar el valor guardado en la venta ──────────
+  // Si la póliza tiene tarifaCongelada:true (oferta diciembre), se respeta la
+  // prima original registrada y NO se recalcula desde las tablas vigentes.
+  if (v.tarifaCongelada === true) {
+    // primaTotalSinIVA guarda la prima del período sin IVA; prima guarda la mensual sin IVA
+    if (v.primaTotalSinIVA && v.periodicidad) {
+      const meses = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+      return Math.round(v.primaTotalSinIVA / (meses[v.periodicidad] || 1));
+    }
+    return v.primaSinIVA || v.prima || Math.round((v.primaTotal||0)/1.05);
+  }
   const edad = parseInt(v.edadTomador || v.edad || 0);
   if (v.producto === 'SPTI') {
     const rango = edad <= 40 ? '0-40' : edad <= 50 ? '41-50' : edad <= 59 ? '51-59' : null;
