@@ -10192,6 +10192,7 @@ function setComVista(vista, btn) {
   const lbl = document.getElementById('comPBSVistaLabel');
   if (lbl) lbl.textContent = vista === 'compensado' ? '(compensado)' : '(calendario)';
   renderTotalComisiones();
+  renderComisiones();
 }
 
 function renderTotalComisiones() {
@@ -10202,7 +10203,7 @@ function renderTotalComisiones() {
     const v = comVista === 'compensado'
       ? getVentasPBSCompensado(i, anio)
       : getVentasByProduct(i,'PBS');
-    return s + v.reduce((ss,vv) => ss+(vv.comision||0), 0);
+    return s + calcComisionPeriodoPBS(v);
   }, 0);
   const { totalProy, real: volReal } = getVolComisionesSummary();
 
@@ -10225,7 +10226,7 @@ function renderTotalComisiones() {
 
     const sptiV = getVentasByProduct(i,'SPTI');
     const spdV  = getVentasByProduct(i,'SPD');
-    const comPbs  = pbsV.reduce((s,v) => s+(v.comision||0), 0);
+    const comPbs  = calcComisionPeriodoPBS(pbsV);
     const comSpti = Math.round(sptiV.reduce((s,v) => s+getSinIVABase(v), 0) * COM_SPTI_PCT);
     const comSpd  = Math.round(spdV.reduce((s,v)  => s+getSinIVABase(v), 0) * COM_SPD_PCT);
     const total   = comPbs + comSpti + comSpd;
@@ -10247,13 +10248,16 @@ function renderTotalComisiones() {
 }
 
 function renderComisiones() {
+  const anio = 2026;
   const monthlyData = MESES.map((mes, i) => {
-    const ventas = getVentasByProduct(i,'PBS');
+    const ventas = comVista === 'compensado'
+      ? getVentasPBSCompensado(i, anio)
+      : getVentasByProduct(i,'PBS');
     const cotizantes = ventas.filter(v=>v.tipo==='COTIZANTE').length;
     const beneficiarios = ventas.filter(v=>v.tipo==='BENEFICIARIO').length;
-    const comCotiz = ventas.filter(v=>v.tipo==='COTIZANTE').reduce((s,v)=>s+(v.comision||0),0);
+    const total = calcComisionPeriodoPBS(ventas);
     const comBenef = beneficiarios * 10000;
-    const total = comCotiz + comBenef;
+    const comCotiz = total - comBenef;
     const rng = cotizantes > 0 ? getRango(cotizantes).label : '—';
     return { mes, cotizantes, beneficiarios, comCotiz, comBenef, total, rng };
   });
@@ -10367,7 +10371,7 @@ function renderPagoMes() {
 
   // Agrupar por empresa / cotizante para calcular la comisión conjunta
   // (tal como hace la tabla de PBS — por empresa + siniestralidad)
-  const totalComPBS = ventasPBS.reduce((s, v) => s + (v.comision || 0), 0);
+  const totalComPBS = calcComisionPeriodoPBS(ventasPBS);
   document.getElementById('pmPBSTotal').textContent = fmt(totalComPBS);
 
   const pbsBody = document.getElementById('pmPBSBody');
@@ -10382,14 +10386,17 @@ function renderPagoMes() {
       const d = new Date(str + 'T12:00:00');
       return isNaN(d) ? str : d.toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' });
     };
+    // Rango final del período para mostrar comisión correcta por fila
+    const _rangoFinalPago = getRango(ventasPBS.filter(vv => vv.tipo === 'COTIZANTE').length);
     pbsBody.innerHTML = ventasPBS.map((v, i) => {
       const nombre = tc(v.nombre || '—');
       const empresa = v.empresa || '—';
       const tipo = v.tipo === 'COTIZANTE' ? '<span class="chip chip-blue" style="font-size:10px;">Cotizante</span>' : '<span class="chip chip-teal" style="font-size:10px;">Beneficiario</span>';
-      const rango = v.rango ? `<span class="chip chip-green" style="font-size:10px;">${v.rango}</span>` : '—';
+      const rango = _rangoFinalPago ? `<span class="chip chip-green" style="font-size:10px;">${_rangoFinalPago.label}</span>` : '—';
       const fechaVenta = fmtFecha(v.fecha);
       const compPara = v.mesComp || '—';
-      const com = v.comision || 0;
+      const com = v.tipo === 'BENEFICIARIO' ? 10000
+        : (COM_TABLE[v.criterio] || COM_TABLE['<=75%'])[_rangoFinalPago.n - 1] || 0;
       return `<tr style="${i%2===0?'':'background:rgba(255,255,255,0.02)'}">
         <td style="padding:7px 10px;font-size:12.5px;font-weight:500;">${nombre}</td>
         <td style="padding:7px 10px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${empresa}">${empresa}</td>
