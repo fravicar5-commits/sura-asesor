@@ -4060,7 +4060,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             <div style="margin-top:12px;font-size:12px;color:var(--text-muted);background:var(--surface2);border-radius:8px;padding:12px;line-height:1.8;">
               <strong style="color:var(--teal);">🤖 Detección automática de producto:</strong><br>
               • Si el plan contiene <strong>CLASICO, CLÁSICO, PREFERENCIAL, SPTI, INTEGRAL</strong> → se registra como <strong>SPTI</strong><br>
-              • Si contiene <strong>SPD, PARA DOS, SALUD PARA DOS</strong> → se registra como <strong>SPD</strong><br>
+              • Si contiene <strong>SPD, PARA DOS, SALUD PARA DOS, PLUS</strong> → se registra como <strong>SPD</strong><br>
               • Si contiene <strong>MODULAR, PSM</strong> → se registra como <strong>Plan Modular</strong><br>
               • Si contiene <strong>60+, PAC60, COMPLEMENTARIO</strong> → se registra como <strong>Plan 60+</strong><br>
               • Si no se detecta, queda como <strong>SPTI</strong> por defecto — puedes editarlo después
@@ -7369,7 +7369,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
 
     <div id="tabSPD" style="display:none;">
       <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:var(--purple);">
-        💜 <strong>Salud Para Dos (SPD)</strong> — Tomador (quien paga) + Asegurado (quien recibe el servicio) · No. de Póliza requerido
+        💜 <strong>Salud Para Dos Plus (SPD)</strong> — Tomador (quien paga) + Asegurado (quien recibe el servicio) · No. de Póliza requerido
       </div>
 
       <div class="form-grid" style="margin-bottom:16px;">
@@ -7397,7 +7397,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
         <div class="form-group">
           <label class="form-label">Plan / Tipo de Cobertura</label>
-          <input type="text" class="form-control" id="vPlanSPD" value="Salud Para Dos" readonly style="background:var(--surface3);color:var(--teal);font-weight:600;">
+          <input type="text" class="form-control" id="vPlanSPD" value="Salud Para Dos Plus" readonly style="background:var(--surface3);color:var(--teal);font-weight:600;">
         </div>
         <div class="form-group">
           <label class="form-label">Periodicidad de Pago</label>
@@ -8201,6 +8201,91 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
 </div>
 
 <!-- MODAL: Editar Venta -->
+
+<!-- ══════════════════════════════════════════════════════
+     MODAL EDICIÓN SIMPLIFICADA — Pólizas importadas Sura
+     ══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalEditarSura">
+  <div class="modal" style="width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">Editar Póliza Importada</div>
+      <button class="modal-close" onclick="closeModal('modalEditarSura')">×</button>
+    </div>
+    <input type="hidden" id="eSuraId">
+
+    <!-- Encabezado del cliente -->
+    <div id="eSuraHeader" style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:18px;border:1px solid var(--border);font-size:12px;color:var(--text-muted);">
+      <div id="eSuraNombreLabel" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <span>Póliza: <span id="eSuraPolizaLabel" style="color:var(--sura-blue);font-family:var(--mono);"></span></span>
+        <span>Doc: <span id="eSuraDocLabel" style="font-family:var(--mono);"></span></span>
+        <span>Producto: <span id="eSuraProductoLabel" style="color:var(--amber);font-weight:600;"></span></span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+      <!-- Contacto -->
+      <div class="form-group">
+        <label class="form-label">Teléfono</label>
+        <input type="tel" class="form-control" id="eSuraTel" placeholder="300 000 0000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Correo</label>
+        <input type="email" class="form-control" id="eSuraCorreo" placeholder="cliente@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ciudad</label>
+        <input type="text" class="form-control" id="eSuraCiudad" placeholder="Ciudad">
+      </div>
+
+      <!-- Póliza -->
+      <div class="form-group">
+        <label class="form-label">Producto real</label>
+        <select class="form-control" id="eSuraProducto" onchange="eSuraActualizarPlanes()">
+          <option value="SPTI">SPTI — Salud Individual</option>
+          <option value="SPD">SPD — Salud Para Dos</option>
+          <option value="PSM">PSM — Modular</option>
+          <option value="PAC60">PAC 60+</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Plan</label>
+        <select class="form-control" id="eSuraPlan">
+          <option value="">Sin especificar</option>
+          <option value="CLASICO">Clásico</option>
+          <option value="PREFERENCIAL">Preferencial</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Periodicidad</label>
+        <select class="form-control" id="eSuraPeriodicidad">
+          <option value="MENSUAL">Mensual</option>
+          <option value="TRIMESTRAL">Trimestral</option>
+          <option value="SEMESTRAL">Semestral</option>
+          <option value="ANUAL">Anual</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prima a cobrar</label>
+        <input type="number" class="form-control" id="eSuraPrima" placeholder="0" min="0">
+      </div>
+
+      <!-- Notas -->
+      <div class="form-group" style="grid-column:span 2;">
+        <label class="form-label">Notas internas</label>
+        <textarea class="form-control" id="eSuraNotas" rows="2" placeholder="Observaciones del cliente..."></textarea>
+      </div>
+
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+      <button class="btn btn-secondary" onclick="closeModal('modalEditarSura')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEdicionSura()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalEditar">
   <div class="modal" style="width:680px;">
     <div class="modal-header">
@@ -10157,7 +10242,7 @@ function renderVolComisiones() {
     const comReal = isPagado ? pagos[v.id].reduce((s, p) => s + (p.comision || 0), 0) : 0;
     const pct = v.producto==='SPTI' ? '7%' : '8%';
     const nombre = tc(v.tomadorNombre || v.nombre || '—');
-    const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial' };
+    const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial', 'Salud Para Dos':'Salud Para Dos Plus', 'Salud Para Dos Plus':'Salud Para Dos Plus' };
     const baseSinIVA = getSinIVABase(v);
     const rowBg = i%2===0?'':'background:rgba(255,255,255,0.015)';
     return `<tr style="${rowBg};border-top:1px solid var(--border);">
@@ -10462,7 +10547,7 @@ function renderPagoMes() {
     }
     vacio.style.display = 'none';
     const perLabel = { MENSUAL:'Mensual', TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' };
-    const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial' };
+    const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial', 'Salud Para Dos':'Salud Para Dos Plus', 'Salud Para Dos Plus':'Salud Para Dos Plus' };
     const fmtFecha = str => { if (!str) return '—'; const s = str.length > 10 ? str.slice(0,10) : str; return new Date(s+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); };
     let totalCom = 0;
     tbody.innerHTML = entradas.map(({ venta: v, pago: p }, i) => {
@@ -10557,11 +10642,106 @@ function splitNombre(nombre, idx) {
 // =============================================
 let _editId = null;
 
+
+// ══════════════════════════════════════════════════════════
+// EDICIÓN SIMPLIFICADA — Pólizas importadas desde Sura
+// ══════════════════════════════════════════════════════════
+function eSuraActualizarPlanes() {
+  const prod = document.getElementById('eSuraProducto')?.value || 'SPTI';
+  const planSel = document.getElementById('eSuraPlan');
+  if (!planSel) return;
+  const plansPorProducto = {
+    SPTI:  [['','Sin especificar'],['CLASICO','Clásico'],['PREFERENCIAL','Preferencial']],
+    SPD:   [['','Sin especificar'],['Salud Para Dos Plus','Salud Para Dos Plus']],
+    PSM:   [['','Sin especificar'],['BASICO','Básico'],['COMPLEMENTARIO','Complementario'],['PLENO','Pleno']],
+    PAC60: [['','Sin especificar'],['INDIVIDUAL','Individual'],['FAMILIAR','Familiar']],
+  };
+  const opts = plansPorProducto[prod] || plansPorProducto.SPTI;
+  const current = planSel.value;
+  planSel.innerHTML = opts.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+  // Restaurar selección si sigue siendo válida
+  if (opts.some(([v]) => v === current)) planSel.value = current;
+}
+
+function abrirEditarSura(id) {
+  const s = getState();
+  const v = s.ventas.find(x => x.id === id);
+  if (!v) return;
+  _editId = id;
+
+  const g = eid => document.getElementById(eid);
+  g('eSuraId').value           = id;
+  g('eSuraNombreLabel').textContent   = v.tomadorNombre || v.nombre || '—';
+  g('eSuraPolizaLabel').textContent   = v.poliza || '—';
+  g('eSuraDocLabel').textContent      = v.tomadorDoc || v.doc || '—';
+  g('eSuraProductoLabel').textContent = v.producto || '—';
+  g('eSuraTel').value          = v.tomadorTel || v.telefono || '';
+  g('eSuraCorreo').value       = v.tomadorCorreo || v.correo || '';
+  g('eSuraCiudad').value       = v.ciudad || '';
+  g('eSuraPeriodicidad').value = v.periodicidad || 'MENSUAL';
+  g('eSuraPrima').value        = v.prima || v.primaTotal || '';
+  g('eSuraNotas').value        = v.notas || '';
+  // Producto y planes dinámicos
+  const prodEl = g('eSuraProducto');
+  if (prodEl) { prodEl.value = v.producto || 'SPTI'; eSuraActualizarPlanes(); }
+  g('eSuraPlan').value         = v.plan || '';
+
+  openModal('modalEditarSura');
+}
+
+function guardarEdicionSura() {
+  const id = document.getElementById('eSuraId').value;
+  if (!id) return;
+  const s = getState();
+  const idx = s.ventas.findIndex(x => x.id === id);
+  if (idx < 0) { showToast('Registro no encontrado'); return; }
+
+  const v   = s.ventas[idx];
+  const g   = eid => document.getElementById(eid);
+  const tel = g('eSuraTel').value.trim();
+  const prima = parseFloat(g('eSuraPrima').value) || v.prima || 0;
+
+  const productoEdit = g('eSuraProducto')?.value || v.producto || 'SPTI';
+  s.ventas[idx] = {
+    ...v,
+    // Contacto
+    telefono:     tel,
+    tomadorTel:   tel,
+    correo:       g('eSuraCorreo').value.trim(),
+    tomadorCorreo:g('eSuraCorreo').value.trim(),
+    ciudad:       g('eSuraCiudad').value.trim(),
+    // Póliza
+    producto:     productoEdit,
+    plan:         g('eSuraPlan').value,
+    periodicidad: g('eSuraPeriodicidad').value,
+    prima,
+    primaTotal:   prima,
+    primaTotalSinIVA: Math.round(prima / 1.19),
+    notas:        g('eSuraNotas').value.trim(),
+    // Preservar flags de importación
+    _importadoSura: true,
+    mesComp: 'IMPORTADO_SURA',
+  };
+
+  setState(s);
+  _editId = null;
+  closeModal('modalEditarSura');
+  showToast('Póliza actualizada correctamente');
+  navigate('cartera');
+}
+
 function editarVenta(id) {
   state = getState();
   const v = state.ventas.find(x => x.id === id);
   if (!v) return;
   _editId = id;
+
+  // ── Importados de Sura: modal simplificado (solo contacto + póliza) ──
+  if (v._importadoSura) {
+    _editId = null; // abrirEditarSura maneja su propio estado
+    abrirEditarSura(id);
+    return;
+  }
 
   // ── Voluntarios: abrir modalVenta con el tab correcto ─────────────
   const PROD_TAB = { SPTI:'spti', SPD:'spd', PSM:'psm', PAC60:'pac60' };
@@ -12176,6 +12356,10 @@ function guardarVenta() {
     const idxEdit = state.ventas.findIndex(x => x.id === _editId);
     if (idxEdit >= 0) {
       const vOld = state.ventas[idxEdit];
+      // Para registros importados de Sura, preservar mesComp especial
+      const _calcMesCompEdit = (fechaStr) =>
+        vOld._importadoSura ? 'IMPORTADO_SURA'
+          : getMesKey(new Date(fechaStr+'T12:00:00').getFullYear(), new Date(fechaStr+'T12:00:00').getMonth());
       // Leer campos del tab activo y actualizar solo los campos del registro
       if (modalTab === 'spti') {
         const fecha = document.getElementById('vFechaSPTI')?.value || vOld.fecha;
@@ -12194,7 +12378,7 @@ function guardarVenta() {
         state.ventas[idxEdit] = {
           ...vOld,
           fecha,
-          mesComp: getMesKey(new Date(fecha+'T12:00:00').getFullYear(), new Date(fecha+'T12:00:00').getMonth()),
+          mesComp: _calcMesCompEdit(fecha),
           fechaExp: document.getElementById('vFechaExpSPTI')?.value || vOld.fechaExp,
           poliza:   document.getElementById('vPolizaSPTI')?.value   || vOld.poliza,
           tipo:     document.getElementById('vTipoSPTI')?.value     || vOld.tipo,
@@ -12215,7 +12399,7 @@ function guardarVenta() {
         state.ventas[idxEdit] = {
           ...vOld,
           fecha,
-          mesComp: getMesKey(new Date(fecha+'T12:00:00').getFullYear(), new Date(fecha+'T12:00:00').getMonth()),
+          mesComp: _calcMesCompEdit(fecha),
           fechaExp:     document.getElementById('vFechaExpSPD')?.value    || vOld.fechaExp,
           poliza:       document.getElementById('vPolizaSPD')?.value      || vOld.poliza,
           periodicidad: document.getElementById('vPeriodicidadSPD')?.value|| vOld.periodicidad,
@@ -12247,7 +12431,7 @@ function guardarVenta() {
         state.ventas[idxEdit] = {
           ...vOld,
           fecha,
-          mesComp: getMesKey(new Date(fecha+'T12:00:00').getFullYear(), new Date(fecha+'T12:00:00').getMonth()),
+          mesComp: _calcMesCompEdit(fecha),
           fechaExp: document.getElementById('vFechaExpPSM')?.value  || vOld.fechaExp,
           poliza:   document.getElementById('vPolizaPSM')?.value    || vOld.poliza,
           tipo:     document.getElementById('vTipoMovPSM')?.value   || vOld.tipo,
@@ -12268,7 +12452,7 @@ function guardarVenta() {
         state.ventas[idxEdit] = {
           ...vOld,
           fecha,
-          mesComp: getMesKey(new Date(fecha+'T12:00:00').getFullYear(), new Date(fecha+'T12:00:00').getMonth()),
+          mesComp: _calcMesCompEdit(fecha),
           fechaExp: document.getElementById('vFechaExpPAC60')?.value || vOld.fechaExp,
           poliza:   document.getElementById('vPolizaPAC60')?.value   || vOld.poliza,
           tipo:     document.getElementById('vTipoMovPAC60')?.value  || vOld.tipo,
@@ -12285,19 +12469,28 @@ function guardarVenta() {
           anioTarifa: document.getElementById('chkTarifaCongeladaPAC60')?.checked ? (vOld.anioTarifa || AÑO_ACTUAL) : null,
         };
       }
+      // ── Si era _importadoSura, preservar el flag y el mesComp especial ──
+      if (vOld._importadoSura) {
+        state.ventas[idxEdit]._importadoSura = true;
+        state.ventas[idxEdit].mesComp = 'IMPORTADO_SURA';
+      }
       setState(state);
       state = getState();
       _editId = null;
       closeModal('modalVenta');
       showToast(`✅ ${vOld.producto} actualizado correctamente`);
-      // Redirigir a la plantilla correcta según producto editado
-      const _prodTabMap = { SPTI:'SPTI', SPD:'SPD', PSM:'PSM', PAC60:'PAC60' };
-      if (_prodTabMap[vOld.producto]) {
-        const _selPt = document.getElementById('ptProductoVol');
-        if (_selPt) _selPt.value = _prodTabMap[vOld.producto];
-        navigate('plantilla-vol');
+      // Si era importado de Sura, volver a cartera activa; si no, a plantilla
+      if (vOld._importadoSura) {
+        navigate('cartera');
       } else {
-        refreshPage(currentPage);
+        const _prodTabMap = { SPTI:'SPTI', SPD:'SPD', PSM:'PSM', PAC60:'PAC60' };
+        if (_prodTabMap[vOld.producto]) {
+          const _selPt = document.getElementById('ptProductoVol');
+          if (_selPt) _selPt.value = _prodTabMap[vOld.producto];
+          navigate('plantilla-vol');
+        } else {
+          refreshPage(currentPage);
+        }
       }
       return;
     }
@@ -13122,7 +13315,7 @@ function renderPlantillaVol() {
     if (el) el.style.display = p === producto ? '' : 'none';
   });
 
-  const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial' };
+  const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial', 'Salud Para Dos':'Salud Para Dos Plus', 'Salud Para Dos Plus':'Salud Para Dos Plus' };
   const perLabel  = { MENSUAL:'Mensual', TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' };
   const fmtD = d => d ? new Date(d+'T12:00:00').toLocaleDateString('es-CO') : '—';
   const empty = cols => `<tr><td colspan="${cols}" style="text-align:center;padding:32px;color:var(--text-dim);">Sin registros</td></tr>`;
@@ -13377,7 +13570,7 @@ function renderPlantilla() {
       </tr>`;
     }).join('');
   } else {
-  const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial' };
+  const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial', 'Salud Para Dos':'Salud Para Dos Plus', 'Salud Para Dos Plus':'Salud Para Dos Plus' };
   const perLabel  = { MENSUAL:'Mensual', TRIMESTRAL:'Trimestral', SEMESTRAL:'Semestral', ANUAL:'Anual' };
 
   document.getElementById('ptTituloVol').textContent    = `Plantilla ${producto} — Estado de Gestión`;
@@ -18538,9 +18731,11 @@ async function importarCarteraSura(event) {
       const cMedioPago = col('medio pago');
       const cTelefono  = col('tel. cliente','telefono','tel ');
       const cBanco     = col('banco');
-      const cRespCobro = col('resp. cobro','responsable cobro');
-      const cFIniVig   = col('fecha inicio vig','inicio vig','inicio de vig');
-      const cAbonos    = col('abonos','abono');
+      const cRespCobro    = col('resp. cobro','responsable cobro');
+      const cFIniVig      = col('fecha inicio vig','inicio vig','inicio de vig');
+      const cAbonos       = col('abonos','abono');
+      const cPeriodicidad = col('periodicidad pago','periodicidad');
+      const cFechaExp     = col('fecha exp.','fecha exp','fe. exp','fecha expedicion');
 
       // Get ventas and state for cross-reference
       const state = getState();
@@ -18561,6 +18756,12 @@ async function importarCarteraSura(event) {
         const telSura   = cTelefono >= 0 ? String(row[cTelefono] || '').trim() : '';
         const banco     = cBanco >= 0 ? String(row[cBanco] || '').trim() : '';
         const respCobro = cRespCobro >= 0 ? String(row[cRespCobro] || '').trim() : '';
+        // Periodicidad: mapear texto de Sura → constante interna
+        const perRaw = cPeriodicidad >= 0 ? String(row[cPeriodicidad] || '').trim().toLowerCase() : '';
+        const periodicidadMap = { 'mensual':'MENSUAL', 'trimestral':'TRIMESTRAL', 'semestral':'SEMESTRAL', 'anual':'ANUAL', 'bimestral':'BIMESTRAL' };
+        const periodicidad = periodicidadMap[perRaw] || 'MENSUAL';
+        // fechaExpOrig: Col 12 "Fecha Exp." — fecha de expedición original de la póliza
+        const fechaExpOrig = cFechaExp >= 0 ? String(row[cFechaExp] || '').trim() : '';
 
         // Urgencia
         let urgencia = 'seguimiento';
@@ -18586,7 +18787,7 @@ async function importarCarteraSura(event) {
           nombre, primerNombre, cedula, poliza, solucion,
           diasCart, diasCanc, saldo, abonos, pagoMax, fIniVig, medioPago,
           banco, respCobro, telefono, telSura,
-          urgencia,
+          urgencia, periodicidad, fechaExpOrig,
           enBD: !!matchVenta,
           ventaId: matchVenta?.id || null,
         };
@@ -18703,34 +18904,48 @@ function renderCarteraSuraTabla() {
     const saldoTotalCliente = r.saldoTotal > 0 ? r.saldoTotal : (r.saldo > 0 ? r.saldo : 0);
     const saldoFmt = '$' + saldoTotalCliente.toLocaleString('es-CO');
 
-    // Detalle de recibos si hay más de uno
+    // Detalle de recibos si hay más de uno (sin emojis — no se renderizan bien)
     const recibosDetalle = (r.recibos && r.recibos.length > 1)
-      ? '\n\n📋 *Recibos pendientes:*\n' + r.recibos
+      ? '\n\nRecibos pendientes:\n' + r.recibos
           .sort((a, b) => a.diasCart - b.diasCart)
-          .map(rb => `- ${rb.diasCart} días — $${rb.saldo.toLocaleString('es-CO')} · vence ${rb.pagoMax}`)
+          .map(rb => `  - ${rb.diasCart} dias   $${rb.saldo.toLocaleString('es-CO')}   vence ${rb.pagoMax}`)
           .join('\n')
       : '';
 
-    // 60+ días → riesgo de cancelación definitiva
-    // 35-59 días → suspensión del servicio
-    const consecuencia = r.diasCart >= 60
-      ? 'el cual está en *riesgo de ser cancelado definitivamente*'
-      : 'el cual se verá afectado con la *suspensión del servicio*';
+    // Tono y consecuencia según días de mora:
+    // <= 0  → preventivo (aún no vencido o vence hoy)
+    // 1–30  → primer aviso, suspensión próxima
+    // 31–59 → mora activa, servicio suspendido
+    // 60+   → riesgo cancelación definitiva
+    let saludo, cuerpo, cierre;
+    if (r.diasCart <= 0) {
+      saludo = `Hola *${r.primerNombre}*, espero que te encuentres muy bien.`;
+      cuerpo = `Te escribimos para recordarte que el próximo *${r.pagoMax}* vence el pago de tu *${r.solucion}* por valor de *${saldoFmt}*. Realizar el pago a tiempo garantiza la continuidad de tu cobertura sin interrupciones.`;
+      cierre = `Si ya tienes programado el pago puedes omitir este mensaje.`;
+    } else if (r.diasCart <= 30) {
+      saludo = `Hola *${r.primerNombre}*, espero que te encuentres muy bien.`;
+      cuerpo = `Queremos informarte que tienes un saldo pendiente de *${saldoFmt}* en tu *${r.solucion}* con *${r.diasCart} dias de mora*. Te recomendamos regularizar el pago antes del *${r.pagoMax}* para evitar la suspensión del servicio.`;
+      cierre = `Si ya realizaste el pago por favor omite este mensaje.`;
+    } else if (r.diasCart <= 59) {
+      saludo = `Hola *${r.primerNombre}*.`;
+      cuerpo = `Tu *${r.solucion}* presenta un saldo de *${saldoFmt}* con *${r.diasCart} dias de mora*. En este momento el servicio puede estar *suspendido*. Para reactivarlo es necesario realizar el pago antes del *${r.pagoMax}*.`;
+      cierre = `Si ya realizaste el pago comunícate con nosotros para gestionar la reactivación.`;
+    } else {
+      saludo = `Hola *${r.primerNombre}*.`;
+      cuerpo = `Tu *${r.solucion}* tiene un saldo de *${saldoFmt}* con *${r.diasCart} dias de mora* y está en *riesgo de cancelación definitiva*. La fecha máxima de pago es el *${r.pagoMax}*. Te pedimos atender esto con urgencia para evitar la pérdida de tu cobertura.`;
+      cierre = `Para evitar la cancelación comunícate con nosotros de inmediato.`;
+    }
 
     const mensaje = encodeURIComponent(
-`Recordatorio
+`${saludo}
 
-Hola *${r.primerNombre}* 👋
-Espero que tú y tu familia se encuentren muy bien.
+${cuerpo}${recibosDetalle}
 
-Queremos recordarte que tienes un saldo total pendiente de *${saldoFmt}* en tu *${r.solucion}* ${consecuencia}.${recibosDetalle}
+Puedes realizar el pago en línea con tu número de documento en:
 
-Para tu comodidad puedes realizar el pago en línea ingresando al siguiente link con tu número de documento:
+https://www.segurossura.com.co/paginas/pago-express.aspx/
 
-🔗 https://www.segurossura.com.co/paginas/pago-express.aspx/
-
-Tu pago oportuno asegura la continuidad de tu cobertura y beneficios. ✅
-Si ya realizaste el pago puedes omitir este mensaje. 😊`
+${cierre}`
     );
 
     const waLink  = telLimpio ? `https://wa.me/57${telLimpio}?text=${mensaje}` : '';
@@ -23584,6 +23799,9 @@ document.getElementById('modalVenta').addEventListener('click', function(e) {
 document.getElementById('modalEditar').addEventListener('click', function(e) {
   if (e.target === this) closeModal('modalEditar');
 });
+document.getElementById('modalEditarSura').addEventListener('click', function(e) {
+  if (e.target === this) closeModal('modalEditarSura');
+});
 document.getElementById('modalProspecto').addEventListener('click', function(e) {
   if (e.target === this) closeModal('modalProspecto');
 });
@@ -26208,32 +26426,41 @@ function importarClienteDesdeCarteraSura(item) {
   const s   = getState();
   const id  = 'sura_' + Date.now().toString(36) + '_' + (item.cedula || '').slice(-4);
 
-  // Parsear fechaExp desde pagoMax
-  let fechaExp = '';
-  if (item.pagoMax) {
-    const raw = item.pagoMax.trim();
+  // ── Parsear fechas desde el reporte SURA ────────────────────────────────
+  // fIniVig  = inicio del período vigente actual (fecha de la póliza en vigor)
+  // pagoMax  = fecha límite de pago = próximo vencimiento real
+  const parseFechaSura = (str) => {
+    if (!str) return '';
+    const raw = str.trim();
     const partes = raw.split('/');
     if (partes.length === 3) {
       const [d, m, a] = partes;
-      fechaExp = `${a.length===2?'20'+a:a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-    } else if (raw.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      fechaExp = raw;
+      return `${a.length===2?'20'+a:a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
     }
-  }
+    if (raw.match(/^\d{4}-\d{2}-\d{2}$/)) return raw;
+    return '';
+  };
+
+  const fechaIniVig = parseFechaSura(item.fIniVig);  // inicio vigencia actual = ancla de la póliza
 
   // ── Fecha de venta: usar fecha neutral en año 2000 para que NUNCA
   // aparezca en KPIs, conteos ni filtros del año actual o anteriores recientes.
-  // El mesComp se marca como 'IMPORTADO_SURA' — valor especial que los filtros
-  // de ventas y dashboard excluyen explícitamente.
-  // El asesor puede ver y gestionar la póliza en cartera, pero no contamina producción.
   const fechaVenta = '2000-01-01';
 
+  // Periodicidad: viene del reporte SURA, ya mapeada a constante interna
+  const periodicidad = item.periodicidad || 'MENSUAL';
+
+  // fechaExp = Fecha Inicio Vig. (ancla de la póliza).
+  // calcProxVencimiento(fechaExp, periodicidad, ventaId) con 0 pagos devuelve
+  // fechaExp + 1 intervalo = Fe. Pago Max real de Sura. Si se usa pagoMax como
+  // fechaExp, calcProxVencimiento le suma un intervalo extra y el vencimiento
+  // queda un período adelantado.
   const nuevaVenta = {
     id,
     producto,
-    fecha: fechaVenta,
+    fecha: fechaIniVig || fechaVenta,   // inicio vigencia real del período actual
     mesComp: 'IMPORTADO_SURA',
-    fechaExp: fechaExp || fechaVenta,
+    fechaExp: fechaIniVig || fechaVenta, // ANCLA = Fecha Inicio Vig. (NO pagoMax)
     poliza: item.poliza || '',
     tipo: 'NUEVO',
     nombre: item.nombre || '',
@@ -26241,14 +26468,26 @@ function importarClienteDesdeCarteraSura(item) {
     doc: item.cedula || '',
     telefono: item.telefono || item.telSura || '',
     empresa: '—',
-    periodicidad: 'MENSUAL', // default — editar después si se conoce
+    periodicidad,
     prima: item.saldo || 0,
     primaTotal: item.saldo || 0,
     primaTotalSinIVA: Math.round((item.saldo || 0) / 1.19),
     comision: 0,
     rango: '—', criterio: '—', tramite: '—', bd: '—',
-    notas: `⚠️ Importado desde cartera SURA · Póliza: ${item.poliza} · Completar datos pendientes`,
+    notas: `Importado desde cartera SURA · Poliza: ${item.poliza} · Periodicidad: ${periodicidad} · Completar datos pendientes`,
     _importadoSura: true,
+    // Fecha de expedición ORIGINAL de la póliza (Col 12 del reporte Sura).
+    // Usada en indicador de cancelaciones prematuras para medir antigüedad real,
+    // no desde el inicio del período vigente importado.
+    fechaExpOriginal: (() => {
+      if (!item.fechaExpOrig) return '';
+      const p = item.fechaExpOrig.split('/');
+      if (p.length === 3) {
+        const [d, m, a] = p;
+        return `${a.length===2?'20'+a:a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+      }
+      return item.fechaExpOrig.match(/^\d{4}-\d{2}-\d{2}$/) ? item.fechaExpOrig : '';
+    })(),
   };
 
   s.ventas.push(nuevaVenta);
@@ -26947,7 +27186,12 @@ function calcularIndicadorCancelaciones() {
 
   const hoy = new Date();
   const resultados = canceladas.map(v => {
-    const fechaExp  = new Date(v.fechaExp + 'T12:00:00');
+    // Para importados de Sura: usar fechaExpOriginal (expedición real de la póliza)
+    // en lugar de fechaExp (inicio del período vigente importado), para no
+    // contar como prematura una cancelación de una póliza ya antigua.
+    const anclaFecha = (v._importadoSura && v.fechaExpOriginal)
+      ? v.fechaExpOriginal : v.fechaExp;
+    const fechaExp  = new Date(anclaFecha + 'T12:00:00');
     const fechaCanc = new Date(v.fechaCancelacion + 'T12:00:00');
     const diasVigencia = Math.floor((fechaCanc - fechaExp) / 86400000);
     const esPrematura  = diasVigencia < 365;
