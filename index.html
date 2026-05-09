@@ -2688,6 +2688,39 @@
               <div id="pmPBSVacio" style="display:none;text-align:center;padding:16px;color:var(--text-dim);font-size:13px;">Sin ventas PBS en el período de compensación para este mes</div>
             </div>
 
+
+            <!-- ══ Ventas Pasivas Cierre Sura ══ -->
+            <div style="background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.18);border-radius:var(--radius-sm);padding:14px;" id="pmPasivasSection">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:#FBB024;text-transform:uppercase;letter-spacing:.06em;">📂 Ventas Pasivas — Cierre Sura</div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:2px;" id="pmPasivasLabel">Carga el archivo de cierre de Sura para ver las ventas pasivas que se pagarán en este mes</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:#FBB024;" id="pmPasivasTotal">$ 0</div>
+                  <label style="cursor:pointer;">
+                    <input type="file" id="pmCierreFileInput" accept=".xlsx,.xls" style="display:none;" onchange="cargarCierreSura(this)">
+                    <span class="btn btn-secondary" style="font-size:11.5px;padding:5px 12px;white-space:nowrap;" onclick="document.getElementById('pmCierreFileInput').click()">📂 Cargar cierre</span>
+                  </label>
+                  <button class="btn" style="font-size:11px;padding:4px 10px;background:rgba(255,59,59,0.15);color:#ff6b6b;border:1px solid rgba(255,59,59,0.3);display:none;" id="pmPasivasClearBtn" onclick="limpiarCierreSura()">✕ Limpiar</button>
+                </div>
+              </div>
+              <div id="pmPasivasTablaWrap" style="overflow-x:auto;display:none;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead><tr style="background:var(--surface2);">
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Nombre</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Empresa</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Tipo</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Siniestralidad</th>
+                    <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Edad</th>
+                    <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Comisión</th>
+                  </tr></thead>
+                  <tbody id="pmPasivasBody"></tbody>
+                </table>
+              </div>
+              <div id="pmPasivasVacio" style="text-align:center;padding:16px;color:var(--text-dim);font-size:13px;">Sin ventas pasivas detectadas</div>
+            </div>
+
             <!-- Sub-sección Voluntarios 1ª quincena -->
             <div style="background:rgba(6,182,212,0.06);border-radius:var(--radius-sm);padding:14px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
@@ -10616,6 +10649,267 @@ function renderPagoMes() {
   document.getElementById('pmKpi30').textContent      = fmt(total30);
   document.getElementById('pmKpiTotal').textContent   = fmt(totalMes);
   document.getElementById('pmKpi15Sub').textContent   = `PBS ${fmt(totalComPBS)} + Voluntarios ${fmt(comVol1)}`;
+
+  // Si hay cierre cargado, re-aplicar pasivas sobre los totales recién calculados
+  if (_cierreSuraData) renderPasivasSura();
+}
+
+
+// ══════════════════════════════════════════════════════════════════════
+// VENTAS PASIVAS — Cierre Sura
+// Lee el Excel de cierre (hoja Detalle_venta_PBS), filtra por
+// NOMBRE ASESOR = "FRAN DAVID VILORIA CARDOZO", cruza contra las ventas
+// ya registradas en la app (por Número Formulario), y las diferencias
+// son las ventas pasivas que se pagarán en el mes proyectado.
+// ══════════════════════════════════════════════════════════════════════
+
+let _cierreSuraData = null; // { mesNombre, filas: [...] }
+
+async function cargarCierreSura(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  const lbl = document.getElementById('pmPasivasLabel');
+  if (lbl) lbl.textContent = 'Procesando archivo...';
+
+  try {
+    // Cargar SheetJS dinámicamente igual que el resto de importadores
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+
+    const buf = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target.result);
+      reader.onerror = () => rej(new Error('No se pudo leer el archivo'));
+      reader.readAsArrayBuffer(file);
+    });
+    const wb  = XLSX.read(buf, { type: 'array', cellDates: true });
+    const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('detalle_venta') || n.toLowerCase().includes('detalle venta'));
+    if (!sheetName) throw new Error('No se encontró la hoja Detalle_venta_PBS en el archivo');
+    const ws = wb.Sheets[sheetName];
+
+    // Leer como array de arrays (incluye filas en blanco al inicio)
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    // Buscar fila de encabezados (contiene "NOMBRE ASESOR")
+    let headerRow = -1;
+    for (let i = 0; i < Math.min(10, rows.length); i++) {
+      if (rows[i].some(c => String(c).toUpperCase().includes('NOMBRE ASESOR'))) {
+        headerRow = i; break;
+      }
+    }
+    if (headerRow < 0) throw new Error('No se encontró la fila de encabezados');
+
+    const headers = rows[headerRow].map(h => String(h).trim().toUpperCase());
+    const col = (...names) => {
+      for (const n of names) {
+        const idx = headers.findIndex(h => h.includes(n.toUpperCase()));
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    };
+
+    const cAsesor   = col('NOMBRE ASESOR');
+    const cSinie    = col('SINIESTRALIDAD');
+    const cEmpresa  = col('EMPLEADOR EPS DESC');
+    const cNombre   = col('AFILIADO EPS NOMBRE COMPLETO');
+    const cApe1     = col('AFILIADO EPS PRIMER APELLIDO');
+    const cApe2     = col('AFILIADO EPS SEGUNDO APELLIDO');
+    const cEdad     = col('EDAD ACTUAL');
+    const cTipo     = col('IND TIPO AFILIADO');
+    const cFormul   = col('NUMERO FORMULARIO');
+    const cDocNum   = col('AFILIADO EPS NUMERO_IDENTIFICACION','AFILIADO EPS NUMERO IDENTIFICACION');
+    const cAgil     = col('AGIL');
+    const cMes      = col('NOMBRE MES');
+
+    // Nombre del asesor desde el perfil de la app — funciona para cualquier usuario
+    const ASESOR = (getState().config?.nombreAsesor || '').trim().toUpperCase();
+    if (!ASESOR) throw new Error('No se encontró el nombre del asesor en tu perfil. Configúralo en Ajustes → Perfil.');
+    const filasFrancho = rows.slice(headerRow + 1).filter(r =>
+      String(r[cAsesor] || '').trim().toUpperCase() === ASESOR
+    );
+
+    if (!filasFrancho.length) throw new Error(`No se encontraron ventas para ${ASESOR} en el archivo`);
+
+    // Mes del cierre
+    const mesNombreCierre = String(filasFrancho[0]?.[cMes] || '').trim() || 'Cierre';
+
+    // Construir sets de identificadores ya registrados en la app (PBS solamente)
+    const state = getState();
+    const ventasPBSApp = (state.ventas || []).filter(v => v.producto === 'PBS');
+
+    // Cédulas de afiliados PBS en la app (quitar caracteres no numéricos para normalizar)
+    const docsEnApp = new Set(
+      ventasPBSApp.map(v => String(v.doc || '').replace(/\D/g, '').trim()).filter(Boolean)
+    );
+    // Formularios PBS en la app como segundo criterio
+    const formulariosEnApp = new Set(
+      ventasPBSApp.map(v => String(v.formulario || '').trim()).filter(Boolean)
+    );
+
+    // Mapear siniestralidad → criterio COM_TABLE
+    const mapSinie = (sinie, agil) => {
+      const s = String(sinie || '').toLowerCase();
+      if (s.includes('menor') || s.includes('75')) return '<=75%';
+      if (s.includes('entre') || (s.includes('90') && s.includes('75'))) return '76% - 90%';
+      if (s.includes('mayor') || s.includes('91')) {
+        return (String(agil || '').trim() === '1' || String(agil || '').toLowerCase() === 'si')
+          ? '>=91% EXCEPCIONADA' : '>=91% NO AGIL';
+      }
+      return '<=75%';
+    };
+
+    // Cruce: por cédula del afiliado (principal) o número de formulario (secundario)
+    const pasivas  = [];
+    const enApp    = [];
+
+    filasFrancho.forEach(r => {
+      const formulario = String(r[cFormul] || '').trim();
+      const docAfiliado = String(r[cDocNum] || '').replace(/\D/g, '').trim();
+      const nombre = [r[cNombre], r[cApe1], r[cApe2]].map(x => String(x||'').trim()).filter(Boolean).join(' ');
+      const empresa = String(r[cEmpresa] || '').trim();
+      const tipo    = String(r[cTipo] || '').trim().toUpperCase(); // A o B
+      const edad    = parseInt(r[cEdad]) || 0;
+      const sinie   = String(r[cSinie] || '').trim();
+      const agil    = r[cAgil];
+      const criterio = mapSinie(sinie, agil);
+
+      const entry = { formulario, docAfiliado, nombre, empresa, tipo, edad, sinie, criterio };
+
+      // Está en la app si la cédula del afiliado o el formulario ya existen
+      const yaEnApp = (docAfiliado && docsEnApp.has(docAfiliado))
+                   || (formulario  && formulariosEnApp.has(formulario));
+
+      if (yaEnApp) {
+        enApp.push(entry);
+      } else {
+        pasivas.push(entry);
+      }
+    });
+
+    // Calcular comisión de pasivas usando el rango total del período
+    // (cotizantes propios de la app en ese mes compensado + cotizantes pasivos)
+    const totalCotizPasivos = pasivas.filter(p => p.tipo === 'A').length;
+
+    // Rango para pasivas: usar el rango compensado del mes que se paga
+    // Obtenemos el mes compensado actual del selector
+    const selMes  = document.getElementById('pagoMesSel');
+    const selAnio = document.getElementById('pagoAnioSel');
+    const mesPago  = parseInt(selMes?.value || new Date().getMonth() + 1);
+    const anioPago = parseInt(selAnio?.value || new Date().getFullYear());
+    let _mesCompMes = mesPago - 3;
+    let _anioComp   = anioPago;
+    while (_mesCompMes <= 0) { _mesCompMes += 12; _anioComp--; }
+    const ventasPBSComp = getVentasPBSCompensado(_mesCompMes - 1, _anioComp);
+    const cotizApp = ventasPBSComp.filter(v => v.tipo === 'COTIZANTE').length;
+    const totalCotiz = cotizApp + totalCotizPasivos;
+    const rangoTotal = getRango(totalCotiz);
+
+    let totalPasivas = 0;
+    pasivas.forEach(p => {
+      if (p.tipo === 'B') {
+        p.comision = 10000;
+      } else {
+        const row = COM_TABLE[p.criterio] || COM_TABLE['<=75%'];
+        p.comision = row[rangoTotal.n - 1] || 0;
+      }
+      totalPasivas += p.comision;
+    });
+
+    _cierreSuraData = { mesNombreCierre, pasivas, enApp, totalPasivas, rangoTotal };
+    renderPasivasSura();
+
+  } catch (err) {
+    if (lbl) lbl.textContent = `Error: ${err.message}`;
+    console.error('[cargarCierreSura]', err);
+  }
+}
+
+function limpiarCierreSura() {
+  _cierreSuraData = null;
+  const input = document.getElementById('pmCierreFileInput');
+  if (input) input.value = '';
+  renderPasivasSura();
+  // Recalcular totales sin pasivas
+  renderPagoMes();
+}
+
+function renderPasivasSura() {
+  const lbl     = document.getElementById('pmPasivasLabel');
+  const totalEl = document.getElementById('pmPasivasTotal');
+  const wrap    = document.getElementById('pmPasivasTablaWrap');
+  const vacio   = document.getElementById('pmPasivasVacio');
+  const tbody   = document.getElementById('pmPasivasBody');
+  const clearBtn= document.getElementById('pmPasivasClearBtn');
+
+  if (!_cierreSuraData || !_cierreSuraData.pasivas) {
+    if (lbl)     lbl.textContent = 'Carga el archivo de cierre de Sura para ver las ventas pasivas que se pagarán en este mes';
+    if (totalEl) totalEl.textContent = '$ 0';
+    if (wrap)    wrap.style.display = 'none';
+    if (vacio)   vacio.style.display = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    // Recalcular KPI sin pasivas
+    _recalcKpiDia15(0);
+    return;
+  }
+
+  const { mesNombreCierre, pasivas, enApp, totalPasivas, rangoTotal } = _cierreSuraData;
+  const MESES_ES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  if (lbl) lbl.textContent = `Cierre ${mesNombreCierre} · ${pasivas.length} ventas pasivas · ${enApp.length} ya en la app · Rango ${rangoTotal.label}`;
+  if (totalEl) totalEl.textContent = fmt(totalPasivas);
+  if (clearBtn) clearBtn.style.display = '';
+
+  if (!pasivas.length) {
+    if (wrap)  wrap.style.display = 'none';
+    if (vacio) { vacio.style.display = ''; vacio.textContent = 'Todas las ventas del cierre ya están registradas en la app — sin pasivas pendientes'; }
+    _recalcKpiDia15(0);
+    return;
+  }
+
+  if (vacio) vacio.style.display = 'none';
+  if (wrap)  wrap.style.display = '';
+
+  const siniesLabel = { '<=75%':'≤75%', '76% - 90%':'76-90%', '>=91% EXCEPCIONADA':'≥91% Exc.', '>=91% NO AGIL':'≥91% No ágil' };
+  tbody.innerHTML = pasivas.map((p, i) => {
+    const tipo  = p.tipo === 'A'
+      ? '<span class="chip chip-blue" style="font-size:10px;">Cotizante</span>'
+      : '<span class="chip chip-teal" style="font-size:10px;">Beneficiario</span>';
+    const sinieChip = `<span class="chip" style="font-size:10px;background:rgba(251,191,36,0.15);color:#FBB024;">${siniesLabel[p.criterio] || p.criterio}</span>`;
+    return `<tr style="${i%2===0?'':'background:rgba(255,255,255,0.02)'}">
+      <td style="padding:7px 10px;font-size:12.5px;font-weight:500;">${tc(p.nombre)}</td>
+      <td style="padding:7px 10px;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.empresa}">${p.empresa}</td>
+      <td style="padding:7px 10px;text-align:center;">${tipo}</td>
+      <td style="padding:7px 10px;text-align:center;">${sinieChip}</td>
+      <td style="padding:7px 10px;text-align:center;font-family:var(--mono);font-size:12px;">${p.edad}</td>
+      <td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-weight:700;color:#FBB024;">${fmt(p.comision)}</td>
+    </tr>`;
+  }).join('');
+
+  _recalcKpiDia15(totalPasivas);
+}
+
+function _recalcKpiDia15(totalPasivas) {
+  // Leer los valores actuales del DOM (ya calculados por renderPagoMes)
+  const parseFmt = id => {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    return parseInt((el.textContent || '0').replace(/[^0-9]/g, '')) || 0;
+  };
+  const pbsBase  = parseFmt('pmPBSTotal');
+  const vol1Base = parseFmt('pmVol1Total');
+  const vol2Base = parseFmt('pmVol2Total');
+  const total15  = pbsBase + vol1Base + totalPasivas;
+  const total30  = vol2Base;
+  const totalMes = total15 + total30;
+
+  const el15    = document.getElementById('pmTotal15');
+  const elKpi15 = document.getElementById('pmKpi15');
+  const elSub15 = document.getElementById('pmKpi15Sub');
+  const elKpiT  = document.getElementById('pmKpiTotal');
+
+  if (el15)    el15.textContent    = fmt(total15);
+  if (elKpi15) elKpi15.textContent = fmt(total15);
+  if (elSub15) elSub15.textContent = `PBS ${fmt(pbsBase)} + Pasivas ${fmt(totalPasivas)} + Vol. ${fmt(vol1Base)}`;
+  if (elKpiT)  elKpiT.textContent  = fmt(totalMes);
 }
 
 // =============================================
