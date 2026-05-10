@@ -843,10 +843,9 @@
   // Intentar restaurar UID desde sesión guardada (para recargas de página)
   let UID = '';
   try {
-    // Solo restaurar UID desde sessionStorage (expira al cerrar pestaña).
-    // localStorage NO se usa como fuente de UID — evita suplantación entre usuarios.
     const _sess = JSON.parse(sessionStorage.getItem('sura_pin_session_v2') || 'null');
     if (_sess && _sess.cc && (Date.now() - _sess.ts) < 8 * 60 * 60 * 1000) UID = _sess.cc;
+    else { const _lsCC = localStorage.getItem('sura_last_cc'); if (_lsCC) UID = _lsCC; }
   } catch(_) {}
   // UID no se expone en consola (producción)
   function fbSetUID(cc) { UID = cc; if (window.FB) window.FB.UID = cc; }
@@ -15191,7 +15190,7 @@ function iniciarListenerLeads() {
       console.warn('[Leads] onSnapshot error:', err.message);
     });
 
-    // Listener de leads activo
+    console.log('[Leads] Escuchando leads de landing... UID:', UID, '| Asesor:', nombreAsesor);
   } catch(e) {
     console.warn('[Leads] No se pudo iniciar listener:', e.message);
   }
@@ -24194,7 +24193,7 @@ function pinTieneSesion() {
 }
 function pinGuardarSesion(cc) {
   try { sessionStorage.setItem(PIN_SESSION_KEY, JSON.stringify({ ts: Date.now(), cc })); } catch(e) {}
-  // sura_last_cc solo en sessionStorage — no persiste entre sesiones (seguridad multiusuario)
+  try { localStorage.setItem("sura_last_cc", cc); } catch(e) {}
 }
 
 // Helpers de navegación entre pasos
@@ -24226,18 +24225,15 @@ function pinMostrarPantalla() {
 }
 
 // PASO 1 → consultar Firestore con la CC ingresada
-// ── Rate limit para loginSiguiente (evita enumeración de cédulas) ──
 let _loginIntentos = 0;
 let _loginBloqHasta = 0;
 
 async function loginSiguiente() {
-  // Bloqueo por intentos fallidos de cédula
   if (_loginBloqHasta > Date.now()) {
     const s = Math.ceil((_loginBloqHasta - Date.now()) / 1000);
     loginSetLabel(`Demasiados intentos — espera ${s}s`, '#EF4444');
     return;
   }
-
   const cc = (document.getElementById('loginCC').value || '').trim().replace(/\D/g, '');
   if (!cc || cc.length < 5) { loginSetLabel('Ingresa una cédula válida', '#EF4444'); return; }
 
@@ -24256,12 +24252,9 @@ async function loginSiguiente() {
 
   // Usuario no existe → ofrecer registro
   if (!usuario) {
-    // Caso especial: primera vez — si NO existe NINGÚN usuario, el primero se convierte en admin
     _loginIntentos++;
-    if (_loginIntentos >= 5) {
-      _loginBloqHasta = Date.now() + 60000; // 60s bloqueo
-      _loginIntentos = 0;
-    }
+    if (_loginIntentos >= 5) { _loginBloqHasta = Date.now() + 60000; _loginIntentos = 0; }
+    // Caso especial: primera vez — si NO existe NINGÚN usuario, el primero se convierte en admin
     loginSetLabel('Cédula no registrada');
     document.getElementById('regCC').value = cc;
     _loginMostrarPaso('Registro');
@@ -24296,7 +24289,7 @@ async function loginSiguiente() {
   }
 
   // Usuario aprobado → ir al PIN
-  _loginIntentos = 0; _loginBloqHasta = 0; // reset en CC válida
+  _loginIntentos = 0; _loginBloqHasta = 0;
   _ccIngresada  = cc;
   _usuarioActual = usuario;
   _pinModo      = usuario.pinHash ? 'verificar' : 'crear';
@@ -24413,7 +24406,7 @@ function pinActualizarDots() {
 // ── Protección brute-force PIN ──────────────────────────────────────
 let _pinFallos     = 0;
 const PIN_MAX_INT  = 5;
-let   _pinBloqHasta = 0; // timestamp ms
+let   _pinBloqHasta = 0;
 
 function _pinEstaBloqueado() {
   if (_pinBloqHasta > Date.now()) return true;
@@ -24422,10 +24415,9 @@ function _pinEstaBloqueado() {
 function _pinRegistrarFallo() {
   _pinFallos++;
   if (_pinFallos >= PIN_MAX_INT) {
-    const espera = Math.min(30 * Math.pow(2, _pinFallos - PIN_MAX_INT), 300); // 30s, 60s, 120s, 240s, 300s máx
+    const espera = Math.min(30 * Math.pow(2, _pinFallos - PIN_MAX_INT), 300);
     _pinBloqHasta = Date.now() + espera * 1000;
     pinError(`Demasiados intentos — espera ${espera}s`);
-    // Iniciar cuenta regresiva visible
     const interval = setInterval(() => {
       const resto = Math.ceil((_pinBloqHasta - Date.now()) / 1000);
       if (resto <= 0) { clearInterval(interval); pinError('Ingresa tu PIN'); _pinBuffer = ''; pinActualizarDots(); return; }
@@ -24438,13 +24430,11 @@ function _pinRegistrarFallo() {
 }
 
 async function pinVerificar() {
-  // Verificar bloqueo activo
   if (_pinEstaBloqueado()) {
     const resto = Math.ceil((_pinBloqHasta - Date.now()) / 1000);
     pinError(`Bloqueado — espera ${resto}s`);
     return;
   }
-
   if (_pinModo === 'crear') {
     _pinNuevo = _pinBuffer; _pinBuffer = ''; _pinModo = 'confirmar';
     loginSetLabel('Confirma tu PIN'); pinActualizarDots(); return;
@@ -24468,6 +24458,7 @@ async function pinVerificar() {
     if (_usuarioActual && _usuarioActual.rol === 'admin' && _usuarioActual.email) {
       await window.fbSetAppMeta({ primerUsuarioCreado: true, adminEmail: _usuarioActual.email });
     }
+    _pinFallos = 0; _pinBloqHasta = 0;
     pinGuardarSesion(_ccIngresada);
     window.fbSetUID && window.fbSetUID(_ccIngresada);
     document.getElementById('pinScreen').style.display = 'none';
@@ -24477,7 +24468,6 @@ async function pinVerificar() {
   // Verificar PIN existente
   if (!_usuarioActual) { pinError('Error interno — vuelve a ingresar tu cédula'); return; }
   if (pinGetHash(_pinBuffer) === _usuarioActual.pinHash) {
-    _pinFallos = 0; _pinBloqHasta = 0; // reset en login exitoso
     pinGuardarSesion(_ccIngresada);
     window.fbSetUID && window.fbSetUID(_ccIngresada);
     // Autenticar en Firebase Auth y ESPERAR antes de cargar datos de Firestore
@@ -24762,7 +24752,7 @@ async function _migrarUsuarioFran() {
     if (meta && meta.primerUsuarioCreado) return; // ya migrado
     // Verificar si existe el usuario 'fran' en datos (UID anterior)
     // Crear el usuario admin con la CC real del asesor actual
-    const cc = _ccIngresada || '';
+    const cc = _ccIngresada || localStorage.getItem('sura_last_cc') || '';
     if (!cc) return;
     const existe = await window.fbGetUsuario(cc);
     if (!existe) {
