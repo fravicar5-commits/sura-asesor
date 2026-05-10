@@ -1196,6 +1196,9 @@
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
   window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, setBdSinShared: fbSetBdSinShared, setIpsDbShared: fbSetIpsDbShared, patchDoc: fbPatchDoc, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase, messaging: _fcmMessaging, onMessage };
+  // Exponer auth para espera de sesión activa antes de leer Firestore
+  window.__fbAuth__ = auth;
+  window.__fbOnAuthStateChanged__ = onAuthStateChanged;
 
   // ── Cargar todos los datos y arrancar la app ──────────────────────────────
   // ── Migración datos de 'fran' → UID actual ───────────────────────────────
@@ -24974,6 +24977,25 @@ async function _esperarFirebaseYArrancar() {
   // 2. Restaurar _usuarioActual si hay sesión activa (recarga de página)
   if (!_usuarioActual && _ccIngresada && window.fbGetUsuario) {
     try { _usuarioActual = await window.fbGetUsuario(_ccIngresada); } catch(e) {}
+  }
+
+  // 2b. Esperar que Firebase Auth confirme sesión activa antes de leer Firestore
+  // Sin esto, auth.currentUser puede ser null cuando llegan las primeras lecturas → permission-denied
+  if (window.__fbAuth__ && window.__fbOnAuthStateChanged__) {
+    if (!window.__fbAuth__.currentUser) {
+      console.log('[Firebase] Esperando sesión Auth activa…');
+      await new Promise(resolve => {
+        const unsub = window.__fbOnAuthStateChanged__(window.__fbAuth__, user => {
+          unsub();
+          if (user) console.log('[Firebase] Auth confirmado UID:', user.uid);
+          else console.warn('[Firebase] Auth resolvió sin usuario — posible sesión expirada');
+          resolve(user);
+        });
+        setTimeout(() => { console.warn('[Firebase] Auth timeout — continuando'); resolve(null); }, 5000);
+      });
+    } else {
+      console.log('[Firebase] Auth ya activo:', window.__fbAuth__.currentUser.uid);
+    }
   }
 
   // 3. Cargar datos desde Firestore con el UID correcto ya establecido
