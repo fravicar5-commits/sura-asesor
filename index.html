@@ -856,6 +856,7 @@
       try { localStorage.setItem('sura_auth_ph_' + cc, pinHash); } catch(_) {}
       return true;
     } catch(e) {
+      window.__lastAuthError__ = e.code;
       console.warn('[Auth] fbAuthSignIn error:', e.code, e.message);
       // Si no existe la cuenta Auth aún (asesor registrado antes de esta migración),
       // crearla automáticamente con el pinHash que ya está en Firestore
@@ -24477,7 +24478,15 @@ async function pinVerificar() {
       await window.fbAuthSignIn(_ccIngresada, _usuarioActual.pinHash).catch(e => {
         console.error('[PIN] fbAuthSignIn falló:', e?.code, e?.message);
       });
-      console.log('[PIN] Auth tras login:', window.__fbAuth__?.currentUser?.uid || 'NO AUTH');
+      const authUID = window.__fbAuth__?.currentUser?.uid;
+      console.log('[PIN] Auth tras login:', authUID || 'NO AUTH');
+      if (!authUID) {
+        // Auth sigue sin establecerse — mostrar error claro con diagnóstico
+        const _lastAuthErr = window.__lastAuthError__ || 'desconocido';
+        pinError('Auth falló (' + _lastAuthErr + '). Anota este código y recarga.');
+        console.error('[PIN] Auth no establecido. Último error:', _lastAuthErr);
+        return;
+      }
     }
     document.getElementById('pinScreen').style.display = 'none';
     pinOnLoginExitoso();
@@ -24810,12 +24819,40 @@ function bootApp() {
           await window.fbAuthSignIn(_ccIngresada, u.pinHash).catch(e => {
             console.error('[bootApp] fbAuthSignIn falló en restauración de sesión:', e?.code, e?.message);
           });
-          console.log('[bootApp] Auth tras restauración:', window.__fbAuth__?.currentUser?.uid || 'NO AUTH');
         }
+      }
+      // Verificar si Auth quedó activo tras la restauración
+      const authActivo = window.__fbAuth__?.currentUser != null;
+      console.log('[bootApp] Auth tras restauración:', authActivo ? window.__fbAuth__.currentUser.uid : 'NO AUTH — mostrando PIN');
+      if (!authActivo) {
+        // Auth no se pudo restaurar automáticamente → pedir PIN al usuario
+        // sessionStorage sigue teniendo la CC para pre-llenar el paso de PIN directamente
+        _pinModo = 'verificar';
+        _pinBuffer = '';
+        if (window.__FB_READY__) {
+          // Ir directo al paso PIN (no al de CC — ya sabemos quién es)
+          document.getElementById('pinScreen').style.display = 'flex';
+          _loginMostrarPaso('PIN');
+          loginSetLabel('Confirma tu PIN para continuar');
+          pinActualizarDots();
+          const splash = document.getElementById('fb-splash');
+          if (splash) splash.style.display = 'none';
+        } else {
+          document.addEventListener('fb-ready', () => {
+            document.getElementById('pinScreen').style.display = 'flex';
+            _loginMostrarPaso('PIN');
+            loginSetLabel('Confirma tu PIN para continuar');
+            pinActualizarDots();
+            const splash = document.getElementById('fb-splash');
+            if (splash) splash.style.display = 'none';
+          }, { once: true });
+        }
+        return; // no cargar Firestore sin auth
       }
       _esperarFirebaseYArrancar();
     }).catch(() => {
-      _esperarFirebaseYArrancar();
+      // Error leyendo usuario — mostrar login completo
+      pinMostrarPantalla();
     });
   } else {
     _esperarFirebaseYArrancar();
