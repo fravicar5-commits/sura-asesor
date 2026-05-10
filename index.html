@@ -752,7 +752,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
   import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, updateDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDQEMeKa8yGsdvyW3qoC9w1ITMCzNN0TTI",
@@ -780,11 +780,39 @@
     if (!cc || cc === '__meta__') return false;
     try {
       await createUserWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
+      console.log('[Auth] fbAuthCrear — cuenta nueva creada OK');
+      // Guardar pinHash conocido para recuperación futura
+      try { localStorage.setItem('sura_auth_ph_' + cc, pinHash); } catch(_) {}
       return true;
     } catch(e) {
-      // Si ya existe la cuenta (code: auth/email-already-in-use), intentar actualizar password
+      // Si ya existe la cuenta, intentar signIn con el mismo pinHash (puede ser el mismo)
       if (e.code === 'auth/email-already-in-use') {
-        return await fbAuthActualizar(cc, pinHash);
+        console.log('[Auth] Cuenta ya existe — intentando signIn directo con pinHash actual…');
+        try {
+          await signInWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
+          console.log('[Auth] signIn con pinHash actual OK');
+          try { localStorage.setItem('sura_auth_ph_' + cc, pinHash); } catch(_) {}
+          return true;
+        } catch(e2) {
+          console.warn('[Auth] signIn con pinHash actual falló:', e2.code);
+          // Intentar con pinHash guardado localmente (puede ser diferente al de Firestore)
+          const savedPh = localStorage.getItem('sura_auth_ph_' + cc);
+          if (savedPh && savedPh !== pinHash) {
+            console.log('[Auth] Intentando con pinHash guardado localmente…');
+            try {
+              await signInWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, savedPh));
+              // Signed in con pinHash viejo — ahora actualizar al nuevo
+              await updatePassword(auth.currentUser, _authPassword(cc, pinHash));
+              try { localStorage.setItem('sura_auth_ph_' + cc, pinHash); } catch(_) {}
+              console.log('[Auth] Password actualizado al nuevo pinHash OK');
+              return true;
+            } catch(e3) {
+              console.warn('[Auth] Falló con pinHash guardado también:', e3.code);
+            }
+          }
+          // Último recurso: actualizar si hay sesión activa
+          return await fbAuthActualizar(cc, pinHash);
+        }
       }
       console.warn('[Auth] fbAuthCrear error:', e.code, e.message);
       return false;
@@ -794,11 +822,9 @@
   // Actualizar contraseña en Firebase Auth (al cambiar PIN)
   async function fbAuthActualizar(cc, pinHash) {
     try {
-      // Necesita estar autenticado para actualizar — usar signIn primero si hay sesión
-      // Este helper se llama siempre desde contexto donde el asesor conoce su PIN anterior
-      const { updatePassword } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, _authPassword(cc, pinHash));
+        console.log('[Auth] fbAuthActualizar OK');
         return true;
       }
       return false;
@@ -808,19 +834,45 @@
     }
   }
 
+  // Forzar reauth con credencial conocida (para casos de email-already-in-use sin sesión activa)
+  async function fbAuthForceReauth(cc, pinHash) {
+    try {
+      // Intentar signIn primero — si funciona, actualizar el password al nuevo
+      const result = await signInWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
+      return result.user != null;
+    } catch(e) {
+      console.warn('[Auth] fbAuthForceReauth error:', e.code, e.message);
+      return false;
+    }
+  }
+
   // Iniciar sesión en Firebase Auth (al verificar PIN correctamente)
   async function fbAuthSignIn(cc, pinHash) {
     if (!cc || cc === '__meta__') return false;
     try {
+      console.log('[Auth] signIn intentando para CC:', cc);
       await signInWithEmailAndPassword(auth, _authEmail(cc), _authPassword(cc, pinHash));
+      console.log('[Auth] signIn OK — currentUser:', auth.currentUser?.uid);
+      try { localStorage.setItem('sura_auth_ph_' + cc, pinHash); } catch(_) {}
       return true;
     } catch(e) {
+      console.warn('[Auth] fbAuthSignIn error:', e.code, e.message);
       // Si no existe la cuenta Auth aún (asesor registrado antes de esta migración),
       // crearla automáticamente con el pinHash que ya está en Firestore
       if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
-        return await fbAuthCrear(cc, pinHash);
+        console.log('[Auth] Cuenta no existe — creando nueva cuenta Auth…');
+        const ok = await fbAuthCrear(cc, pinHash);
+        console.log('[Auth] fbAuthCrear resultado:', ok, '— currentUser:', auth.currentUser?.uid);
+        return ok;
       }
-      console.warn('[Auth] fbAuthSignIn error:', e.code, e.message);
+      // Para otros errores (invalid-email, wrong-password, too-many-requests, network-error)
+      // intentar crear la cuenta como fallback
+      if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-login-credentials') {
+        console.log('[Auth] Password inválido — intentando recrear cuenta Auth…');
+        const ok = await fbAuthCrear(cc, pinHash);
+        console.log('[Auth] fbAuthCrear fallback resultado:', ok);
+        return ok;
+      }
       return false;
     }
   }
@@ -24422,7 +24474,10 @@ async function pinVerificar() {
     window.fbSetUID && window.fbSetUID(_ccIngresada);
     // Autenticar en Firebase Auth y ESPERAR antes de cargar datos de Firestore
     if (window.fbAuthSignIn) {
-      await window.fbAuthSignIn(_ccIngresada, _usuarioActual.pinHash).catch(() => {});
+      await window.fbAuthSignIn(_ccIngresada, _usuarioActual.pinHash).catch(e => {
+        console.error('[PIN] fbAuthSignIn falló:', e?.code, e?.message);
+      });
+      console.log('[PIN] Auth tras login:', window.__fbAuth__?.currentUser?.uid || 'NO AUTH');
     }
     document.getElementById('pinScreen').style.display = 'none';
     pinOnLoginExitoso();
@@ -24752,7 +24807,10 @@ function bootApp() {
       if (u) {
         _usuarioActual = u;
         if (window.fbAuthSignIn && u.pinHash && !window.fbGetAuthUID?.()) {
-          await window.fbAuthSignIn(_ccIngresada, u.pinHash).catch(() => {});
+          await window.fbAuthSignIn(_ccIngresada, u.pinHash).catch(e => {
+            console.error('[bootApp] fbAuthSignIn falló en restauración de sesión:', e?.code, e?.message);
+          });
+          console.log('[bootApp] Auth tras restauración:', window.__fbAuth__?.currentUser?.uid || 'NO AUTH');
         }
       }
       _esperarFirebaseYArrancar();
@@ -25034,7 +25092,9 @@ async function _esperarFirebaseYArrancar() {
   }
 
   // 5. Migración automática: si no hay ventas pero 'fran' sí tiene → migrar
-  if (_ccIngresada && _ccIngresada !== 'fran' && window.FB?._migrarDesdeFran) {
+  // IMPORTANTE: solo migrar si Auth está activo (evita migración fantasma por permission-denied)
+  const _authActivo = window.__fbAuth__?.currentUser != null;
+  if (_ccIngresada && _ccIngresada !== 'fran' && window.FB?._migrarDesdeFran && _authActivo) {
     const ventas = window.__FB_CACHE__.estado?.ventas || [];
     if (ventas.length === 0) {
       try {
