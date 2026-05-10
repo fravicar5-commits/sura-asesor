@@ -847,7 +847,7 @@
     if (_sess && _sess.cc && (Date.now() - _sess.ts) < 8 * 60 * 60 * 1000) UID = _sess.cc;
     else { const _lsCC = localStorage.getItem('sura_last_cc'); if (_lsCC) UID = _lsCC; }
   } catch(_) {}
-  // UID no se expone en consola (producción)
+  console.log('[Firebase] UID inicial:', UID || '(sin sesión)');
   function fbSetUID(cc) { UID = cc; if (window.FB) window.FB.UID = cc; }
 
   // ── Gestión de usuarios en Firestore ────────────────────────────────────────────
@@ -913,7 +913,6 @@
   }
 
   async function fbSetEstado(valor) {
-    if (!UID) { console.error('[fbSetEstado] Escritura bloqueada: UID vacío'); return false; }
     const ventas  = valor.ventas  || [];
     const config  = valor.config  || {};
     const totalChunks = Math.ceil(ventas.length / ESTADO_CHUNK_SIZE) || 1;
@@ -10913,15 +10912,6 @@ function _recalcKpiDia15(totalPasivas) {
   if (elKpiT)  elKpiT.textContent  = fmt(totalMes);
 }
 
-
-// ── Escape HTML para prevenir XSS en innerHTML ──────────────────────
-function escHtml(str) {
-  return String(str || '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-    .replace(/'/g,'&#39;');
-}
-
 // =============================================
 // TABLA REGISTRO
 // =============================================
@@ -19590,7 +19580,7 @@ function importarBackup(event) {
       renderBackup();
       showToast('✅ Datos restaurados correctamente');
     } catch(err) {
-      document.getElementById('backupImportMsg').innerHTML = `<span style="color:var(--red);">❌ Error: ${escHtml(err.message)}</span>`;
+      document.getElementById('backupImportMsg').innerHTML = `<span style="color:var(--red);">❌ Error: ${err.message}</span>`;
     }
   };
   reader.readAsText(file);
@@ -23356,7 +23346,7 @@ function renderAgente() {
   renderAgentePlanes();
   renderAgenteHistorial();
   // Load saved API key
-  const saved = sessionStorage.getItem('sura_agente_apikey') || '';
+  const saved = localStorage.getItem('sura_agente_apikey') || '';
   const inp = document.getElementById('agenteApiKey');
   if (inp) {
     inp.value = saved;
@@ -23366,7 +23356,7 @@ function renderAgente() {
 
 function guardarAgenteApiKey() {
   const val = document.getElementById('agenteApiKey').value.trim();
-  sessionStorage.setItem('sura_agente_apikey', val);
+  localStorage.setItem('sura_agente_apikey', val);
   actualizarEstadoApiKey(val);
 }
 
@@ -23565,7 +23555,7 @@ REGLAS IMPORTANTES:
 CLAUSULADOS DISPONIBLES:
 ${contexto}`;
 
-    const apiKey = sessionStorage.getItem('sura_agente_apikey') || '';
+    const apiKey = localStorage.getItem('sura_agente_apikey') || '';
     if (!apiKey) {
       document.getElementById(msgId).querySelector('div:last-child').innerHTML =
         '<span style="color:var(--amber);">⚠️ Ingresa tu API Key de Anthropic en el campo de arriba para usar el asistente.</span>';
@@ -23675,7 +23665,7 @@ function agenteLimpiarHistorial() {
 // =============================================
 
 function iaVerificarApiKey() {
-  return sessionStorage.getItem('sura_agente_apikey') || '';
+  return localStorage.getItem('sura_agente_apikey') || '';
 }
 
 function iaActualizarEstadoPaneles() {
@@ -23838,7 +23828,7 @@ function iaCarteraV2SelProducto(btn) {
 
 function iaCarteraV2Init() {
   // Verificar API key y mostrar/ocultar contenido
-  const key = sessionStorage.getItem('sura_agente_apikey') || '';
+  const key = localStorage.getItem('sura_agente_apikey') || '';
   const activa = key && key.startsWith('sk-ant-');
   const statusEl   = document.getElementById('iaCarteraV2ApiStatus');
   const sinKeyEl   = document.getElementById('iaCarteraV2SinKey');
@@ -23932,7 +23922,7 @@ function iaCarteraV2RenderKpis() {
 }
 
 async function iaAnalizarCarteraV2() {
-  const apiKey = sessionStorage.getItem('sura_agente_apikey') || '';
+  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
   if (!apiKey) { showToast('Configura tu API Key en Asistente Clausulados'); return; }
 
   const tipo         = document.getElementById('iaCarteraV2Tipo')?.value     || 'prioridades';
@@ -24225,15 +24215,7 @@ function pinMostrarPantalla() {
 }
 
 // PASO 1 → consultar Firestore con la CC ingresada
-let _loginIntentos = 0;
-let _loginBloqHasta = 0;
-
 async function loginSiguiente() {
-  if (_loginBloqHasta > Date.now()) {
-    const s = Math.ceil((_loginBloqHasta - Date.now()) / 1000);
-    loginSetLabel(`Demasiados intentos — espera ${s}s`, '#EF4444');
-    return;
-  }
   const cc = (document.getElementById('loginCC').value || '').trim().replace(/\D/g, '');
   if (!cc || cc.length < 5) { loginSetLabel('Ingresa una cédula válida', '#EF4444'); return; }
 
@@ -24252,8 +24234,6 @@ async function loginSiguiente() {
 
   // Usuario no existe → ofrecer registro
   if (!usuario) {
-    _loginIntentos++;
-    if (_loginIntentos >= 5) { _loginBloqHasta = Date.now() + 60000; _loginIntentos = 0; }
     // Caso especial: primera vez — si NO existe NINGÚN usuario, el primero se convierte en admin
     loginSetLabel('Cédula no registrada');
     document.getElementById('regCC').value = cc;
@@ -24289,7 +24269,6 @@ async function loginSiguiente() {
   }
 
   // Usuario aprobado → ir al PIN
-  _loginIntentos = 0; _loginBloqHasta = 0;
   _ccIngresada  = cc;
   _usuarioActual = usuario;
   _pinModo      = usuario.pinHash ? 'verificar' : 'crear';
@@ -24403,38 +24382,7 @@ function pinActualizarDots() {
 }
 
 // Verificación / creación de PIN
-// ── Protección brute-force PIN ──────────────────────────────────────
-let _pinFallos     = 0;
-const PIN_MAX_INT  = 5;
-let   _pinBloqHasta = 0;
-
-function _pinEstaBloqueado() {
-  if (_pinBloqHasta > Date.now()) return true;
-  return false;
-}
-function _pinRegistrarFallo() {
-  _pinFallos++;
-  if (_pinFallos >= PIN_MAX_INT) {
-    const espera = Math.min(30 * Math.pow(2, _pinFallos - PIN_MAX_INT), 300);
-    _pinBloqHasta = Date.now() + espera * 1000;
-    pinError(`Demasiados intentos — espera ${espera}s`);
-    const interval = setInterval(() => {
-      const resto = Math.ceil((_pinBloqHasta - Date.now()) / 1000);
-      if (resto <= 0) { clearInterval(interval); pinError('Ingresa tu PIN'); _pinBuffer = ''; pinActualizarDots(); return; }
-      const lbl = document.getElementById('pinLabel');
-      if (lbl) lbl.textContent = `Bloqueado — espera ${resto}s`;
-    }, 1000);
-    return;
-  }
-  pinError(`PIN incorrecto — intento ${_pinFallos}/${PIN_MAX_INT}`);
-}
-
 async function pinVerificar() {
-  if (_pinEstaBloqueado()) {
-    const resto = Math.ceil((_pinBloqHasta - Date.now()) / 1000);
-    pinError(`Bloqueado — espera ${resto}s`);
-    return;
-  }
   if (_pinModo === 'crear') {
     _pinNuevo = _pinBuffer; _pinBuffer = ''; _pinModo = 'confirmar';
     loginSetLabel('Confirma tu PIN'); pinActualizarDots(); return;
@@ -24458,7 +24406,6 @@ async function pinVerificar() {
     if (_usuarioActual && _usuarioActual.rol === 'admin' && _usuarioActual.email) {
       await window.fbSetAppMeta({ primerUsuarioCreado: true, adminEmail: _usuarioActual.email });
     }
-    _pinFallos = 0; _pinBloqHasta = 0;
     pinGuardarSesion(_ccIngresada);
     window.fbSetUID && window.fbSetUID(_ccIngresada);
     document.getElementById('pinScreen').style.display = 'none';
@@ -24477,7 +24424,7 @@ async function pinVerificar() {
     document.getElementById('pinScreen').style.display = 'none';
     pinOnLoginExitoso();
   } else {
-    _pinRegistrarFallo();
+    pinError('PIN incorrecto');
   }
 }
 
@@ -29274,13 +29221,13 @@ async function prosImportarExcel(event) {
         event.target.value = '';
         prosRenderTabla();
       } catch(err) {
-        msg.innerHTML = '❌ Error al procesar: ' + escHtml(err.message);
+        msg.innerHTML = '❌ Error al procesar: ' + err.message;
         msg.style.color = 'var(--red)';
       }
     };
     reader.readAsArrayBuffer(file);
   } catch(err) {
-    msg.innerHTML = '❌ Error: ' + escHtml(err.message);
+    msg.innerHTML = '❌ Error: ' + err.message;
     msg.style.color = 'var(--red)';
   }
 }
