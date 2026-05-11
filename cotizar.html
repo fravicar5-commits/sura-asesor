@@ -576,8 +576,8 @@ function selPlan(plan, el) {
   document.getElementById('sptiOpts').style.display    = plan === 'SPTI'    ? '' : 'none';
   document.getElementById('pac60Opts').style.display   = plan === 'PAC60'   ? '' : 'none';
   document.getElementById('modulosSection').style.display = plan === 'MODULAR' ? '' : 'none';
-  // SPD no tiene sub-opciones
-  if (plan === 'SPD') { state.sub = 'SPD'; actualizarDctos(); }
+  // SPD no tiene sub-opciones ni edad
+  if (plan === 'SPD') { state.sub = 'SPD'; state.edad = null; actualizarDctos(); }
   // Mostrar edad para todos menos SPD
   document.getElementById('edadSection').style.display = plan !== 'SPD' ? '' : 'none';
   document.getElementById('periSection').style.display = '';
@@ -789,7 +789,7 @@ function calcular() {
   if (state.plan === 'SPD') {
     const valor = SPD_TARIFAS[peri];
     const dcto  = peri !== 'MENSUAL' ? Math.round(SPD_TARIFAS.MENSUAL * mult - valor) : 0;
-    return { valor, dcto, mensual: SPD_TARIFAS.MENSUAL, plan: 'SPD' };
+    return { valor, dcto, mensual: SPD_TARIFAS.MENSUAL, plan: 'SPD — Salud para Dos Plus' };
   }
 
   if (state.plan === 'MODULAR') {
@@ -850,7 +850,7 @@ function mostrarResultado() {
   // Filas detalle
   const rows = [];
   rows.push({ icon:'💊', label:'Plan', val: res.plan });
-  rows.push({ icon:'🎂', label:'Edad', val: state.edad !== null && state.edad !== undefined ? state.edad + ' años' : '—' });
+  if (state.plan !== 'SPD') rows.push({ icon:'🎂', label:'Edad', val: state.edad !== null && state.edad !== undefined ? state.edad + ' años' : '—' });
   if (res.rango) rows.push({ icon:'📊', label:'Rango tarifario', val: res.rango + ' años' });
   rows.push({ icon:'📅', label:'Periodicidad', val: periL.charAt(0).toUpperCase() + periL.slice(1) });
   if (peri !== 'MENSUAL') rows.push({ icon:'💵', label:'Valor mensual equivalente', val: fmt(res.mensual) });
