@@ -850,7 +850,7 @@ function mostrarResultado() {
   // Filas detalle
   const rows = [];
   rows.push({ icon:'💊', label:'Plan', val: res.plan });
-  rows.push({ icon:'🎂', label:'Edad', val: state.edad ? state.edad + ' años' : '—' });
+  rows.push({ icon:'🎂', label:'Edad', val: state.edad !== null && state.edad !== undefined ? state.edad + ' años' : '—' });
   if (res.rango) rows.push({ icon:'📊', label:'Rango tarifario', val: res.rango + ' años' });
   rows.push({ icon:'📅', label:'Periodicidad', val: periL.charAt(0).toUpperCase() + periL.slice(1) });
   if (peri !== 'MENSUAL') rows.push({ icon:'💵', label:'Valor mensual equivalente', val: fmt(res.mensual) });
@@ -930,14 +930,44 @@ function mostrarResultado() {
 
 // ═══ COBERTURAS (fuente: clausulados oficiales SURA 2026) ═══
 const COBERTURAS = {
-  // Aplica a Plan Preferencial y Plan Clásico (mismo clausulado de coberturas)
-  SPTI: {
+  // Plan Clásico SPTI
+  SPTI_CLASICO: {
     include: [
       'Habitación individual en hospitalización (carencia 150 días, urgencias sin carencia)',
       'Continuidad en atención del parto con el mismo médico (carencia 300 días)',
       'Cobertura congénita del recién nacido (si la madre cumple carencia de parto)',
-      'Consulta externa ambulatoria directa e ilimitada: Internista, Pediatra, Ginecólogo/Ginecobstetra, Oftalmólogo, Urólogo, Dermatólogo*, Otorrino*, Ortopedista*, Nutricionista* (*solo Preferencial)',
-      'Medicina bioenergética: hasta 12 consultas por vigencia (*solo Preferencial)',
+      'Consulta externa ambulatoria directa e ilimitada: Internista, Pediatra, Ginecólogo/Ginecobstetra, Oftalmólogo, Urólogo',
+      'Atención médica domiciliaria de urgencias/emergencias 24h (con copago)',
+      'Urgencias odontológicas domiciliarias 24h (con copago)',
+      'Ayudas diagnósticas de imagenología NO cubiertas por el PBS (carencia 60 días, con copago)',
+      'Cobertura de copagos y cuotas moderadoras del PBS en consultas, ayudas diagnósticas y laboratorio clínico',
+    ],
+    exclude: [
+      'Enfermedades o padecimientos congénitos o preexistentes al ingreso (con o sin conocimiento)',
+      'Cirugía plástica, estética o mamoplastia (excepto reconstructiva por cáncer)',
+      'Atención odontológica de cualquier tipo, incluyendo prótesis dentales',
+      'Tratamientos para infertilidad, vasectomía, ligadura de trompas, fecundación in vitro',
+      'Tratamientos hospitalarios/ambulatorios para enfermedades psiquiátricas, demencia o depresión (excepto crisis aguda, máx. 30 días/vigencia)',
+      'Medicamentos prescritos para tratamiento hospitalario o ambulatorio',
+      'Honorarios quirúrgicos (excepto atención del parto con carencia cumplida)',
+      'Gastos hospitalarios/quirúrgicos: sala de cirugía, insumos, prótesis, plasma, anestesia, osteosíntesis',
+      'Tratamientos realizados fuera de Colombia',
+      'Reembolsos por cualquier servicio',
+      'Tratamientos de refracción visual y queratocono',
+      'Trasplante de órganos (excepto renal, médula espinal, córnea y corazón)',
+      'Lentes, audífonos, silla de ruedas, órtesis, aparatos ortopédicos',
+      'Tratamientos por accidente de tránsito, accidente de trabajo o enfermedad profesional',
+      'Coberturas médico-asistenciales no PBS que no estén expresamente descritas en el plan',
+    ]
+  },
+  // Plan Preferencial SPTI
+  SPTI_PREFERENCIAL: {
+    include: [
+      'Habitación individual en hospitalización (carencia 150 días, urgencias sin carencia)',
+      'Continuidad en atención del parto con el mismo médico (carencia 300 días)',
+      'Cobertura congénita del recién nacido (si la madre cumple carencia de parto)',
+      'Consulta externa ambulatoria directa e ilimitada: Internista, Pediatra, Ginecólogo/Ginecobstetra, Oftalmólogo, Urólogo, Dermatólogo, Otorrino, Ortopedista, Nutricionista',
+      'Medicina bioenergética: hasta 12 consultas por vigencia',
       'Atención médica domiciliaria de urgencias/emergencias 24h (con copago)',
       'Urgencias odontológicas domiciliarias 24h (con copago)',
       'Ayudas diagnósticas de imagenología NO cubiertas por el PBS (carencia 60 días, con copago)',
@@ -1050,8 +1080,13 @@ const COBERTURAS = {
 };
 
 function renderCoberturas() {
-  const plan = state.plan === 'SPTI' ? 'SPTI' : state.plan === 'SPD' ? 'SPD' : state.plan === 'MODULAR' ? 'MODULAR' : 'PAC60';
-  const cob = COBERTURAS[plan];
+  let cobKey;
+  if (state.plan === 'SPTI') {
+    cobKey = state.sub === 'CLASICO' ? 'SPTI_CLASICO' : 'SPTI_PREFERENCIAL';
+  } else {
+    cobKey = state.plan === 'SPD' ? 'SPD' : state.plan === 'MODULAR' ? 'MODULAR' : 'PAC60';
+  }
+  const cob = COBERTURAS[cobKey];
   if (!cob) return;
 
   const cobEl = document.getElementById('coberturas');
