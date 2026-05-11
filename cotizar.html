@@ -928,23 +928,124 @@ function mostrarResultado() {
   _rs.classList.add('visible');
 }
 
-// ═══ COBERTURAS ═══
+// ═══ COBERTURAS (fuente: clausulados oficiales SURA 2026) ═══
 const COBERTURAS = {
+  // Aplica a Plan Preferencial y Plan Clásico (mismo clausulado de coberturas)
   SPTI: {
-    include: ['Hospitalización y cirugía','Urgencias 24 horas','Consulta médica general y especializada','Medicamentos intrahospitalarios','Exámenes diagnósticos','Cuidados intensivos (UCI/UCIN)','Atención en IPS SURA y red aliada','Transporte asistencial de emergencia','Rehabilitación funcional','Maternidad (aplica períodos de carencia)'],
-    exclude: ['Condiciones preexistentes (primeros 24 meses)','Cirugías estéticas no reconstructivas','Tratamientos no cubiertos por el plan','Enfermedades de transmisión sexual en primeros 6 meses','Medicamentos para uso ambulatorio (cubiertos por EPS)']
+    include: [
+      'Habitación individual en hospitalización (carencia 150 días, urgencias sin carencia)',
+      'Continuidad en atención del parto con el mismo médico (carencia 300 días)',
+      'Cobertura congénita del recién nacido (si la madre cumple carencia de parto)',
+      'Consulta externa ambulatoria directa e ilimitada: Internista, Pediatra, Ginecólogo/Ginecobstetra, Oftalmólogo, Urólogo, Dermatólogo*, Otorrino*, Ortopedista*, Nutricionista* (*solo Preferencial)',
+      'Medicina bioenergética: hasta 12 consultas por vigencia (*solo Preferencial)',
+      'Atención médica domiciliaria de urgencias/emergencias 24h (con copago)',
+      'Urgencias odontológicas domiciliarias 24h (con copago)',
+      'Ayudas diagnósticas de imagenología NO cubiertas por el PBS (carencia 60 días, con copago)',
+      'Cobertura de copagos y cuotas moderadoras del PBS en consultas, ayudas diagnósticas y laboratorio clínico',
+    ],
+    exclude: [
+      'Enfermedades o padecimientos congénitos o preexistentes al ingreso (con o sin conocimiento)',
+      'Cirugía plástica, estética o mamoplastia (excepto reconstructiva por cáncer)',
+      'Atención odontológica de cualquier tipo, incluyendo prótesis dentales',
+      'Tratamientos para infertilidad, vasectomía, ligadura de trompas, fecundación in vitro',
+      'Tratamientos hospitalarios/ambulatorios para enfermedades psiquiátricas, demencia o depresión (excepto crisis aguda, máx. 30 días/vigencia)',
+      'Medicamentos prescritos para tratamiento hospitalario o ambulatorio',
+      'Honorarios quirúrgicos (excepto atención del parto con carencia cumplida)',
+      'Gastos hospitalarios/quirúrgicos: sala de cirugía, insumos, prótesis, plasma, anestesia, osteosíntesis',
+      'Tratamientos realizados fuera de Colombia',
+      'Reembolsos por cualquier servicio',
+      'Tratamientos de refracción visual y queratocono',
+      'Trasplante de órganos (excepto renal, médula espinal, córnea y corazón)',
+      'Lentes, audífonos, silla de ruedas, órtesis, aparatos ortopédicos',
+      'Tratamientos por accidente de tránsito, accidente de trabajo o enfermedad profesional',
+      'Coberturas médico-asistenciales no PBS que no estén expresamente descritas en el plan',
+    ]
   },
+  // Salud Para Dos - Plan Plus (clausulado 09/03/2026)
   SPD: {
-    include: ['Odontología preventiva','Exodoncias simples y complejas','Endodoncias','Operatoria dental (resinas y amalgamas)','Periodoncia básica','Ortodoncia (parcial según plan)','Prótesis dentales parciales','Urgencias odontológicas'],
-    exclude: ['Implantes osteointegrados','Blanqueamiento estético','Ortodoncia completa en adultos','Prótesis totales en el primer año','Tratamientos no incluidos en el clausulado']
+    include: [
+      'Consulta virtual prioritaria ilimitada con médico general (dom. a dom.)',
+      'Consulta virtual prioritaria ilimitada con pediatra (si hay menor de edad en el plan)',
+      'Atención médica domiciliaria de urgencias/emergencias (sujeta a cobertura geográfica del prestador)',
+      'Acceso directo ilimitado a: Médico General, Internista, Urólogo, Ginecólogo, Nutricionista, Oftalmólogo, Dermatólogo, Otorrino, Ortopedista',
+      'Consultas de psicología y psiquiatría: 4 psicológicas + 2 psiquiátricas/vigencia (Plan Familiar) · 6 + 3 (Plan Colectivo)',
+      'Urgencias odontológicas domiciliarias ilimitadas (sujeta a cobertura geográfica)',
+      'Exámenes de laboratorio clínico e imagenología con orden médica (bolsa limitada anual según carátula)',
+      'Limpieza dental: 1 por año para el tomador + 1 para el beneficiario registrado',
+      'Medicamentos post-atención virtual prioritaria (listado cerrado, válido 3 días, máx. 14 días de tratamiento)',
+    ],
+    exclude: [
+      'Hospitalización de cualquier tipo',
+      'Cirugías de cualquier naturaleza',
+      'Terapias ordenadas en cualquier área de la salud',
+      'Reembolsos por cualquier servicio',
+      'Rehabilitación por trastornos alimenticios, cosmetología, quiropraxia y similares',
+      'Equipos biomédicos (tensiómetro, glucómetro, etc.)',
+      'Defectos de refracción visual y queratocono',
+      'Fractura dental por ingesta de alimentos: no aplica como accidente; no cubre tratamientos odontológicos programados ni prótesis',
+      'Exceso en el valor de ayudas diagnósticas/laboratorio frente al tope contratado',
+      'Medicamentos no descritos en el listado del plan',
+      'Complicaciones o secuelas de tratamientos no amparados',
+      'Todo lo no indicado expresamente en el clausulado',
+    ]
   },
+  // Plan de Salud Modular (clausulado 20/01/2026)
   MODULAR: {
-    include: ['Hospitalización general (Módulo Básico)','Urgencias 24h (Módulo Básico)','Consulta médica general (Módulo Básico)','Atención domiciliaria — con módulo EMD','Tratamientos oncológicos — con módulo Alto Costo','Cirugías ambulatorias — con módulo Cirugía','Control prenatal y parto — con módulo Maternidad'],
-    exclude: ['Servicios no incluidos en módulos seleccionados','Condiciones preexistentes (primeros meses de carencia)','Medicamentos ambulatorios no cubiertos','Procedimientos estéticos']
+    include: [
+      'MÓDULO BÁSICO — Urgencias médicas ilimitadas en red hospitalaria SURA',
+      'MÓDULO BÁSICO — Consulta virtual y presencial prioritaria ilimitada (médico general y pediatra)',
+      'MÓDULO BÁSICO — Consulta externa ambulatoria directa e ilimitada con 18 especialidades (incluye psicología hasta 20 consultas/vigencia)',
+      'MÓDULO BÁSICO — Exámenes de laboratorio y ayudas diagnósticas (simples ilimitadas; especializadas con carencia de 4 meses para TAC, RM, endoscopias, arteriografías)',
+      'MÓDULO BÁSICO — Terapias físicas, ocupacionales, respiratorias y de lenguaje: hasta 70 sesiones/vigencia',
+      'MÓDULO BÁSICO — Hospitalización médica y quirúrgica ilimitada (habitación individual, UCI, honorarios, insumos, prótesis articulares tope 20 SMMLV/vigencia)',
+      'MÓDULO BÁSICO — Hospitalización domiciliaria ilimitada y traslado en ambulancia terrestre',
+      'MÓDULO BÁSICO — Programa de bienestar Longevo (plataforma digital) ilimitado',
+      'ANEXO EMD — Emergencia médica domiciliaria ilimitada (según disponibilidad geográfica)',
+      'ANEXO ALTO COSTO — Cáncer: hospitalización, quimioterapia, radioterapia, hormonoterapia, oncología ambulatoria (carencia 6 meses)',
+      'ANEXO ALTO COSTO — VIH/SIDA: tratamiento hospitalario y ambulatorio ilimitado (carencia 12 meses)',
+      'ANEXO ALTO COSTO — Diálisis peritoneal y hemodiálisis para enfermedad renal irreversible (carencia 12 meses)',
+      'ANEXO ALTO COSTO — Trasplante renal y de córnea, un trasplante por contrato (carencia 12 meses)',
+      'ANEXO CIRUGÍA AMBULATORIA — Procedimientos quirúrgicos bajo anestesia general/regional/local (carencia 4 meses, excepto cataratas, hernias, litiasis: 12 meses)',
+      'ANEXO MATERNIDAD — Control prenatal, parto, puerperio, recién nacido hasta 30 días (carencia 6 meses)',
+    ],
+    exclude: [
+      'Alto costo y maternidad cuando no se han contratado los anexos correspondientes',
+      'Enfermedades o padecimientos congénitos o preexistentes al contrato (declaradas o no)',
+      'Atención odontológica de cualquier tipo, por accidente o enfermedad',
+      'Medicamentos ambulatorios no incluidos en el seguro; oxígeno domiciliario fuera de hospitalización domiciliaria',
+      'Cirugía bariátrica, robótica, refractiva, estética o plástica (excepto rehabilitación oncológica)',
+      'Pruebas genéticas de cualquier tipo',
+      'Tratamientos realizados fuera de Colombia',
+      'Terapias de medicina alternativa, neuropsicológicas, cámara hiperbárica, fototerapia',
+      'Vacunas e inmunoterapia para alergias',
+      'Chequeos ejecutivos o exámenes de ingreso',
+      'Reembolsos por cualquier servicio',
+      'Servicios prestados por profesionales o instituciones fuera de la red SURA',
+    ]
   },
+  // Plan Complementario 60 Más (clausulado 17/03/2020 - Resolución 1545)
   PAC60: {
-    include: ['Hospitalización complementaria al PBS','Urgencias de alta complejidad','Acceso directo a especialistas','Exámenes especializados','Atención domiciliaria médica y de enfermería','Cardiólogo y Dermatólogo — con Anexo','Cuidados paliativos','Rehabilitación cardiovascular y funcional'],
-    exclude: ['Afiliados menores de 60 años','Enfermedades preexistentes no declaradas','Procedimientos exclusivamente estéticos','Tratamientos fuera de la red SURA']
+    include: [
+      'DIMENSIÓN FÍSICA — Acceso directo a especialistas sin remisión: Medicina Interna, Geriatría, Nutrición y Dietética, Psicología',
+      'DIMENSIÓN FÍSICA — Ayudas diagnósticas del PBS (laboratorio clínico e imagenología) sin cuota moderadora ni copago, ordenadas por la red del plan',
+      'DIMENSIÓN FÍSICA — Atención médica domiciliaria programada (consulta de medicina general en el domicilio)',
+      'DIMENSIÓN PREVENCIÓN — Consulta de medicina bioenergética y acupuntura con profesionales adscritos',
+      'DIMENSIÓN PREVENCIÓN — Chequeo ejecutivo anual (perfil preventivo definido por la EPS, una vez por vigencia)',
+      'DIMENSIÓN PREVENCIÓN — Programas de envejecimiento activo: talleres de nutrición, manejo de emociones y actividad física adaptada',
+      'DIMENSIÓN SOCIAL — Orientación familiar y acompañamiento en procesos de cuidado',
+      'DIMENSIÓN SOCIAL — Actividades de integración y convenios recreativos según oferta local',
+      'Exoneración de cuotas moderadoras y copagos en servicios del PBS ordenados por la red del plan',
+    ],
+    exclude: [
+      'Servicios prestados por profesionales o instituciones NO pertenecientes a la red del Plan 60 Más',
+      'Medicamentos, insumos, prótesis u órtesis de cualquier tipo (se rigen por normas del PBS)',
+      'Cirugías de cualquier naturaleza (estéticas, funcionales, generales o especializadas)',
+      'Tratamientos odontológicos de cualquier tipo',
+      'Tratamientos fuera del territorio nacional',
+      'Servicios de enfermería privada, acompañante permanente o poshospitalaria',
+      'Tratamientos en fase experimental o no aceptados por asociaciones científico-médicas',
+      'Afiliados menores de 60 años (edad mínima de ingreso)',
+    ]
   }
 };
 
