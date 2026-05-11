@@ -186,10 +186,8 @@ input.err,select.err{border-color:var(--red);}
 <!-- HEADER -->
 <header class="header">
   <div class="logo">
-    <div class="logo-sura" style="padding:6px 14px;">
-      <img src="https://fravicar5-commits.github.io/sura-asesor/sura-logo.png" alt="SURA" style="height:22px;width:auto;object-fit:contain;"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-      <svg style="display:none" width="68" height="22" viewBox="0 0 68 22" xmlns="http://www.w3.org/2000/svg"><text x="1" y="18" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="20" letter-spacing="0.5" fill="white">SURA</text></svg>
+    <div class="logo-sura" style="padding:4px 10px;background:#003087;border-radius:8px;">
+      <img src="https://fravicar5-commits.github.io/sura-asesor/Seguros_SURA_Logo.svg" alt="SURA" style="height:24px;width:auto;object-fit:contain;display:block;">
     </div>
     <div>
       <div class="logo-sub" style="font-size:11.5px;color:var(--muted);font-weight:500;">Canal Especializado en Salud · Cotizador</div>
@@ -288,7 +286,10 @@ input.err,select.err{border-color:var(--red);}
 
     <!-- Módulos PSM -->
     <div class="card" id="modulosSection" style="display:none;">
-      <div class="card-title"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 16c0 1.5-1.5 2.5-3 2.5s-3-1-3-2.5V14h-3c-1.5 0-2.5-1-2.5-2.5S10 9 11.5 9H14V6c0-1.5 1-2.5 2.5-2.5S19 4.5 19 6v3h1.5C22 9 23 10 23 11.5S22 14 20.5 14H20.5v2Z"/><path d="M9 20.5c0-1.5 1-2.5 2.5-2.5H14v-3c0-1.5-1-2.5-2.5-2.5S9 13.5 9 15v.5H6c-1.5 0-2.5 1-2.5 2.5S4.5 20.5 6 20.5H9Z"/></svg> Selecciona tus módulos</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div class="card-title" style="margin-bottom:0;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 16c0 1.5-1.5 2.5-3 2.5s-3-1-3-2.5V14h-3c-1.5 0-2.5-1-2.5-2.5S10 9 11.5 9H14V6c0-1.5 1-2.5 2.5-2.5S19 4.5 19 6v3h1.5C22 9 23 10 23 11.5S22 14 20.5 14H20.5v2Z"/><path d="M9 20.5c0-1.5 1-2.5 2.5-2.5H14v-3c0-1.5-1-2.5-2.5-2.5S9 13.5 9 15v.5H6c-1.5 0-2.5 1-2.5 2.5S4.5 20.5 6 20.5H9Z"/></svg> Selecciona tus módulos</div>
+        <div id="moduloPrecioTotal" style="font-size:14px;font-weight:700;color:#1A4CE8;font-family:monospace;"></div>
+      </div>
       <div class="alert alert-info" style="margin-bottom:14px;">
         <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span><span>El <strong>Módulo Básico</strong> es obligatorio e incluye hospitalización, urgencias y consulta médica.</span>
       </div>
@@ -416,12 +417,10 @@ input.err,select.err{border-color:var(--red);}
 
   <!-- ═══ PASO 3: RESULTADO ═══ -->
   <div id="resultSection">
-    <div style="margin-bottom:16px;">
-      <button onclick="irPaso2()" style="background:none;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--blue);padding:6px 0;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-        Modificar datos
-      </button>
-    </div>
+    <button onclick="irPaso2()" style="background:none;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#1A4CE8;padding:0 0 16px 0;text-decoration:none;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Modificar datos
+    </button>
 
     <!-- Resumen precio -->
     <div class="result-hero" id="resultHero">
@@ -602,11 +601,17 @@ function selPeri(peri, el) {
 
 function toggleMod(mod) {
   const chk = document.getElementById('chk' + mod);
-  if (!chk) return;
+  if (!chk || chk.disabled) return;
   chk.checked = !chk.checked;
   const row = document.getElementById('row' + mod);
-  if (row) row.classList.toggle('checked', chk.checked);
+  if (row) {
+    row.classList.toggle('checked', chk.checked);
+    // Feedback visual inmediato en el precio
+    row.style.borderColor = chk.checked ? 'var(--blue, #1A4CE8)' : '';
+    row.style.background  = chk.checked ? 'rgba(26,76,232,0.06)' : '';
+  }
   state.modulos[mod] = chk.checked;
+  actualizarDctos();
   actualizarVisibilidad();
 }
 
@@ -635,7 +640,7 @@ function onFechaNac() {
     alertEl.style.display = 'none';
   }
   // Actualizar módulos PSM con precios de la nueva edad
-  if (state.plan === 'MODULAR') { actualizarPreciosMods(); actualizarDctos(); }
+  if (state.plan === 'MODULAR') actualizarPreciosMods();
   actualizarDctos();
   actualizarVisibilidad();
 }
@@ -819,16 +824,12 @@ function mostrarResultado() {
   const res = calcular();
   if (!res) {
     console.error('[cotizar] calcular() retornó null — estado:', JSON.stringify(state));
-    // Mostrar mensaje de error claro en lugar de pantalla en blanco
-    document.getElementById('resultSection').style.display = '';
-    document.getElementById('resultSection').innerHTML = `
-      <div style="text-align:center;padding:40px 20px;">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.5" style="margin-bottom:16px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Faltan datos para cotizar</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">Verifica que hayas seleccionado plan, subplan (si aplica), fecha de nacimiento y periodicidad.</div>
-        <button onclick="irPaso1()" style="background:var(--blue);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;">← Revisar selección</button>
-      </div>`;
-    setStep(3);
+    // Volver al paso 1 con alerta clara
+    document.getElementById('step2Section').style.display = 'none';
+    document.getElementById('step1Section').style.display = '';
+    setStep(1);
+    window.scrollTo({top:0,behavior:'smooth'});
+    setTimeout(() => alert('Verifica que hayas seleccionado plan, subplan (si aplica), fecha de nacimiento y periodicidad.'), 100);
     return;
   }
   const peri  = state.peri || 'MENSUAL';
@@ -872,6 +873,10 @@ function mostrarResultado() {
       <div class="copago-item"><span>🏠 Atención Domiciliaria</span><span>$19.400</span></div>
       <div class="copago-item" style="font-size:11px;color:var(--dim);margin-top:4px;"><span colspan="2">Estos valores son asumidos por el afiliado en cada utilización del servicio</span></div>`;
   } else if (state.plan === 'MODULAR') {
+    // Actualizar precio total Modular en tiempo real
+    const resCalc = calcular();
+    const previewEl = document.getElementById('moduloPrecioTotal');
+    if (previewEl && resCalc) previewEl.textContent = 'Total: ' + fmt(resCalc.valor) + '/' + ({MENSUAL:'mes',TRIMESTRAL:'trimestre',SEMESTRAL:'semestre',ANUAL:'año'}[state.peri]||'mes');
     copagoBox.style.display = '';
     copagoItems.innerHTML = `
       <div class="copago-item"><span>🏥 Acceso Directo (todos los servicios)</span><span>$30.000</span></div>
@@ -997,7 +1002,7 @@ async function solicitarContacto() {
     descuento:      res.dcto || 0,
     modulos:    state.plan === 'MODULAR' ? Object.entries(state.modulos).filter(([,v])=>v).map(([k])=>k).join(', ') : '',
     interes:    'cotizacion_online',
-    origen:     'landing_empresa', // debe coincidir con regla Firestore
+    origen:     'cotizar_online',
     uidAsesor:  asesor,
     asesor:     asesor,
     fecha:      new Date().toISOString(),
