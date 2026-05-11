@@ -146,8 +146,6 @@ input.err,select.err{border-color:var(--red);}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border-radius:12px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;border:none;transition:all .2s;text-decoration:none;}
 .btn-primary{background:var(--blue);color:#fff;width:100%;}
 .btn-primary:hover{background:var(--blue-dark);transform:translateY(-1px);box-shadow:0 6px 20px rgba(26,76,232,0.3);}
-.btn-wa{background:#25D366;color:#fff;width:100%;margin-top:10px;}
-.btn-wa:hover{background:#1eba57;}
 .btn-secondary{background:var(--bg);color:var(--text);border:1.5px solid var(--border);width:100%;margin-top:10px;}
 .btn-secondary:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
 .btn-sm{font-size:13px;padding:9px 18px;width:auto;}
@@ -233,7 +231,7 @@ input.err,select.err{border-color:var(--red);}
           <div class="plan-desc">Salud Preferencial o Clásico · 0–59 años</div>
         </div>
         <div class="plan-card" data-plan="SPD" onclick="selPlan('SPD',this)">
-          <div class="plan-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></div>
+          <div class="plan-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="2.5"/><path d="M5 21v-2.5A2.5 2.5 0 0 1 7.5 16h3A2.5 2.5 0 0 1 13 18.5V21"/><circle cx="16.5" cy="6" r="2.5"/><path d="M13.5 21v-2.5A2.5 2.5 0 0 1 16 16h1a2.5 2.5 0 0 1 2.5 2.5V21"/><line x1="11.5" y1="12" x2="14" y2="12"/></svg></div>
           <div class="plan-name">SPD — Salud para Dos Plus</div>
           <div class="plan-desc">Plan ambulatorio para dos personas · Tarifa fija</div>
         </div>
@@ -243,7 +241,7 @@ input.err,select.err{border-color:var(--red);}
           <div class="plan-desc">Arma tu plan por módulos · 0–64 años</div>
         </div>
         <div class="plan-card" data-plan="PAC60" onclick="selPlan('PAC60',this)">
-          <div class="plan-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div class="plan-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2"/><path d="M10 9h4l1 5h-2l1 7H10l1-7H9l1-5z"/><path d="M14 14.5l3.5 5"/><path d="M17.5 19.5l1 1.5"/></svg></div>
           <div class="plan-name">Plan 60+</div>
           <div class="plan-desc">Complementario adulto mayor · 60–79 años</div>
         </div>
@@ -466,10 +464,6 @@ input.err,select.err{border-color:var(--red);}
       <button class="btn btn-primary" id="btnSolicitar" onclick="solicitarContacto()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Quiero este plan · Contactar asesor
       </button>
-      <button class="btn btn-wa" id="btnWa">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        Compartir cotización por WhatsApp
-      </button>
       <button class="btn btn-secondary" onclick="nuevaCotizacion()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.21"/></svg> Nueva cotización</button>
     </div>
 
@@ -616,6 +610,7 @@ function _aplicarEstadoMod(mod, checked) {
   state.modulos[mod] = checked;
   actualizarDctos();
   actualizarVisibilidad();
+  if (state.plan === 'MODULAR') renderCoberturas();
 }
 
 function onFechaNac() {
@@ -933,20 +928,6 @@ function mostrarResultado() {
     </div>`
   ).join('');
 
-  // Botón WhatsApp
-  const nombre = document.getElementById('dNombre').value;
-  const tel    = document.getElementById('dTel').value.replace(/\D/g,'');
-  const msg = encodeURIComponent(
-    `¡Hola ${nombre.split(' ')[0]}! 👋 Te comparto la cotización de tu plan de salud SURA:\n\n` +
-    `📋 *Plan:* ${res.plan}\n` +
-    `💰 *Prima:* ${fmt(res.valor)} / ${periL}\n` +
-    (res.dcto > 0 ? `🏷️ *Descuento incluido:* ${fmt(res.dcto)}\n` : '') +
-    (state.edad ? `🎂 *Edad:* ${state.edad} años\n` : '') +
-    `\nPara formalizar tu vinculación o resolver dudas, escríbeme. 😊`
-  );
-  const numero = tel.startsWith('57') ? tel : '57' + tel;
-  document.getElementById('btnWa').onclick = () => window.open('https://wa.me/' + numero + '?text=' + msg, '_blank');
-
   const _rs = document.getElementById('resultSection');
   _rs.style.display = 'block';
   _rs.classList.add('visible');
@@ -1107,14 +1088,52 @@ function renderCoberturas() {
   let cobKey;
   if (state.plan === 'SPTI') {
     cobKey = state.sub === 'CLASICO' ? 'SPTI_CLASICO' : 'SPTI_PREFERENCIAL';
+  } else if (state.plan === 'MODULAR') {
+    // Construir dinámicamente las coberturas según módulos activos
+    const basico = [
+      'MÓDULO BÁSICO — Urgencias médicas ilimitadas en red hospitalaria SURA',
+      'MÓDULO BÁSICO — Consulta virtual y presencial prioritaria ilimitada (médico general y pediatra)',
+      'MÓDULO BÁSICO — Consulta externa ambulatoria directa e ilimitada con 18 especialidades (incluye psicología hasta 20 consultas/vigencia)',
+      'MÓDULO BÁSICO — Exámenes de laboratorio y ayudas diagnósticas (simples ilimitadas; especializadas con carencia de 4 meses para TAC, RM, endoscopias, arteriografías)',
+      'MÓDULO BÁSICO — Terapias físicas, ocupacionales, respiratorias y de lenguaje: hasta 70 sesiones/vigencia',
+      'MÓDULO BÁSICO — Hospitalización médica y quirúrgica ilimitada (habitación individual, UCI, honorarios, insumos, prótesis articulares tope 20 SMMLV/vigencia)',
+      'MÓDULO BÁSICO — Hospitalización domiciliaria ilimitada y traslado en ambulancia terrestre',
+      'MÓDULO BÁSICO — Programa de bienestar Longevo (plataforma digital) ilimitado',
+    ];
+    const anexos = [];
+    if (state.modulos.EMD)
+      anexos.push('ANEXO EMD — Emergencia médica domiciliaria ilimitada (según disponibilidad geográfica)');
+    if (state.modulos.AltoCosto) {
+      anexos.push('ANEXO ALTO COSTO — Cáncer: hospitalización, quimioterapia, radioterapia, hormonoterapia, oncología ambulatoria (carencia 6 meses)');
+      anexos.push('ANEXO ALTO COSTO — VIH/SIDA: tratamiento hospitalario y ambulatorio ilimitado (carencia 12 meses)');
+      anexos.push('ANEXO ALTO COSTO — Diálisis peritoneal y hemodiálisis para enfermedad renal irreversible (carencia 12 meses)');
+      anexos.push('ANEXO ALTO COSTO — Trasplante renal y de córnea, un trasplante por contrato (carencia 12 meses)');
+    }
+    if (state.modulos.Cirugia)
+      anexos.push('ANEXO CIRUGÍA AMBULATORIA — Procedimientos quirúrgicos bajo anestesia general/regional/local (carencia 4 meses, excepto cataratas, hernias, litiasis: 12 meses)');
+    if (state.modulos.Maternidad)
+      anexos.push('ANEXO MATERNIDAD — Control prenatal, parto, puerperio, recién nacido hasta 30 días (carencia 6 meses)');
+
+    const cob = {
+      include: [...basico, ...anexos],
+      exclude: COBERTURAS.MODULAR.exclude,
+    };
+    const cobEl = document.getElementById('coberturas');
+    cobEl.innerHTML = buildCoberturasHTML(cob);
+    return;
   } else {
-    cobKey = state.plan === 'SPD' ? 'SPD' : state.plan === 'MODULAR' ? 'MODULAR' : 'PAC60';
+    cobKey = state.plan === 'SPD' ? 'SPD' : 'PAC60';
   }
   const cob = COBERTURAS[cobKey];
   if (!cob) return;
 
   const cobEl = document.getElementById('coberturas');
-  cobEl.innerHTML = `
+  if (!cob) return;
+  cobEl.innerHTML = buildCoberturasHTML(cob);
+}
+
+function buildCoberturasHTML(cob) {
+  return `
     <div class="cob-toggle" id="togCob" onclick="togCob()">
       <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ¿Qué cubre este plan?</span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1148,34 +1167,132 @@ async function solicitarContacto() {
 
   const res     = calcular();
   const asesor  = getAsesorUID();
-  const leadId  = 'lead_cot_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
-  const data = {
-    nombre:     document.getElementById('dNombre').value.trim(),
-    documento:  document.getElementById('dDoc').value.trim(),
-    telefono:   document.getElementById('dTel').value.trim(),
-    email:      document.getElementById('dEmail').value.trim(),
-    ciudad:     document.getElementById('dCiudad').value.trim(),
-    plan:       res.plan,
-    producto:   state.plan,
-    subplan:    state.sub || '',
-    edad:       state.edad || 0,
+  const ahora   = new Date().toISOString();
+  const fechaCorta = ahora.split('T')[0];
+  const uid     = 'cot_web_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+  const leadId  = 'lead_' + uid;
+
+  // ── Datos del cliente ──
+  const cliente = {
+    nombre:    document.getElementById('dNombre').value.trim(),
+    cedula:    document.getElementById('dDoc').value.trim(),
+    telefono:  document.getElementById('dTel').value.trim(),
+    correo:    document.getElementById('dEmail').value.trim(),
+    ciudad:    document.getElementById('dCiudad').value.trim(),
+  };
+
+  // ── Número de cotización legible ──
+  const anioShort = String(new Date().getFullYear()).slice(-2);
+  const cotNumero = `COT-${anioShort}-WEB-${Date.now().toString().slice(-4)}`;
+
+  // ── Persona para el cotizador de la app ──
+  const persona = {
+    id: 1,
+    nombre:      cliente.nombre,
+    producto:    state.plan,           // 'SPTI','SPD','MODULAR','PAC60'
+    plan:        state.sub || state.plan,
+    edad:        state.plan !== 'SPD' ? (state.edad || 0) : null,
+    periodicidad: state.peri,
+    cantidad:    1,
+    primaCalc:   res.mensual,
+  };
+
+  // ── Objeto cotización (compatible con getCotizaciones() de la app) ──
+  const cotizacion = {
+    id:       uid,
+    numero:   cotNumero,
+    fecha:    fechaCorta,
+    origen:   'cotizar_online',
+    uidAsesor: asesor,
+    cliente: {
+      nombre:  cliente.nombre,
+      tel:     cliente.telefono,
+      correo:  cliente.correo,
+      cedula:  cliente.cedula,
+      ciudad:  cliente.ciudad,
+    },
+    personas: [persona],
+    total:    res.mensual,
+    planLabel: res.plan,
+    producto:  state.plan,
+    subplan:   state.sub || '',
+    edad:      state.plan !== 'SPD' ? (state.edad || 0) : null,
     periodicidad: state.peri,
     primaCalculada: res.valor,
     primaMensual:   res.mensual,
     descuento:      res.dcto || 0,
-    modulos:    state.plan === 'MODULAR' ? Object.entries(state.modulos).filter(([,v])=>v).map(([k])=>k).join(', ') : '',
-    interes:    'cotizacion_online',
-    origen:     'cotizar_online',
-    uidAsesor:  asesor,
-    asesor:     asesor,
-    fecha:      new Date().toISOString(),
-    estado:     'nuevo',
+    modulos:   state.plan === 'MODULAR'
+                 ? Object.entries(state.modulos).filter(([,v])=>v).map(([k])=>k).join(', ')
+                 : '',
+  };
+
+  // ── Objeto pipeline/prospecto ──
+  const prospecto = {
+    id:           'pip_' + uid,
+    nombre:       cliente.nombre,
+    cedula:       cliente.cedula,
+    telefono:     cliente.telefono,
+    correo:       cliente.correo,
+    ciudad:       cliente.ciudad,
+    producto:     state.plan,
+    estado:       '0',              // Nuevo
+    origen:       'COTIZADOR_WEB',
+    paraQuien:    'PROPIO',
+    beneficiarios: 1,
+    refCotizacion: cotNumero,
+    notas:        `Cotización web generada el ${fechaCorta}. Plan: ${res.plan}. Prima mensual: $${res.mensual.toLocaleString('es-CO')}.`,
+    proxContacto: fechaCorta,       // Contactar hoy mismo
+    creado:       ahora,
+    uidAsesor:    asesor,
+    origen_extra: 'cotizar_online',
+  };
+
+  // ── Lead (colección existente) ──
+  const dataLead = {
+    ...cliente,
+    email:          cliente.correo,
+    documento:      cliente.cedula,
+    plan:           res.plan,
+    producto:       state.plan,
+    subplan:        state.sub || '',
+    edad:           state.edad || 0,
+    periodicidad:   state.peri,
+    primaCalculada: res.valor,
+    primaMensual:   res.mensual,
+    descuento:      res.dcto || 0,
+    modulos:        cotizacion.modulos,
+    interes:        'cotizacion_online',
+    origen:         'cotizar_online',
+    uidAsesor:      asesor,
+    asesor:         asesor,
+    fecha:          ahora,
+    estado:         'nuevo',
+    cotizacionId:   uid,
+    cotizacionNum:  cotNumero,
   };
 
   try {
     if (window.__db__ && window.__setDoc__ && window.__doc__) {
-      await window.__setDoc__(window.__doc__(window.__db__, 'leads', leadId), data);
-      document.getElementById('resultSection').style.display = 'none'; document.getElementById('resultSection').classList.remove('visible'); document.getElementById('resultSection').classList.remove('visible');
+      const { collection, addDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+      // 1. Lead (colección existente)
+      await window.__setDoc__(window.__doc__(window.__db__, 'leads', leadId), dataLead);
+
+      // 2. Cotización → subcolección del asesor: asesores/{uid}/cotizaciones/{id}
+      //    Y también a la colección raíz cotizaciones_web para que la app la detecte
+      await window.__setDoc__(
+        window.__doc__(window.__db__, 'cotizaciones_web', uid),
+        { ...cotizacion, _ts: ahora }
+      );
+
+      // 3. Pipeline prospecto
+      await window.__setDoc__(
+        window.__doc__(window.__db__, 'pipeline_web', prospecto.id),
+        { ...prospecto, _ts: ahora }
+      );
+
+      document.getElementById('resultSection').style.display = 'none';
+      document.getElementById('resultSection').classList.remove('visible');
       document.getElementById('successSection').style.display = '';
       document.getElementById('stepIndicator').style.display = 'none';
       window.scrollTo({top:0,behavior:'smooth'});
@@ -1183,7 +1300,7 @@ async function solicitarContacto() {
       throw new Error('Firebase no disponible');
     }
   } catch(e) {
-    console.error('Error guardando lead:', e);
+    console.error('Error guardando cotización:', e);
     btn.disabled = false;
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Quiero este plan · Contactar asesor';
     alert('Hubo un error al enviar. Por favor comunícate directamente con tu asesor.');
