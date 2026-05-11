@@ -110,7 +110,7 @@ input.err,select.err{border-color:var(--red);}
 .mod-price{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--blue);}
 
 /* ── RESULTADO ── */
-#resultSection{display:none;}
+#resultSection{display:none;} #resultSection.visible{display:block !important;}
 .result-hero{background:linear-gradient(135deg,#0D1B38,#1A4CE8);border-radius:var(--radius);padding:28px 24px;color:#fff;text-align:center;margin-bottom:16px;}
 .result-plan-badge{display:inline-block;background:rgba(200,229,43,0.2);border:1px solid rgba(200,229,43,0.4);border-radius:20px;padding:4px 14px;font-size:12px;color:#C8E52B;font-weight:700;margin-bottom:14px;}
 .result-price{font-size:clamp(36px,8vw,54px);font-weight:800;color:#fff;line-height:1;}
@@ -186,8 +186,8 @@ input.err,select.err{border-color:var(--red);}
 <!-- HEADER -->
 <header class="header">
   <div class="logo">
-    <div class="logo-sura" style="padding:4px 10px;background:#003087;border-radius:8px;">
-      <img src="https://fravicar5-commits.github.io/sura-asesor/Seguros_SURA_Logo.svg" alt="SURA" style="height:24px;width:auto;object-fit:contain;display:block;">
+    <div style="background:#fff;border-radius:8px;padding:5px 12px;display:flex;align-items:center;">
+      <img src="https://fravicar5-commits.github.io/sura-asesor/Seguros_SURA_Logo.svg" alt="SURA" style="height:22px;width:auto;object-fit:contain;display:block;">
     </div>
     <div>
       <div class="logo-sub" style="font-size:11.5px;color:var(--muted);font-weight:500;">Canal Especializado en Salud · Cotizador</div>
@@ -603,21 +603,21 @@ function toggleMod(mod) {
   const chk = document.getElementById('chk' + mod);
   if (!chk || chk.disabled) return;
   chk.checked = !chk.checked;
+  _aplicarEstadoMod(mod, chk.checked);
+}
+function _aplicarEstadoMod(mod, checked) {
+  const chk = document.getElementById('chk' + mod);
   const row = document.getElementById('row' + mod);
-  if (row) {
-    row.classList.toggle('checked', chk.checked);
-    // Feedback visual inmediato en el precio
-    row.style.borderColor = chk.checked ? 'var(--blue, #1A4CE8)' : '';
-    row.style.background  = chk.checked ? 'rgba(26,76,232,0.06)' : '';
-  }
-  state.modulos[mod] = chk.checked;
+  if (chk) chk.checked = checked;
+  if (row) row.classList.toggle('checked', checked);
+  state.modulos[mod] = checked;
   actualizarDctos();
   actualizarVisibilidad();
 }
 
 function onFechaNac() {
   const fn = document.getElementById('fechaNac').value;
-  if (!fn) { state.edad = 0; document.getElementById('edadDisplay').value = ''; return; }
+  if (!fn) { state.edad = null; document.getElementById('edadDisplay').value = ''; return; }
   const nac = new Date(fn + 'T12:00:00');
   const hoy = new Date();
   let edad = hoy.getFullYear() - nac.getFullYear();
@@ -628,7 +628,7 @@ function onFechaNac() {
   // Validar rango
   const alertEl = document.getElementById('edadAlert');
   let msg = '', tipo = '';
-  if (state.plan === 'SPTI' && (edad < 0 || edad > 59)) {
+  if (state.plan === 'SPTI' && edad > 59) {
     msg = '⚠️ SPTI aplica para personas de 0 a 59 años.'; tipo = 'warn';
   } else if (state.plan === 'PAC60' && (edad < 60 || edad > 79)) {
     msg = '⚠️ Plan 60+ aplica para personas de 60 a 79 años para venta nueva.'; tipo = 'warn';
@@ -646,7 +646,7 @@ function onFechaNac() {
 }
 
 function getRangoSPTI(edad) {
-  if (edad <= 40) return '0-40';
+  if (edad >= 0 && edad <= 40) return '0-40';
   if (edad <= 50) return '41-50';
   if (edad <= 59) return '51-59';
   return null;
@@ -661,7 +661,7 @@ function getRangoPAC60(edad) {
 }
 
 function actualizarPreciosMods() {
-  if (state.plan !== 'MODULAR' || !state.edad) return;
+  if (state.plan !== 'MODULAR' || state.edad === null) return;
   const r = getRangoPSM(state.edad);
   if (!r) return;
   const k = r.key;
@@ -716,7 +716,7 @@ function esFormularioListo() {
   if (!state.plan) return false;
   if (state.plan === 'SPTI' && !state.sub) return false;
   if (state.plan === 'PAC60' && !state.sub) return false;
-  if (state.plan !== 'SPD' && !state.edad) return false;
+  if (state.plan !== 'SPD' && state.edad === null) return false;
   if (!state.peri) return false;
   // Validar rangos
   if (state.plan === 'SPTI' && !getRangoSPTI(state.edad)) return false;
@@ -750,6 +750,7 @@ function irPaso3() {
   if (!tel || tel.length < 7) { document.getElementById('dTel').classList.add('err'); return; }
   ['dNombre','dDoc','dTel'].forEach(id => document.getElementById(id).classList.remove('err'));
   document.getElementById('step2Section').style.display = 'none';
+  console.log('[cotizar] irPaso3 state:', JSON.stringify(state));
   mostrarResultado();
   setStep(3);
   window.scrollTo({top:0,behavior:'smooth'});
@@ -792,7 +793,7 @@ function calcular() {
   }
 
   if (state.plan === 'MODULAR') {
-    const r = getRangoPSM(state.edad);
+    const r = getRangoPSM(state.edad !== null ? state.edad : -1);
     if (!r) return null;
     const k = r.key;
     let totalMensual = PSM_TARIFAS.basico[k] * PSM_IVA;
@@ -922,7 +923,9 @@ function mostrarResultado() {
   const numero = tel.startsWith('57') ? tel : '57' + tel;
   document.getElementById('btnWa').onclick = () => window.open('https://wa.me/' + numero + '?text=' + msg, '_blank');
 
-  document.getElementById('resultSection').style.display = '';
+  const _rs = document.getElementById('resultSection');
+  _rs.style.display = 'block';
+  _rs.classList.add('visible');
 }
 
 // ═══ COBERTURAS ═══
@@ -1012,7 +1015,7 @@ async function solicitarContacto() {
   try {
     if (window.__db__ && window.__setDoc__ && window.__doc__) {
       await window.__setDoc__(window.__doc__(window.__db__, 'leads', leadId), data);
-      document.getElementById('resultSection').style.display = 'none';
+      document.getElementById('resultSection').style.display = 'none'; document.getElementById('resultSection').classList.remove('visible'); document.getElementById('resultSection').classList.remove('visible');
       document.getElementById('successSection').style.display = '';
       document.getElementById('stepIndicator').style.display = 'none';
       window.scrollTo({top:0,behavior:'smooth'});
@@ -1031,7 +1034,7 @@ function nuevaCotizacion() {
   state = { plan:null, sub:null, edad:0, peri:'MENSUAL', modulos:{EMD:false,AltoCosto:false,Cirugia:false,Maternidad:false} };
   document.getElementById('step1Section').style.display = '';
   document.getElementById('step2Section').style.display = 'none';
-  document.getElementById('resultSection').style.display = 'none';
+  document.getElementById('resultSection').style.display = 'none'; document.getElementById('resultSection').classList.remove('visible');
   document.getElementById('successSection').style.display = 'none';
   document.getElementById('stepIndicator').style.display = 'flex';
   document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
