@@ -22906,7 +22906,6 @@ function renderCotizaciones() {
       <div style="display:flex;gap:6px;flex-wrap:wrap;">${personas.map(p=>{const color=COT_COLORS[p.producto]||'var(--sura-blue)';return `<span class="chip" style="background:${color}20;color:${color};font-size:10.5px;">${p.nombre||p.producto}${p.edad!=null?' · '+p.edad+'a':''} · ${fmt(p.primaCalc||cotizadorCalcPrima(p))}</span>`;}).join('')}</div>
     </div>`;
   }).join('');
-  }).join('');
 }
 
 function cotizacionEnviarWa(id) {
