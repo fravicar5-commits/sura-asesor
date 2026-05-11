@@ -395,7 +395,10 @@ input.err,select.err{border-color:var(--red);}
       <div class="form-row">
         <div>
           <label>Celular *</label>
-          <input type="tel" id="dTel" placeholder="Ej: 3001234567" inputmode="numeric">
+          <input type="tel" id="dTel" placeholder="Ej: 3001234567" inputmode="numeric" maxlength="10"
+            oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+            onblur="validarCelCo(this)">
+          <span id="dTelErr" style="display:none;font-size:11px;color:#e53e3e;margin-top:4px;">Ingresa un celular colombiano válido (10 dígitos, empieza por 3)</span>
         </div>
         <div>
           <label>Ciudad</label>
@@ -741,13 +744,34 @@ function irPaso1() {
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+function validarCelCo(el) {
+  const v = el.value.replace(/\D/g,'');
+  const ok = /^3[0-9]{9}$/.test(v);
+  const errEl = document.getElementById('dTelErr');
+  if (!ok && v.length > 0) {
+    el.classList.add('err');
+    if (errEl) errEl.style.display = 'block';
+  } else {
+    el.classList.remove('err');
+    if (errEl) errEl.style.display = 'none';
+  }
+  return ok;
+}
+
 function irPaso3() {
   const nombre = document.getElementById('dNombre').value.trim();
   const doc    = document.getElementById('dDoc').value.trim();
   const tel    = document.getElementById('dTel').value.trim();
   if (!nombre) { document.getElementById('dNombre').classList.add('err'); document.getElementById('dNombre').focus(); return; }
   if (!doc)    { document.getElementById('dDoc').classList.add('err'); return; }
-  if (!tel || tel.length < 7) { document.getElementById('dTel').classList.add('err'); return; }
+  const telLimpio = tel.replace(/\D/g,'');
+  if (!/^3[0-9]{9}$/.test(telLimpio)) {
+    document.getElementById('dTel').classList.add('err');
+    const errEl = document.getElementById('dTelErr');
+    if (errEl) errEl.style.display = 'block';
+    document.getElementById('dTel').focus();
+    return;
+  }
   ['dNombre','dDoc','dTel'].forEach(id => document.getElementById(id).classList.remove('err'));
   document.getElementById('step2Section').style.display = 'none';
   console.log('[cotizar] irPaso3 state:', JSON.stringify(state));
