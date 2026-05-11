@@ -6110,6 +6110,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             <button class="btn btn-secondary btn-sm" onclick="cotizadorGuardar()">💾 Guardar cotización</button>
             <button class="btn btn-sm" style="background:rgba(37,211,102,0.15);color:#25D366;border:1px solid rgba(37,211,102,0.35);" onclick="cotizadorCompartirWA()">📱 Compartir WhatsApp</button>
             <button class="btn btn-sm" style="background:rgba(6,182,212,0.15);color:var(--teal);border:1px solid rgba(6,182,212,0.3);" onclick="cotizadorComparar()">⚖️ Comparar planes</button>
+            <button class="btn btn-sm" style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3);" onclick="cotizadorCopiarUrlWeb()">🔗 URL Cotizador Web</button>
             <button class="btn btn-secondary btn-sm" onclick="cotizadorLimpiar()">🗑 Limpiar</button>
           </div>
         </div>
@@ -22233,6 +22234,46 @@ function cotizadorLimpiar() {
   const cc = document.getElementById('cotizadorComparacionPanel'); if(cc) cc.style.display='none';
 }
 
+function cotizadorCopiarUrlWeb() {
+  const uid = window.FB?.UID || localStorage.getItem('sura_last_cc') || '';
+  const base = 'https://viloria2.github.io/sura-asesor/cotizar.html';
+  const url  = uid ? `${base}?asesor=${uid}` : base;
+
+  // Intentar copiar al portapapeles
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('🔗 URL copiada al portapapeles');
+      _mostrarModalUrlWeb(url);
+    }).catch(() => _mostrarModalUrlWeb(url));
+  } else {
+    _mostrarModalUrlWeb(url);
+  }
+}
+
+function _mostrarModalUrlWeb(url) {
+  // Reutilizar el modal de alerta existente o crear un toast expandido
+  const existe = document.getElementById('_modalUrlWeb');
+  if (existe) existe.remove();
+
+  const div = document.createElement('div');
+  div.id = '_modalUrlWeb';
+  div.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  div.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">🔗 URL del Cotizador Web</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Comparte este link con tus clientes. Al abrirlo, sus datos quedarán vinculados a tu perfil de asesor.</div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:11.5px;color:#818cf8;word-break:break-all;margin-bottom:16px;">${url}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="navigator.clipboard.writeText('${url}').then(()=>showToast('✅ Copiado'))" class="btn btn-sm" style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3);">📋 Copiar link</button>
+        <button onclick="window.open('${url}','_blank')" class="btn btn-sm" style="background:rgba(6,182,212,0.15);color:var(--teal);border:1px solid rgba(6,182,212,0.3);">🌐 Abrir cotizador</button>
+        <button onclick="window.open('https://wa.me/?text='+encodeURIComponent('Hola 👋 Te comparto el link para cotizar tu plan de salud SURA directamente:\\n${url}'),'_blank')" class="btn btn-sm" style="background:rgba(37,211,102,0.15);color:#25D366;border:1px solid rgba(37,211,102,0.35);">📲 Enviar por WhatsApp</button>
+        <button onclick="document.getElementById('_modalUrlWeb').remove()" class="btn btn-secondary btn-sm">Cerrar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+  div.addEventListener('click', e => { if (e.target === div) div.remove(); });
+}
+
 // =============================================
 // COMPARADOR DE PLANES — tabla lado a lado
 // =============================================
@@ -22864,6 +22905,7 @@ function renderCotizaciones() {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">${personas.map(p=>{const color=COT_COLORS[p.producto]||'var(--sura-blue)';return `<span class="chip" style="background:${color}20;color:${color};font-size:10.5px;">${p.nombre||p.producto}${p.edad!=null?' · '+p.edad+'a':''} · ${fmt(p.primaCalc||cotizadorCalcPrima(p))}</span>`;}).join('')}</div>
     </div>`;
+  }).join('');
   }).join('');
 }
 
