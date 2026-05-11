@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotiza tu Plan de Salud SURA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue:      #1A4CE8;
+  --blue-dark: #1440CC;
+  --blue-light:#EEF4FF;
+  --lime:      #4CAF50;
+  --lime-bg:   #F0FBF0;
+  --bg:        #F4F7FD;
+  --surface:   #FFFFFF;
+  --border:    #E2E8F5;
+  --text:      #0D1B38;
+  --muted:     #5A6A8A;
+  --dim:       #9AAAC8;
+  --red:       #DC2626;
+  --amber:     #D97706;
+  --font:      'DM Sans', sans-serif;
+  --mono:      'DM Mono', monospace;
+  --radius:    16px;
+  --shadow:    0 4px 24px rgba(26,76,232,0.10);
+  --shadow-sm: 0 2px 10px rgba(26,76,232,0.07);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* ── HEADER ── */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow-sm);position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-sura{display:flex;align-items:center;background:#1A4CE8;border-radius:10px;padding:5px 14px;}
+.logo-sura svg{height:20px;width:auto;}
+.logo-icon{width:40px;height:40px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;letter-spacing:-0.5px;}
+.logo-text{font-size:15px;font-weight:700;color:var(--text);}
+.logo-sub{font-size:11px;color:var(--muted);font-weight:400;}
+.header-badge{background:var(--blue-light);color:var(--blue);font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid rgba(26,76,232,0.15);display:flex;align-items:center;gap:5px;} .header-badge svg{flex-shrink:0;}
+
+/* ── HERO ── */
+.hero{background:linear-gradient(135deg,#0D1B38 0%,#1A4CE8 100%);padding:56px 24px 64px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");}
+.hero-tag{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:5px 14px;font-size:12px;color:rgba(255,255,255,0.85);margin-bottom:18px;}
+.hero h1{font-size:clamp(26px,5vw,42px);font-weight:800;color:#fff;line-height:1.2;margin-bottom:14px;}
+.hero h1 span{color:#C8E52B;}
+.hero p{font-size:16px;color:rgba(255,255,255,0.72);max-width:520px;margin:0 auto 32px;line-height:1.6;}
+.trust-pills{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;}
+.trust-pill{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:6px 14px;font-size:12px;color:rgba(255,255,255,0.8);display:flex;align-items:center;gap:6px;} .trust-pill svg{opacity:.85;flex-shrink:0;}
+
+/* ── MAIN CONTAINER ── */
+.container{max-width:760px;margin:0 auto;padding:0 16px;}
+.main{padding:32px 0 80px;}
+
+/* ── STEP INDICATOR ── */
+.steps{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:28px;}
+.step{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--dim);}
+.step.active{color:var(--blue);}
+.step.done{color:var(--lime);}
+.step-num{width:28px;height:28px;border-radius:50%;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.step.done .step-num{background:var(--lime);border-color:var(--lime);color:#fff;}
+.step.active .step-num{background:var(--blue);border-color:var(--blue);color:#fff;}
+.step-line{width:40px;height:2px;background:var(--border);margin:0 4px;}
+.step-line.done{background:var(--lime);}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:24px;box-shadow:var(--shadow-sm);margin-bottom:16px;}
+.card-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--blue);margin-bottom:18px;display:flex;align-items:center;gap:8px;} .card-title svg{flex-shrink:0;}
+
+/* ── PLAN SELECTOR ── */
+.plan-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+@media(min-width:500px){.plan-grid{grid-template-columns:repeat(4,1fr);}}
+.plan-card{border:2px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);user-select:none;}
+.plan-card:hover{border-color:var(--blue);background:var(--blue-light);}
+.plan-card.selected{border-color:var(--blue);background:var(--blue-light);}
+.plan-card .plan-icon{font-size:0;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:var(--blue);}.plan-card.selected .plan-icon{color:var(--blue);}
+.plan-card .plan-name{font-size:13px;font-weight:700;color:var(--text);}
+.plan-card .plan-desc{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.35;}
+.plan-card.selected .plan-name{color:var(--blue);}
+
+/* ── PERIODICIDAD ── */
+.peri-grid{display:flex;gap:8px;flex-wrap:wrap;}
+.peri-btn{flex:1;min-width:80px;padding:10px 8px;border:2px solid var(--border);border-radius:10px;background:var(--surface);font-family:var(--font);font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;text-align:center;transition:all .2s;}
+.peri-btn:hover{border-color:var(--blue);color:var(--blue);}
+.peri-btn.selected{border-color:var(--blue);background:var(--blue-light);color:var(--blue);}
+.peri-btn .dcto-badge{display:block;font-size:10px;color:var(--lime);font-weight:600;margin-top:2px;}
+
+/* ── FORM ── */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+@media(max-width:500px){.form-row{grid-template-columns:1fr;}}
+.form-full{margin-bottom:12px;}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;}
+input,select{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:var(--font);font-size:14px;color:var(--text);background:var(--bg);outline:none;transition:border .2s;}
+input:focus,select:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(26,76,232,0.08);}
+input.err,select.err{border-color:var(--red);}
+.field-hint{font-size:11px;color:var(--dim);margin-top:4px;}
+
+/* ── MODULOS PSM ── */
+.mod-grid{display:flex;flex-direction:column;gap:8px;}
+.mod-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:all .2s;}
+.mod-row:hover{border-color:var(--blue);}
+.mod-row.checked{border-color:var(--blue);background:var(--blue-light);}
+.mod-row.locked{opacity:.5;pointer-events:none;}
+.mod-left{display:flex;align-items:center;gap:10px;}
+.mod-chk{width:18px;height:18px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;}
+.mod-lbl{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;}
+.mod-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.mod-price{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--blue);}
+
+/* ── RESULTADO ── */
+#resultSection{display:none;}
+.result-hero{background:linear-gradient(135deg,#0D1B38,#1A4CE8);border-radius:var(--radius);padding:28px 24px;color:#fff;text-align:center;margin-bottom:16px;}
+.result-plan-badge{display:inline-block;background:rgba(200,229,43,0.2);border:1px solid rgba(200,229,43,0.4);border-radius:20px;padding:4px 14px;font-size:12px;color:#C8E52B;font-weight:700;margin-bottom:14px;}
+.result-price{font-size:clamp(36px,8vw,54px);font-weight:800;color:#fff;line-height:1;}
+.result-period{font-size:14px;color:rgba(255,255,255,0.6);margin-top:6px;}
+.result-dcto{display:inline-flex;align-items:center;gap:6px;background:rgba(76,175,80,0.2);border:1px solid rgba(76,175,80,0.35);border-radius:12px;padding:5px 12px;font-size:12px;color:#6EE36E;font-weight:600;margin-top:10px;}
+
+.result-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.result-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);}
+.result-row-label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:7px;}
+.result-row-value{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text);}
+.result-row.highlight{background:var(--blue-light);border-color:rgba(26,76,232,0.2);}
+.result-row.highlight .result-row-value{color:var(--blue);}
+
+.copago-box{background:#FFF8EC;border:1.5px solid #F59E0B33;border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+.copago-title{font-size:12px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.copago-items{display:flex;flex-direction:column;gap:6px;}
+.copago-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;}
+.copago-item span:first-child{color:var(--muted);}
+.copago-item span:last-child{font-family:var(--mono);font-weight:700;color:var(--amber);}
+
+/* ── COBERTURAS ── */
+.cob-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);cursor:pointer;margin-bottom:8px;transition:background .2s;}
+.cob-toggle:hover{background:var(--blue-light);}
+.cob-toggle span{font-size:13px;font-weight:600;color:var(--blue);}
+.cob-toggle svg{transition:transform .3s;}
+.cob-toggle.open svg{transform:rotate(180deg);}
+.cob-content{display:none;padding:14px 16px;background:var(--bg);border-radius:0 0 10px 10px;border:1px solid var(--border);border-top:none;margin-bottom:8px;font-size:13px;color:var(--muted);line-height:1.7;}
+.cob-content.open{display:block;} .cob-ok,.cob-no{display:flex;align-items:flex-start;gap:7px;margin-bottom:5px;} .cob-ok svg,.cob-no svg{flex-shrink:0;margin-top:2px;}
+.cob-ok{color:var(--lime);}
+.cob-no{color:var(--red);}
+
+/* ── BOTONES ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border-radius:12px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;border:none;transition:all .2s;text-decoration:none;}
+.btn-primary{background:var(--blue);color:#fff;width:100%;}
+.btn-primary:hover{background:var(--blue-dark);transform:translateY(-1px);box-shadow:0 6px 20px rgba(26,76,232,0.3);}
+.btn-wa{background:#25D366;color:#fff;width:100%;margin-top:10px;}
+.btn-wa:hover{background:#1eba57;}
+.btn-secondary{background:var(--bg);color:var(--text);border:1.5px solid var(--border);width:100%;margin-top:10px;}
+.btn-secondary:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
+.btn-sm{font-size:13px;padding:9px 18px;width:auto;}
+
+/* ── ALERT ── */
+.alert{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:14px;display:flex;align-items:flex-start;gap:8px;}
+.alert-info{background:#EEF4FF;border:1px solid rgba(26,76,232,0.2);color:var(--blue);}
+.alert-warn{background:#FFFBEB;border:1px solid rgba(217,119,6,0.25);color:var(--amber);}
+.alert-err{background:#FEF2F2;border:1px solid rgba(220,38,38,0.2);color:var(--red);}
+
+/* ── LOADING ── */
+.spinner{width:22px;height:22px;border:3px solid rgba(26,76,232,0.2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-row{display:flex;align-items:center;justify-content:center;gap:10px;padding:16px;color:var(--muted);font-size:14px;}
+
+/* ── FOOTER ── */
+.footer{background:var(--surface);border-top:1px solid var(--border);padding:20px 24px;text-align:center;font-size:12px;color:var(--dim);}
+.footer a{color:var(--blue);text-decoration:none;}
+
+/* ── SUCCESS ── */
+#successSection{display:none;text-align:center;padding:48px 24px;}
+.success-icon{font-size:60px;margin-bottom:16px;}
+.success-title{font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;}
+.success-sub{font-size:15px;color:var(--muted);line-height:1.6;max-width:440px;margin:0 auto;}
+
+/* responsive tweaks */
+@media(max-width:420px){
+  .hero{padding:36px 16px 44px;}
+  .card{padding:16px;}
+  .plan-grid{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-sura" style="padding:6px 14px;">
+      <img src="https://fravicar5-commits.github.io/sura-asesor/sura-logo.png" alt="SURA" style="height:22px;width:auto;object-fit:contain;"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <svg style="display:none" width="68" height="22" viewBox="0 0 68 22" xmlns="http://www.w3.org/2000/svg"><text x="1" y="18" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="20" letter-spacing="0.5" fill="white">SURA</text></svg>
+    </div>
+    <div>
+      <div class="logo-sub" style="font-size:11.5px;color:var(--muted);font-weight:500;">Canal Especializado en Salud · Cotizador</div>
+    </div>
+  </div>
+  <span class="header-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Cotización gratuita</span>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-tag"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Canal Especializado en Salud · 2026</div>
+  <h1>Tu plan de salud<br><span>a la medida</span></h1>
+  <p>Conoce el valor exacto de tu plan SURA en segundos. Sin compromisos, sin llamadas, completamente gratis.</p>
+  <div class="trust-pills">
+    <span class="trust-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 21 12 21 16 21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M7 4H2v3c0 3.3 2.7 6 6 6"/><path d="M17 4h5v3c0 3.3-2.7 6-6 6"/><path d="M7 4h10l-1 7a5 5 0 0 1-10 0L7 4Z"/></svg> Más de 25 años de respaldo</span>
+    <span class="trust-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v4"/><path d="M14 14h-4"/><path d="M14 18h-4"/><path d="M14 8h-4"/><path d="M18 12h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h2"/><path d="M18 22V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v18"/></svg> Red de IPS en toda Colombia</span>
+    <span class="trust-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Respuesta en 24 horas</span>
+  </div>
+</section>
+
+<!-- MAIN -->
+<main class="main">
+<div class="container">
+
+  <!-- STEPS -->
+  <div class="steps" id="stepIndicator">
+    <div class="step active" id="s1"><div class="step-num">1</div><span>Tu plan</span></div>
+    <div class="step-line" id="sl1"></div>
+    <div class="step" id="s2"><div class="step-num">2</div><span>Tus datos</span></div>
+    <div class="step-line" id="sl2"></div>
+    <div class="step" id="s3"><div class="step-num">3</div><span>Cotización</span></div>
+  </div>
+
+  <!-- ═══ PASO 1: PLAN + EDAD + PERIODICIDAD ═══ -->
+  <div id="step1Section">
+
+    <div class="card">
+      <div class="card-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> ¿Qué plan te interesa?</div>
+      <div class="plan-grid" id="planGrid">
+        <div class="plan-card" data-plan="SPTI" onclick="selPlan('SPTI',this)">
+          <div class="plan-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="M8.5 8.5 16 16"/></svg></div>
+          <div class="plan-name">SPTI</div>
+          <div class="plan-desc">Salud Preferencial o Clásico · 0–59 años</div>
+        </div>
+        <div class="plan-card" data-plan="SPD" onclick="selPlan('SPD',this)">
+          <div class="plan-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg></div>
+          <div class="plan-name">SPD</div>
+          <div class="plan-desc">Salud Protección Dental · Tarifa fija</div>
+        </div>
+        <div class="plan-card" data-plan="MODULAR" onclick="selPlan('MODULAR',this)">
+          <div class="plan-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 16c0 1.5-1.5 2.5-3 2.5s-3-1-3-2.5V14h-3c-1.5 0-2.5-1-2.5-2.5S10 9 11.5 9H14V6c0-1.5 1-2.5 2.5-2.5S19 4.5 19 6v3h1.5C22 9 23 10 23 11.5S22 14 20.5 14H20.5v2Z"/><path d="M9 20.5c0-1.5 1-2.5 2.5-2.5H14v-3c0-1.5-1-2.5-2.5-2.5S9 13.5 9 15v.5H6c-1.5 0-2.5 1-2.5 2.5S4.5 20.5 6 20.5H9Z"/></svg></div>
+          <div class="plan-name">Modular</div>
+          <div class="plan-desc">Arma tu plan por módulos · 0–71+ años</div>
+        </div>
+        <div class="plan-card" data-plan="PAC60" onclick="selPlan('PAC60',this)">
+          <div class="plan-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div class="plan-name">Plan 60+</div>
+          <div class="plan-desc">Complementario adulto mayor · 60–79 años</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Opciones SPTI (plan preferencial/clásico) -->
+    <div class="card" id="sptiOpts" style="display:none;">
+      <div class="card-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Tipo de plan SPTI</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="plan-card" data-sub="PREFERENCIAL" onclick="selSub('PREFERENCIAL',this,'sptiOpts')">
+          <div class="plan-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+          <div class="plan-name">Preferencial</div>
+          <div class="plan-desc">Cobertura premium sin copagos de internación</div>
+        </div>
+        <div class="plan-card" data-sub="CLASICO" onclick="selSub('CLASICO',this,'sptiOpts')">
+          <div class="plan-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3" stroke-linecap="round"/></svg></div>
+          <div class="plan-name">Clásico</div>
+          <div class="plan-desc">Excelente relación beneficio / precio</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Opciones PAC60 -->
+    <div class="card" id="pac60Opts" style="display:none;">
+      <div class="card-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg> Modalidad Plan 60+</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="plan-card" data-sub="sinAnexo" onclick="selSub('sinAnexo',this,'pac60Opts')">
+          <div class="plan-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg></div>
+          <div class="plan-name">Sin Anexo</div>
+          <div class="plan-desc">Plan base completo</div>
+        </div>
+        <div class="plan-card" data-sub="conAnexo" onclick="selSub('conAnexo',this,'pac60Opts')">
+          <div class="plan-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41L13.7 2.71a2.41 2.41 0 0 0-3.41 0z"/></svg></div>
+          <div class="plan-name">Con Anexo</div>
+          <div class="plan-desc">+ Cardiólogo y Dermatólogo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Módulos PSM -->
+    <div class="card" id="modulosSection" style="display:none;">
+      <div class="card-title"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 16c0 1.5-1.5 2.5-3 2.5s-3-1-3-2.5V14h-3c-1.5 0-2.5-1-2.5-2.5S10 9 11.5 9H14V6c0-1.5 1-2.5 2.5-2.5S19 4.5 19 6v3h1.5C22 9 23 10 23 11.5S22 14 20.5 14H20.5v2Z"/><path d="M9 20.5c0-1.5 1-2.5 2.5-2.5H14v-3c0-1.5-1-2.5-2.5-2.5S9 13.5 9 15v.5H6c-1.5 0-2.5 1-2.5 2.5S4.5 20.5 6 20.5H9Z"/></svg> Selecciona tus módulos</div>
+      <div class="alert alert-info" style="margin-bottom:14px;">
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span><span>El <strong>Módulo Básico</strong> es obligatorio e incluye hospitalización, urgencias y consulta médica.</span>
+      </div>
+      <div class="mod-grid">
+        <div class="mod-row checked locked" id="modBasico">
+          <div class="mod-left">
+            <input type="checkbox" class="mod-chk" checked disabled>
+            <div><div class="mod-lbl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v4"/><path d="M14 14h-4"/><path d="M14 18h-4"/><path d="M14 8h-4"/><path d="M18 12h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h2"/><path d="M18 22V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v18"/></svg> Módulo Básico</div><div class="mod-sub">Hospitalización · Urgencias · Consulta médica</div></div>
+          </div>
+          <div class="mod-price" id="mpBasico">—</div>
+        </div>
+        <div class="mod-row" id="rowEMD" onclick="toggleMod('EMD')">
+          <div class="mod-left">
+            <input type="checkbox" class="mod-chk" id="chkEMD">
+            <div><div class="mod-lbl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Atención Domiciliaria (EMD)</div><div class="mod-sub">Enfermería y medicina domiciliaria</div></div>
+          </div>
+          <div class="mod-price" id="mpEMD">—</div>
+        </div>
+        <div class="mod-row" id="rowAltoCosto" onclick="toggleMod('AltoCosto')">
+          <div class="mod-left">
+            <input type="checkbox" class="mod-chk" id="chkAltoCosto">
+            <div><div class="mod-lbl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Alto Costo</div><div class="mod-sub">Tratamientos oncológicos y enf. catastróficas</div></div>
+          </div>
+          <div class="mod-price" id="mpAltoCosto">—</div>
+        </div>
+        <div class="mod-row" id="rowCirugia" onclick="toggleMod('Cirugia')">
+          <div class="mod-left">
+            <input type="checkbox" class="mod-chk" id="chkCirugia">
+            <div><div class="mod-lbl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg> Cirugía Ambulatoria</div><div class="mod-sub">Procedimientos quirúrgicos ambulatorios</div></div>
+          </div>
+          <div class="mod-price" id="mpCirugia">—</div>
+        </div>
+        <div class="mod-row" id="rowMaternidad" onclick="toggleMod('Maternidad')">
+          <div class="mod-left">
+            <input type="checkbox" class="mod-chk" id="chkMaternidad">
+            <div><div class="mod-lbl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><path d="M19 6.3a9 9 0 0 1 1.8 3.9 2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1"/></svg> Maternidad</div><div class="mod-sub">Disponible 15–45 años</div></div>
+          </div>
+          <div class="mod-price" id="mpMaternidad">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edad -->
+    <div class="card" id="edadSection" style="display:none;">
+      <div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Fecha de nacimiento</div>
+      <div class="form-row">
+        <div>
+          <label>Fecha de nacimiento</label>
+          <input type="date" id="fechaNac" onchange="onFechaNac()">
+          <div class="field-hint">Necesaria para calcular tu tarifa exacta</div>
+        </div>
+        <div>
+          <label>Edad calculada</label>
+          <input type="text" id="edadDisplay" placeholder="—" readonly style="background:var(--bg);color:var(--muted);">
+        </div>
+      </div>
+      <div id="edadAlert" style="display:none;"></div>
+    </div>
+
+    <!-- Periodicidad -->
+    <div class="card" id="periSection" style="display:none;">
+      <div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ¿Con qué frecuencia prefieres pagar?</div>
+      <div class="peri-grid">
+        <button class="peri-btn" data-peri="MENSUAL" onclick="selPeri('MENSUAL',this)">
+          Mensual<span class="dcto-badge">Sin dcto</span>
+        </button>
+        <button class="peri-btn" data-peri="TRIMESTRAL" onclick="selPeri('TRIMESTRAL',this)">
+          Trimestral<span class="dcto-badge" id="dctoTrim">Ahorra</span>
+        </button>
+        <button class="peri-btn" data-peri="SEMESTRAL" onclick="selPeri('SEMESTRAL',this)">
+          Semestral<span class="dcto-badge" id="dctoSem">Ahorra más</span>
+        </button>
+        <button class="peri-btn" data-peri="ANUAL" onclick="selPeri('ANUAL',this)">
+          Anual<span class="dcto-badge" id="dctoAnual">Mayor ahorro</span>
+        </button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="btnCotizar" onclick="irPaso2()" style="display:none;">
+      Calcular mi cotización <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+
+  </div><!-- /step1Section -->
+
+
+  <!-- ═══ PASO 2: DATOS PERSONALES ═══ -->
+  <div id="step2Section" style="display:none;">
+    <div class="card">
+      <div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Tus datos de contacto</div>
+      <div class="alert alert-info" style="margin-bottom:14px;">
+        <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span>Tu información es confidencial y solo se comparte con tu asesor SURA.</span>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Nombre completo *</label>
+          <input type="text" id="dNombre" placeholder="Ej: María González" autocomplete="name">
+        </div>
+        <div>
+          <label>Número de documento *</label>
+          <input type="text" id="dDoc" placeholder="Ej: 1012345678" inputmode="numeric">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Celular *</label>
+          <input type="tel" id="dTel" placeholder="Ej: 3001234567" inputmode="numeric">
+        </div>
+        <div>
+          <label>Ciudad</label>
+          <input type="text" id="dCiudad" placeholder="Ej: Bogotá" autocomplete="address-level2">
+        </div>
+      </div>
+      <div class="form-full">
+        <label>Correo electrónico</label>
+        <input type="email" id="dEmail" placeholder="correo@ejemplo.com" autocomplete="email">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="irPaso1()">← Volver</button>
+      <button class="btn btn-primary" style="flex:2;" onclick="irPaso3()">Ver mi cotización <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+    </div>
+  </div><!-- /step2Section -->
+
+
+  <!-- ═══ PASO 3: RESULTADO ═══ -->
+  <div id="resultSection">
+    <div style="margin-bottom:16px;">
+      <button onclick="irPaso2()" style="background:none;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--blue);padding:6px 0;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Modificar datos
+      </button>
+    </div>
+
+    <!-- Resumen precio -->
+    <div class="result-hero" id="resultHero">
+      <div class="result-plan-badge" id="resPlanBadge">—</div>
+      <div class="result-price" id="resPrice">$0</div>
+      <div class="result-period" id="resPeriod">por mes</div>
+      <div class="result-dcto" id="resDcto" style="display:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> <span id="resDctoText">Ahorro incluido</span>
+      </div>
+    </div>
+
+    <!-- Desglose -->
+    <div class="card">
+      <div class="card-title"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Detalle de tu cotización</div>
+      <div class="result-rows" id="resRows"></div>
+    </div>
+
+    <!-- Copago -->
+    <div class="copago-box" id="copagoBox" style="display:none;">
+      <div class="copago-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Copagos de acceso directo (a cargo del afiliado)</div>
+      <div class="copago-items" id="copagoItems"></div>
+    </div>
+
+    <!-- Coberturas y exclusiones -->
+    <div class="card">
+      <div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Coberturas y exclusiones</div>
+      <div id="coberturas"></div>
+    </div>
+
+    <!-- Datos del solicitante -->
+    <div class="card">
+      <div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Datos del solicitante</div>
+      <div class="result-rows" id="resDatosRows"></div>
+    </div>
+
+    <!-- CTA -->
+    <div class="card">
+      <div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> ¿Te interesa este plan?</div>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Tu asesor SURA se comunicará contigo para resolver dudas y guiarte en el proceso de vinculación. <strong>Sin presiones, sin costos adicionales.</strong></p>
+      <button class="btn btn-primary" id="btnSolicitar" onclick="solicitarContacto()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Quiero este plan · Contactar asesor
+      </button>
+      <button class="btn btn-wa" id="btnWa">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Compartir cotización por WhatsApp
+      </button>
+      <button class="btn btn-secondary" onclick="nuevaCotizacion()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.21"/></svg> Nueva cotización</button>
+    </div>
+
+  </div><!-- /resultSection -->
+
+  <!-- SUCCESS -->
+  <div id="successSection">
+    <div class="success-icon" style="font-size:0;"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" fill="#F0FBF0"/><polyline points="20 6 9 17 4 12"/></svg></div>
+    <div class="success-title">¡Solicitud enviada!</div>
+    <div class="success-sub">Tu asesor SURA recibirá tu información y se comunicará contigo pronto. Revisa tu WhatsApp.</div>
+    <br>
+    <button class="btn btn-secondary btn-sm" style="margin:0 auto;width:auto;" onclick="nuevaCotizacion()">Hacer otra cotización</button>
+  </div>
+
+</div><!-- /container -->
+</main>
+
+<footer class="footer">
+  <p>© 2026 SURA · Canal Especializado en Salud · Todos los derechos reservados</p>
+  <p style="margin-top:4px;">Esta cotización es informativa. Los valores pueden variar según condiciones de aseguramiento.</p>
+</footer>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDQEMeKa8yGsdvyW3qoC9w1ITMCzNN0TTI",
+  authDomain: "sura-asesor.firebaseapp.com",
+  projectId: "sura-asesor",
+  storageBucket: "sura-asesor.firebasestorage.app",
+  messagingSenderId: "910746092866",
+  appId: "1:910746092866:web:ae7bd2b56615b2779d74db"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+window.__db__ = db;
+window.__setDoc__ = setDoc;
+window.__doc__ = doc;
+window.__serverTimestamp__ = serverTimestamp;
+</script>
+
+<script>
+// ═══════════════════════════════════════════════
+// TARIFAS (exactas del sistema SURA Asesor 2026)
+// ═══════════════════════════════════════════════
+const SPTI_TARIFAS = {
+  PREFERENCIAL: {
+    '0-40':  { mensual:167076, trimestre:488713, dctoTrim:11919, semestre:954315,  dctoSem:45849,  anual:1824170, dctoAnual:172135 },
+    '41-50': { mensual:179725, trimestre:525715, dctoTrim:12820, semestre:1026568, dctoSem:49318,  anual:1962284, dctoAnual:185162 },
+    '51-59': { mensual:222700, trimestre:651418, dctoTrim:15887, semestre:1272029, dctoSem:61114,  anual:2431481, dctoAnual:229444 },
+  },
+  CLASICO: {
+    '0-40':  { mensual:147480, trimestre:431395, dctoTrim:10519, semestre:842388,  dctoSem:40468,  anual:1610221, dctoAnual:151940 },
+    '41-50': { mensual:161309, trimestre:471848, dctoTrim:11505, semestre:921381,  dctoSem:44262,  anual:1761219, dctoAnual:166185 },
+    '51-59': { mensual:202171, trimestre:580976, dctoTrim:24322, semestre:1154774, dctoSem:55479,  anual:2207349, dctoAnual:208291 },
+  }
+};
+const SPD_TARIFAS = { MENSUAL:96674, TRIMESTRAL:284312, SEMESTRAL:553814, ANUAL:1055507 };
+const PSM_TARIFAS = {
+  basico:     {'0-14':229847,'15-20':229847,'21-25':229847,'26-30':246326,'31-40':256144,'41-45':301955,'46-50':317840,'51-55':404786,'56-59':404786,'60-65':525726,'66-70':672240,'71+':1038175},
+  emd:        {'0-14':21771,'15-20':21771,'21-25':21771,'26-30':21771,'31-40':21771,'41-45':21771,'46-50':21771,'51-55':21771,'56-59':21771,'60-65':21771,'66-70':21771,'71+':21771},
+  cirugia:    {'0-14':8785,'15-20':25078,'21-25':25078,'26-30':25078,'31-40':31514,'41-45':42708,'46-50':54378,'51-55':66663,'56-59':66663,'60-65':86719,'66-70':99809,'71+':99809},
+  maternidad: {'0-14':0,'15-20':73462,'21-25':73462,'26-30':73462,'31-40':73462,'41-45':73462,'46-50':0,'51-55':0,'56-59':0,'60-65':0,'66-70':0,'71+':0},
+  altoCosto:  {'0-14':17477,'15-20':17477,'21-25':17477,'26-30':30726,'31-40':47346,'41-45':76533,'46-50':126374,'51-55':201996,'56-59':201996,'60-65':350150,'66-70':577547,'71+':602205},
+};
+const PSM_IVA = 1.05;
+const PSM_DCTOS = { MENSUAL:0, TRIMESTRAL:0.0197, SEMESTRAL:0.0452, ANUAL:0.0901 };
+const PSM_RANGOS = [
+  {key:'0-14',min:0,max:14},{key:'15-20',min:15,max:20},{key:'21-25',min:21,max:25},
+  {key:'26-30',min:26,max:30},{key:'31-40',min:31,max:40},{key:'41-45',min:41,max:45},
+  {key:'46-50',min:46,max:50},{key:'51-55',min:51,max:55},{key:'56-59',min:56,max:59},
+  {key:'60-65',min:60,max:65},{key:'66-70',min:66,max:70},{key:'71+',min:71,max:999}
+];
+const PAC60_TARIFAS = {
+  '60-69':{ sinAnexo:358398, conAnexo:387195 },
+  '70-79':{ sinAnexo:416077, conAnexo:446830 },
+};
+const PAC60_DCTOS = { MENSUAL:0, TRIMESTRAL:0.025, SEMESTRAL:0.048, ANUAL:0.0901 };
+
+// Estado
+let state = { plan:null, sub:null, edad:0, peri:'MENSUAL', modulos:{EMD:false,AltoCosto:false,Cirugia:false,Maternidad:false} };
+
+// Auto-select MENSUAL on DOMContentLoaded so the button shows as selected
+document.addEventListener('DOMContentLoaded', () => {
+  const btnMensual = document.querySelector('.peri-btn[data-peri="MENSUAL"]');
+  if (btnMensual) btnMensual.classList.add('selected');
+});
+
+// Obtener asesorUID desde URL
+function getAsesorUID() {
+  return new URLSearchParams(location.search).get('asesor') || '1129501981';
+}
+
+function fmt(n) {
+  return '$' + Math.round(n).toLocaleString('es-CO');
+}
+
+// ═══ SELECCIÓN PLAN ═══
+function selPlan(plan, el) {
+  document.querySelectorAll('#planGrid .plan-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.plan = plan;
+  state.sub  = null;
+  // Mostrar sub-opciones
+  document.getElementById('sptiOpts').style.display    = plan === 'SPTI'    ? '' : 'none';
+  document.getElementById('pac60Opts').style.display   = plan === 'PAC60'   ? '' : 'none';
+  document.getElementById('modulosSection').style.display = plan === 'MODULAR' ? '' : 'none';
+  // SPD no tiene sub-opciones
+  if (plan === 'SPD') { state.sub = 'SPD'; actualizarDctos(); }
+  // Mostrar edad para todos menos SPD
+  document.getElementById('edadSection').style.display = plan !== 'SPD' ? '' : 'none';
+  document.getElementById('periSection').style.display = '';
+  actualizarVisibilidad();
+}
+
+function selSub(sub, el, parentId) {
+  document.querySelectorAll('#' + parentId + ' .plan-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.sub = sub;
+  actualizarDctos();
+  actualizarVisibilidad();
+}
+
+function selPeri(peri, el) {
+  document.querySelectorAll('.peri-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.peri = peri;
+  actualizarVisibilidad();
+}
+
+function toggleMod(mod) {
+  const chk = document.getElementById('chk' + mod);
+  if (!chk) return;
+  chk.checked = !chk.checked;
+  const row = document.getElementById('row' + mod);
+  if (row) row.classList.toggle('checked', chk.checked);
+  state.modulos[mod] = chk.checked;
+  actualizarVisibilidad();
+}
+
+function onFechaNac() {
+  const fn = document.getElementById('fechaNac').value;
+  if (!fn) { state.edad = 0; document.getElementById('edadDisplay').value = ''; return; }
+  const nac = new Date(fn + 'T12:00:00');
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  state.edad = edad;
+  document.getElementById('edadDisplay').value = edad + ' años';
+  // Validar rango
+  const alertEl = document.getElementById('edadAlert');
+  let msg = '', tipo = '';
+  if (state.plan === 'SPTI' && (edad < 0 || edad > 59)) {
+    msg = '⚠️ SPTI aplica para personas de 0 a 59 años.'; tipo = 'warn';
+  } else if (state.plan === 'PAC60' && (edad < 60 || edad > 79)) {
+    msg = '⚠️ Plan 60+ aplica para personas de 60 a 79 años para venta nueva.'; tipo = 'warn';
+  }
+  if (msg) {
+    alertEl.innerHTML = `<div class="alert alert-${tipo}">${msg}</div>`;
+    alertEl.style.display = '';
+  } else {
+    alertEl.style.display = 'none';
+  }
+  // Actualizar módulos PSM con precios de la nueva edad
+  if (state.plan === 'MODULAR') { actualizarPreciosMods(); actualizarDctos(); }
+  actualizarDctos();
+  actualizarVisibilidad();
+}
+
+function getRangoSPTI(edad) {
+  if (edad <= 40) return '0-40';
+  if (edad <= 50) return '41-50';
+  if (edad <= 59) return '51-59';
+  return null;
+}
+function getRangoPSM(edad) {
+  return PSM_RANGOS.find(r => edad >= r.min && edad <= r.max) || null;
+}
+function getRangoPAC60(edad) {
+  if (edad >= 60 && edad <= 69) return '60-69';
+  if (edad >= 70 && edad <= 79) return '70-79';
+  return null;
+}
+
+function actualizarPreciosMods() {
+  if (state.plan !== 'MODULAR' || !state.edad) return;
+  const r = getRangoPSM(state.edad);
+  if (!r) return;
+  const k = r.key;
+  document.getElementById('mpBasico').textContent   = fmt(Math.round(PSM_TARIFAS.basico[k] * PSM_IVA)) + '/mes';
+  document.getElementById('mpEMD').textContent       = fmt(Math.round(PSM_TARIFAS.emd[k] * PSM_IVA)) + '/mes';
+  document.getElementById('mpAltoCosto').textContent = fmt(Math.round(PSM_TARIFAS.altoCosto[k] * PSM_IVA)) + '/mes';
+  const cir = PSM_TARIFAS.cirugia[k] * PSM_IVA;
+  document.getElementById('mpCirugia').textContent   = cir > 0 ? fmt(Math.round(cir)) + '/mes' : 'No aplica';
+  const matEdad = state.edad >= 15 && state.edad <= 45;
+  const rowMat = document.getElementById('rowMaternidad');
+  if (!matEdad) {
+    rowMat.classList.add('locked');
+    document.getElementById('mpMaternidad').textContent = 'No aplica';
+    document.getElementById('chkMaternidad').checked = false;
+    state.modulos.Maternidad = false;
+  } else {
+    rowMat.classList.remove('locked');
+    document.getElementById('mpMaternidad').textContent = fmt(Math.round(PSM_TARIFAS.maternidad[k] * PSM_IVA)) + '/mes';
+  }
+}
+
+function actualizarDctos() {
+  // Actualizar badges de descuento en periodicidad
+  if (state.plan === 'SPTI' && state.sub && state.edad) {
+    const r = getRangoSPTI(state.edad);
+    if (r && SPTI_TARIFAS[state.sub] && SPTI_TARIFAS[state.sub][r]) {
+      const t = SPTI_TARIFAS[state.sub][r];
+      document.getElementById('dctoTrim').textContent  = '-' + fmt(t.dctoTrim);
+      document.getElementById('dctoSem').textContent   = '-' + fmt(t.dctoSem);
+      document.getElementById('dctoAnual').textContent = '-' + fmt(t.dctoAnual);
+    }
+  } else if (state.plan === 'PAC60' && state.sub && state.edad) {
+    const r = getRangoPAC60(state.edad);
+    if (r) {
+      const base = PAC60_TARIFAS[r][state.sub === 'conAnexo' ? 'conAnexo' : 'sinAnexo'];
+      const mult = { TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+      for (const [per, m] of Object.entries(mult)) {
+        const bruto = base * m;
+        const dcto  = Math.round(bruto * PAC60_DCTOS[per]);
+        document.getElementById('dcto' + per.charAt(0) + per.slice(1).toLowerCase()).textContent = dcto > 0 ? '-' + fmt(dcto) : '';
+      }
+    }
+  }
+}
+
+function actualizarVisibilidad() {
+  const listo = esFormularioListo();
+  document.getElementById('btnCotizar').style.display = listo ? '' : 'none';
+}
+
+function esFormularioListo() {
+  if (!state.plan) return false;
+  if (state.plan === 'SPTI' && !state.sub) return false;
+  if (state.plan === 'PAC60' && !state.sub) return false;
+  if (state.plan !== 'SPD' && !state.edad) return false;
+  if (!state.peri) return false;
+  // Validar rangos
+  if (state.plan === 'SPTI' && !getRangoSPTI(state.edad)) return false;
+  if (state.plan === 'PAC60' && !getRangoPAC60(state.edad)) return false;
+  if (state.plan === 'MODULAR' && !getRangoPSM(state.edad)) return false;
+  return true;
+}
+
+// ═══ PASOS ═══
+function irPaso2() {
+  if (!esFormularioListo()) return;
+  document.getElementById('step1Section').style.display = 'none';
+  document.getElementById('step2Section').style.display = '';
+  setStep(2);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function irPaso1() {
+  document.getElementById('step2Section').style.display = 'none';
+  document.getElementById('step1Section').style.display = '';
+  setStep(1);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function irPaso3() {
+  const nombre = document.getElementById('dNombre').value.trim();
+  const doc    = document.getElementById('dDoc').value.trim();
+  const tel    = document.getElementById('dTel').value.trim();
+  if (!nombre) { document.getElementById('dNombre').classList.add('err'); document.getElementById('dNombre').focus(); return; }
+  if (!doc)    { document.getElementById('dDoc').classList.add('err'); return; }
+  if (!tel || tel.length < 7) { document.getElementById('dTel').classList.add('err'); return; }
+  ['dNombre','dDoc','dTel'].forEach(id => document.getElementById(id).classList.remove('err'));
+  document.getElementById('step2Section').style.display = 'none';
+  mostrarResultado();
+  setStep(3);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function setStep(n) {
+  [1,2,3].forEach(i => {
+    const s = document.getElementById('s'+i);
+    s.classList.remove('active','done');
+    if (i < n) s.classList.add('done');
+    else if (i === n) s.classList.add('active');
+  });
+  [1,2].forEach(i => {
+    const l = document.getElementById('sl'+i);
+    l.classList.toggle('done', i < n);
+  });
+}
+
+// ═══ CALCULAR RESULTADO ═══
+function calcular() {
+  const peri = state.peri || 'MENSUAL';
+  const mult = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 }[peri] || 1;
+
+  if (state.plan === 'SPTI') {
+    const r = getRangoSPTI(state.edad);
+    if (!r || !state.sub || !SPTI_TARIFAS[state.sub] || !SPTI_TARIFAS[state.sub][r]) return null;
+    const t = SPTI_TARIFAS[state.sub][r];
+    let valor, dcto = 0;
+    if (peri === 'TRIMESTRAL') { valor = t.trimestre; dcto = t.dctoTrim; }
+    else if (peri === 'SEMESTRAL') { valor = t.semestre; dcto = t.dctoSem; }
+    else if (peri === 'ANUAL') { valor = t.anual; dcto = t.dctoAnual; }
+    else { valor = t.mensual; }
+    return { valor, dcto, mensual: t.mensual, plan: 'SPTI ' + state.sub, rango: r };
+  }
+
+  if (state.plan === 'SPD') {
+    const valor = SPD_TARIFAS[peri];
+    const dcto  = peri !== 'MENSUAL' ? Math.round(SPD_TARIFAS.MENSUAL * mult - valor) : 0;
+    return { valor, dcto, mensual: SPD_TARIFAS.MENSUAL, plan: 'SPD' };
+  }
+
+  if (state.plan === 'MODULAR') {
+    const r = getRangoPSM(state.edad);
+    if (!r) return null;
+    const k = r.key;
+    let totalMensual = PSM_TARIFAS.basico[k] * PSM_IVA;
+    const modsList = ['Módulo Básico'];
+    if (state.modulos.EMD)       { totalMensual += PSM_TARIFAS.emd[k] * PSM_IVA; modsList.push('Atención Domiciliaria'); }
+    if (state.modulos.AltoCosto) { totalMensual += PSM_TARIFAS.altoCosto[k] * PSM_IVA; modsList.push('Alto Costo'); }
+    if (state.modulos.Cirugia)   { totalMensual += PSM_TARIFAS.cirugia[k] * PSM_IVA; modsList.push('Cirugía Ambulatoria'); }
+    if (state.modulos.Maternidad && state.edad >= 15 && state.edad <= 45) {
+      totalMensual += PSM_TARIFAS.maternidad[k] * PSM_IVA; modsList.push('Maternidad');
+    }
+    const bruto = Math.round(totalMensual * mult);
+    const dcto  = Math.round(bruto * (PSM_DCTOS[peri] || 0));
+    const valor = bruto - dcto;
+    return { valor, dcto, mensual: Math.round(totalMensual), plan: 'Modular (' + modsList.join(', ') + ')', rango: r.key, modsList };
+  }
+
+  if (state.plan === 'PAC60') {
+    const r = getRangoPAC60(state.edad);
+    if (!r || !state.sub || !PAC60_TARIFAS[r]) return null;
+    const base = PAC60_TARIFAS[r][state.sub === 'conAnexo' ? 'conAnexo' : 'sinAnexo'];
+    const bruto = Math.round(base * mult);
+    const dcto  = Math.round(bruto * (PAC60_DCTOS[peri] || 0));
+    const valor = bruto - dcto;
+    return { valor, dcto, mensual: base, plan: 'Plan 60+ ' + (state.sub === 'conAnexo' ? 'con Anexo' : 'sin Anexo'), rango: r };
+  }
+}
+
+function mostrarResultado() {
+  const res = calcular();
+  if (!res) {
+    console.error('[cotizar] calcular() retornó null — estado:', JSON.stringify(state));
+    // Mostrar mensaje de error claro en lugar de pantalla en blanco
+    document.getElementById('resultSection').style.display = '';
+    document.getElementById('resultSection').innerHTML = `
+      <div style="text-align:center;padding:40px 20px;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="1.5" style="margin-bottom:16px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Faltan datos para cotizar</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">Verifica que hayas seleccionado plan, subplan (si aplica), fecha de nacimiento y periodicidad.</div>
+        <button onclick="irPaso1()" style="background:var(--blue);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;">← Revisar selección</button>
+      </div>`;
+    setStep(3);
+    return;
+  }
+  const peri  = state.peri || 'MENSUAL';
+  const periL = { MENSUAL:'mes', TRIMESTRAL:'trimestre', SEMESTRAL:'semestre', ANUAL:'año' }[peri];
+
+  // Hero precio
+  document.getElementById('resPlanBadge').textContent = res.plan;
+  document.getElementById('resPrice').textContent     = fmt(res.valor);
+  document.getElementById('resPeriod').textContent    = 'por ' + periL;
+  if (res.dcto > 0) {
+    document.getElementById('resDcto').style.display = '';
+    document.getElementById('resDctoText').textContent = 'Descuento incluido: ' + fmt(res.dcto);
+  } else {
+    document.getElementById('resDcto').style.display = 'none';
+  }
+
+  // Filas detalle
+  const rows = [];
+  rows.push({ icon:'💊', label:'Plan', val: res.plan });
+  rows.push({ icon:'🎂', label:'Edad', val: state.edad ? state.edad + ' años' : '—' });
+  if (res.rango) rows.push({ icon:'📊', label:'Rango tarifario', val: res.rango + ' años' });
+  rows.push({ icon:'📅', label:'Periodicidad', val: periL.charAt(0).toUpperCase() + periL.slice(1) });
+  if (peri !== 'MENSUAL') rows.push({ icon:'💵', label:'Valor mensual equivalente', val: fmt(res.mensual) });
+  if (res.dcto > 0) rows.push({ icon:'🏷️', label:'Descuento por periodicidad', val: '- ' + fmt(res.dcto), green: true });
+  rows.push({ icon:'💰', label:'Prima total a pagar', val: fmt(res.valor), highlight: true });
+
+  document.getElementById('resRows').innerHTML = rows.map(r =>
+    `<div class="result-row${r.highlight?' highlight':''}">
+      <span class="result-row-label">${r.icon} ${r.label}</span>
+      <span class="result-row-value" style="${r.green?'color:var(--lime)':''}">${r.val}</span>
+    </div>`
+  ).join('');
+
+  // Copagos
+  const copagoBox = document.getElementById('copagoBox');
+  const copagoItems = document.getElementById('copagoItems');
+  if (state.plan === 'SPTI') {
+    copagoBox.style.display = '';
+    copagoItems.innerHTML = `
+      <div class="copago-item"><span>🏥 Acceso Directo (consulta especialista)</span><span>$25.700</span></div>
+      <div class="copago-item"><span>🏠 Atención Domiciliaria</span><span>$19.400</span></div>
+      <div class="copago-item" style="font-size:11px;color:var(--dim);margin-top:4px;"><span colspan="2">Estos valores son asumidos por el afiliado en cada utilización del servicio</span></div>`;
+  } else if (state.plan === 'MODULAR') {
+    copagoBox.style.display = '';
+    copagoItems.innerHTML = `
+      <div class="copago-item"><span>🏥 Acceso Directo (todos los servicios)</span><span>$30.000</span></div>
+      <div class="copago-item" style="font-size:11px;color:var(--dim);margin-top:4px;"><span colspan="2">Aplica por cada evento de utilización</span></div>`;
+  } else if (state.plan === 'PAC60') {
+    copagoBox.style.display = '';
+    copagoItems.innerHTML = `
+      <div class="copago-item"><span>💊 Bono PAC — Acceso Directo</span><span>$25.700</span></div>
+      <div class="copago-item"><span>🏠 Bono PAC — Atención Domiciliaria</span><span>$19.400</span></div>
+      <div class="copago-item" style="font-size:11px;color:var(--dim);margin-top:4px;"><span colspan="2">Valores del bono PAC por utilización</span></div>`;
+  } else {
+    copagoBox.style.display = 'none';
+  }
+
+  // Coberturas
+  renderCoberturas();
+
+  // Datos solicitante
+  document.getElementById('resDatosRows').innerHTML = [
+    { icon:'👤', label:'Nombre', val: document.getElementById('dNombre').value },
+    { icon:'🪪', label:'Documento', val: document.getElementById('dDoc').value },
+    { icon:'📱', label:'Celular', val: document.getElementById('dTel').value },
+    { icon:'🏙️', label:'Ciudad', val: document.getElementById('dCiudad').value || '—' },
+    { icon:'📧', label:'Correo', val: document.getElementById('dEmail').value || '—' },
+  ].map(r =>
+    `<div class="result-row">
+      <span class="result-row-label">${r.icon} ${r.label}</span>
+      <span class="result-row-value" style="font-family:var(--font);font-size:13px;">${r.val}</span>
+    </div>`
+  ).join('');
+
+  // Botón WhatsApp
+  const nombre = document.getElementById('dNombre').value;
+  const tel    = document.getElementById('dTel').value.replace(/\D/g,'');
+  const msg = encodeURIComponent(
+    `¡Hola ${nombre.split(' ')[0]}! 👋 Te comparto la cotización de tu plan de salud SURA:\n\n` +
+    `📋 *Plan:* ${res.plan}\n` +
+    `💰 *Prima:* ${fmt(res.valor)} / ${periL}\n` +
+    (res.dcto > 0 ? `🏷️ *Descuento incluido:* ${fmt(res.dcto)}\n` : '') +
+    (state.edad ? `🎂 *Edad:* ${state.edad} años\n` : '') +
+    `\nPara formalizar tu vinculación o resolver dudas, escríbeme. 😊`
+  );
+  const numero = tel.startsWith('57') ? tel : '57' + tel;
+  document.getElementById('btnWa').onclick = () => window.open('https://wa.me/' + numero + '?text=' + msg, '_blank');
+
+  document.getElementById('resultSection').style.display = '';
+}
+
+// ═══ COBERTURAS ═══
+const COBERTURAS = {
+  SPTI: {
+    include: ['Hospitalización y cirugía','Urgencias 24 horas','Consulta médica general y especializada','Medicamentos intrahospitalarios','Exámenes diagnósticos','Cuidados intensivos (UCI/UCIN)','Atención en IPS SURA y red aliada','Transporte asistencial de emergencia','Rehabilitación funcional','Maternidad (aplica períodos de carencia)'],
+    exclude: ['Condiciones preexistentes (primeros 24 meses)','Cirugías estéticas no reconstructivas','Tratamientos no cubiertos por el plan','Enfermedades de transmisión sexual en primeros 6 meses','Medicamentos para uso ambulatorio (cubiertos por EPS)']
+  },
+  SPD: {
+    include: ['Odontología preventiva','Exodoncias simples y complejas','Endodoncias','Operatoria dental (resinas y amalgamas)','Periodoncia básica','Ortodoncia (parcial según plan)','Prótesis dentales parciales','Urgencias odontológicas'],
+    exclude: ['Implantes osteointegrados','Blanqueamiento estético','Ortodoncia completa en adultos','Prótesis totales en el primer año','Tratamientos no incluidos en el clausulado']
+  },
+  MODULAR: {
+    include: ['Hospitalización general (Módulo Básico)','Urgencias 24h (Módulo Básico)','Consulta médica general (Módulo Básico)','Atención domiciliaria — con módulo EMD','Tratamientos oncológicos — con módulo Alto Costo','Cirugías ambulatorias — con módulo Cirugía','Control prenatal y parto — con módulo Maternidad'],
+    exclude: ['Servicios no incluidos en módulos seleccionados','Condiciones preexistentes (primeros meses de carencia)','Medicamentos ambulatorios no cubiertos','Procedimientos estéticos']
+  },
+  PAC60: {
+    include: ['Hospitalización complementaria al PBS','Urgencias de alta complejidad','Acceso directo a especialistas','Exámenes especializados','Atención domiciliaria médica y de enfermería','Cardiólogo y Dermatólogo — con Anexo','Cuidados paliativos','Rehabilitación cardiovascular y funcional'],
+    exclude: ['Afiliados menores de 60 años','Enfermedades preexistentes no declaradas','Procedimientos exclusivamente estéticos','Tratamientos fuera de la red SURA']
+  }
+};
+
+function renderCoberturas() {
+  const plan = state.plan === 'SPTI' ? 'SPTI' : state.plan === 'SPD' ? 'SPD' : state.plan === 'MODULAR' ? 'MODULAR' : 'PAC60';
+  const cob = COBERTURAS[plan];
+  if (!cob) return;
+
+  const cobEl = document.getElementById('coberturas');
+  cobEl.innerHTML = `
+    <div class="cob-toggle" id="togCob" onclick="togCob()">
+      <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ¿Qué cubre este plan?</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="cob-content" id="cobContent">
+      ${cob.include.map(i => `<div class="cob-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ${i}</div>`).join('')}
+    </div>
+    <div class="cob-toggle" id="togExc" onclick="togExc()">
+      <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ¿Qué no cubre?</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="cob-content" id="excContent">
+      ${cob.exclude.map(e => `<div class="cob-no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${e}</div>`).join('')}
+    </div>
+  `;
+}
+function togCob() {
+  document.getElementById('togCob').classList.toggle('open');
+  document.getElementById('cobContent').classList.toggle('open');
+}
+function togExc() {
+  document.getElementById('togExc').classList.toggle('open');
+  document.getElementById('excContent').classList.toggle('open');
+}
+
+// ═══ GUARDAR LEAD EN FIRESTORE ═══
+async function solicitarContacto() {
+  const btn = document.getElementById('btnSolicitar');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Enviando...';
+
+  const res     = calcular();
+  const asesor  = getAsesorUID();
+  const leadId  = 'lead_cot_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+  const data = {
+    nombre:     document.getElementById('dNombre').value.trim(),
+    documento:  document.getElementById('dDoc').value.trim(),
+    telefono:   document.getElementById('dTel').value.trim(),
+    email:      document.getElementById('dEmail').value.trim(),
+    ciudad:     document.getElementById('dCiudad').value.trim(),
+    plan:       res.plan,
+    producto:   state.plan,
+    subplan:    state.sub || '',
+    edad:       state.edad || 0,
+    periodicidad: state.peri,
+    primaCalculada: res.valor,
+    primaMensual:   res.mensual,
+    descuento:      res.dcto || 0,
+    modulos:    state.plan === 'MODULAR' ? Object.entries(state.modulos).filter(([,v])=>v).map(([k])=>k).join(', ') : '',
+    interes:    'cotizacion_online',
+    origen:     'landing_empresa', // debe coincidir con regla Firestore
+    uidAsesor:  asesor,
+    asesor:     asesor,
+    fecha:      new Date().toISOString(),
+    estado:     'nuevo',
+  };
+
+  try {
+    if (window.__db__ && window.__setDoc__ && window.__doc__) {
+      await window.__setDoc__(window.__doc__(window.__db__, 'leads', leadId), data);
+      document.getElementById('resultSection').style.display = 'none';
+      document.getElementById('successSection').style.display = '';
+      document.getElementById('stepIndicator').style.display = 'none';
+      window.scrollTo({top:0,behavior:'smooth'});
+    } else {
+      throw new Error('Firebase no disponible');
+    }
+  } catch(e) {
+    console.error('Error guardando lead:', e);
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Quiero este plan · Contactar asesor';
+    alert('Hubo un error al enviar. Por favor comunícate directamente con tu asesor.');
+  }
+}
+
+function nuevaCotizacion() {
+  state = { plan:null, sub:null, edad:0, peri:'MENSUAL', modulos:{EMD:false,AltoCosto:false,Cirugia:false,Maternidad:false} };
+  document.getElementById('step1Section').style.display = '';
+  document.getElementById('step2Section').style.display = 'none';
+  document.getElementById('resultSection').style.display = 'none';
+  document.getElementById('successSection').style.display = 'none';
+  document.getElementById('stepIndicator').style.display = 'flex';
+  document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.peri-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('sptiOpts').style.display = 'none';
+  document.getElementById('pac60Opts').style.display = 'none';
+  document.getElementById('modulosSection').style.display = 'none';
+  document.getElementById('edadSection').style.display = 'none';
+  document.getElementById('periSection').style.display = 'none';
+  document.getElementById('btnCotizar').style.display = 'none';
+  document.getElementById('fechaNac').value = '';
+  document.getElementById('edadDisplay').value = '';
+  setStep(1);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// Exponer funciones globales
+window.selPlan = selPlan;
+window.selSub = selSub;
+window.selPeri = selPeri;
+window.toggleMod = toggleMod;
+window.onFechaNac = onFechaNac;
+window.irPaso2 = irPaso2;
+window.irPaso1 = irPaso1;
+window.irPaso3 = irPaso3;
+window.togCob = togCob;
+window.togExc = togExc;
+window.solicitarContacto = solicitarContacto;
+window.nuevaCotizacion = nuevaCotizacion;
+</script>
+</body>
+</html>
