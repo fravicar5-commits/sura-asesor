@@ -400,12 +400,18 @@ input.err,select.err{border-color:var(--red);}
   </div><!-- /step1Section -->
 
 
-  <!-- ═══ PASO 2: DATOS PERSONALES ═══ -->
+  <!-- ═══ PASO 2: TOMADOR Y ASEGURADOS ═══ -->
   <div id="step2Section" style="display:none;">
+
+    <!-- TOMADOR -->
     <div class="card">
-      <div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Tus datos de contacto</div>
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Datos del Tomador
+      </div>
       <div class="alert alert-info" style="margin-bottom:14px;">
-        <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span>Tu información es confidencial y solo se comparte con tu asesor SURA.</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>El <strong>tomador</strong> es quien firma y paga la póliza. Tu información es confidencial y solo se comparte con tu asesor SURA.</span>
       </div>
       <div class="form-row">
         <div>
@@ -433,6 +439,25 @@ input.err,select.err{border-color:var(--red);}
       <div class="form-full">
         <label>Correo electrónico</label>
         <input type="email" id="dEmail" placeholder="correo@ejemplo.com" autocomplete="email">
+      </div>
+    </div>
+
+    <!-- ¿TOMADOR ES TAMBIÉN ASEGURADO? -->
+    <div class="card" style="margin-top:0;">
+      <div class="card-title" style="margin-bottom:10px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        ¿El tomador también es asegurado?
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:4px;">
+        <button id="btnTomadorSiAseg" class="btn btn-primary" style="flex:1;font-size:13px;" onclick="setTomadorEsAsegurado(true)">
+          ✅ Sí, el tomador es asegurado
+        </button>
+        <button id="btnTomadorNoAseg" class="btn btn-secondary" style="flex:1;font-size:13px;" onclick="setTomadorEsAsegurado(false)">
+          👥 No, solo los del paso 1
+        </button>
+      </div>
+      <div id="tomadorAsegInfo" style="font-size:12px;color:var(--muted);margin-top:8px;padding:8px 12px;background:var(--blue-light);border-radius:8px;border:1px solid rgba(26,76,232,0.15);">
+        ✅ El tomador se incluirá como asegurado junto con las personas del paso 1.
       </div>
     </div>
 
@@ -574,6 +599,7 @@ const PAC60_DCTOS = { MENSUAL:0, TRIMESTRAL:0.025, SEMESTRAL:0.048, ANUAL:0.0901
 
 // Estado
 let state = { plan:null, sub:null, edad:0, peri:'MENSUAL', modulos:{EMD:false,AltoCosto:false,Cirugia:false,Maternidad:false} };
+let tomadorEsAsegurado = true; // por defecto el tomador es también asegurado
 
 // Personas adicionales (persona 1 = state principal; personas[i] para personas 2+)
 // Cada entrada: { plan, sub, edad, modulos }
@@ -961,6 +987,23 @@ function onFechaNacExtra(idx) {
   if (msg) {
     const alertEl = document.getElementById('pextra_alert_' + idx);
     if (alertEl) alertEl.innerHTML = `<div class="alert alert-${tipo}">${msg}</div>`;
+  }
+}
+
+// ═══ TOMADOR / ASEGURADO ═══
+function setTomadorEsAsegurado(val) {
+  tomadorEsAsegurado = val;
+  const btnSi  = document.getElementById('btnTomadorSiAseg');
+  const btnNo  = document.getElementById('btnTomadorNoAseg');
+  const info   = document.getElementById('tomadorAsegInfo');
+  if (btnSi) { btnSi.className = val ? 'btn btn-primary' : 'btn btn-secondary'; btnSi.style.flex = '1'; btnSi.style.fontSize = '13px'; }
+  if (btnNo) { btnNo.className = val ? 'btn btn-secondary' : 'btn btn-primary'; btnNo.style.flex = '1'; btnNo.style.fontSize = '13px'; }
+  if (info) {
+    info.style.background = val ? 'var(--blue-light)' : 'rgba(200,229,43,0.08)';
+    info.style.borderColor = val ? 'rgba(26,76,232,0.15)' : 'rgba(76,175,80,0.25)';
+    info.textContent = val
+      ? '✅ El tomador se incluirá como asegurado junto con las personas del paso 1.'
+      : '👥 Solo las personas cotizadas en el paso 1 serán los asegurados. El tomador únicamente firma y paga.';
   }
 }
 
@@ -1428,11 +1471,11 @@ async function solicitarContacto() {
 
   // ── Personas para el cotizador de la app ──
   // El tomador es quien contrata (datos del paso 2).
-  // Los asegurados son las personas cotizadas (pueden ser distintas al tomador).
-  // Persona 1 = asegurado principal. El nombre del tomador va en cliente/tomador.
+  // Si tomadorEsAsegurado=true, se agrega como asegurado 1 con los datos del tomador.
+  // Si tomadorEsAsegurado=false, asegurado 1 es la persona cotizada en paso 1 (sin nombre capturado).
   const persona = {
     id:          1,
-    nombre:      '',                   // asegurado principal — nombre no capturado en cotizador web
+    nombre:      tomadorEsAsegurado ? cliente.nombre : '',
     producto:    state.plan,
     plan:        state.sub || state.plan,
     edad:        state.plan !== 'SPD' ? (state.edad || 0) : null,
@@ -1493,6 +1536,7 @@ async function solicitarContacto() {
                        ? Object.entries(state.modulos).filter(([,v])=>v).map(([k])=>k).join(', ')
                        : '',
     multiPersona:    totalPersonas > 1,
+    tomadorEsAsegurado,
   };
 
   // ── Objeto pipeline/prospecto ──
@@ -1579,6 +1623,7 @@ async function solicitarContacto() {
 function nuevaCotizacion() {
   state = { plan:null, sub:null, edad:0, peri:'MENSUAL', modulos:{EMD:false,AltoCosto:false,Cirugia:false,Maternidad:false} };
   personasExtra = [];
+  tomadorEsAsegurado = true;
   document.getElementById('multiPersonaSection').style.display = 'none';
   document.getElementById('personasList').innerHTML = '';
   document.getElementById('step1Section').style.display = '';
@@ -1619,6 +1664,7 @@ window.togglePersonaBody = togglePersonaBody;
 window.setPExtraPlan = setPExtraPlan;
 window.setPExtraSub = setPExtraSub;
 window.onFechaNacExtra = onFechaNacExtra;
+window.setTomadorEsAsegurado = setTomadorEsAsegurado;
 </script>
 </body>
 </html>
