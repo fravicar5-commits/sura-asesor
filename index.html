@@ -21745,20 +21745,41 @@ function iniciarSyncCotizacionesWeb() {
       if (!remotas.length) return;
       const locales = getCotizaciones();
       const idsLocales = new Set(locales.map(c => c.id));
-      let nuevas = 0;
+      const nuevasArr = [];
       remotas.forEach(r => {
         if (!idsLocales.has(r.id)) {
           locales.unshift(r);
-          nuevas++;
+          nuevasArr.push(r);
         }
       });
-      if (nuevas > 0) {
+      if (nuevasArr.length > 0) {
         setCotizaciones(locales);
         if (document.getElementById('page-cotizaciones')?.classList.contains('active') ||
             document.getElementById('cotizacionesLista')) {
           renderCotizaciones();
         }
-        showToast(`🌐 ${nuevas} cotización${nuevas>1?'es':''} nueva${nuevas>1?'s':''} del cotizador web`);
+        // Notificación in-app (banner) + nativa del sistema
+        nuevasArr.forEach(r => {
+          const tom    = r.tomador || r.cliente || {};
+          const nombre = (tom.nombre || r.cliente?.nombre || 'Alguien').split(' ')[0];
+          const plan   = r.planLabel || r.producto || '';
+          const prima  = r.primaCalculada ? '$' + Math.round(r.primaCalculada).toLocaleString('es-CO') : '';
+          const peri   = r.periodicidad ? ' · ' + r.periodicidad.toLowerCase() : '';
+          showNotifBanner(
+            '📋 Nueva cotización web recibida',
+            `${nombre} cotizó ${plan}${prima ? ' · ' + prima : ''}${peri}. Revísala en Cotizaciones.`
+          );
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification('📋 Nueva cotización — Web', {
+                body: nombre + (plan ? ' · ' + plan : '') + (prima ? ' · ' + prima : ''),
+                icon: '/sura-asesor/icon-192.png',
+                tag:  'cotweb-' + r.id
+              });
+            } catch(_) {}
+          }
+        });
+        showToast(`🌐 ${nuevasArr.length} cotización${nuevasArr.length>1?'es':''} nueva${nuevasArr.length>1?'s':''} del cotizador web`);
       }
     });
   } catch(e) { console.warn('[SyncCotWeb]', e); }
@@ -21781,19 +21802,39 @@ function iniciarSyncPipelineWeb() {
       if (!remotos.length) return;
       const pipe = getPipeline();
       const idsLocales = new Set(pipe.map(p => p.id));
-      let nuevos = 0;
+      const nuevosArr = [];
       remotos.forEach(r => {
         if (!idsLocales.has(r.id)) {
           pipe.unshift(r);
-          nuevos++;
+          nuevosArr.push(r);
         }
       });
-      if (nuevos > 0) {
+      if (nuevosArr.length > 0) {
         setPipeline(pipe);
         if (document.getElementById('page-pipeline')?.classList.contains('active')) {
           renderPipeline();
         }
-        showToast(`🎯 ${nuevos} prospecto${nuevos>1?'s':''} nuevo${nuevos>1?'s':''} desde cotizador web`);
+        // Notificación in-app (banner) + nativa del sistema
+        nuevosArr.forEach(r => {
+          const nombre   = (r.nombre || 'Alguien').split(' ')[0];
+          const plan     = r.producto || '';
+          const prima    = r.primaReferencia ? '$' + Math.round(r.primaReferencia).toLocaleString('es-CO') : '';
+          const periDesc = r.periodicidad ? ' · ' + r.periodicidad.toLowerCase() : '';
+          showNotifBanner(
+            '💰 Nuevo prospecto desde cotizador web',
+            `${nombre} cotizó ${plan}${prima ? ' · Prima: ' + prima : ''}${periDesc}. Ya está en tu Pipeline.`
+          );
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification('💰 Nuevo prospecto — Cotizador Web', {
+                body: nombre + (plan ? ' · ' + plan : '') + (prima ? ' · ' + prima : ''),
+                icon: '/sura-asesor/icon-192.png',
+                tag:  'pipweb-' + r.id
+              });
+            } catch(_) {}
+          }
+        });
+        showToast(`🎯 ${nuevosArr.length} prospecto${nuevosArr.length>1?'s':''} nuevo${nuevosArr.length>1?'s':''} desde cotizador web`);
       }
     });
   } catch(e) { console.warn('[SyncPipeWeb]', e); }
@@ -22966,11 +23007,11 @@ function normalizarPersonaWeb(p) {
   }
   if (!n.modulosExtra) n.modulosExtra = [];
 
-  // 6. nombre: usar nombre del cliente como fallback para persona 1
+  // 6. nombre: el cotizador web no captura nombre de asegurados individuales —
+  //    se deja vacío para no confundirlo con el tomador en el PDF.
   if (!n.nombre) n.nombre = '';
 
   // 7. primaCalc: conservar el valor guardado para usarlo como fallback
-  // (cotizadorCalcPrima puede recalcularlo; si da 0, se usa primaCalc)
   n._primaCalcWeb = n.primaCalc || 0;
 
   return n;
@@ -22981,19 +23022,16 @@ function cotizacionReimprimir(id) {
   if (!c) return;
   const esWeb = c.origen === 'cotizar_online' || c._remote;
   cotPersonas = (c.personas || []).map(p => esWeb ? normalizarPersonaWeb(p) : { ...p });
-  // Para cotizaciones web: si la persona 1 no tiene nombre, usar el del cliente
-  if (esWeb && cotPersonas.length > 0 && !cotPersonas[0].nombre) {
-    cotPersonas[0].nombre = c.cliente?.nombre || '';
-  }
   // Ajustar periodicidad global al de la cotización web
-  if (esWeb && c.periodicidad) {
-    cotPeriodicidad = c.periodicidad;
-  }
-  if (document.getElementById('cNombre')) document.getElementById('cNombre').value = c.cliente?.nombre||'';
-  if (document.getElementById('cTel'))    document.getElementById('cTel').value    = c.cliente?.tel||'';
-  if (document.getElementById('cCorreo')) document.getElementById('cCorreo').value = c.cliente?.correo||'';
-  if (document.getElementById('cCedula')) document.getElementById('cCedula').value = c.cliente?.cedula||'';
-  if (document.getElementById('cCiudad')) document.getElementById('cCiudad').value = c.cliente?.ciudad||'';
+  if (esWeb && c.periodicidad) cotPeriodicidad = c.periodicidad;
+
+  // Para PDF: usar datos del tomador (c.tomador) o cliente como fallback
+  const tom = c.tomador || c.cliente || {};
+  if (document.getElementById('cNombre')) document.getElementById('cNombre').value = tom.nombre  || c.cliente?.nombre  || '';
+  if (document.getElementById('cTel'))    document.getElementById('cTel').value    = tom.telefono || c.cliente?.tel    || '';
+  if (document.getElementById('cCorreo')) document.getElementById('cCorreo').value = tom.correo  || c.cliente?.correo  || '';
+  if (document.getElementById('cCedula')) document.getElementById('cCedula').value = tom.cedula  || c.cliente?.cedula  || '';
+  if (document.getElementById('cCiudad')) document.getElementById('cCiudad').value = tom.ciudad  || c.cliente?.ciudad  || '';
   cotizadorImprimir();
 }
 
