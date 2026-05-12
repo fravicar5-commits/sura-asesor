@@ -733,6 +733,45 @@
   .fab-btn.dragging { cursor: grabbing; opacity: 0.9; box-shadow: 0 8px 32px rgba(26,76,232,0.6); transition: none; }
   @media (max-width:900px) { .fab-btn { bottom: 16px; right: 16px; padding: 11px 20px; font-size: 13px; } }
 
+  /* ── AGENDA DIARIA ── */
+  .agenda-wrap{padding:0 36px 32px;}
+  .agenda-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .agenda-title{font-size:10.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:8px;}
+  .agenda-pulse{width:7px;height:7px;border-radius:50%;background:var(--sura-lime);box-shadow:0 0 0 0 rgba(200,229,43,0.5);animation:agendaPulse 2s infinite;}
+  @keyframes agendaPulse{0%{box-shadow:0 0 0 0 rgba(200,229,43,0.5);}70%{box-shadow:0 0 0 8px rgba(200,229,43,0);}100%{box-shadow:0 0 0 0 rgba(200,229,43,0);}}
+  .agenda-refresh{font-size:11px;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;font-family:var(--font);transition:color .15s,background .15s;}
+  .agenda-refresh:hover{color:var(--text-muted);background:var(--surface2);}
+  .agenda-grid{display:flex;flex-direction:column;gap:10px;}
+  .agenda-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .2s;}
+  .agenda-section:hover{border-color:var(--border-hover);}
+  .agenda-sec-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;cursor:pointer;user-select:none;}
+  .agenda-sec-label{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:700;color:var(--text);}
+  .agenda-sec-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+  .agenda-sec-count{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px;}
+  .agenda-chevron{color:var(--text-dim);font-size:13px;transition:transform .2s;flex-shrink:0;}
+  .agenda-chevron.open{transform:rotate(180deg);}
+  .agenda-items{border-top:1px solid var(--border);}
+  .agenda-item{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;gap:12px;border-bottom:1px solid rgba(255,255,255,0.04);transition:background .15s;}
+  .agenda-item:last-child{border-bottom:none;}
+  .agenda-item:hover{background:rgba(255,255,255,0.025);}
+  .agenda-item-info{flex:1;min-width:0;}
+  .agenda-item-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .agenda-item-sub{font-size:11px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .agenda-item-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
+  .agenda-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .agenda-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1px solid;font-size:11px;font-weight:600;font-family:var(--font);cursor:pointer;white-space:nowrap;transition:all .15s;text-decoration:none;background:none;}
+  .agenda-btn-wa{background:rgba(34,197,94,0.1)!important;color:var(--green);border-color:rgba(34,197,94,0.25);}
+  .agenda-btn-wa:hover{background:rgba(34,197,94,0.2)!important;}
+  .agenda-btn-ver{background:rgba(37,88,240,0.1)!important;color:var(--sura-blue);border-color:rgba(37,88,240,0.25);}
+  .agenda-btn-ver:hover{background:rgba(37,88,240,0.18)!important;}
+  .agenda-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px;gap:6px;text-align:center;}
+  .agenda-empty-icon{font-size:28px;}
+  .agenda-empty-text{font-size:13px;font-weight:700;color:var(--green);}
+  .agenda-empty-sub{font-size:11.5px;color:var(--text-dim);}
+  @media(max-width:700px){.agenda-wrap{padding:0 14px 24px;}.agenda-item{flex-wrap:wrap;}.agenda-actions{width:100%;justify-content:flex-end;}}
+
+  /* ── FIN AGENDA DIARIA ── */
+
   /* ---- RECORDATORIOS SEGUIMIENTO ---- */
   .seguimiento-chip {
     display:inline-flex;align-items:center;gap:6px;
@@ -1818,6 +1857,24 @@
           </div>
 
           <!-- DIVISOR -->
+          <div style="height:1px;background:rgba(255,255,255,0.06);margin:0 36px;"></div>
+
+          <!-- ── AGENDA DIARIA ── -->
+          <div class="agenda-wrap" id="agendaDiariaWrap">
+            <div class="agenda-header">
+              <div class="agenda-title">
+                <span class="agenda-pulse"></span>
+                Tu agenda de hoy
+                <span id="agendaFechaLabel" style="font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;font-size:11px;"></span>
+              </div>
+              <button class="agenda-refresh" onclick="renderAgendaDiaria()" title="Actualizar agenda">↻ Actualizar</button>
+            </div>
+            <div class="agenda-grid" id="agendaGrid">
+              <!-- renderAgendaDiaria() fills this -->
+            </div>
+          </div>
+
+          <!-- DIVISOR 2 -->
           <div style="height:1px;background:rgba(255,255,255,0.06);margin:0 36px;"></div>
 
           <!-- HERRAMIENTAS RAPIDAS -->
@@ -9567,6 +9624,229 @@ function renderInicio() {
   // Fecha
   const elFecha = document.getElementById('inicioFecha');
   if (elFecha) elFecha.textContent = new Date().toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
+
+  // Agenda diaria
+  renderAgendaDiaria();
+}
+
+// ════════════════════════════════════════════════════════════
+// AGENDA DIARIA — cola de trabajo unificada
+// ════════════════════════════════════════════════════════════
+function renderAgendaDiaria() {
+  const grid = document.getElementById('agendaGrid');
+  if (!grid) return;
+
+  // Fecha label
+  const fechaEl = document.getElementById('agendaFechaLabel');
+  if (fechaEl) fechaEl.textContent = new Date().toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long' });
+
+  const hoy      = new Date(); hoy.setHours(0,0,0,0);
+  const hoyStr   = hoy.toISOString().split('T')[0];
+  const en7Dias  = new Date(hoy); en7Dias.setDate(hoy.getDate() + 7);
+  const s        = getState();
+  const pipeline = getPipeline ? getPipeline() : [];
+  const cots     = getCotizaciones ? getCotizaciones() : [];
+  const pagos    = window.__FB_CACHE__?.pagos || {};
+
+  // ── 1. PROSPECTOS PARA CONTACTAR HOY ──
+  const prospectoHoy = pipeline.filter(p => {
+    if (['4','5'].includes(String(p.estado))) return false; // cerrado
+    if (!p.proxContacto) return false;
+    return p.proxContacto <= hoyStr;
+  }).sort((a, b) => (a.proxContacto || '').localeCompare(b.proxContacto || ''));
+
+  // ── 2. PROSPECTOS SIN CONTACTO > 5 días ──
+  const sinContacto = pipeline.filter(p => {
+    if (['4','5'].includes(String(p.estado))) return false;
+    if (p.proxContacto && p.proxContacto > hoyStr) return false; // ya en sección 1
+    if (prospectoHoy.find(x => x.id === p.id)) return false;
+    const ultima = p.updatedAt || p.fechaCreacion || '';
+    if (!ultima) return true;
+    const dias = Math.floor((hoy - new Date(ultima)) / 86400000);
+    return dias > 5;
+  }).sort((a, b) => (a.updatedAt || '').localeCompare(b.updatedAt || '')).slice(0, 5);
+
+  // ── 3. PÓLIZAS QUE VENCEN ESTA SEMANA ──
+  const PRODS_VOL = ['SPTI','SPD','PSM','PAC60'];
+  const proximasVencer = s.ventas.filter(v => {
+    if (v._importadoSura || !PRODS_VOL.includes(v.producto)) return false;
+    if (!v.fechaExp) return false;
+    const pv = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
+    if (!pv) return false;
+    return pv >= hoy && pv <= en7Dias;
+  }).map(v => {
+    const pv = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
+    const dias = Math.floor((pv - hoy) / 86400000);
+    return { v, pv, dias };
+  }).sort((a, b) => a.pv - b.pv);
+
+  // ── 4. COTIZACIONES WEB SIN GESTIONAR (últimas 48h) ──
+  const hace48h = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+  let eliminadas = [];
+  try { eliminadas = JSON.parse(localStorage.getItem(COT_WEB_ELIMINADAS_KEY) || '[]'); } catch(e) {}
+  const cotsWeb = cots.filter(c => {
+    if (eliminadas.includes(c.id)) return false;
+    if (c.origen !== 'cotizar_online' && !c._remote) return false;
+    // Verificar si ya tiene un prospecto en pipeline
+    const enPipe = pipeline.find(p => p.refCotizacion === c.numero || p.id === 'pip_' + c.id);
+    return !enPipe || String(enPipe.estado) === '0';
+  }).filter(c => (c._ts || c.fecha + 'T23:59:59') >= hace48h)
+    .sort((a, b) => (b._ts || b.fecha).localeCompare(a._ts || a.fecha))
+    .slice(0, 5);
+
+  const totalItems = prospectoHoy.length + sinContacto.length + proximasVencer.length + cotsWeb.length;
+
+  // ── RENDERIZAR ──
+  const PROD_LABEL = { SPTI:'SPTI', SPD:'SPD Plus', PSM:'Modular', PAC60:'60+', PBS:'PBS' };
+  const DIAS_SEM   = ['dom','lun','mar','mié','jue','vie','sáb'];
+
+  function waUrl(tel, msg) {
+    const t = (tel || '').replace(/\D/g, '');
+    const n = t.length === 10 ? '57' + t : t;
+    return n ? `https://wa.me/${n}?text=${encodeURIComponent(msg)}` : null;
+  }
+
+  function seccionHTML(emoji, titulo, color, bgColor, items, emptyMsg, renderItem) {
+    if (!items.length) return '';
+    const id = 'agSec_' + titulo.replace(/\s/g,'');
+    return `
+    <div class="agenda-section" style="border-left:3px solid ${color};">
+      <div class="agenda-sec-header" onclick="agendaToggleSec('${id}')">
+        <div class="agenda-sec-label">
+          <div class="agenda-sec-icon" style="background:${bgColor};">${emoji}</div>
+          ${titulo}
+          <span class="agenda-sec-count" style="background:${bgColor};color:${color};">${items.length}</span>
+        </div>
+        <div class="agenda-chevron open" id="${id}_chev">▾</div>
+      </div>
+      <div class="agenda-items" id="${id}_body">
+        ${items.map(renderItem).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── Sección 1: Prospectos para contactar ──
+  const secPipe = seccionHTML('📞', 'Para contactar hoy', 'var(--sura-blue)', 'rgba(37,88,240,0.15)', prospectoHoy,
+    '', p => {
+      const diasPendiente = p.proxContacto < hoyStr
+        ? Math.floor((hoy - new Date(p.proxContacto)) / 86400000)
+        : 0;
+      const tag = diasPendiente > 0
+        ? `<span class="agenda-item-tag" style="background:rgba(240,82,82,0.15);color:var(--red);">+${diasPendiente}d</span>`
+        : `<span class="agenda-item-tag" style="background:rgba(37,88,240,0.15);color:var(--sura-blue);">Hoy</span>`;
+      const prod = PROD_LABEL[p.producto] || p.producto || '—';
+      const msg = `Hola ${p.nombre?.split(' ')[0] || ''} 👋 Te escribo para darle seguimiento a la cotización de ${prod} SURA. ¿Tienes alguna duda o quieres continuar con la vinculación?`;
+      const wa = waUrl(p.telefono, msg);
+      return `<div class="agenda-item">
+        <div class="agenda-item-info">
+          <div class="agenda-item-name">${p.nombre || '—'}</div>
+          <div class="agenda-item-sub">${prod} · ${p.ciudad || ''}</div>
+        </div>
+        ${tag}
+        <div class="agenda-actions">
+          ${wa ? `<a class="agenda-btn agenda-btn-wa" href="${wa}" target="_blank">📲 WA</a>` : ''}
+          <button class="agenda-btn agenda-btn-ver" onclick="navigate('pipeline')">Ver</button>
+        </div>
+      </div>`;
+    });
+
+  // ── Sección 2: Sin contacto hace 5+ días ──
+  const secFrios = seccionHTML('❄️', 'Sin contacto hace 5+ días', 'var(--purple)', 'rgba(168,85,247,0.15)', sinContacto,
+    '', p => {
+      const ultima = p.updatedAt || p.fechaCreacion || '';
+      const dias = ultima ? Math.floor((hoy - new Date(ultima)) / 86400000) : '?';
+      const prod = PROD_LABEL[p.producto] || p.producto || '—';
+      const msg = `Hola ${p.nombre?.split(' ')[0] || ''} 👋 Hace unos días te compartí información sobre ${prod} SURA. ¿Pudiste revisarla? Con gusto te cuento más.`;
+      const wa = waUrl(p.telefono, msg);
+      return `<div class="agenda-item">
+        <div class="agenda-item-info">
+          <div class="agenda-item-name">${p.nombre || '—'}</div>
+          <div class="agenda-item-sub">${prod} · último contacto hace ${dias} días</div>
+        </div>
+        <span class="agenda-item-tag" style="background:rgba(168,85,247,0.15);color:var(--purple);">${dias}d inactivo</span>
+        <div class="agenda-actions">
+          ${wa ? `<a class="agenda-btn agenda-btn-wa" href="${wa}" target="_blank">📲 Reactivar</a>` : ''}
+        </div>
+      </div>`;
+    });
+
+  // ── Sección 3: Pólizas vencen esta semana ──
+  const secVencer = seccionHTML('⚠️', 'Pólizas vencen esta semana', 'var(--amber)', 'rgba(245,158,11,0.15)', proximasVencer,
+    '', ({ v, pv, dias }) => {
+      const pvLabel = pv.toLocaleDateString('es-CO', { weekday:'short', day:'numeric', month:'short' });
+      const prod = PROD_LABEL[v.producto] || v.producto;
+      const nombre = v.tomadorNombre || v.nombre || '—';
+      const tel = v.tomadorTel || v.telefono || '';
+      const msg = `Hola ${nombre.split(' ')[0]} 👋 Tu plan *${prod} SURA* vence el *${pvLabel}*. Te escribo para que no pierdas ni un día de cobertura. ¿Te ayudo con el pago?`;
+      const wa = waUrl(tel, msg);
+      const urgTag = dias === 0
+        ? `<span class="agenda-item-tag" style="background:rgba(240,82,82,0.2);color:var(--red);">Vence hoy</span>`
+        : `<span class="agenda-item-tag" style="background:rgba(245,158,11,0.15);color:var(--amber);">En ${dias}d</span>`;
+      return `<div class="agenda-item">
+        <div class="agenda-item-info">
+          <div class="agenda-item-name">${nombre}</div>
+          <div class="agenda-item-sub">${prod} · vence ${pvLabel}</div>
+        </div>
+        ${urgTag}
+        <div class="agenda-actions">
+          ${wa ? `<a class="agenda-btn agenda-btn-wa" href="${wa}" target="_blank">📲 Recordar</a>` : ''}
+          <button class="agenda-btn agenda-btn-ver" onclick="navigate('cartera')">Cartera</button>
+        </div>
+      </div>`;
+    });
+
+  // ── Sección 4: Cotizaciones web sin gestionar ──
+  const secCotsWeb = seccionHTML('🌐', 'Cotizaciones web sin gestionar', 'var(--teal)', 'rgba(6,182,212,0.15)', cotsWeb,
+    '', c => {
+      const tom = c.tomador || c.cliente || {};
+      const nombre = tom.nombre || c.cliente?.nombre || '—';
+      const tel = tom.telefono || c.cliente?.tel || '';
+      const plan = c.planLabel || c.producto || '—';
+      const prima = c.primaCalculada ? fmt(c.primaCalculada) : '';
+      const hace = (() => {
+        const ts = c._ts || (c.fecha + 'T12:00:00');
+        const mins = Math.floor((Date.now() - new Date(ts)) / 60000);
+        if (mins < 60) return `hace ${mins}m`;
+        if (mins < 1440) return `hace ${Math.floor(mins/60)}h`;
+        return `hace ${Math.floor(mins/1440)}d`;
+      })();
+      const msg = `Hola ${nombre.split(' ')[0]} 👋 Vi que cotizaste *${plan} SURA*${prima ? ' · Prima: *' + prima + '*' : ''}. Soy tu asesor y quiero ayudarte a resolver dudas y guiarte en el proceso. ¿Tienes un momento?`;
+      const wa = waUrl(tel, msg);
+      return `<div class="agenda-item">
+        <div class="agenda-item-info">
+          <div class="agenda-item-name">${nombre}</div>
+          <div class="agenda-item-sub">${plan}${prima ? ' · ' + prima : ''} · ${hace}</div>
+        </div>
+        <span class="agenda-item-tag" style="background:rgba(6,182,212,0.15);color:var(--teal);">Web</span>
+        <div class="agenda-actions">
+          ${wa ? `<a class="agenda-btn agenda-btn-wa" href="${wa}" target="_blank">📲 Contactar</a>` : ''}
+          <button class="agenda-btn agenda-btn-ver" onclick="navigate('cotizaciones')">Ver</button>
+        </div>
+      </div>`;
+    });
+
+  // ── Estado vacío ──
+  const emptyHTML = `
+    <div class="agenda-section" style="border-left:3px solid var(--green);">
+      <div class="agenda-empty">
+        <div class="agenda-empty-icon">✅</div>
+        <div class="agenda-empty-text">Todo al día</div>
+        <div class="agenda-empty-sub">Sin pendientes para hoy. ¡Excelente gestión!</div>
+      </div>
+    </div>`;
+
+  grid.innerHTML = totalItems === 0
+    ? emptyHTML
+    : secPipe + secFrios + secVencer + secCotsWeb;
+}
+
+function agendaToggleSec(id) {
+  const body = document.getElementById(id + '_body');
+  const chev = document.getElementById(id + '_chev');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (chev) chev.classList.toggle('open', !open);
 }
 
 function renderDashboard() {
