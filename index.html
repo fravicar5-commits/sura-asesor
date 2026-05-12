@@ -15615,10 +15615,13 @@ Usa un diseño HTML con fondo #0F1623, texto #EDF1FF, acentos azul #2558F0 y lim
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-beta': 'mcp-client-2025-04-04'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 4096,
         mcp_servers: [{
           type: 'url',
           url: 'https://gmail.googleapis.com/mcp/v1',
@@ -15628,16 +15631,28 @@ Usa un diseño HTML con fondo #0F1623, texto #EDF1FF, acentos azul #2558F0 y lim
       })
     });
     if (!resp.ok) {
-      console.warn('[NotifEmail] API error:', resp.status);
+      const errBody = await resp.text().catch(() => '');
+      console.warn('[NotifEmail] API error:', resp.status, errBody);
       return;
     }
     const data = await resp.json();
-    console.log('[NotifEmail] Correo enviado a', emailDestino, '| tipo:', tipo);
-    // Actualizar estado en UI si está en config
-    const statusEl = document.getElementById('notifEmailStatus');
-    if (statusEl) { statusEl.textContent = '✅ Último envío: ' + new Date().toLocaleTimeString('es-CO'); statusEl.style.color = 'var(--green)'; }
+    // Verificar que el MCP tool fue realmente ejecutado (no solo texto)
+    const blocks = data.content || [];
+    const toolUsed = blocks.some(b => b.type === 'tool_use' || b.type === 'mcp_tool_use' || b.type === 'mcp_tool_result');
+    const textResp = blocks.filter(b => b.type === 'text').map(b => b.text).join(' ');
+    if (toolUsed || textResp.toLowerCase().includes('enviado') || textResp.toLowerCase().includes('sent')) {
+      console.log('[NotifEmail] ✅ Correo enviado a', emailDestino, '| tipo:', tipo);
+      const statusEl = document.getElementById('notifEmailStatus');
+      if (statusEl) { statusEl.textContent = '✅ Último envío: ' + new Date().toLocaleTimeString('es-CO'); statusEl.style.color = 'var(--green)'; }
+    } else {
+      console.warn('[NotifEmail] ⚠️ API respondió pero Gmail MCP no confirmó envío:', textResp.slice(0, 200));
+      const statusEl = document.getElementById('notifEmailStatus');
+      if (statusEl) { statusEl.textContent = '⚠️ Sin confirmación de Gmail. Verifica permisos MCP.'; statusEl.style.color = 'var(--amber)'; }
+    }
   } catch(e) {
     console.warn('[NotifEmail] Error al enviar correo:', e.message);
+    const statusEl = document.getElementById('notifEmailStatus');
+    if (statusEl) { statusEl.textContent = '❌ Error: ' + e.message; statusEl.style.color = 'var(--red, #f55)'; }
   }
 }
 
@@ -15667,7 +15682,8 @@ async function probarNotifEmail() {
   // Restaurar
   s.config.notifEmailActivo = originalActivo;
   setState(s);
-  if (statusEl && !statusEl.textContent.includes('✅')) {
+  // Solo mostrar mensaje genérico si enviarNotifEmail NO actualizó el status (no sobrescribir error)
+  if (statusEl && statusEl.textContent === '⏳ Enviando correo de prueba...') {
     statusEl.textContent = '✅ Prueba enviada. Revisa tu bandeja.';
     statusEl.style.color = 'var(--green)';
   }
