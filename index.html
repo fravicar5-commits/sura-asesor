@@ -3084,6 +3084,23 @@
               <input type="text" class="form-control" id="nombreAsesor" placeholder="Tu nombre" oninput="guardarConfig()">
             </div>
           </div>
+          <!-- Notificaciones por correo -->
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">📧 Notificaciones por correo</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Cuando llega un nuevo lead desde cotización web o landing empresa, se enviará un correo automático a esta dirección vía Gmail.</div>
+            <div class="form-group" style="max-width:380px;margin-bottom:8px;">
+              <label class="form-label">Email de notificaciones</label>
+              <input type="email" class="form-control" id="emailNotif" placeholder="tu@correo.com" oninput="guardarConfig()">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="notifEmailActivo" onchange="guardarConfig()" style="width:16px;height:16px;accent-color:var(--sura-blue);cursor:pointer;">
+                <span>Activar notificaciones de leads por email</span>
+              </label>
+              <button class="btn btn-secondary btn-sm" onclick="probarNotifEmail()" style="font-size:12px;padding:5px 12px;">🧪 Enviar correo de prueba</button>
+              <span id="notifEmailStatus" style="font-size:12px;color:var(--text-muted);"></span>
+            </div>
+          </div>
         </div>
 
         <!-- Seguridad PIN -->
@@ -9158,10 +9175,15 @@ function initState() {
   if (!s.config) s.config = {
     tipoAsesor: 'antiguo',
     nombreAsesor: '',
+    emailNotif: '',
+    notifEmailActivo: false,
     pbs: [...DEFAULT_PBS],
     spti: [...DEFAULT_SPTI],
     spd: [...DEFAULT_SPD],
   };
+  // Migración: agregar campos si no existen aún
+  if (s.config.emailNotif === undefined) s.config.emailNotif = '';
+  if (s.config.notifEmailActivo === undefined) s.config.notifEmailActivo = false;
   // No llamar setState aqui — Firebase puede no estar listo aun
   // setState se llamara normalmente cuando el usuario haga cambios reales
   if (window.__FB_CACHE__) window.__FB_CACHE__.estado = s;
@@ -11709,6 +11731,10 @@ function renderTabla() {
 function renderConfig() {
   document.getElementById('tipoAsesor').value = state.config.tipoAsesor;
   document.getElementById('nombreAsesor').value = state.config.nombreAsesor || '';
+  const emailNotifEl = document.getElementById('emailNotif');
+  if (emailNotifEl) emailNotifEl.value = state.config.emailNotif || '';
+  const notifEmailActivoEl = document.getElementById('notifEmailActivo');
+  if (notifEmailActivoEl) notifEmailActivoEl.checked = !!state.config.notifEmailActivo;
   actualizarNombreSidebar();
   buildConfigInputs('configPBS', 'pbs');
   buildConfigInputs('configSPTI', 'spti');
@@ -11729,6 +11755,10 @@ function guardarConfig() {
   state = getState();
   state.config.tipoAsesor = document.getElementById('tipoAsesor').value;
   state.config.nombreAsesor = document.getElementById('nombreAsesor').value;
+  const emailNotifEl = document.getElementById('emailNotif');
+  if (emailNotifEl) state.config.emailNotif = emailNotifEl.value.trim();
+  const notifEmailActivoEl = document.getElementById('notifEmailActivo');
+  if (notifEmailActivoEl) state.config.notifEmailActivo = notifEmailActivoEl.checked;
   actualizarNombreSidebar();
   ['pbs','spti','spd'].forEach(key => {
     MESES.forEach((_, i) => {
@@ -15524,6 +15554,125 @@ function iniciarListenerLeads() {
   }
 }
 
+// ── Notificaciones de leads por email vía Gmail MCP ─────────────────────────
+
+/**
+ * Envía un correo de notificación al asesor cuando llega un nuevo lead.
+ * Usa la Anthropic API con el MCP de Gmail para redactar y enviar el correo.
+ * @param {'lead_landing'|'cotizacion_web'|'pipeline_web'} tipo
+ * @param {Object} datos - datos del lead/cotización
+ */
+async function enviarNotifEmail(tipo, datos) {
+  const s = getState();
+  const emailDestino = s.config?.emailNotif?.trim() || window.FB?.currentUser?.email || '';
+  if (!emailDestino) return; // Sin email configurado, no hacer nada
+  if (!s.config?.notifEmailActivo) return; // Notificaciones desactivadas
+
+  // Construir contexto legible según tipo
+  let asunto = '', resumen = '';
+  const asesor = s.config?.nombreAsesor || 'Asesor SURA';
+  const ahora  = new Date().toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' });
+
+  if (tipo === 'lead_landing') {
+    const nombre  = datos.nombre || 'Sin nombre';
+    const empresa = datos.empresa ? ` (${datos.empresa})` : '';
+    const interes = datos.interesLabel || datos.interes || '';
+    const tel     = datos.telefono || '';
+    const correo  = datos.correo || datos.email || '';
+    asunto  = `🎯 Nuevo lead desde landing${empresa} — ${nombre}`;
+    resumen = `Nombre: ${nombre}${empresa}\nTeléfono: ${tel}\nCorreo: ${correo}\nInterés: ${interes}\nFecha: ${ahora}`;
+  } else if (tipo === 'cotizacion_web') {
+    const tom    = datos.tomador || datos.cliente || {};
+    const nombre = tom.nombre || datos.cliente?.nombre || 'Sin nombre';
+    const plan   = datos.planLabel || datos.producto || '';
+    const prima  = datos.primaCalculada ? '$' + Math.round(datos.primaCalculada).toLocaleString('es-CO') : '';
+    const peri   = datos.periodicidad || '';
+    asunto  = `📋 Nueva cotización web — ${nombre}`;
+    resumen = `Cliente: ${nombre}\nPlan: ${plan}\nPrima: ${prima}\nPeriodicidad: ${peri}\nFecha: ${ahora}`;
+  } else if (tipo === 'pipeline_web') {
+    const nombre = datos.nombre || 'Sin nombre';
+    const plan   = datos.producto || '';
+    const prima  = datos.primaReferencia ? '$' + Math.round(datos.primaReferencia).toLocaleString('es-CO') : '';
+    asunto  = `💰 Nuevo prospecto cotizador web — ${nombre}`;
+    resumen = `Nombre: ${nombre}\nProducto: ${plan}\nPrima referencia: ${prima}\nFecha: ${ahora}`;
+  } else {
+    return;
+  }
+
+  const prompt = `Envía un correo electrónico al asesor de seguros SURA usando Gmail.
+
+Destinatario: ${emailDestino}
+Asunto: ${asunto}
+Contenido del correo (en formato HTML elegante y profesional, tema oscuro azul SURA):
+- Saludo: "Hola ${asesor},"
+- Mensaje introductorio: Ha llegado un nuevo lead a tu panel SURA. Aquí los detalles:
+- Datos del lead en tabla HTML bien formateada:
+${resumen}
+- Cierre: "Revisa tu panel para gestionar este lead. — Sistema SURA Asesor"
+
+Usa un diseño HTML con fondo #0F1623, texto #EDF1FF, acentos azul #2558F0 y lima #C8E52B. Hazlo visualmente claro y profesional. Envía el correo ahora.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        mcp_servers: [{
+          type: 'url',
+          url: 'https://gmail.googleapis.com/mcp/v1',
+          name: 'gmail-mcp'
+        }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!resp.ok) {
+      console.warn('[NotifEmail] API error:', resp.status);
+      return;
+    }
+    const data = await resp.json();
+    console.log('[NotifEmail] Correo enviado a', emailDestino, '| tipo:', tipo);
+    // Actualizar estado en UI si está en config
+    const statusEl = document.getElementById('notifEmailStatus');
+    if (statusEl) { statusEl.textContent = '✅ Último envío: ' + new Date().toLocaleTimeString('es-CO'); statusEl.style.color = 'var(--green)'; }
+  } catch(e) {
+    console.warn('[NotifEmail] Error al enviar correo:', e.message);
+  }
+}
+
+/** Botón de prueba en ajustes */
+async function probarNotifEmail() {
+  const emailEl   = document.getElementById('emailNotif');
+  const statusEl  = document.getElementById('notifEmailStatus');
+  const email     = emailEl?.value?.trim() || '';
+  if (!email) {
+    if (statusEl) { statusEl.textContent = '⚠️ Ingresa un email primero.'; statusEl.style.color = 'var(--amber)'; }
+    return;
+  }
+  if (statusEl) { statusEl.textContent = '⏳ Enviando correo de prueba...'; statusEl.style.color = 'var(--text-muted)'; }
+  // Guardar config para tomar emailNotif y activar temporalmente
+  guardarConfig();
+  const s = getState();
+  const originalActivo = s.config.notifEmailActivo;
+  s.config.notifEmailActivo = true; // forzar para el test
+  setState(s);
+  await enviarNotifEmail('lead_landing', {
+    nombre: 'Lead de Prueba',
+    empresa: 'Empresa Demo',
+    interesLabel: 'SPTI — Plan Voluntario',
+    telefono: '300 000 0000',
+    correo: email
+  });
+  // Restaurar
+  s.config.notifEmailActivo = originalActivo;
+  setState(s);
+  if (statusEl && !statusEl.textContent.includes('✅')) {
+    statusEl.textContent = '✅ Prueba enviada. Revisa tu bandeja.';
+    statusEl.style.color = 'var(--green)';
+  }
+}
+
 function _procesarLeadNuevo(lead) {
   // Si el lead llegó sin UID (URL vieja), parcharlo en Firestore silenciosamente
   const UID = window.FB?.UID || '';
@@ -15641,6 +15790,8 @@ function _procesarLeadNuevo(lead) {
     }
 
     console.log('[Leads] Nuevo lead importado al pipeline:', nombre);
+    // Notificación por correo al asesor (Gmail MCP)
+    enviarNotifEmail(esCot ? 'cotizacion_web' : 'lead_landing', lead);
     } // fin if !esYaVisto
   }
 }
@@ -22068,6 +22219,8 @@ function iniciarSyncCotizacionesWeb() {
           }
         });
         showToast(`🌐 ${nuevasArr.length} cotización${nuevasArr.length>1?'es':''} nueva${nuevasArr.length>1?'s':''} del cotizador web`);
+        // Notificación por correo al asesor (Gmail MCP)
+        nuevasArr.forEach(r => enviarNotifEmail('cotizacion_web', r));
       }
     });
   } catch(e) { console.warn('[SyncCotWeb]', e); }
@@ -22124,6 +22277,8 @@ function iniciarSyncPipelineWeb() {
           }
         });
         showToast(`🎯 ${nuevosArr.length} prospecto${nuevosArr.length>1?'s':''} nuevo${nuevosArr.length>1?'s':''} desde cotizador web`);
+        // Notificación por correo al asesor (Gmail MCP)
+        nuevosArr.forEach(r => enviarNotifEmail('pipeline_web', r));
       }
     });
   } catch(e) { console.warn('[SyncPipeWeb]', e); }
