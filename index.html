@@ -15191,6 +15191,7 @@ function _actualizarBadgeRenovaciones(count) {
 
 let _leadsUnsubscribe = null; // Para desuscribir el listener
 const LEADS_VISTOS_KEY = 'sura_leads_vistos';
+const COT_WEB_ELIMINADAS_KEY = 'sura_cot_web_eliminadas'; // IDs de cotizaciones web eliminadas localmente
 let _leadsListenerPrimeraCarga = true; // Para distinguir carga inicial vs nuevos
 
 function iniciarListenerLeads() {
@@ -21731,7 +21732,7 @@ const COT_COLORS = { SPTI:'var(--teal)', SPD:'var(--purple)', PSM:'#0891B2', PAC
 // ── Escuchar cotizaciones_web en tiempo real ──
 function iniciarSyncCotizacionesWeb() {
   if (!window.FB) return;
-  const { onSnapshot, collection, query, where, orderBy } = window.FB;
+  const { onSnapshot, collection, query, where } = window.FB;
   const uid = window.FB.UID;
   if (!uid) return;
   try {
@@ -21740,18 +21741,25 @@ function iniciarSyncCotizacionesWeb() {
       where('uidAsesor', '==', uid)
     );
     onSnapshot(q, (snap) => {
-      const remotas = [];
-      snap.forEach(d => remotas.push({ ...d.data(), _remote: true }));
-      if (!remotas.length) return;
+      // Usar docChanges para detectar solo los genuinamente nuevos en esta sesión
+      const agregadas = snap.docChanges().filter(ch => ch.type === 'added').map(ch => ({ ...ch.doc.data(), _remote: true }));
+      if (!agregadas.length) return;
+
+      // Leer IDs eliminados localmente para no reinsertarlos
+      let eliminadas = [];
+      try { eliminadas = JSON.parse(localStorage.getItem(COT_WEB_ELIMINADAS_KEY) || '[]'); } catch(e) {}
+
       const locales = getCotizaciones();
       const idsLocales = new Set(locales.map(c => c.id));
       const nuevasArr = [];
-      remotas.forEach(r => {
-        if (!idsLocales.has(r.id)) {
-          locales.unshift(r);
-          nuevasArr.push(r);
-        }
+
+      agregadas.forEach(r => {
+        if (eliminadas.includes(r.id)) return;  // fue eliminada manualmente → ignorar
+        if (idsLocales.has(r.id)) return;        // ya existe localmente → ignorar
+        locales.unshift(r);
+        nuevasArr.push(r);
       });
+
       if (nuevasArr.length > 0) {
         setCotizaciones(locales);
         if (document.getElementById('page-cotizaciones')?.classList.contains('active') ||
@@ -21797,24 +21805,25 @@ function iniciarSyncPipelineWeb() {
       where('uidAsesor', '==', uid)
     );
     onSnapshot(q, (snap) => {
-      const remotos = [];
-      snap.forEach(d => remotos.push(d.data()));
-      if (!remotos.length) return;
+      // Solo procesar los genuinamente nuevos en esta sesión
+      const agregados = snap.docChanges().filter(ch => ch.type === 'added').map(ch => ch.doc.data());
+      if (!agregados.length) return;
+
       const pipe = getPipeline();
       const idsLocales = new Set(pipe.map(p => p.id));
       const nuevosArr = [];
-      remotos.forEach(r => {
-        if (!idsLocales.has(r.id)) {
-          pipe.unshift(r);
-          nuevosArr.push(r);
-        }
+
+      agregados.forEach(r => {
+        if (idsLocales.has(r.id)) return;
+        pipe.unshift(r);
+        nuevosArr.push(r);
       });
+
       if (nuevosArr.length > 0) {
         setPipeline(pipe);
         if (document.getElementById('page-pipeline')?.classList.contains('active')) {
           renderPipeline();
         }
-        // Notificación in-app (banner) + nativa del sistema
         nuevosArr.forEach(r => {
           const nombre   = (r.nombre || 'Alguien').split(' ')[0];
           const plan     = r.producto || '';
@@ -22970,6 +22979,11 @@ function cotizacionEnviarWa(id) {
 
 function cotizacionEliminar(id) {
   if (!confirm('¿Eliminar esta cotización?')) return;
+  // Persistir el ID eliminado para que el sync web no la vuelva a insertar
+  try {
+    const eliminadas = JSON.parse(localStorage.getItem(COT_WEB_ELIMINADAS_KEY) || '[]');
+    if (!eliminadas.includes(id)) { eliminadas.push(id); localStorage.setItem(COT_WEB_ELIMINADAS_KEY, JSON.stringify(eliminadas)); }
+  } catch(e) {}
   setCotizaciones(getCotizaciones().filter(c => c.id !== id));
   showToast('🗑 Cotización eliminada');
   renderCotizaciones();
