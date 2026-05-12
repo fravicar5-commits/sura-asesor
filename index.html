@@ -11767,6 +11767,36 @@ function guardarConfig() {
     });
   });
   setState(state);
+  // Sincronizar perfil del asesor a Firestore para Cloud Functions de notificaciones
+  _sincronizarEmailAsesorFirestore();
+}
+
+/**
+ * Escribe el perfil de notificaciones del asesor en Firestore:
+ *   colección 'asesores', documento = UID del asesor.
+ * Esto permite que una Cloud Function sepa a qué email enviar
+ * cuando llega un lead, sin que la app esté abierta.
+ * Es una operación silenciosa con merge:true — no afecta otros datos.
+ */
+function _sincronizarEmailAsesorFirestore() {
+  try {
+    const s   = getState();
+    const uid = window.FB?.UID || '';
+    const email = s.config?.emailNotif?.trim() || '';
+    if (!uid || !email) return; // Sin UID o sin email no hay nada que sincronizar
+    if (!window.FB?.patchDoc) return; // Firebase no disponible aún
+    window.FB.patchDoc('asesores', uid, {
+      uid:          uid,
+      emailNotif:   email,
+      notifActivo:  !!s.config?.notifEmailActivo,
+      nombreAsesor: s.config?.nombreAsesor || '',
+      tipoAsesor:   s.config?.tipoAsesor   || '',
+      ultimaSync:   new Date().toISOString()
+    });
+    console.log('[SyncAsesor] ✅ Perfil sincronizado a Firestore asesores/', uid);
+  } catch(e) {
+    console.warn('[SyncAsesor] Error sincronizando a Firestore:', e.message);
+  }
 }
 
 function resetAll() {
@@ -15563,7 +15593,6 @@ const EMAILJS_PUBLIC_KEY  = 'WX1wJlyoXDMXlXEAU';
 
 /**
  * Carga el SDK de EmailJS una sola vez de forma lazy.
- * Retorna una promesa que resuelve cuando emailjs está listo.
  */
 function _cargarEmailJS() {
   if (window.emailjs) return Promise.resolve();
@@ -15585,8 +15614,8 @@ function _cargarEmailJS() {
 async function enviarNotifEmail(tipo, datos) {
   const s = getState();
   const emailDestino = s.config?.emailNotif?.trim() || window.FB?.currentUser?.email || '';
-  if (!emailDestino) return; // Sin email configurado, no hacer nada
-  if (!s.config?.notifEmailActivo) return; // Notificaciones desactivadas
+  if (!emailDestino) return;
+  if (!s.config?.notifEmailActivo) return;
 
   let asunto = '', resumen = '';
   const asesor = s.config?.nombreAsesor || 'Asesor SURA';
@@ -25879,6 +25908,10 @@ async function _esperarFirebaseYArrancar() {
       } catch(e) { console.warn('[Migración automática]', e.message); }
     }
   }
+
+  // Sincronizar perfil del asesor a Firestore (para Cloud Functions) al arrancar
+  // setTimeout para no bloquear el render inicial de la app
+  setTimeout(() => _sincronizarEmailAsesorFirestore(), 2000);
 
   _iniciarAppTrasLogin();
 }
