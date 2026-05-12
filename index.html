@@ -15554,11 +15554,31 @@ function iniciarListenerLeads() {
   }
 }
 
-// ── Notificaciones de leads por email vía Gmail MCP ─────────────────────────
+// ── Notificaciones de leads por email vía EmailJS ────────────────────────────
+
+// Credenciales EmailJS (configuradas en emailjs.com)
+const EMAILJS_SERVICE_ID  = 'service_hketcd1';
+const EMAILJS_TEMPLATE_ID = 'template_z1tx2n4';
+const EMAILJS_PUBLIC_KEY  = 'WX1wJlyoXDMXlXEAU';
+
+/**
+ * Carga el SDK de EmailJS una sola vez de forma lazy.
+ * Retorna una promesa que resuelve cuando emailjs está listo.
+ */
+function _cargarEmailJS() {
+  if (window.emailjs) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+    s.onload = () => { window.emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); resolve(); };
+    s.onerror = () => reject(new Error('No se pudo cargar EmailJS SDK'));
+    document.head.appendChild(s);
+  });
+}
 
 /**
  * Envía un correo de notificación al asesor cuando llega un nuevo lead.
- * Usa la Anthropic API con el MCP de Gmail para redactar y enviar el correo.
+ * Usa EmailJS — funciona directo desde el navegador, sin proxy ni MCP.
  * @param {'lead_landing'|'cotizacion_web'|'pipeline_web'} tipo
  * @param {Object} datos - datos del lead/cotización
  */
@@ -15568,10 +15588,9 @@ async function enviarNotifEmail(tipo, datos) {
   if (!emailDestino) return; // Sin email configurado, no hacer nada
   if (!s.config?.notifEmailActivo) return; // Notificaciones desactivadas
 
-  // Construir contexto legible según tipo
   let asunto = '', resumen = '';
   const asesor = s.config?.nombreAsesor || 'Asesor SURA';
-  const ahora  = new Date().toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' });
+  const ahora  = new Date().toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
 
   if (tipo === 'lead_landing') {
     const nombre  = datos.nombre || 'Sin nombre';
@@ -15580,7 +15599,19 @@ async function enviarNotifEmail(tipo, datos) {
     const tel     = datos.telefono || '';
     const correo  = datos.correo || datos.email || '';
     asunto  = `🎯 Nuevo lead desde landing${empresa} — ${nombre}`;
-    resumen = `Nombre: ${nombre}${empresa}\nTeléfono: ${tel}\nCorreo: ${correo}\nInterés: ${interes}\nFecha: ${ahora}`;
+    resumen = `Hola ${asesor},
+
+Ha llegado un nuevo lead a tu panel SURA. Aquí los detalles:
+
+Nombre: ${nombre}${empresa}
+Teléfono: ${tel}
+Correo: ${correo}
+Interés: ${interes}
+Fecha: ${ahora}
+
+Revisa tu panel para gestionar este lead.
+
+— Sistema SURA Asesor`;
   } else if (tipo === 'cotizacion_web') {
     const tom    = datos.tomador || datos.cliente || {};
     const nombre = tom.nombre || datos.cliente?.nombre || 'Sin nombre';
@@ -15588,68 +15619,54 @@ async function enviarNotifEmail(tipo, datos) {
     const prima  = datos.primaCalculada ? '$' + Math.round(datos.primaCalculada).toLocaleString('es-CO') : '';
     const peri   = datos.periodicidad || '';
     asunto  = `📋 Nueva cotización web — ${nombre}`;
-    resumen = `Cliente: ${nombre}\nPlan: ${plan}\nPrima: ${prima}\nPeriodicidad: ${peri}\nFecha: ${ahora}`;
+    resumen = `Hola ${asesor},
+
+Se recibió una nueva cotización web. Aquí los detalles:
+
+Cliente: ${nombre}
+Plan: ${plan}
+Prima: ${prima}
+Periodicidad: ${peri}
+Fecha: ${ahora}
+
+Revisa tu panel para gestionar esta cotización.
+
+— Sistema SURA Asesor`;
   } else if (tipo === 'pipeline_web') {
     const nombre = datos.nombre || 'Sin nombre';
     const plan   = datos.producto || '';
     const prima  = datos.primaReferencia ? '$' + Math.round(datos.primaReferencia).toLocaleString('es-CO') : '';
     asunto  = `💰 Nuevo prospecto cotizador web — ${nombre}`;
-    resumen = `Nombre: ${nombre}\nProducto: ${plan}\nPrima referencia: ${prima}\nFecha: ${ahora}`;
+    resumen = `Hola ${asesor},
+
+Hay un nuevo prospecto en el cotizador web. Aquí los detalles:
+
+Nombre: ${nombre}
+Producto: ${plan}
+Prima referencia: ${prima}
+Fecha: ${ahora}
+
+Revisa tu panel para gestionar este prospecto.
+
+— Sistema SURA Asesor`;
   } else {
     return;
   }
 
-  const prompt = `Envía un correo electrónico al asesor de seguros SURA usando Gmail.
-
-Destinatario: ${emailDestino}
-Asunto: ${asunto}
-Contenido del correo (en formato HTML elegante y profesional, tema oscuro azul SURA):
-- Saludo: "Hola ${asesor},"
-- Mensaje introductorio: Ha llegado un nuevo lead a tu panel SURA. Aquí los detalles:
-- Datos del lead en tabla HTML bien formateada:
-${resumen}
-- Cierre: "Revisa tu panel para gestionar este lead. — Sistema SURA Asesor"
-
-Usa un diseño HTML con fondo #0F1623, texto #EDF1FF, acentos azul #2558F0 y lima #C8E52B. Hazlo visualmente claro y profesional. Envía el correo ahora.`;
-
   try {
-    const resp = await fetch('https://wasend.onrender.com/api/claude-proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        mcp_servers: [{
-          type: 'url',
-          url: 'https://gmail.googleapis.com/mcp/v1',
-          name: 'gmail-mcp'
-        }],
-        messages: [{ role: 'user', content: prompt }]
-      })
+    await _cargarEmailJS();
+    await window.emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      asunto:  asunto,
+      mensaje: resumen,
+      email:   emailDestino
     });
-    if (!resp.ok) {
-      const errBody = await resp.text().catch(() => '');
-      console.warn('[NotifEmail] API error:', resp.status, errBody);
-      return;
-    }
-    const data = await resp.json();
-    // Verificar que el MCP tool fue realmente ejecutado (no solo texto)
-    const blocks = data.content || [];
-    const toolUsed = blocks.some(b => b.type === 'tool_use' || b.type === 'mcp_tool_use' || b.type === 'mcp_tool_result');
-    const textResp = blocks.filter(b => b.type === 'text').map(b => b.text).join(' ');
-    if (toolUsed || textResp.toLowerCase().includes('enviado') || textResp.toLowerCase().includes('sent')) {
-      console.log('[NotifEmail] ✅ Correo enviado a', emailDestino, '| tipo:', tipo);
-      const statusEl = document.getElementById('notifEmailStatus');
-      if (statusEl) { statusEl.textContent = '✅ Último envío: ' + new Date().toLocaleTimeString('es-CO'); statusEl.style.color = 'var(--green)'; }
-    } else {
-      console.warn('[NotifEmail] ⚠️ API respondió pero Gmail MCP no confirmó envío:', textResp.slice(0, 200));
-      const statusEl = document.getElementById('notifEmailStatus');
-      if (statusEl) { statusEl.textContent = '⚠️ Sin confirmación de Gmail. Verifica permisos MCP.'; statusEl.style.color = 'var(--amber)'; }
-    }
-  } catch(e) {
-    console.warn('[NotifEmail] Error al enviar correo:', e.message);
+    console.log('[NotifEmail] ✅ Correo enviado a', emailDestino, '| tipo:', tipo);
     const statusEl = document.getElementById('notifEmailStatus');
-    if (statusEl) { statusEl.textContent = '❌ Error: ' + e.message; statusEl.style.color = 'var(--red, #f55)'; }
+    if (statusEl) { statusEl.textContent = '✅ Último envío: ' + new Date().toLocaleTimeString('es-CO'); statusEl.style.color = 'var(--green)'; }
+  } catch(e) {
+    console.warn('[NotifEmail] Error al enviar correo:', e.message || JSON.stringify(e));
+    const statusEl = document.getElementById('notifEmailStatus');
+    if (statusEl) { statusEl.textContent = '❌ Error: ' + (e.text || e.message || 'Revisa consola'); statusEl.style.color = 'var(--red, #f55)'; }
   }
 }
 
