@@ -12598,15 +12598,9 @@ Si un campo no aparece en el documento, usa null.
 
 Responde ÚNICAMENTE con el JSON, sin texto adicional ni bloques de código.`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://wasend.onrender.com/api/claude-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 500,
-        messages: [{
-          role: 'user',
-          content: isPDF
             ? [
                 { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
                 { type: 'text', text: prompt }
@@ -15613,12 +15607,9 @@ ${resumen}
 Usa un diseño HTML con fondo #0F1623, texto #EDF1FF, acentos azul #2558F0 y lima #C8E52B. Hazlo visualmente claro y profesional. Envía el correo ahora.`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('https://wasend.onrender.com/api/claude-proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-beta': 'mcp-client-2025-04-04'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4096,
