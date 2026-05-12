@@ -22510,7 +22510,11 @@ function cotizadorCompartirWA() {
 
 function cotizadorImprimir() {
   const nombre = document.getElementById('cNombre')?.value || 'Cliente';
-  const total = cotPersonas.reduce((s, p) => s + cotizadorCalcPrima(p), 0);
+  // Calcular total usando primaCalc guardado como fallback (cubre cotizaciones web)
+  const total = cotPersonas.reduce((s, p) => {
+    const calc = cotizadorCalcPrima(p);
+    return s + (calc > 0 ? calc : (p._primaCalcWeb || p.primaCalc || 0));
+  }, 0);
   if (!cotPersonas.length || !total) { alert('Agrega personas con datos completos primero'); return; }
 
   const tel     = document.getElementById('cTel')?.value || '—';
@@ -22702,7 +22706,7 @@ function cotizadorImprimir() {
     }
     return 0;
   }
-  const personasValidas = cotPersonas.filter(p => cotizadorCalcPrima(p) > 0);
+  const personasValidas = cotPersonas.filter(p => cotizadorCalcPrima(p) > 0 || (p._primaCalcWeb || p.primaCalc || 0) > 0);
   const esSolaPersona = personasValidas.length === 1;
   let pagosRows;
 
@@ -22930,12 +22934,63 @@ function cotizacionEliminar(id) {
   renderCotizaciones();
 }
 
+function normalizarPersonaWeb(p) {
+  // Normaliza una persona proveniente del cotizador web (cotizar.html)
+  // al formato interno que espera cotizadorCalcPrima() y cotizadorImprimir().
+  const n = { ...p };
+
+  // 1. Mapeo de producto: MODULAR → PSM
+  if (n.producto === 'MODULAR') n.producto = 'PSM';
+
+  // 2. plan: extraer solo la parte de tipo si viene compuesto (ej. "SPTI PREFERENCIAL")
+  if (n.producto === 'SPTI' && n.plan && n.plan.includes(' ')) {
+    n.plan = n.plan.split(' ').pop(); // "SPTI PREFERENCIAL" → "PREFERENCIAL"
+  }
+
+  // 3. SPD: edad puede venir null; forzar a un valor funcional (SPD no usa edad en cálculo)
+  if (n.producto === 'SPD' && !n.edad) n.edad = 30;
+
+  // 4. PAC60: sub → conAnexo booleano
+  if (n.producto === 'PAC60') {
+    if (typeof n.conAnexo === 'undefined') {
+      n.conAnexo = (n.plan === 'conAnexo' || n.sub === 'conAnexo');
+    }
+  }
+
+  // 5. PSM modulosExtra: convertir objeto {EMD:true, AltoCosto:false, ...} → array de strings
+  if (n.producto === 'PSM' && n.modulos && !Array.isArray(n.modulosExtra)) {
+    const MAP = { EMD: 'EMD', AltoCosto: 'Alto Costo', Cirugia: 'Cirugía', Maternidad: 'Maternidad' };
+    n.modulosExtra = Object.entries(n.modulos)
+      .filter(([, v]) => v)
+      .map(([k]) => MAP[k] || k);
+  }
+  if (!n.modulosExtra) n.modulosExtra = [];
+
+  // 6. nombre: usar nombre del cliente como fallback para persona 1
+  if (!n.nombre) n.nombre = '';
+
+  // 7. primaCalc: conservar el valor guardado para usarlo como fallback
+  // (cotizadorCalcPrima puede recalcularlo; si da 0, se usa primaCalc)
+  n._primaCalcWeb = n.primaCalc || 0;
+
+  return n;
+}
+
 function cotizacionReimprimir(id) {
   const c = getCotizaciones().find(x => x.id === id);
   if (!c) return;
-  cotPersonas = c.personas.map(p => ({ ...p }));
+  const esWeb = c.origen === 'cotizar_online' || c._remote;
+  cotPersonas = (c.personas || []).map(p => esWeb ? normalizarPersonaWeb(p) : { ...p });
+  // Para cotizaciones web: si la persona 1 no tiene nombre, usar el del cliente
+  if (esWeb && cotPersonas.length > 0 && !cotPersonas[0].nombre) {
+    cotPersonas[0].nombre = c.cliente?.nombre || '';
+  }
+  // Ajustar periodicidad global al de la cotización web
+  if (esWeb && c.periodicidad) {
+    cotPeriodicidad = c.periodicidad;
+  }
   if (document.getElementById('cNombre')) document.getElementById('cNombre').value = c.cliente?.nombre||'';
-  if (document.getElementById('cTel')) document.getElementById('cTel').value = c.cliente?.tel||'';
+  if (document.getElementById('cTel'))    document.getElementById('cTel').value    = c.cliente?.tel||'';
   if (document.getElementById('cCorreo')) document.getElementById('cCorreo').value = c.cliente?.correo||'';
   if (document.getElementById('cCedula')) document.getElementById('cCedula').value = c.cliente?.cedula||'';
   if (document.getElementById('cCiudad')) document.getElementById('cCiudad').value = c.cliente?.ciudad||'';
