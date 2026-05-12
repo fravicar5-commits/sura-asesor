@@ -1427,9 +1427,12 @@ async function solicitarContacto() {
   const cotNumero = `COT-${anioShort}-WEB-${Date.now().toString().slice(-4)}`;
 
   // ── Personas para el cotizador de la app ──
+  // El tomador es quien contrata (datos del paso 2).
+  // Los asegurados son las personas cotizadas (pueden ser distintas al tomador).
+  // Persona 1 = asegurado principal. El nombre del tomador va en cliente/tomador.
   const persona = {
-    id: 1,
-    nombre:      cliente.nombre,
+    id:          1,
+    nombre:      '',                   // asegurado principal — nombre no capturado en cotizador web
     producto:    state.plan,
     plan:        state.sub || state.plan,
     edad:        state.plan !== 'SPD' ? (state.edad || 0) : null,
@@ -1461,6 +1464,13 @@ async function solicitarContacto() {
     fecha:    fechaCorta,
     origen:   'cotizar_online',
     uidAsesor: asesor,
+    tomador: {
+      nombre:  cliente.nombre,
+      cedula:  cliente.cedula,
+      telefono: cliente.telefono,
+      correo:  cliente.correo,
+      ciudad:  cliente.ciudad,
+    },
     cliente: {
       nombre:  cliente.nombre,
       tel:     cliente.telefono,
