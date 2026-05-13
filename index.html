@@ -17140,7 +17140,9 @@ function moverProspecto(id, nuevoEstado) {
 }
 
 function eliminarProspecto(id) {
-  if (!confirm('\u00bfEliminar este prospecto del pipeline?')) return;
+  if (!confirm('¿Eliminar este prospecto del pipeline?')) return;
+  // Eliminar de Firestore pipeline_web para que no vuelva a cargar en próximas sesiones
+  _eliminarDocFirestore('pipeline_web', id);
   setPipeline(getPipeline().filter(p => p.id !== id));
   renderPipeline();
   showToast('Prospecto eliminado');
@@ -23472,14 +23474,31 @@ function cotizacionEnviarWa(id) {
 
 function cotizacionEliminar(id) {
   if (!confirm('¿Eliminar esta cotización?')) return;
-  // Persistir el ID eliminado para que el sync web no la vuelva a insertar
+  // Persistir el ID eliminado localmente (fallback si Firestore falla)
   try {
     const eliminadas = JSON.parse(localStorage.getItem(COT_WEB_ELIMINADAS_KEY) || '[]');
     if (!eliminadas.includes(id)) { eliminadas.push(id); localStorage.setItem(COT_WEB_ELIMINADAS_KEY, JSON.stringify(eliminadas)); }
   } catch(e) {}
+  // Eliminar también de Firestore para que no vuelva a cargar en sesiones futuras
+  _eliminarDocFirestore('cotizaciones_web', id);
   setCotizaciones(getCotizaciones().filter(c => c.id !== id));
   showToast('🗑 Cotización eliminada');
   renderCotizaciones();
+}
+
+/**
+ * Elimina un documento de Firestore de forma silenciosa.
+ * Se usa para borrar cotizaciones_web y pipeline_web eliminadas por el asesor.
+ */
+async function _eliminarDocFirestore(coleccion, docId) {
+  try {
+    if (!window.FB?.db || !docId) return;
+    const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    await deleteDoc(doc(window.FB.db, coleccion, docId));
+    console.log(`[Firestore] ✅ Documento eliminado: ${coleccion}/${docId}`);
+  } catch(e) {
+    console.warn(`[Firestore] No se pudo eliminar ${coleccion}/${docId}:`, e.message);
+  }
 }
 
 function normalizarPersonaWeb(p) {
