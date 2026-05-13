@@ -11785,15 +11785,14 @@ function _sincronizarEmailAsesorFirestore() {
     const email = s.config?.emailNotif?.trim() || '';
     if (!uid || !email) return; // Sin UID o sin email no hay nada que sincronizar
     if (!window.FB?.patchDoc) return; // Firebase no disponible aún
-    window.FB.patchDoc('asesores', uid, {
-      uid:          uid,
+    window.FB.patchDoc('usuarios', uid, {
       emailNotif:   email,
       notifActivo:  !!s.config?.notifEmailActivo,
       nombreAsesor: s.config?.nombreAsesor || '',
       tipoAsesor:   s.config?.tipoAsesor   || '',
       ultimaSync:   new Date().toISOString()
     });
-    console.log('[SyncAsesor] ✅ Perfil sincronizado a Firestore asesores/', uid);
+    console.log('[SyncAsesor] ✅ Perfil sincronizado a Firestore usuarios/', uid);
   } catch(e) {
     console.warn('[SyncAsesor] Error sincronizando a Firestore:', e.message);
   }
