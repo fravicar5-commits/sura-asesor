@@ -17141,9 +17141,18 @@ function moverProspecto(id, nuevoEstado) {
 
 function eliminarProspecto(id) {
   if (!confirm('¿Eliminar este prospecto del pipeline?')) return;
-  // Eliminar de Firestore pipeline_web para que no vuelva a cargar en próximas sesiones
-  _eliminarDocFirestore('pipeline_web', id);
-  setPipeline(getPipeline().filter(p => p.id !== id));
+  const pipe = getPipeline();
+  const prospecto = pipe.find(p => p.id === id);
+  // Usar _firestoreId si existe (docs web), si no usar id como fallback
+  const firestoreId = prospecto?._firestoreId || id;
+  // Persistir en localStorage para que el listener no lo reinserte
+  try {
+    const eliminadas = JSON.parse(localStorage.getItem('sura_pipe_web_eliminadas') || '[]');
+    if (!eliminadas.includes(firestoreId)) { eliminadas.push(firestoreId); localStorage.setItem('sura_pipe_web_eliminadas', JSON.stringify(eliminadas)); }
+  } catch(e) {}
+  // Eliminar de Firestore
+  _eliminarDocFirestore('pipeline_web', firestoreId);
+  setPipeline(pipe.filter(p => p.id !== id));
   renderPipeline();
   showToast('Prospecto eliminado');
 }
@@ -22233,7 +22242,7 @@ function iniciarSyncCotizacionesWeb() {
     );
     onSnapshot(q, (snap) => {
       // Usar docChanges para detectar solo los genuinamente nuevos en esta sesión
-      const agregadas = snap.docChanges().filter(ch => ch.type === 'added').map(ch => ({ ...ch.doc.data(), _remote: true }));
+      const agregadas = snap.docChanges().filter(ch => ch.type === 'added').map(ch => ({ ...ch.doc.data(), _remote: true, _firestoreId: ch.doc.id }));
       if (!agregadas.length) return;
 
       // Leer IDs eliminados localmente para no reinsertarlos
@@ -22299,14 +22308,22 @@ function iniciarSyncPipelineWeb() {
     );
     onSnapshot(q, (snap) => {
       // Solo procesar los genuinamente nuevos en esta sesión
-      const agregados = snap.docChanges().filter(ch => ch.type === 'added').map(ch => ch.doc.data());
+      const agregados = snap.docChanges().filter(ch => ch.type === 'added').map(ch => ({
+        ...ch.doc.data(),
+        _firestoreId: ch.doc.id  // ID real del documento en Firestore para poder borrarlo
+      }));
       if (!agregados.length) return;
+
+      // Leer IDs eliminados localmente para no reinsertarlos
+      let eliminadasPipe = [];
+      try { eliminadasPipe = JSON.parse(localStorage.getItem('sura_pipe_web_eliminadas') || '[]'); } catch(e) {}
 
       const pipe = getPipeline();
       const idsLocales = new Set(pipe.map(p => p.id));
       const nuevosArr = [];
 
       agregados.forEach(r => {
+        if (eliminadasPipe.includes(r._firestoreId || r.id)) return; // eliminado manualmente
         if (idsLocales.has(r.id)) return;
         pipe.unshift(r);
         nuevosArr.push(r);
@@ -23474,14 +23491,17 @@ function cotizacionEnviarWa(id) {
 
 function cotizacionEliminar(id) {
   if (!confirm('¿Eliminar esta cotización?')) return;
-  // Persistir el ID eliminado localmente (fallback si Firestore falla)
+  const cots = getCotizaciones();
+  const cot = cots.find(c => c.id === id);
+  const firestoreId = cot?._firestoreId || id;
+  // Persistir en localStorage para que el listener no lo reinserte
   try {
     const eliminadas = JSON.parse(localStorage.getItem(COT_WEB_ELIMINADAS_KEY) || '[]');
-    if (!eliminadas.includes(id)) { eliminadas.push(id); localStorage.setItem(COT_WEB_ELIMINADAS_KEY, JSON.stringify(eliminadas)); }
+    if (!eliminadas.includes(firestoreId)) { eliminadas.push(firestoreId); localStorage.setItem(COT_WEB_ELIMINADAS_KEY, JSON.stringify(eliminadas)); }
   } catch(e) {}
-  // Eliminar también de Firestore para que no vuelva a cargar en sesiones futuras
-  _eliminarDocFirestore('cotizaciones_web', id);
-  setCotizaciones(getCotizaciones().filter(c => c.id !== id));
+  // Eliminar de Firestore
+  _eliminarDocFirestore('cotizaciones_web', firestoreId);
+  setCotizaciones(cots.filter(c => c.id !== id));
   showToast('🗑 Cotización eliminada');
   renderCotizaciones();
 }
