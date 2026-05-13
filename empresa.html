@@ -1163,6 +1163,7 @@
       epsActual,
       interes,
       interesLabel: INTERES_LABEL[interes] || interes,
+      plan:      interes || 'landing_empresa', // requerido por reglas Firestore
       fecha:     new Date().toISOString().split('T')[0],
       hora:      new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' }),
       creadoEn:  new Date().toISOString(),
