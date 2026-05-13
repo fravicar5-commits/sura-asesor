@@ -23428,6 +23428,20 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
 <script>window.onload=function(){window.print();}<\/script>
 </body></html>`;
   const w = window.open('', '_blank'); w.document.write(html); w.document.close();
+
+  // Si viene de una cotización web con teléfono, abrir WhatsApp automáticamente
+  if (window._cotWhatsappTel) {
+    const tel    = window._cotWhatsappTel;
+    const nombre = window._cotWhatsappNombre || 'el cliente';
+    const asesor = (getState().config?.nombreAsesor || 'tu asesor SURA').trim();
+    const msg    = encodeURIComponent(
+      `Hola ${nombre}, soy ${asesor}, asesor SURA. Te envío la cotización que solicitaste. ¿Tienes alguna duda sobre los planes o prima calculada? Con gusto te oriento.`
+    );
+    const telCol = tel.startsWith('57') ? tel : '57' + tel;
+    setTimeout(() => { window.open(`https://wa.me/${telCol}?text=${msg}`, '_blank'); }, 1200);
+    window._cotWhatsappTel   = null;
+    window._cotWhatsappNombre = null;
+  }
 }
 
 function renderCotizaciones() {
@@ -23578,6 +23592,12 @@ function cotizacionReimprimir(id) {
   if (document.getElementById('cCorreo')) document.getElementById('cCorreo').value = tom.correo  || c.cliente?.correo  || '';
   if (document.getElementById('cCedula')) document.getElementById('cCedula').value = tom.cedula  || c.cliente?.cedula  || '';
   if (document.getElementById('cCiudad')) document.getElementById('cCiudad').value = tom.ciudad  || c.cliente?.ciudad  || '';
+
+  // Guardar teléfono para abrir WhatsApp automáticamente tras imprimir (solo cotizaciones web)
+  const telCliente = tom.telefono || c.cliente?.tel || '';
+  window._cotWhatsappTel  = esWeb && telCliente ? telCliente.replace(/\D/g, '') : null;
+  window._cotWhatsappNombre = tom.nombre || c.cliente?.nombre || 'el cliente';
+
   cotizadorImprimir();
 }
 
