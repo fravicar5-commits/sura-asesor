@@ -2535,6 +2535,7 @@
           <button class="tab-pill" onclick="setComTab('total',this)">💰 Resumen Total</button>
           <button class="tab-pill" onclick="setComTab('proyeccion',this)">📈 Proyección</button>
           <button class="tab-pill" onclick="setComTab('pagomes',this)" style="background:rgba(200,229,43,0.08);border-color:rgba(200,229,43,0.3);color:var(--sura-lime);">🗓️ Pago del Mes</button>
+          <button class="tab-pill" onclick="setComTab('verificador',this)" style="background:rgba(6,182,212,0.08);border-color:rgba(6,182,212,0.3);color:var(--teal);">🔍 Verificador</button>
         </div>
 
         <!-- ── PBS TAB ── -->
@@ -2893,6 +2894,92 @@
 
         </div>
         <!-- /PAGO DEL MES TAB -->
+
+        <!-- ── VERIFICADOR DE COMPENSACIÓN TAB ── -->
+        <div id="comTabVerificador" style="display:none;">
+
+          <!-- Cabecera -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div class="card-title" style="margin-bottom:2px;">🔍 Verificador de Compensación PBS</div>
+              <div style="font-size:12px;color:var(--text-muted);">Consulta en tiempo real el estado de compensación de tus afiliados PBS en SURA</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Mes de pago:</label>
+              <select class="form-control" id="veriMesSel" style="width:150px;" onchange="renderVerificador()">
+                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+              <select class="form-control" id="veriAnioSel" style="width:90px;" onchange="renderVerificador()">
+                <option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="consultarTodoVerificador(this)" id="veriConsultarTodoBtn">⚡ Consultar todo</button>
+            </div>
+          </div>
+
+          <!-- Alerta sesión -->
+          <div class="alert" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);color:var(--amber);font-size:12.5px;margin-bottom:12px;" id="veriAlertSesion">
+            ⚠️ <strong>Requiere sesión activa</strong> en <a href="https://epsapps.suramericana.com" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:underline;">epsapps.suramericana.com</a> — abre el portal en esta ventana del navegador antes de consultar.
+          </div>
+
+          <!-- Info período compensado (mismo cálculo que Pago del Mes) -->
+          <div class="alert alert-info" style="margin-bottom:16px;font-size:12.5px;" id="veriAlertPeriodo">
+            ℹ️ El mes de pago seleccionado corresponde a ventas compensadas en <strong id="veriMesCompLabel">—</strong>. Período: <span id="veriPeriodoStr" style="color:var(--text-muted);">—</span>
+          </div>
+
+          <!-- KPIs resumen -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;" id="veriKpisWrap">
+            <div class="stat-card green">
+              <div class="stat-label">✅ Listas para cobrar</div>
+              <div class="stat-value" id="veriKpiListas" style="font-size:22px;">—</div>
+              <div class="stat-sub" id="veriKpiListasCom">$0</div>
+            </div>
+            <div class="stat-card amber">
+              <div class="stat-label">⚠️ Parcialmente comp.</div>
+              <div class="stat-value" id="veriKpiParc" style="font-size:22px;">—</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--red);">
+              <div class="stat-label">❌ Sin compensar</div>
+              <div class="stat-value" id="veriKpiSin" style="font-size:22px;">—</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--text-dim);">
+              <div class="stat-label">🔄 No consultado</div>
+              <div class="stat-value" id="veriKpiPend" style="font-size:22px;">—</div>
+            </div>
+          </div>
+
+          <!-- Tabla -->
+          <div class="card" id="veriCard" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+              <div class="card-title" style="margin-bottom:0;" id="veriCardTitulo">Afiliados — <span id="veriMesLabel">—</span></div>
+              <div style="font-size:11.5px;color:var(--text-muted);" id="veriProgreso"></div>
+            </div>
+            <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+              <table style="font-size:12.5px;width:100%;border-collapse:collapse;min-width:700px;">
+                <thead><tr style="background:var(--surface2);">
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Nombre</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Documento</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Empresa</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Días Comp.</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Fecha Comp.</th>
+                  <th style="padding:10px 12px;text-align:left;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Empleador</th>
+                  <th style="padding:10px 12px;text-align:right;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Comisión</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Estado</th>
+                  <th style="padding:10px 12px;text-align:center;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Acción</th>
+                </tr></thead>
+                <tbody id="veriTablaBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="veriVacio" style="text-align:center;padding:40px 20px;color:var(--text-dim);font-size:14px;">
+            Selecciona un mes compensado para ver las ventas PBS correspondientes.
+          </div>
+
+        </div>
+        <!-- /VERIFICADOR TAB -->
 
       </div>
 
@@ -10486,11 +10573,11 @@ function renderCampanas() {
 // COMISIONES — TAB SWITCHER
 // =============================================
 function setComTab(tab, btn) {
-  ['PBS','Vol','Total','Proyeccion','Pagomes'].forEach(t => {
+  ['PBS','Vol','Total','Proyeccion','Pagomes','Verificador'].forEach(t => {
     const el = document.getElementById(`comTab${t}`);
     if (el) el.style.display = 'none';
   });
-  const map = { pbs: 'PBS', voluntarios: 'Vol', total: 'Total', proyeccion: 'Proyeccion', pagomes: 'Pagomes' };
+  const map = { pbs: 'PBS', voluntarios: 'Vol', total: 'Total', proyeccion: 'Proyeccion', pagomes: 'Pagomes', verificador: 'Verificador' };
   const show = document.getElementById(`comTab${map[tab] || 'PBS'}`);
   if (show) show.style.display = '';
   document.querySelectorAll('#page-comisiones .tab-pill').forEach(p => p.classList.remove('active'));
@@ -10499,6 +10586,7 @@ function setComTab(tab, btn) {
   if (tab === 'total') renderTotalComisiones();
   if (tab === 'proyeccion') renderProyeccionComisiones();
   if (tab === 'pagomes') renderPagoMes();
+  if (tab === 'verificador') initVerificador();
 }
 
 // =============================================
@@ -32216,6 +32304,339 @@ function copiarEnlaceEmpresa() {
 
 bootApp();
 </script>
+
+<script>
+// =============================================
+// VERIFICADOR DE COMPENSACIÓN PBS
+// =============================================
+
+// Mapa tipoDoc → tipideCot para el endpoint de SURA
+const TIPIDE_MAP = {
+  'CC':1,'CE':2,'NIT':3,'PA':5,'RC':7,'TI':10,'MS':11,'PE':18,'PT':20,
+  'PPT':20,'NUIP':7
+};
+
+const _MESES_ES_VERI = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// Estado interno del verificador
+let _veriAbortado = false;
+let _veriConsultando = false;
+
+// Calcula mesComp (mes de pago - 3) igual que renderPagoMes
+function _calcVeriMesComp(mesPago, anioPago) {
+  let mesComp = mesPago - 3;
+  let anioComp = anioPago;
+  while (mesComp <= 0) { mesComp += 12; anioComp--; }
+  return { mesComp, anioComp, mesCompIdx: mesComp - 1 }; // mesCompIdx es 0-based
+}
+
+function initVerificador() {
+  // Auto-seleccionar mes/año actual si no se ha tocado
+  const selMes  = document.getElementById('veriMesSel');
+  const selAnio = document.getElementById('veriAnioSel');
+  if (!selMes || !selAnio) return;
+  if (!selMes.dataset.init) {
+    const hoy = new Date();
+    selMes.value  = String(hoy.getMonth() + 1);
+    selAnio.value = String(hoy.getFullYear());
+    if (!Array.from(selAnio.options).find(o => o.value === String(hoy.getFullYear()))) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = hoy.getFullYear();
+      selAnio.appendChild(opt);
+      selAnio.value = String(hoy.getFullYear());
+    }
+    selMes.dataset.init = '1';
+  }
+  renderVerificador();
+}
+
+function renderVerificador() {
+  const selMes  = document.getElementById('veriMesSel');
+  const selAnio = document.getElementById('veriAnioSel');
+  if (!selMes || !selAnio) return;
+
+  const mesPago  = parseInt(selMes.value);
+  const anioPago = parseInt(selAnio.value);
+
+  // ── Mismo cálculo que renderPagoMes ──────────────────────────────
+  const { mesComp, anioComp, mesCompIdx } = _calcVeriMesComp(mesPago, anioPago);
+
+  // Actualizar alerta de período (mismo texto que Pago del Mes)
+  const compLabelEl  = document.getElementById('veriMesCompLabel');
+  const periodoStrEl = document.getElementById('veriPeriodoStr');
+  if (compLabelEl) compLabelEl.textContent = `${_MESES_ES_VERI[mesComp]} ${anioComp}`;
+
+  const ventana = getVentanaCompensado(mesCompIdx, anioComp);
+  const fmtV = d => d ? d.toLocaleDateString('es-CO', { day:'2-digit', month:'short' }) : '?';
+  if (periodoStrEl && ventana) {
+    periodoStrEl.textContent = `${fmtV(ventana.inicio)} – ${fmtV(ventana.fin)} ${anioComp}`;
+  } else if (periodoStrEl) {
+    periodoStrEl.textContent = '—';
+  }
+
+  // ── Ventas PBS usando la misma función que Pago del Mes ──────────
+  const ventas = getVentasPBSCompensado(mesCompIdx, anioComp);
+
+  const card  = document.getElementById('veriCard');
+  const vacio = document.getElementById('veriVacio');
+  const tbody = document.getElementById('veriTablaBody');
+  const cardTitulo = document.getElementById('veriCardTitulo');
+
+  if (!ventas.length) {
+    if (card) card.style.display = 'none';
+    if (vacio) {
+      vacio.style.display = '';
+      vacio.textContent = `No hay ventas PBS en el período compensado de ${_MESES_ES_VERI[mesComp]} ${anioComp}.`;
+    }
+    _actualizarKpisVeri([]);
+    return;
+  }
+
+  if (card) card.style.display = '';
+  if (vacio) vacio.style.display = 'none';
+  if (cardTitulo) cardTitulo.innerHTML = `Afiliados PBS — comp. <strong>${_MESES_ES_VERI[mesComp]} ${anioComp}</strong> · pago día 15 de ${_MESES_ES_VERI[mesPago]} ${anioPago}`;
+
+  tbody.innerHTML = ventas.map((v, i) => {
+    const dias = v.diasComp != null ? v.diasComp : null;
+    const estado = v.estadoComp || 'pendiente';
+    return _rowVerificador(v, i, dias, estado);
+  }).join('');
+
+  _actualizarKpisVeri(ventas);
+  _actualizarProgresoVeri(ventas);
+}
+
+function _rowVerificador(v, i, dias, estado) {
+  const tipide = TIPIDE_MAP[v.tipoDoc || 'CC'] || 1;
+  const numide = String(v.doc || '').replace(/\D/g,'').trim();
+  const nombre  = v.nombre  || '—';
+  const empresa = v.empresa || '—';
+  const comision = v.comision ? `$${v.comision.toLocaleString('es-CO')}` : '—';
+
+  let diasHtml, badgeHtml, accionHtml;
+
+  if (dias === null) {
+    diasHtml  = '<span style="color:var(--text-dim);font-size:12px;">—</span>';
+    badgeHtml = '<span style="background:rgba(68,80,112,0.2);color:var(--text-dim);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">🔄 No consultado</span>';
+    accionHtml = numide
+      ? `<button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="consultarUnoVeri('${v.id}',${tipide},'${numide}',this)">Consultar</button>`
+      : '<span style="font-size:11px;color:var(--red);">Sin cédula</span>';
+  } else if (dias >= 30) {
+    diasHtml  = `<strong style="color:var(--green);font-size:14px;">${dias}</strong>`;
+    badgeHtml = '<span style="background:rgba(34,197,94,0.15);color:var(--green);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">✅ Compensado</span>';
+    accionHtml = `<button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="consultarUnoVeri('${v.id}',${tipide},'${numide}',this)">↻</button>`;
+  } else if (dias > 0) {
+    diasHtml  = `<strong style="color:var(--amber);font-size:14px;">${dias}</strong>`;
+    badgeHtml = '<span style="background:rgba(245,158,11,0.15);color:var(--amber);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">⚠️ Parcial</span>';
+    accionHtml = `<button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="consultarUnoVeri('${v.id}',${tipide},'${numide}',this)">↻</button>`;
+  } else {
+    diasHtml  = `<strong style="color:var(--red);font-size:14px;">0</strong>`;
+    badgeHtml = '<span style="background:rgba(240,82,82,0.15);color:var(--red);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">❌ Sin compensar</span>';
+    accionHtml = numide
+      ? `<button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="consultarUnoVeri('${v.id}',${tipide},'${numide}',this)">↻</button>`
+      : '<span style="font-size:11px;color:var(--red);">Sin cédula</span>';
+  }
+
+  const fechaComp  = v.fechaComp      || '—';
+  const empleador  = v.empleadorComp  || '—';
+
+  return `<tr id="veri-row-${v.id}" style="border-bottom:1px solid var(--border);">
+    <td style="padding:10px 12px;font-size:12.5px;">${nombre}</td>
+    <td style="padding:10px 12px;font-family:var(--mono);font-size:12px;color:var(--text-muted);">${numide || '—'}</td>
+    <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${empresa}">${empresa}</td>
+    <td style="padding:10px 12px;text-align:center;" id="veri-dias-${v.id}">${diasHtml}</td>
+    <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);" id="veri-fecha-${v.id}">${fechaComp}</td>
+    <td style="padding:10px 12px;font-size:12px;color:var(--text-muted);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="veri-empleador-${v.id}" title="${empleador}">${empleador}</td>
+    <td style="padding:10px 12px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--sura-lime);">${comision}</td>
+    <td style="padding:10px 12px;text-align:center;" id="veri-badge-${v.id}">${badgeHtml}</td>
+    <td style="padding:10px 12px;text-align:center;" id="veri-accion-${v.id}">${accionHtml}</td>
+  </tr>`;
+}
+
+function _actualizarKpisVeri(ventas) {
+  const listas = ventas.filter(v => (v.diasComp || 0) >= 30);
+  const parc   = ventas.filter(v => v.diasComp > 0 && v.diasComp < 30);
+  const sin    = ventas.filter(v => v.diasComp === 0);
+  const pend   = ventas.filter(v => v.diasComp == null);
+  const totalCobrable = listas.reduce((a,v) => a + (v.comision || 0), 0);
+  const fmt = (n) => ventas.length ? String(n) : '—';
+  const s = id => document.getElementById(id);
+  if (s('veriKpiListas'))    s('veriKpiListas').textContent    = fmt(listas.length);
+  if (s('veriKpiListasCom')) s('veriKpiListasCom').textContent = listas.length ? `$${totalCobrable.toLocaleString('es-CO')} cobrable` : '$0';
+  if (s('veriKpiParc'))      s('veriKpiParc').textContent      = fmt(parc.length);
+  if (s('veriKpiSin'))       s('veriKpiSin').textContent       = fmt(sin.length);
+  if (s('veriKpiPend'))      s('veriKpiPend').textContent      = fmt(pend.length);
+}
+
+function _actualizarProgresoVeri(ventas) {
+  const consultados = ventas.filter(v => v.diasComp != null).length;
+  const el = document.getElementById('veriProgreso');
+  if (el) el.textContent = ventas.length ? `${consultados}/${ventas.length} consultados` : '';
+}
+
+async function consultarUnoVeri(ventaId, tipide, numide, btnEl) {
+  if (!numide) { showToast('⚠️ Sin cédula registrada'); return; }
+  _setFilaConsultando(ventaId, true);
+  try {
+    const result = await _fetchCompensacion(tipide, numide);
+    _guardarResultadoVeri(ventaId, result);
+    _actualizarFilaVeri(ventaId, result);
+  } catch(e) {
+    _setFilaConsultando(ventaId, false);
+    if (e.message === 'ABORT') return;
+    showToast(`⚠️ Error al consultar ${numide}: ${e.message}`);
+    console.warn('[Verificador]', numide, e);
+  }
+}
+
+function _setFilaConsultando(ventaId, loading) {
+  const diasEl   = document.getElementById(`veri-dias-${ventaId}`);
+  const badgeEl  = document.getElementById(`veri-badge-${ventaId}`);
+  const accionEl = document.getElementById(`veri-accion-${ventaId}`);
+  if (loading) {
+    if (diasEl)   diasEl.innerHTML   = '<span style="color:var(--text-muted);font-size:11px;">🔄…</span>';
+    if (badgeEl)  badgeEl.innerHTML  = '<span style="font-size:11px;color:var(--text-dim);">🔄</span>';
+    if (accionEl) accionEl.innerHTML = '<button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" disabled>…</button>';
+  }
+}
+
+function _actualizarFilaVeri(ventaId, result) {
+  const { dias, fecha, empleador } = result;
+  const diasEl      = document.getElementById(`veri-dias-${ventaId}`);
+  const fechaEl     = document.getElementById(`veri-fecha-${ventaId}`);
+  const badgeEl     = document.getElementById(`veri-badge-${ventaId}`);
+  const accionEl    = document.getElementById(`veri-accion-${ventaId}`);
+  const empleadorEl = document.getElementById(`veri-empleador-${ventaId}`);
+
+  let diasHtml, badgeHtml;
+  if (dias >= 30) {
+    diasHtml  = `<strong style="color:var(--green);font-size:14px;">${dias}</strong>`;
+    badgeHtml = '<span style="background:rgba(34,197,94,0.15);color:var(--green);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">✅ Compensado</span>';
+  } else if (dias > 0) {
+    diasHtml  = `<strong style="color:var(--amber);font-size:14px;">${dias}</strong>`;
+    badgeHtml = '<span style="background:rgba(245,158,11,0.15);color:var(--amber);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">⚠️ Parcial</span>';
+  } else {
+    diasHtml  = `<strong style="color:var(--red);font-size:14px;">0</strong>`;
+    badgeHtml = '<span style="background:rgba(240,82,82,0.15);color:var(--red);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">❌ Sin compensar</span>';
+  }
+
+  if (diasEl)      diasEl.innerHTML      = diasHtml;
+  if (badgeEl)     badgeEl.innerHTML     = badgeHtml;
+  if (fechaEl)     fechaEl.textContent   = fecha    || '—';
+  if (empleadorEl) empleadorEl.textContent = empleador || '—';
+
+  // Restaurar botón ↻
+  const v = (getState().ventas || []).find(x => x.id === ventaId);
+  if (accionEl && v) {
+    const tip = TIPIDE_MAP[v.tipoDoc || 'CC'] || 1;
+    const num = String(v.doc || '').replace(/\D/g,'').trim();
+    accionEl.innerHTML = num
+      ? `<button class="btn btn-secondary btn-sm" style="font-size:11px;padding:3px 8px;" onclick="consultarUnoVeri('${v.id}',${tip},'${num}',this)">↻</button>`
+      : '<span style="font-size:11px;color:var(--red);">Sin cédula</span>';
+  }
+
+  // Re-calcular KPIs con la lista actual del mes visible
+  const selMes  = document.getElementById('veriMesSel');
+  const selAnio = document.getElementById('veriAnioSel');
+  if (selMes && selAnio) {
+    const { mesCompIdx, anioComp } = _calcVeriMesComp(parseInt(selMes.value), parseInt(selAnio.value));
+    const ventas = getVentasPBSCompensado(mesCompIdx, anioComp);
+    _actualizarKpisVeri(ventas);
+    _actualizarProgresoVeri(ventas);
+  }
+}
+
+function _guardarResultadoVeri(ventaId, result) {
+  const s = getState();
+  const idx = (s.ventas || []).findIndex(v => v.id === ventaId);
+  if (idx < 0) return;
+  const { dias, fecha, empleador } = result;
+  s.ventas[idx].diasComp           = dias;
+  s.ventas[idx].fechaComp          = fecha    || '';
+  s.ventas[idx].empleadorComp      = empleador || '';
+  s.ventas[idx].estadoComp         = dias >= 30 ? 'compensado' : dias > 0 ? 'parcial' : 'sin_compensar';
+  s.ventas[idx].fechaUltimaConsulta = new Date().toISOString().slice(0,10);
+  setState(s);
+  if (window.FB && window.FB.setEstado) window.FB.setEstado(s);
+}
+
+async function _fetchCompensacion(tipide, numide) {
+  const url = `https://epsapps.suramericana.com/comisiones/servlet/co.com.susalud.comisiones.compensados.DetalleCotizanteCompensado?tipideCot=${tipide}&numideCot=${encodeURIComponent(numide)}`;
+  const resp = await fetch(url, { credentials: 'include', mode: 'cors' });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const html = await resp.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const rows = doc.querySelectorAll('table tr');
+  for (const row of rows) {
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 6) {
+      const dias     = parseInt(cells[0]?.textContent?.trim() || '0') || 0;
+      const fecha    = cells[1]?.textContent?.trim() || '';
+      const empleador = cells[4]?.textContent?.trim() || '';
+      return { dias, fecha, empleador };
+    }
+  }
+  return { dias: 0, fecha: '', empleador: '' };
+}
+
+async function consultarTodoVerificador(btnEl) {
+  if (_veriConsultando) {
+    _veriAbortado    = true;
+    _veriConsultando = false;
+    if (btnEl) { btnEl.textContent = '⚡ Consultar todo'; btnEl.style.background = ''; }
+    showToast('⏹️ Consulta detenida');
+    return;
+  }
+
+  const selMes  = document.getElementById('veriMesSel');
+  const selAnio = document.getElementById('veriAnioSel');
+  if (!selMes || !selAnio) return;
+
+  const { mesComp, anioComp, mesCompIdx } = _calcVeriMesComp(parseInt(selMes.value), parseInt(selAnio.value));
+  const ventas = getVentasPBSCompensado(mesCompIdx, anioComp)
+    .filter(v => String(v.doc || '').replace(/\D/g,'').trim());
+
+  if (!ventas.length) { showToast('Sin afiliados con cédula para consultar'); return; }
+
+  _veriAbortado    = false;
+  _veriConsultando = true;
+  if (btnEl) { btnEl.textContent = '⏹️ Detener'; btnEl.style.background = 'rgba(240,82,82,0.2)'; }
+
+  const progresoEl = document.getElementById('veriProgreso');
+
+  for (let i = 0; i < ventas.length; i++) {
+    if (_veriAbortado) break;
+    const v = ventas[i];
+    const tipide = TIPIDE_MAP[v.tipoDoc || 'CC'] || 1;
+    const numide = String(v.doc || '').replace(/\D/g,'').trim();
+    if (!numide) continue;
+
+    if (progresoEl) progresoEl.textContent = `Consultando ${i+1}/${ventas.length}: ${numide}…`;
+    _setFilaConsultando(v.id, true);
+
+    try {
+      const result = await _fetchCompensacion(tipide, numide);
+      _guardarResultadoVeri(v.id, result);
+      _actualizarFilaVeri(v.id, result);
+    } catch(e) {
+      console.warn('[Verificador lote]', numide, e.message);
+      const diasEl = document.getElementById(`veri-dias-${v.id}`);
+      if (diasEl) diasEl.innerHTML = '<span style="color:var(--red);font-size:11px;">Error</span>';
+    }
+
+    if (i < ventas.length - 1) await new Promise(r => setTimeout(r, 800));
+  }
+
+  _veriConsultando = false;
+  if (btnEl) { btnEl.textContent = '⚡ Consultar todo'; btnEl.style.background = ''; }
+  const allV = getVentasPBSCompensado(mesCompIdx, anioComp);
+  _actualizarProgresoVeri(allV);
+  if (!_veriAbortado) showToast('✅ Consulta masiva completada');
+}
+</script>
+
 
 <script>
 // Touch tooltip for collapsed sidebar icons
