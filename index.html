@@ -770,6 +770,34 @@
   .agenda-empty-sub{font-size:11.5px;color:var(--text-dim);}
   @media(max-width:700px){.agenda-wrap{padding:0 14px 24px;}.agenda-item{flex-wrap:wrap;}.agenda-actions{width:100%;justify-content:flex-end;}}
 
+  /* ── Agenda Mensual — estilo Teams ───────────────────────── */
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--border);border-top:1px solid var(--border);}
+  .cal-dow{padding:10px 0;text-align:center;font-size:10.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;background:var(--surface2);border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .cal-cell{min-height:96px;padding:6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;vertical-align:top;position:relative;}
+  .cal-cell:hover{background:rgba(37,88,240,0.06);}
+  .cal-cell.otro-mes{opacity:.35;}
+  .cal-cell.hoy .cal-day-num{background:var(--sura-blue);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .cal-day-num{font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:4px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
+  .cal-ev{font-size:10.5px;font-weight:600;padding:2px 6px;border-radius:5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+  .cal-ev.visita{background:rgba(37,88,240,0.18);color:#93b4ff;}
+  .cal-ev.llamada{background:rgba(34,197,94,0.15);color:#4ade80;}
+  .cal-ev.reunion{background:rgba(168,85,247,0.15);color:#c084fc;}
+  .cal-ev.seguimiento{background:rgba(251,191,36,0.15);color:#fbbf24;}
+  .cal-ev.otro{background:rgba(148,163,184,0.15);color:#94a3b8;}
+  .cal-more{font-size:10px;color:var(--text-dim);cursor:pointer;padding:1px 4px;}
+  /* Semana */
+  .cal-semana-grid{display:grid;grid-template-columns:56px repeat(7,1fr);border-left:1px solid var(--border);border-top:1px solid var(--border);}
+  .cal-semana-hora{font-size:10px;color:var(--text-dim);padding:2px 6px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:right;}
+  .cal-semana-cell{min-height:40px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:2px;cursor:pointer;transition:background .12s;}
+  .cal-semana-cell:hover{background:rgba(37,88,240,0.06);}
+  .cal-semana-dow{padding:8px 4px;text-align:center;font-size:10.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;background:var(--surface2);border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .cal-semana-dow.hoy{color:var(--sura-blue);}
+  /* Día */
+  .cal-dia-wrap{display:flex;flex-direction:column;gap:8px;}
+  .cal-dia-slot{display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);}
+  .cal-dia-hora{font-size:10.5px;color:var(--text-dim);width:44px;flex-shrink:0;padding-top:3px;text-align:right;}
+  .cal-dia-ev{flex:1;background:rgba(37,88,240,0.1);border-left:3px solid var(--sura-blue);border-radius:6px;padding:6px 10px;font-size:12px;}
+
   /* ── FIN AGENDA DIARIA ── */
 
   /* ---- RECORDATORIOS SEGUIMIENTO ---- */
@@ -4542,6 +4570,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0;">
           <button id="actTab-diaria" class="tab-pill active" onclick="actSwitchTab('diaria')" style="border-radius:8px 8px 0 0;border-bottom:2px solid var(--sura-blue);">📝 Actividad Diaria</button>
           <button id="actTab-prospectos" class="tab-pill" onclick="actSwitchTab('prospectos')" style="border-radius:8px 8px 0 0;">👥 BD Prospectos</button>
+          <button id="actTab-agenda" class="tab-pill" onclick="actSwitchTab('agenda')" style="border-radius:8px 8px 0 0;">📅 Agenda Mensual</button>
         </div>
 
         <!-- PANEL: ACTIVIDAD DIARIA -->
@@ -4675,6 +4704,75 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
           </div>
 
         </div><!-- /actPanel-prospectos -->
+
+        <!-- PANEL: AGENDA MENSUAL -->
+        <div id="actPanel-agenda" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div class="section-title" style="margin-bottom:2px;">📅 Agenda Mensual</div>
+              <div style="font-size:12px;color:var(--text-muted);">Planifica visitas, llamadas y gestiones del mes</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-secondary btn-sm" onclick="agendaNavMes(-1)">‹ Anterior</button>
+              <span id="agendaMesLabel" style="font-size:13px;font-weight:700;color:var(--text);min-width:140px;text-align:center;"></span>
+              <button class="btn btn-secondary btn-sm" onclick="agendaNavMes(1)">Siguiente ›</button>
+              <button class="btn btn-primary btn-sm" onclick="agendaAbrirCrear()">+ Nuevo evento</button>
+            </div>
+          </div>
+
+          <!-- Vista selector -->
+          <div style="display:flex;gap:6px;margin-bottom:16px;">
+            <button id="agendaVista-mes" class="tab-pill active" onclick="agendaSetVista('mes')" style="padding:4px 14px;font-size:11px;">Mes</button>
+            <button id="agendaVista-semana" class="tab-pill" onclick="agendaSetVista('semana')" style="padding:4px 14px;font-size:11px;">Semana</button>
+            <button id="agendaVista-dia" class="tab-pill" onclick="agendaSetVista('dia')" style="padding:4px 14px;font-size:11px;">Día</button>
+          </div>
+
+          <!-- Calendario -->
+          <div id="agendaCalendario" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;"></div>
+
+          <!-- Modal crear/editar evento -->
+          <div id="agendaModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:none;align-items:center;justify-content:center;">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px;width:100%;max-width:440px;box-shadow:0 24px 64px rgba(0,0,0,0.4);">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <div style="font-size:15px;font-weight:700;color:var(--text);" id="agendaModalTitulo">Nuevo evento</div>
+                <button onclick="agendaCerrarModal()" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;">×</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div><label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Título del evento *</label>
+                  <input id="agendaEvTitulo" class="form-input" placeholder="Ej: Visita empresa Farmatodo" style="width:100%;"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div><label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Fecha *</label>
+                    <input id="agendaEvFecha" type="date" class="form-input" style="width:100%;"></div>
+                  <div><label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Hora</label>
+                    <input id="agendaEvHora" type="time" class="form-input" value="09:00" style="width:100%;"></div>
+                </div>
+                <div><label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Tipo</label>
+                  <select id="agendaEvTipo" class="form-input" style="width:100%;">
+                    <option value="visita">🏢 Visita empresa</option>
+                    <option value="llamada">📞 Llamada</option>
+                    <option value="reunion">🤝 Reunión</option>
+                    <option value="seguimiento">📋 Seguimiento</option>
+                    <option value="otro">📌 Otro</option>
+                  </select></div>
+                <div><label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Descripción</label>
+                  <textarea id="agendaEvDesc" class="form-input" rows="2" placeholder="Detalles del evento..." style="width:100%;resize:vertical;"></textarea></div>
+                <div><label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Notificar por correo</label>
+                  <select id="agendaEvNotif" class="form-input" style="width:100%;">
+                    <option value="0">Sin recordatorio</option>
+                    <option value="60">1 hora antes</option>
+                    <option value="1440" selected>1 día antes</option>
+                    <option value="2880">2 días antes</option>
+                  </select></div>
+              </div>
+              <input type="hidden" id="agendaEvId">
+              <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="agendaCerrarModal()">Cancelar</button>
+                <button id="agendaEvBtnEliminar" class="btn" style="background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.25);display:none;" onclick="agendaEliminarEvento()">🗑 Eliminar</button>
+                <button class="btn btn-primary" onclick="agendaGuardarEvento()">Guardar</button>
+              </div>
+            </div>
+          </div>
+        </div><!-- /actPanel-agenda -->
 
       </div><!-- /page-actividad -->
 
@@ -25970,6 +26068,8 @@ async function _esperarFirebaseYArrancar() {
   // Sincronizar perfil del asesor a Firestore (para Cloud Functions) al arrancar
   // setTimeout para no bloquear el render inicial de la app
   setTimeout(() => _sincronizarEmailAsesorFirestore(), 2000);
+  // Verificar recordatorios de agenda pendientes
+  setTimeout(() => agendaVerificarRecordatorios(), 3000);
 
   _iniciarAppTrasLogin();
 }
@@ -30085,8 +30185,9 @@ function concilExportarDiferencias() {
 // BD PROSPECTOS
 // =============================================
 function actSwitchTab(tab) {
-  ['diaria','prospectos'].forEach(t => {
-    document.getElementById('actPanel-' + t).style.display = t === tab ? '' : 'none';
+  ['diaria','prospectos','agenda'].forEach(t => {
+    const panel = document.getElementById('actPanel-' + t);
+    if (panel) panel.style.display = t === tab ? '' : 'none';
     const btn = document.getElementById('actTab-' + t);
     if (btn) {
       btn.classList.toggle('active', t === tab);
@@ -30094,6 +30195,307 @@ function actSwitchTab(tab) {
     }
   });
   if (tab === 'prospectos') prosRenderTabla();
+  if (tab === 'agenda') agendaRender();
+}
+
+// ════════════════════════════════════════════════════════════
+// AGENDA MENSUAL — lógica completa
+// ════════════════════════════════════════════════════════════
+
+// Storage
+function getAgendaEventos() {
+  try { return JSON.parse(localStorage.getItem('sura_agenda_eventos_v1') || '[]'); } catch(e) { return []; }
+}
+function setAgendaEventos(arr) {
+  try { localStorage.setItem('sura_agenda_eventos_v1', JSON.stringify(arr)); } catch(e) {}
+}
+
+// Estado de la vista
+let _agendaMesOffset = 0; // 0 = mes actual
+let _agendaVista     = 'mes'; // 'mes' | 'semana' | 'dia'
+let _agendaDiaActivo = new Date().toISOString().split('T')[0];
+
+const AGENDA_TIPO_ICON = { visita:'🏢', llamada:'📞', reunion:'🤝', seguimiento:'📋', otro:'📌' };
+const AGENDA_DIAS_ES   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const AGENDA_MESES_ES  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function agendaNavMes(dir) {
+  if (_agendaVista === 'dia') {
+    const d = new Date(_agendaDiaActivo + 'T12:00:00');
+    d.setDate(d.getDate() + dir);
+    _agendaDiaActivo = d.toISOString().split('T')[0];
+  } else {
+    _agendaMesOffset += dir;
+  }
+  agendaRender();
+}
+
+function agendaSetVista(v) {
+  _agendaVista = v;
+  ['mes','semana','dia'].forEach(x => {
+    const btn = document.getElementById('agendaVista-' + x);
+    if (btn) { btn.classList.toggle('active', x === v); btn.style.borderBottom = x === v ? '2px solid var(--sura-blue)' : ''; }
+  });
+  agendaRender();
+}
+
+function agendaRender() {
+  if (_agendaVista === 'mes')    agendaRenderMes();
+  else if (_agendaVista === 'semana') agendaRenderSemana();
+  else agendaRenderDia();
+}
+
+// ── Vista Mes ─────────────────────────────────────────────────
+function agendaRenderMes() {
+  const hoy   = new Date();
+  const ref   = new Date(hoy.getFullYear(), hoy.getMonth() + _agendaMesOffset, 1);
+  const anio  = ref.getFullYear();
+  const mes   = ref.getMonth();
+  const label = document.getElementById('agendaMesLabel');
+  if (label) label.textContent = AGENDA_MESES_ES[mes] + ' ' + anio;
+
+  const eventos = getAgendaEventos();
+  const primerDia = new Date(anio, mes, 1).getDay();
+  const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+  const diasAntes = primerDia;
+  const totalCeldas = Math.ceil((diasAntes + diasEnMes) / 7) * 7;
+  const hoyStr = hoy.toISOString().split('T')[0];
+
+  let html = '<div class="cal-grid">';
+  AGENDA_DIAS_ES.forEach(d => { html += `<div class="cal-dow">${d}</div>`; });
+
+  for (let i = 0; i < totalCeldas; i++) {
+    const offset = i - diasAntes;
+    const fecha  = new Date(anio, mes, 1 + offset);
+    const fStr   = fecha.toISOString().split('T')[0];
+    const otroMes = fecha.getMonth() !== mes;
+    const esHoy   = fStr === hoyStr;
+    const evsDia  = eventos.filter(e => e.fecha === fStr).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
+    const max = 3;
+
+    html += `<div class="cal-cell${otroMes ? ' otro-mes' : ''}${esHoy ? ' hoy' : ''}" onclick="agendaClickDia('${fStr}')">`;
+    html += `<div class="cal-day-num">${fecha.getDate()}</div>`;
+    evsDia.slice(0, max).forEach(ev => {
+      html += `<div class="cal-ev ${ev.tipo || 'otro'}" onclick="event.stopPropagation();agendaAbrirEditar('${ev.id}')" title="${ev.titulo}">${AGENDA_TIPO_ICON[ev.tipo] || '📌'} ${ev.hora ? ev.hora.slice(0,5)+' ' : ''}${ev.titulo}</div>`;
+    });
+    if (evsDia.length > max) html += `<div class="cal-more">+${evsDia.length - max} más</div>`;
+    html += '</div>';
+  }
+  html += '</div>';
+  const cal = document.getElementById('agendaCalendario');
+  if (cal) cal.innerHTML = html;
+}
+
+// ── Vista Semana ──────────────────────────────────────────────
+function agendaRenderSemana() {
+  const hoy   = new Date();
+  const ref   = new Date(hoy.getFullYear(), hoy.getMonth() + _agendaMesOffset, 1);
+  // Semana actual basada en hoy + offset de mes (simplificado)
+  const inicioSemana = new Date(hoy);
+  const dow = hoy.getDay();
+  inicioSemana.setDate(hoy.getDate() - dow + (_agendaMesOffset * 7));
+  const hoyStr = hoy.toISOString().split('T')[0];
+  const eventos = getAgendaEventos();
+
+  const dias = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(inicioSemana);
+    d.setDate(inicioSemana.getDate() + i);
+    dias.push(d);
+  }
+
+  const label = document.getElementById('agendaMesLabel');
+  if (label) {
+    const ini = dias[0], fin = dias[6];
+    label.textContent = `${ini.getDate()} ${AGENDA_MESES_ES[ini.getMonth()].slice(0,3)} — ${fin.getDate()} ${AGENDA_MESES_ES[fin.getMonth()].slice(0,3)} ${fin.getFullYear()}`;
+  }
+
+  const horas = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
+
+  let html = '<div class="cal-semana-grid">';
+  // Header
+  html += '<div class="cal-semana-dow" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border);"></div>';
+  dias.forEach(d => {
+    const dStr = d.toISOString().split('T')[0];
+    const esHoy = dStr === hoyStr;
+    html += `<div class="cal-semana-dow${esHoy ? ' hoy' : ''}">${AGENDA_DIAS_ES[d.getDay()]} ${d.getDate()}</div>`;
+  });
+  // Filas de horas
+  horas.forEach(hora => {
+    html += `<div class="cal-semana-hora">${hora}</div>`;
+    dias.forEach(d => {
+      const dStr = d.toISOString().split('T')[0];
+      const evs = eventos.filter(e => e.fecha === dStr && e.hora && e.hora.startsWith(hora.slice(0,2)));
+      html += `<div class="cal-semana-cell" onclick="agendaClickDiaHora('${dStr}','${hora}')">`;
+      evs.forEach(ev => {
+        html += `<div class="cal-ev ${ev.tipo || 'otro'}" onclick="event.stopPropagation();agendaAbrirEditar('${ev.id}')">${AGENDA_TIPO_ICON[ev.tipo]||'📌'} ${ev.titulo}</div>`;
+      });
+      html += '</div>';
+    });
+  });
+  html += '</div>';
+  const cal = document.getElementById('agendaCalendario');
+  if (cal) cal.innerHTML = html;
+}
+
+// ── Vista Día ─────────────────────────────────────────────────
+function agendaRenderDia() {
+  const hoy = new Date();
+  const hoyStr = hoy.toISOString().split('T')[0];
+  const label = document.getElementById('agendaMesLabel');
+  const diaD = new Date(_agendaDiaActivo + 'T12:00:00');
+  if (label) label.textContent = `${AGENDA_DIAS_ES[diaD.getDay()]}, ${diaD.getDate()} de ${AGENDA_MESES_ES[diaD.getMonth()]} ${diaD.getFullYear()}`;
+
+  const eventos = getAgendaEventos().filter(e => e.fecha === _agendaDiaActivo).sort((a,b) => (a.hora||'').localeCompare(b.hora||''));
+  const horas = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+
+  let html = '<div class="cal-dia-wrap" style="padding:16px;">';
+  if (!eventos.length) {
+    html += '<div style="text-align:center;padding:40px;color:var(--text-dim);font-size:13px;">Sin eventos programados para este día.<br><span style="font-size:11px;">Haz clic en el calendario o en "+ Nuevo evento"</span></div>';
+  } else {
+    const sinHora = eventos.filter(e => !e.hora);
+    const conHora = eventos.filter(e => e.hora);
+    if (sinHora.length) {
+      html += '<div style="margin-bottom:12px;"><div style="font-size:10.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;margin-bottom:6px;">Todo el día</div>';
+      sinHora.forEach(ev => {
+        html += `<div class="cal-ev ${ev.tipo||'otro'}" style="display:inline-block;margin-right:6px;cursor:pointer;" onclick="agendaAbrirEditar('${ev.id}')">${AGENDA_TIPO_ICON[ev.tipo]||'📌'} ${ev.titulo}</div>`;
+      });
+      html += '</div>';
+    }
+    horas.forEach(hora => {
+      const evsDia = conHora.filter(e => e.hora && e.hora.startsWith(hora.slice(0,2)));
+      html += `<div class="cal-dia-slot">`;
+      html += `<div class="cal-dia-hora">${hora}</div>`;
+      html += `<div style="flex:1;min-height:36px;cursor:pointer;" onclick="agendaClickDiaHora('${_agendaDiaActivo}','${hora}')">`;
+      evsDia.forEach(ev => {
+        html += `<div class="cal-dia-ev" onclick="event.stopPropagation();agendaAbrirEditar('${ev.id}')"><strong>${AGENDA_TIPO_ICON[ev.tipo]||'📌'} ${ev.titulo}</strong>${ev.descripcion ? '<br><span style=\"font-size:11px;color:var(--text-muted)\">' + ev.descripcion + '</span>' : ''}</div>`;
+      });
+      html += '</div></div>';
+    });
+  }
+  html += '</div>';
+  const cal = document.getElementById('agendaCalendario');
+  if (cal) cal.innerHTML = html;
+}
+
+// ── Clicks en celdas ─────────────────────────────────────────
+function agendaClickDia(fecha) {
+  _agendaDiaActivo = fecha;
+  agendaAbrirCrear(fecha);
+}
+function agendaClickDiaHora(fecha, hora) {
+  agendaAbrirCrear(fecha, hora);
+}
+
+// ── Modal crear / editar ──────────────────────────────────────
+function agendaAbrirCrear(fecha, hora) {
+  document.getElementById('agendaModalTitulo').textContent = 'Nuevo evento';
+  document.getElementById('agendaEvTitulo').value = '';
+  document.getElementById('agendaEvFecha').value = fecha || new Date().toISOString().split('T')[0];
+  document.getElementById('agendaEvHora').value = hora || '09:00';
+  document.getElementById('agendaEvTipo').value = 'visita';
+  document.getElementById('agendaEvDesc').value = '';
+  document.getElementById('agendaEvNotif').value = '1440';
+  document.getElementById('agendaEvId').value = '';
+  document.getElementById('agendaEvBtnEliminar').style.display = 'none';
+  const overlay = document.getElementById('agendaModalOverlay');
+  overlay.style.display = 'flex';
+}
+
+function agendaAbrirEditar(id) {
+  const ev = getAgendaEventos().find(e => e.id === id);
+  if (!ev) return;
+  document.getElementById('agendaModalTitulo').textContent = 'Editar evento';
+  document.getElementById('agendaEvTitulo').value = ev.titulo || '';
+  document.getElementById('agendaEvFecha').value = ev.fecha || '';
+  document.getElementById('agendaEvHora').value = ev.hora || '09:00';
+  document.getElementById('agendaEvTipo').value = ev.tipo || 'visita';
+  document.getElementById('agendaEvDesc').value = ev.descripcion || '';
+  document.getElementById('agendaEvNotif').value = ev.notifMin || '1440';
+  document.getElementById('agendaEvId').value = id;
+  document.getElementById('agendaEvBtnEliminar').style.display = '';
+  document.getElementById('agendaModalOverlay').style.display = 'flex';
+}
+
+function agendaCerrarModal() {
+  document.getElementById('agendaModalOverlay').style.display = 'none';
+}
+
+function agendaGuardarEvento() {
+  const titulo = document.getElementById('agendaEvTitulo').value.trim();
+  if (!titulo) { showToast('⚠️ El título es obligatorio'); return; }
+  const id    = document.getElementById('agendaEvId').value || ('ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,5));
+  const ev = {
+    id,
+    titulo,
+    fecha:      document.getElementById('agendaEvFecha').value,
+    hora:       document.getElementById('agendaEvHora').value,
+    tipo:       document.getElementById('agendaEvTipo').value,
+    descripcion:document.getElementById('agendaEvDesc').value.trim(),
+    notifMin:   parseInt(document.getElementById('agendaEvNotif').value) || 0,
+    creadoEn:   new Date().toISOString()
+  };
+  const eventos = getAgendaEventos().filter(e => e.id !== id);
+  eventos.push(ev);
+  setAgendaEventos(eventos);
+  agendaCerrarModal();
+  agendaRender();
+  showToast('✅ Evento guardado');
+  // Programar notificación por correo (usando EmailJS directo si está disponible)
+  if (ev.notifMin > 0) agendaProgramarNotifEvento(ev);
+}
+
+function agendaEliminarEvento() {
+  const id = document.getElementById('agendaEvId').value;
+  if (!id || !confirm('¿Eliminar este evento?')) return;
+  setAgendaEventos(getAgendaEventos().filter(e => e.id !== id));
+  agendaCerrarModal();
+  agendaRender();
+  showToast('🗑 Evento eliminado');
+}
+
+// ── Notificación por correo del evento ───────────────────────
+async function agendaProgramarNotifEvento(ev) {
+  try {
+    const s = getState();
+    const emailDestino = s.config?.emailNotif?.trim() || '';
+    if (!emailDestino || !ev.notifMin) return;
+    await _cargarEmailJS();
+    if (!window.emailjs) return;
+    const fechaEv = new Date(ev.fecha + 'T' + (ev.hora || '09:00') + ':00');
+    const fechaNotif = new Date(fechaEv.getTime() - ev.notifMin * 60 * 1000);
+    const msHasta = fechaNotif.getTime() - Date.now();
+    if (msHasta <= 0) return; // Ya pasó
+    const tiempoLabel = ev.notifMin >= 1440 ? `${ev.notifMin/1440} día(s)` : `${ev.notifMin/60} hora(s)`;
+    setTimeout(async () => {
+      try {
+        await window.emailjs.send('service_hketcd1', 'template_z1tx2n4', {
+          asunto:  `📅 Recordatorio: ${ev.titulo}`,
+          mensaje: `Hola,
+
+Te recordamos que tienes un evento programado:
+
+${AGENDA_TIPO_ICON[ev.tipo]||'📌'} ${ev.titulo}
+Fecha: ${ev.fecha}
+Hora: ${ev.hora || 'Sin hora'}
+Tipo: ${ev.tipo}
+${ev.descripcion ? 'Descripción: ' + ev.descripcion : ''}
+
+— Sistema SURA Asesor`,
+          email:   emailDestino
+        });
+        showToast('📧 Recordatorio enviado al correo');
+      } catch(e) { console.warn('[AgendaNotif] Error correo:', e.message); }
+    }, Math.min(msHasta, 2147483647)); // setTimeout max ~24 días
+  } catch(e) { console.warn('[AgendaNotif]', e.message); }
+}
+
+// ── Verificar recordatorios pendientes al cargar ─────────────
+function agendaVerificarRecordatorios() {
+  const eventos = getAgendaEventos();
+  eventos.forEach(ev => {
+    if (ev.notifMin > 0) agendaProgramarNotifEvento(ev);
+  });
 }
 
 // Storage helpers
