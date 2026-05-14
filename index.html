@@ -2919,6 +2919,27 @@
             </div>
           </div>
 
+          <!-- Banner CORS (oculto por defecto) -->
+          <div id="veriBannerCORS" style="display:none;margin-bottom:16px;padding:16px 18px;border-radius:var(--radius);background:rgba(240,82,82,0.08);border:1px solid rgba(240,82,82,0.3);color:var(--red);">
+            <div style="font-weight:700;font-size:13.5px;margin-bottom:8px;">🚫 Bloqueado por política CORS del servidor de SURA</div>
+            <div style="font-size:12.5px;line-height:1.7;color:var(--text-muted);">
+              El navegador bloquea las consultas porque la app está en un dominio diferente a <strong style="color:var(--text);">epsapps.suramericana.com</strong>.
+              Para solucionarlo tienes dos opciones:
+            </div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+              <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:12.5px;">
+                <strong style="color:var(--text);">Opción 1 (recomendada) — Extensión del navegador</strong><br>
+                <span style="color:var(--text-muted);">Instala <strong>CORS Unblock</strong> o <strong>Allow CORS</strong> en Chrome/Edge, actívala solo mientras usas el verificador, y vuelve a intentar.</span><br>
+                <a href="https://chrome.google.com/webstore/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf" target="_blank" rel="noopener" style="color:var(--sura-blue);font-size:11.5px;margin-top:4px;display:inline-block;">→ Allow CORS para Chrome</a>
+              </div>
+              <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:12.5px;">
+                <strong style="color:var(--text);">Opción 2 — Abrir la app desde el portal de SURA</strong><br>
+                <span style="color:var(--text-muted);">Si la app pudiera estar alojada dentro de <code style="font-size:11px;background:var(--surface3);padding:1px 5px;border-radius:4px;">epsapps.suramericana.com</code>, el CORS no aplicaría. Requiere configuración del portal.</span>
+              </div>
+            </div>
+            <button onclick="document.getElementById('veriBannerCORS').style.display='none'" style="margin-top:12px;background:none;border:1px solid rgba(240,82,82,0.3);color:var(--red);padding:5px 14px;border-radius:8px;cursor:pointer;font-size:12px;">Cerrar aviso</button>
+          </div>
+
           <!-- Alerta sesión -->
           <div class="alert" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);color:var(--amber);font-size:12.5px;margin-bottom:12px;" id="veriAlertSesion">
             ⚠️ <strong>Requiere sesión activa</strong> en <a href="https://epsapps.suramericana.com" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:underline;">epsapps.suramericana.com</a> — abre el portal en esta ventana del navegador antes de consultar.
@@ -32323,6 +32344,15 @@ const _MESES_ES_VERI = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
 let _veriAbortado = false;
 let _veriConsultando = false;
 
+function _mostrarBannerCORS() {
+  const banner = document.getElementById('veriBannerCORS');
+  if (banner) banner.style.display = '';
+  // Ocultar alerta de sesión — ya no es el problema
+  const alertSesion = document.getElementById('veriAlertSesion');
+  if (alertSesion) alertSesion.style.display = 'none';
+  showToast('🚫 CORS bloqueado — revisa el aviso en el Verificador');
+}
+
 // Calcula mesComp (mes de pago - 3) igual que renderPagoMes
 function _calcVeriMesComp(mesPago, anioPago) {
   let mesComp = mesPago - 3;
@@ -32484,7 +32514,10 @@ async function consultarUnoVeri(ventaId, tipide, numide, btnEl) {
     _actualizarFilaVeri(ventaId, result);
   } catch(e) {
     _setFilaConsultando(ventaId, false);
-    if (e.message === 'ABORT') return;
+    if (e.message === 'CORS') {
+      _mostrarBannerCORS();
+      return;
+    }
     showToast(`⚠️ Error al consultar ${numide}: ${e.message}`);
     console.warn('[Verificador]', numide, e);
   }
@@ -32563,7 +32596,18 @@ function _guardarResultadoVeri(ventaId, result) {
 
 async function _fetchCompensacion(tipide, numide) {
   const url = `https://epsapps.suramericana.com/comisiones/servlet/co.com.susalud.comisiones.compensados.DetalleCotizanteCompensado?tipideCot=${tipide}&numideCot=${encodeURIComponent(numide)}`;
-  const resp = await fetch(url, { credentials: 'include', mode: 'cors' });
+  let resp;
+  try {
+    resp = await fetch(url, { credentials: 'include' });
+  } catch(e) {
+    // TypeError = CORS bloqueado o red caída
+    const msg = (e && e.message) || '';
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('CORS')) {
+      throw new Error('CORS');
+    }
+    throw e;
+  }
+  if (resp.status === 429) throw new Error('429');
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const html = await resp.text();
   const parser = new DOMParser();
@@ -32572,8 +32616,8 @@ async function _fetchCompensacion(tipide, numide) {
   for (const row of rows) {
     const cells = row.querySelectorAll('td');
     if (cells.length >= 6) {
-      const dias     = parseInt(cells[0]?.textContent?.trim() || '0') || 0;
-      const fecha    = cells[1]?.textContent?.trim() || '';
+      const dias      = parseInt(cells[0]?.textContent?.trim() || '0') || 0;
+      const fecha     = cells[1]?.textContent?.trim() || '';
       const empleador = cells[4]?.textContent?.trim() || '';
       return { dias, fecha, empleador };
     }
@@ -32621,6 +32665,14 @@ async function consultarTodoVerificador(btnEl) {
       _guardarResultadoVeri(v.id, result);
       _actualizarFilaVeri(v.id, result);
     } catch(e) {
+      if (e.message === 'CORS') {
+        // Detener el lote entero — CORS afecta a todos
+        _veriConsultando = false;
+        _veriAbortado = true;
+        if (btnEl) { btnEl.textContent = '⚡ Consultar todo'; btnEl.style.background = ''; }
+        _mostrarBannerCORS();
+        return;
+      }
       console.warn('[Verificador lote]', numide, e.message);
       const diasEl = document.getElementById(`veri-dias-${v.id}`);
       if (diasEl) diasEl.innerHTML = '<span style="color:var(--red);font-size:11px;">Error</span>';
