@@ -30195,66 +30195,19 @@ function actSwitchTab(tab) {
     }
   });
   if (tab === 'prospectos') prosRenderTabla();
-  if (tab === 'agenda') {
-    // Cargar eventos frescos desde Firestore antes de renderizar
-    _agendaCargarFirestore().then(() => agendaRender());
-  }
+  if (tab === 'agenda') agendaRender();
 }
 
 // ════════════════════════════════════════════════════════════
 // AGENDA MENSUAL — lógica completa
 // ════════════════════════════════════════════════════════════
 
-// ── Agenda — Storage sincronizado con Firestore ──────────────
-// Cache local para render inmediato sin esperar Firestore
-let _agendaCache = null;
-
+// Storage
 function getAgendaEventos() {
-  if (_agendaCache !== null) return _agendaCache;
   try { return JSON.parse(localStorage.getItem('sura_agenda_eventos_v1') || '[]'); } catch(e) { return []; }
 }
-
 function setAgendaEventos(arr) {
-  _agendaCache = arr;
-  // Guardar en localStorage como fallback offline
   try { localStorage.setItem('sura_agenda_eventos_v1', JSON.stringify(arr)); } catch(e) {}
-  // Sincronizar a Firestore
-  _agendaSyncFirestore(arr);
-}
-
-/**
- * Escribe los eventos de agenda en Firestore bajo estado/{uid}
- * usando fbPatchDoc con merge:true — no afecta otros campos del documento.
- */
-function _agendaSyncFirestore(arr) {
-  try {
-    const uid = window.FB?.UID || '';
-    if (!uid || !window.FB?.patchDoc) return;
-    window.FB.patchDoc('agendaEventos', uid, {
-      eventos:    arr,
-      syncAt:     new Date().toISOString()
-    });
-  } catch(e) { console.warn('[Agenda] Error sync Firestore:', e.message); }
-}
-
-/**
- * Carga los eventos de Firestore al abrir la app o la pestaña agenda.
- * Sobreescribe el cache local con la versión del servidor.
- */
-async function _agendaCargarFirestore() {
-  try {
-    const uid = window.FB?.UID || '';
-    if (!uid || !window.FB?.db) return;
-    const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    const snap = await getDoc(doc(window.FB.db, 'agendaEventos', uid));
-    if (snap.exists()) {
-      const data = snap.data();
-      const eventos = data.eventos || [];
-      _agendaCache = eventos;
-      try { localStorage.setItem('sura_agenda_eventos_v1', JSON.stringify(eventos)); } catch(e) {}
-      console.log('[Agenda] ✅ Eventos cargados desde Firestore:', eventos.length);
-    }
-  } catch(e) { console.warn('[Agenda] Error cargando Firestore:', e.message); }
 }
 
 // Estado de la vista
@@ -30539,12 +30492,9 @@ ${ev.descripcion ? 'Descripción: ' + ev.descripcion : ''}
 
 // ── Verificar recordatorios pendientes al cargar ─────────────
 function agendaVerificarRecordatorios() {
-  // Cargar desde Firestore primero, luego programar recordatorios
-  _agendaCargarFirestore().then(() => {
-    const eventos = getAgendaEventos();
-    eventos.forEach(ev => {
-      if (ev.notifMin > 0) agendaProgramarNotifEvento(ev);
-    });
+  const eventos = getAgendaEventos();
+  eventos.forEach(ev => {
+    if (ev.notifMin > 0) agendaProgramarNotifEvento(ev);
   });
 }
 
