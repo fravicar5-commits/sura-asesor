@@ -2812,6 +2812,14 @@
                 <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:#6B9EFF;" id="pmPBSTotal">$0</div>
               </div>
               <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;" id="pmPBSPeriodo">Período de ventas: —</div>
+              <!-- ══ Informe de Revisión Sura ══ -->
+              <div id="pmSuraReviewBar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;background:rgba(168,85,247,0.07);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:8px 12px;">
+                <span style="font-size:10.5px;color:var(--purple);font-weight:700;text-transform:uppercase;letter-spacing:.05em;">🔍 Revisión Sura</span>
+                <span id="pmSuraReviewLabel" style="font-size:11px;color:var(--text-muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Carga el informe de comisiones de Sura (.xls) para ver observaciones por afiliado</span>
+                <input type="file" id="pmSuraReviewInput" accept=".xls,.xlsx" style="display:none;" onchange="cargarInformeSura(this)">
+                <span class="btn btn-secondary" style="font-size:11px;padding:4px 10px;white-space:nowrap;cursor:pointer;" onclick="document.getElementById('pmSuraReviewInput').click()">📂 Cargar informe</span>
+                <span id="pmSuraReviewClearBtn" style="display:none;font-size:11px;color:var(--text-dim);cursor:pointer;text-decoration:underline;" onclick="limpiarInformeSura()">✕ Limpiar</span>
+              </div>
               <div id="pmPBSTablaWrap" style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:12px;">
                   <thead><tr style="background:var(--surface2);">
@@ -2821,6 +2829,7 @@
                     <th style="padding:8px 10px;text-align:center;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Rango</th>
                     <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Fecha Venta</th>
                     <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Comp. Para</th>
+                    <th style="padding:8px 10px;text-align:left;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Obs. Sura</th>
                     <th style="padding:8px 10px;text-align:right;font-size:10px;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;">Comisión</th>
                   </tr></thead>
                   <tbody id="pmPBSBody"></tbody>
@@ -10979,6 +10988,7 @@ function renderPagoMes() {
         <td style="padding:7px 10px;text-align:center;">${rango}</td>
         <td style="padding:7px 10px;font-size:12px;font-family:var(--mono);">${fechaVenta}</td>
         <td style="padding:7px 10px;font-size:11.5px;color:var(--text-muted);">${compPara}</td>
+        ${_getSuraObsChip(v.doc)}
         <td style="padding:7px 10px;text-align:right;font-family:var(--mono);font-weight:700;color:#6B9EFF;">${fmt(com)}</td>
       </tr>`;
     }).join('');
@@ -11278,6 +11288,103 @@ async function cargarCierreSura(input) {
     if (lbl) lbl.textContent = `Error: ${err.message}`;
     console.error('[cargarCierreSura]', err);
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// INFORME REVISIÓN SURA — Observaciones por afiliado
+// Lee el InformedeComisiones .xls de Sura (header en fila 7, índice 6),
+// extrae NUMERO ID AFILIADO → { observacion, detalle } y lo usa en la
+// tabla PBS para mostrar el estado real de cada venta.
+// ══════════════════════════════════════════════════════════════════════
+
+let _suraReviewMap = null; // Map<string, { observacion, detalle }>
+
+async function cargarInformeSura(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  const lbl = document.getElementById('pmSuraReviewLabel');
+  if (lbl) lbl.textContent = 'Procesando archivo...';
+  try {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const buf = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target.result);
+      reader.onerror = () => rej(new Error('No se pudo leer el archivo'));
+      reader.readAsArrayBuffer(file);
+    });
+    const wb = XLSX.read(buf, { type: 'array', cellDates: false });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    // Encontrar la fila de encabezados (contiene NUMERO ID AFILIADO)
+    let headerRow = -1;
+    for (let i = 0; i < Math.min(15, rows.length); i++) {
+      if (rows[i].some(c => String(c).toUpperCase().includes('NUMERO ID AFILIADO'))) {
+        headerRow = i; break;
+      }
+    }
+    if (headerRow < 0) throw new Error('No se encontró la fila de encabezados en el archivo');
+
+    const headers = rows[headerRow].map(h => String(h).trim().toUpperCase());
+    const colIdx = name => headers.findIndex(h => h === name || h.includes(name));
+    const cDoc  = colIdx('NUMERO ID AFILIADO');
+    const cObs  = colIdx('OBSERVACION');
+    const cDet  = colIdx('DETALLE REVISION');
+    if (cDoc < 0 || cObs < 0) throw new Error('El archivo no contiene las columnas esperadas (NUMERO ID AFILIADO, OBSERVACION)');
+
+    const map = new Map();
+    rows.slice(headerRow + 1).forEach(r => {
+      const doc = String(r[cDoc] || '').replace(/\D/g, '').trim();
+      if (!doc) return;
+      const obs    = String(r[cObs] || '').trim();
+      const detalle= cDet >= 0 ? String(r[cDet] || '').trim() : '';
+      // Si el doc ya existe, priorizar estados distintos a USUARIO YA PAGADO
+      if (!map.has(doc) || map.get(doc).observacion === 'USUARIO YA PAGADO') {
+        map.set(doc, { observacion: obs, detalle });
+      }
+    });
+
+    _suraReviewMap = map;
+    const total = map.size;
+    if (lbl) lbl.textContent = `✅ ${file.name} — ${total} afiliados cargados`;
+    const clearBtn = document.getElementById('pmSuraReviewClearBtn');
+    if (clearBtn) clearBtn.style.display = '';
+    // Re-renderizar la tabla para mostrar las observaciones
+    renderPagoMes();
+  } catch (err) {
+    if (lbl) lbl.textContent = `❌ Error: ${err.message}`;
+    console.error('[cargarInformeSura]', err);
+  }
+}
+
+function limpiarInformeSura() {
+  _suraReviewMap = null;
+  const input = document.getElementById('pmSuraReviewInput');
+  if (input) input.value = '';
+  const lbl = document.getElementById('pmSuraReviewLabel');
+  if (lbl) lbl.textContent = 'Carga el informe de comisiones de Sura (.xls) para ver observaciones por afiliado';
+  const clearBtn = document.getElementById('pmSuraReviewClearBtn');
+  if (clearBtn) clearBtn.style.display = 'none';
+  renderPagoMes();
+}
+
+function _getSuraObsChip(doc) {
+  if (!_suraReviewMap || !doc) return '<td style="padding:7px 10px;font-size:11px;color:var(--text-dim);">—</td>';
+  const docNorm = String(doc).replace(/\D/g, '').trim();
+  const info = _suraReviewMap.get(docNorm);
+  if (!info) return '<td style="padding:7px 10px;font-size:11px;color:var(--text-dim);">—</td>';
+  const obs = info.observacion || '';
+  const det = info.detalle || '';
+  const titleAttr = det ? ` title="${det.replace(/"/g,'&quot;')}"` : '';
+  let color = 'var(--text-muted)', bg = 'rgba(255,255,255,0.05)', icon = '❓';
+  if (obs === 'USUARIO YA PAGADO')              { color='var(--green)';  bg='rgba(34,197,94,0.1)';  icon='✅'; }
+  else if (obs === 'PENDIENTE DE COMPENSACION') { color='var(--amber)';  bg='rgba(245,158,11,0.1)'; icon='⏳'; }
+  else if (obs === 'DIAS COMPENSADOS ACUMULADOS'){ color='var(--purple)'; bg='rgba(168,85,247,0.1)'; icon='📅'; }
+  else if (obs === 'COMPENSADO CON OTRO EMPLEADOR'){ color='var(--teal)'; bg='rgba(6,182,212,0.1)'; icon='🔄'; }
+  else if (obs === 'USUARIO NO PAGADO')          { color='var(--red)';    bg='rgba(240,82,82,0.1)';  icon='❌'; }
+  else if (obs === 'USUARIO NO GENERA PAGO COMISION'){ color='var(--red)';bg='rgba(240,82,82,0.1)'; icon='🚫'; }
+  const label = obs.length > 28 ? obs.slice(0, 26) + '…' : obs;
+  return `<td style="padding:7px 10px;"><span style="display:inline-block;font-size:10px;font-weight:600;color:${color};background:${bg};border-radius:6px;padding:2px 7px;white-space:nowrap;cursor:${det?'help':'default'};"${titleAttr}>${icon} ${label}</span></td>`;
 }
 
 function limpiarCierreSura() {
