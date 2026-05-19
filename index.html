@@ -32977,8 +32977,9 @@ function _agenteInyectarHTML() {
         <div style="font-size:11.5px;color:var(--text-dim);line-height:1.5;">Puedo analizar tus datos, revisar tu pipeline, calcular metas y darte recomendaciones. ¿En qué te ayudo hoy?</div>
         <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px;">
           <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">📊 ¿Cómo voy con la meta este mes?</button>
-          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">👥 ¿A quién debo contactar hoy?</button>
-          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">📋 Resumen de leads esta semana</button>
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">👥 Lista mis prospectos pendientes de hoy</button>
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">🔍 Busca el prospecto Samuel Guzmán</button>
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">📅 Agenda una visita para mañana a las 10am</button>
         </div>
       </div>
     </div>
@@ -33187,11 +33188,16 @@ ACTIVIDAD DIGITAL (últimos 7 días):
 INSTRUCCIONES:
 - Responde siempre en español, de forma concisa y práctica
 - Usa datos reales del contexto para dar recomendaciones específicas
-- Si preguntan por prospectos específicos, usa los datos del pipeline
+- Cuando el usuario pida buscar un prospecto, usa la herramienta buscar_prospecto
+- Cuando el usuario pida actualizar/marcar/cambiar un prospecto, usa actualizar_prospecto
+- Cuando el usuario pida enviar WhatsApp a un cliente, usa abrir_whatsapp con mensaje personalizado
+- Cuando el usuario pida agendar/crear un evento/visita/llamada, usa crear_evento_agenda
+- Cuando el usuario pida ver pendientes/vencidos/lista de contactos, usa listar_prospectos_pendientes
+- Después de ejecutar una acción, confirma qué hiciste en lenguaje natural
 - Calcula porcentajes, ritmos y proyecciones cuando sea relevante
-- Sé directo y orientado a la acción — el asesor necesita saber qué hacer
-- Usa emojis con moderación para hacer la respuesta más legible
-- Máximo 250 palabras por respuesta salvo que el usuario pida más detalle`;
+- Sé directo y orientado a la acción
+- Usa emojis con moderación
+- Máximo 300 palabras por respuesta salvo que el usuario pida más detalle`;
   } catch(e) {
     console.warn('[Agente] Error construyendo contexto:', e.message);
     return 'Eres el Asistente SURA Asesor. Ayuda al asesor con análisis de su negocio de seguros SURA Colombia. Responde siempre en español.';
@@ -33199,6 +33205,218 @@ INSTRUCCIONES:
 }
 
 // ── Enviar mensaje ────────────────────────────────────────────────────
+
+// ════════════════════════════════════════════════════════════
+// AGENTE FASE 2 — Herramientas de acción
+// ════════════════════════════════════════════════════════════
+
+// Definición de herramientas para Claude API
+const _agenteTools = [
+  {
+    name: "buscar_prospecto",
+    description: "Busca prospectos en el pipeline por nombre, cédula o empresa. Retorna lista de coincidencias con datos completos.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Nombre, cédula o empresa a buscar" }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "actualizar_prospecto",
+    description: "Actualiza el estado, nota o próxima fecha de contacto de un prospecto en el pipeline.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id:           { type: "string",  description: "ID del prospecto" },
+        estado:       { type: "string",  description: "Nuevo estado: 0=Nuevo, 1=Contactado, 2=Cotizado, 3=Eval.SURA, 4=Ganado, 5=Perdido" },
+        nota:         { type: "string",  description: "Nota o comentario a agregar" },
+        proxContacto: { type: "string",  description: "Próxima fecha de contacto en formato YYYY-MM-DD" }
+      },
+      required: ["id"]
+    }
+  },
+  {
+    name: "abrir_whatsapp",
+    description: "Abre WhatsApp con un mensaje pre-redactado para un prospecto o número específico.",
+    input_schema: {
+      type: "object",
+      properties: {
+        telefono: { type: "string", description: "Número de teléfono (10 dígitos colombianos)" },
+        mensaje:  { type: "string", description: "Mensaje a enviar" },
+        nombre:   { type: "string", description: "Nombre del destinatario para personalizar" }
+      },
+      required: ["telefono", "mensaje"]
+    }
+  },
+  {
+    name: "crear_evento_agenda",
+    description: "Crea un evento en la agenda mensual del asesor.",
+    input_schema: {
+      type: "object",
+      properties: {
+        titulo:      { type: "string", description: "Título del evento" },
+        fecha:       { type: "string", description: "Fecha en formato YYYY-MM-DD" },
+        hora:        { type: "string", description: "Hora en formato HH:MM" },
+        tipo:        { type: "string", description: "Tipo: visita, llamada, reunion, seguimiento, otro" },
+        descripcion: { type: "string", description: "Descripción o detalle del evento" },
+        notifMin:    { type: "number", description: "Minutos antes para notificar: 0, 60, 1440 o 2880" }
+      },
+      required: ["titulo", "fecha"]
+    }
+  },
+  {
+    name: "listar_prospectos_pendientes",
+    description: "Lista los prospectos con seguimiento vencido o para contactar hoy, ordenados por urgencia.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limite: { type: "number", description: "Máximo de prospectos a retornar (default 10)" }
+      }
+    }
+  }
+];
+
+// ── Ejecutor de herramientas ──────────────────────────────────────────
+function _agenteEjecutarHerramienta(nombre, input) {
+  try {
+    switch(nombre) {
+
+      case 'buscar_prospecto': {
+        const q = (input.query || '').toLowerCase().trim();
+        if (!q) return { error: 'Query vacío' };
+        const pipeline = getPipeline ? getPipeline() : [];
+        const resultados = pipeline.filter(p =>
+          (p.nombre||'').toLowerCase().includes(q) ||
+          (p.cedula||'').includes(q) ||
+          (p.empresa||'').toLowerCase().includes(q)
+        ).slice(0, 8).map(p => ({
+          id: p.id,
+          nombre: p.nombre,
+          producto: p.producto || '?',
+          estado: ['Nuevo','Contactado','Cotizado','Eval.SURA','Ganado','Perdido'][parseInt(p.estado||'0')] || p.estado,
+          telefono: p.telefono || '',
+          correo: p.correo || '',
+          proxContacto: p.proxContacto || '',
+          notas: p.notas || ''
+        }));
+        return resultados.length
+          ? { encontrados: resultados.length, prospectos: resultados }
+          : { encontrados: 0, mensaje: `No se encontraron prospectos con "${input.query}"` };
+      }
+
+      case 'actualizar_prospecto': {
+        const { id, estado, nota, proxContacto } = input;
+        if (!id) return { error: 'ID requerido' };
+        const pipeline = getPipeline ? getPipeline() : [];
+        const idx = pipeline.findIndex(p => p.id === id);
+        if (idx === -1) return { error: `No se encontró prospecto con id: ${id}` };
+        const nombre = pipeline[idx].nombre;
+        if (estado !== undefined) pipeline[idx].estado = String(estado);
+        if (nota) {
+          if (!pipeline[idx].actividades) pipeline[idx].actividades = [];
+          pipeline[idx].actividades.push({
+            fecha: new Date().toISOString().split('T')[0],
+            hora:  new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
+            texto: nota
+          });
+          pipeline[idx].notas = nota;
+        }
+        if (proxContacto) pipeline[idx].proxContacto = proxContacto;
+        pipeline[idx].updatedAt = new Date().toISOString();
+        if (setPipeline) setPipeline(pipeline);
+        if (typeof renderPipeline === 'function') renderPipeline();
+        const estadoLabel = ['Nuevo','Contactado','Cotizado','Eval.SURA','Ganado','Perdido'][parseInt(estado||pipeline[idx].estado||'0')] || estado;
+        return {
+          exito: true,
+          mensaje: `Prospecto "${nombre}" actualizado correctamente`,
+          cambios: { estado: estadoLabel, nota, proxContacto }
+        };
+      }
+
+      case 'abrir_whatsapp': {
+        const { telefono, mensaje, nombre } = input;
+        if (!telefono) return { error: 'Teléfono requerido' };
+        const tel = telefono.replace(/\D/g,'');
+        const telCol = tel.startsWith('57') ? tel : '57' + tel;
+        const url = `https://wa.me/${telCol}?text=${encodeURIComponent(mensaje)}`;
+        // Abrir con pequeño delay para que el agente responda primero
+        setTimeout(() => window.open(url, '_blank'), 800);
+        return {
+          exito: true,
+          mensaje: `WhatsApp abierto para ${nombre || telefono}. El mensaje está listo para enviar.`
+        };
+      }
+
+      case 'crear_evento_agenda': {
+        const { titulo, fecha, hora, tipo, descripcion, notifMin } = input;
+        if (!titulo || !fecha) return { error: 'Título y fecha son requeridos' };
+        const id = 'ev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2,5);
+        const ev = {
+          id, titulo, fecha,
+          hora:        hora || '09:00',
+          tipo:        tipo || 'visita',
+          descripcion: descripcion || '',
+          notifMin:    notifMin || 1440,
+          creadoEn:    new Date().toISOString()
+        };
+        const eventos = getAgendaEventos ? getAgendaEventos() : [];
+        eventos.push(ev);
+        if (setAgendaEventos) setAgendaEventos(eventos);
+        // Re-renderizar si la pestaña agenda está activa
+        const panelAgenda = document.getElementById('actPanel-agenda');
+        if (panelAgenda && panelAgenda.style.display !== 'none') agendaRender();
+        return {
+          exito: true,
+          mensaje: `Evento "${titulo}" creado para el ${fecha} a las ${hora || '09:00'}`,
+          evento: ev
+        };
+      }
+
+      case 'listar_prospectos_pendientes': {
+        const limite = input.limite || 10;
+        const pipeline = getPipeline ? getPipeline() : [];
+        const hoy = new Date().toISOString().split('T')[0];
+        const pendientes = pipeline
+          .filter(p => p.proxContacto && p.proxContacto <= hoy && !['4','5'].includes(String(p.estado||'0')))
+          .sort((a,b) => (a.proxContacto||'').localeCompare(b.proxContacto||''))
+          .slice(0, limite)
+          .map(p => {
+            const dias = Math.floor((new Date(hoy+'T12:00:00') - new Date(p.proxContacto+'T12:00:00')) / 86400000);
+            return {
+              id: p.id,
+              nombre: p.nombre,
+              producto: p.producto || '?',
+              telefono: p.telefono || '',
+              proxContacto: p.proxContacto,
+              diasVencido: dias,
+              estado: ['Nuevo','Contactado','Cotizado','Eval.SURA','Ganado','Perdido'][parseInt(p.estado||'0')] || p.estado
+            };
+          });
+        return {
+          total: pendientes.length,
+          prospectos: pendientes,
+          mensaje: pendientes.length ? `${pendientes.length} prospectos pendientes de contacto` : 'No hay prospectos pendientes hoy'
+        };
+      }
+
+      default:
+        return { error: `Herramienta desconocida: ${nombre}` };
+    }
+  } catch(e) {
+    console.error('[Agente Tool]', nombre, e.message);
+    return { error: e.message };
+  }
+}
+
+// ── Notificación visual de acción ejecutada ───────────────────────────
+function _agenteNotificarAccion(resultado) {
+  if (resultado?.exito && typeof showToast === 'function') {
+    showToast('🤖 ' + (resultado.mensaje || 'Acción completada'));
+  }
+}
+
 async function _agenteEnviar() {
   if (_agente.cargando) return;
   const inp = document.getElementById('agente-input');
@@ -33211,17 +33429,11 @@ async function _agenteEnviar() {
     return;
   }
 
-  // Limpiar input
   inp.value = '';
   inp.style.height = 'auto';
-
-  // Mostrar mensaje del usuario
   _agenteAgregarMensaje(texto, 'user');
-
-  // Agregar al historial
   _agente.historial.push({ role: 'user', content: texto });
 
-  // Mostrar typing indicator
   const msgs = document.getElementById('agente-mensajes');
   const typing = document.createElement('div');
   typing.className = 'agente-typing';
@@ -33235,46 +33447,90 @@ async function _agenteEnviar() {
 
   try {
     const sistema = _agenteConstruirContexto();
+    let mensajesAPI = [..._agente.historial.slice(-10)];
 
-    // Limitar historial a últimos 10 mensajes para no sobrecargar tokens
-    const historialReciente = _agente.historial.slice(-10);
+    // ── Bucle agentico: permite múltiples rondas de tool use ──────────
+    let seguirIterando = true;
+    let iteraciones = 0;
+    const MAX_ITER = 5;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: sistema,
-        messages: historialReciente
-      })
-    });
+    while (seguirIterando && iteraciones < MAX_ITER) {
+      iteraciones++;
 
-    // Quitar typing
-    const typingEl = document.getElementById('agente-typing');
-    if (typingEl) typingEl.remove();
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: sistema,
+          tools: _agenteTools,
+          messages: mensajesAPI
+        })
+      });
 
-    if (!resp.ok) {
-      const err = await resp.text().catch(() => '');
-      let msg = '❌ Error al conectar con el asistente.';
-      if (resp.status === 401) msg = '❌ API Key inválida. Verifica en Asistente Clausulados.';
-      else if (resp.status === 429) msg = '⚠️ Límite de uso alcanzado. Intenta en unos minutos.';
-      _agenteAgregarMensaje(msg, 'bot');
-      _agente.historial.pop(); // Remover mensaje fallido del historial
-      return;
-    }
+      const typingEl = document.getElementById('agente-typing');
+      if (typingEl) typingEl.remove();
 
-    const data = await resp.json();
-    const respTexto = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      if (!resp.ok) {
+        let msg = '❌ Error al conectar con el asistente.';
+        if (resp.status === 401) msg = '❌ API Key inválida. Verifica en Asistente Clausulados.';
+        else if (resp.status === 429) msg = '⚠️ Límite de uso alcanzado. Intenta en unos minutos.';
+        _agenteAgregarMensaje(msg, 'bot');
+        _agente.historial.pop();
+        return;
+      }
 
-    if (respTexto) {
-      _agenteAgregarMensaje(respTexto, 'bot');
-      _agente.historial.push({ role: 'assistant', content: respTexto });
+      const data = await resp.json();
+      const bloques = data.content || [];
+
+      // Texto de la respuesta (puede venir junto con tool_use)
+      const textoBloques = bloques.filter(b => b.type === 'text').map(b => b.text).join('');
+      const toolBloques  = bloques.filter(b => b.type === 'tool_use');
+
+      if (textoBloques) {
+        _agenteAgregarMensaje(textoBloques, 'bot');
+      }
+
+      // Si hay tool_use, ejecutar herramientas
+      if (toolBloques.length > 0 && data.stop_reason === 'tool_use') {
+        // Agregar respuesta del asistente al historial de la API
+        mensajesAPI.push({ role: 'assistant', content: bloques });
+
+        // Ejecutar cada herramienta y recolectar resultados
+        const toolResults = [];
+        for (const tool of toolBloques) {
+          const resultado = _agenteEjecutarHerramienta(tool.name, tool.input || {});
+          _agenteNotificarAccion(resultado);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: tool.id,
+            content: JSON.stringify(resultado)
+          });
+        }
+
+        // Agregar resultados al historial de la API para siguiente iteración
+        mensajesAPI.push({ role: 'user', content: toolResults });
+
+        // Mostrar nuevo typing para siguiente iteración
+        const typingNew = document.createElement('div');
+        typingNew.className = 'agente-typing';
+        typingNew.id = 'agente-typing';
+        typingNew.textContent = '● ● ●';
+        if (msgs) { msgs.appendChild(typingNew); msgs.scrollTop = msgs.scrollHeight; }
+
+      } else {
+        // stop_reason === 'end_turn' — respuesta final
+        seguirIterando = false;
+        if (textoBloques) {
+          _agente.historial.push({ role: 'assistant', content: textoBloques });
+        }
+      }
     }
 
   } catch(e) {
