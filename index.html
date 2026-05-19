@@ -32922,5 +32922,383 @@ bootApp();
   </div>
 </div>
 
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// AGENTE SURA ASESOR — Fase 1 (Analítico)
+// Asistente conversacional con acceso a datos reales de la app
+// ════════════════════════════════════════════════════════════════════════
+
+// ── Estado del agente ─────────────────────────────────────────────────
+const _agente = {
+  abierto:   false,
+  historial: [], // { role: 'user'|'assistant', content: string }
+  cargando:  false
+};
+
+// ── Inyectar HTML del panel al cargar ────────────────────────────────
+function _agenteInyectarHTML() {
+  if (document.getElementById('agente-panel')) return;
+  const html = `
+  <!-- Botón flotante del agente -->
+  <button id="agente-fab" onclick="_agenteToggle()" title="Asistente SURA" style="
+    position:fixed;bottom:24px;right:24px;z-index:9990;
+    width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--sura-blue),#7c3aed);
+    box-shadow:0 4px 20px rgba(37,88,240,0.5);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;transition:transform .2s,box-shadow .2s;
+  " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🤖</button>
+
+  <!-- Panel del agente -->
+  <div id="agente-panel" style="
+    position:fixed;bottom:88px;right:24px;z-index:9991;
+    width:360px;max-width:calc(100vw - 32px);
+    height:520px;max-height:calc(100vh - 110px);
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;box-shadow:0 24px 64px rgba(0,0,0,0.45);
+    display:none;flex-direction:column;overflow:hidden;
+  ">
+    <!-- Header -->
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface2);flex-shrink:0;">
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--sura-blue),#7c3aed);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🤖</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);">Asistente SURA</div>
+        <div style="font-size:10.5px;color:var(--text-dim);">Analiza tus datos en tiempo real</div>
+      </div>
+      <button onclick="_agenteLimpiarChat()" title="Limpiar chat" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;padding:4px;">🗑</button>
+      <button onclick="_agenteToggle()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;padding:4px;line-height:1;">×</button>
+    </div>
+
+    <!-- Mensajes -->
+    <div id="agente-mensajes" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <div id="agente-bienvenida" style="text-align:center;padding:20px 10px;">
+        <div style="font-size:28px;margin-bottom:8px;">🤖</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">Hola, soy tu Asistente SURA</div>
+        <div style="font-size:11.5px;color:var(--text-dim);line-height:1.5;">Puedo analizar tus datos, revisar tu pipeline, calcular metas y darte recomendaciones. ¿En qué te ayudo hoy?</div>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px;">
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">📊 ¿Cómo voy con la meta este mes?</button>
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">👥 ¿A quién debo contactar hoy?</button>
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">📋 Resumen de leads esta semana</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div style="padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;background:var(--surface2);flex-shrink:0;">
+      <textarea id="agente-input" placeholder="Pregunta algo sobre tus datos..." rows="1"
+        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+               color:var(--text);padding:8px 10px;font-size:12.5px;resize:none;max-height:80px;
+               outline:none;font-family:inherit;line-height:1.4;"
+        onkeydown="_agenteKeyDown(event)"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+      <button id="agente-send-btn" onclick="_agenteEnviar()" style="
+        width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
+        background:var(--sura-blue);color:#fff;font-size:15px;
+        display:flex;align-items:center;justify-content:center;transition:opacity .2s;
+      ">➤</button>
+    </div>
+  </div>
+
+  <style>
+    .agente-sugerencia {
+      background:rgba(37,88,240,0.08);border:1px solid rgba(37,88,240,0.2);
+      color:var(--text);border-radius:8px;padding:6px 10px;font-size:11px;
+      cursor:pointer;text-align:left;transition:background .15s;width:100%;
+    }
+    .agente-sugerencia:hover { background:rgba(37,88,240,0.16); }
+    .agente-burbuja-user {
+      align-self:flex-end;max-width:82%;background:var(--sura-blue);color:#fff;
+      border-radius:14px 14px 3px 14px;padding:8px 12px;font-size:12px;line-height:1.45;
+      word-break:break-word;
+    }
+    .agente-burbuja-bot {
+      align-self:flex-start;max-width:88%;background:var(--surface2);color:var(--text);
+      border:1px solid var(--border);border-radius:14px 14px 14px 3px;
+      padding:8px 12px;font-size:12px;line-height:1.55;word-break:break-word;
+    }
+    .agente-typing {
+      align-self:flex-start;background:var(--surface2);border:1px solid var(--border);
+      border-radius:14px;padding:8px 14px;font-size:13px;color:var(--text-dim);
+    }
+    #agente-mensajes::-webkit-scrollbar { width:4px; }
+    #agente-mensajes::-webkit-scrollbar-thumb { background:var(--border);border-radius:4px; }
+  </style>`;
+
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  document.body.appendChild(wrapper);
+}
+
+// ── Toggle panel ──────────────────────────────────────────────────────
+function _agenteToggle() {
+  _agente.abierto = !_agente.abierto;
+  const panel = document.getElementById('agente-panel');
+  if (panel) {
+    panel.style.display = _agente.abierto ? 'flex' : 'none';
+    if (_agente.abierto) {
+      setTimeout(() => {
+        const inp = document.getElementById('agente-input');
+        if (inp) inp.focus();
+      }, 100);
+    }
+  }
+}
+
+// ── Limpiar historial ─────────────────────────────────────────────────
+function _agenteLimpiarChat() {
+  _agente.historial = [];
+  const msgs = document.getElementById('agente-mensajes');
+  if (!msgs) return;
+  msgs.innerHTML = `<div id="agente-bienvenida" style="text-align:center;padding:20px 10px;">
+    <div style="font-size:28px;margin-bottom:8px;">🤖</div>
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">Chat limpiado</div>
+    <div style="font-size:11.5px;color:var(--text-dim);">¿En qué más te puedo ayudar?</div>
+  </div>`;
+}
+
+// ── Sugerencias rápidas ───────────────────────────────────────────────
+function _agenteSugerencia(btn) {
+  const inp = document.getElementById('agente-input');
+  if (inp) { inp.value = btn.textContent.replace(/^[^\w]+/,'').trim(); }
+  _agenteEnviar();
+}
+
+// ── KeyDown handler ───────────────────────────────────────────────────
+function _agenteKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    _agenteEnviar();
+  }
+}
+
+// ── Agregar burbuja al chat ───────────────────────────────────────────
+function _agenteAgregarMensaje(texto, tipo) {
+  const msgs = document.getElementById('agente-mensajes');
+  if (!msgs) return null;
+  const bienvenida = document.getElementById('agente-bienvenida');
+  if (bienvenida) bienvenida.remove();
+  const div = document.createElement('div');
+  div.className = tipo === 'user' ? 'agente-burbuja-user' : 'agente-burbuja-bot';
+  div.innerHTML = tipo === 'user'
+    ? _agenteEscaparHTML(texto)
+    : _agenteFormatearRespuesta(texto);
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function _agenteEscaparHTML(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function _agenteFormatearRespuesta(t) {
+  // Formatear markdown básico para mejor legibilidad
+  return t
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>')
+    .replace(/^• /gm, '&bull; ')
+    .replace(/^- /gm, '&bull; ');
+}
+
+// ── Construir contexto del asesor para el agente ──────────────────────
+function _agenteConstruirContexto() {
+  try {
+    const s = getState();
+    const hoy = new Date();
+    const mesActual = hoy.getMonth();
+    const anio = hoy.getFullYear();
+    const asesorNombre = s.config?.nombreAsesor || 'Asesor';
+
+    // Ventas del mes
+    const ventasMes = {
+      PBS:   getVentasByProduct ? getVentasByProduct(mesActual, 'PBS').length : 0,
+      SPTI:  getVentasByProduct ? getVentasByProduct(mesActual, 'SPTI').length : 0,
+      SPD:   getVentasByProduct ? getVentasByProduct(mesActual, 'SPD').length : 0,
+      PSM:   (s.ventas||[]).filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===mesActual && new Date(v.fecha).getFullYear()===anio).length,
+      PAC60: (s.ventas||[]).filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===mesActual && new Date(v.fecha).getFullYear()===anio).length,
+    };
+
+    // Metas del mes
+    const metas = {
+      PBS:  (s.config?.pbs  || [])[mesActual] || 0,
+      SPTI: (s.config?.spti || [])[mesActual] || 0,
+      SPD:  (s.config?.spd  || [])[mesActual] || 0,
+    };
+
+    // Pipeline — prospectos activos
+    const pipeline = getPipeline ? getPipeline() : [];
+    const hoyStr = hoy.toISOString().split('T')[0];
+    const prospectosPendientes = pipeline.filter(p =>
+      p.proxContacto && p.proxContacto <= hoyStr && !['4','5'].includes(String(p.estado||'0'))
+    ).length;
+    const prospectosTotales = pipeline.filter(p => !['4','5'].includes(String(p.estado||'0'))).length;
+    const ventasCerradasMes = pipeline.filter(p => {
+      const f = p.updatedAt || p.fechaCreacion || '';
+      return f.startsWith(hoy.toISOString().slice(0,7)) && ['4','5'].includes(String(p.estado||''));
+    }).length;
+
+    // Días hábiles restantes en el mes
+    const ultimoDia = new Date(anio, mesActual+1, 0);
+    let diasHabiles = 0;
+    for (let d = new Date(hoy); d <= ultimoDia; d.setDate(d.getDate()+1)) {
+      if (d.getDay() !== 0 && d.getDay() !== 6) diasHabiles++;
+    }
+
+    // Leads recientes (últimos 7 días)
+    const hace7dias = new Date(hoy); hace7dias.setDate(hoy.getDate()-7);
+    const hace7Str  = hace7dias.toISOString().split('T')[0];
+    const cotWeb = getCotizaciones ? getCotizaciones() : [];
+    const leadsRecientes = cotWeb.filter(c => (c.fecha||'') >= hace7Str).length;
+
+    // Top prospectos para contactar hoy
+    const paraContactar = pipeline
+      .filter(p => p.proxContacto && p.proxContacto <= hoyStr && !['4','5'].includes(String(p.estado||'0')))
+      .sort((a,b) => (a.proxContacto||'').localeCompare(b.proxContacto||''))
+      .slice(0, 5)
+      .map(p => `${p.nombre} (${p.producto||'?'}, ${p.proxContacto < hoyStr ? '+'+Math.floor((hoy-new Date(p.proxContacto+'T12:00:00'))/86400000)+'d' : 'hoy'})`);
+
+    const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+    return `Eres el Asistente SURA Asesor, un agente analítico especializado en seguros de salud SURA Colombia.
+
+ASESOR: ${asesorNombre}
+FECHA HOY: ${hoy.toLocaleDateString('es-CO')} (${MESES_ES[mesActual]} ${anio})
+DÍAS HÁBILES RESTANTES EN EL MES: ${diasHabiles}
+
+VENTAS ${MESES_ES[mesActual].toUpperCase()} ${anio}:
+- PBS: ${ventasMes.PBS} ventas | Meta: ${metas.PBS} | Faltan: ${Math.max(0,metas.PBS-ventasMes.PBS)}
+- SPTI: ${ventasMes.SPTI} ventas | Meta: ${metas.SPTI} | Faltan: ${Math.max(0,metas.SPTI-ventasMes.SPTI)}
+- SPD Plus: ${ventasMes.SPD} ventas | Meta: ${metas.SPD} | Faltan: ${Math.max(0,metas.SPD-ventasMes.SPD)}
+- Modular (PSM): ${ventasMes.PSM} ventas
+- PAC 60+: ${ventasMes.PAC60} ventas
+
+PIPELINE VOLUNTARIOS:
+- Prospectos activos en seguimiento: ${prospectosTotales}
+- Para contactar HOY o vencidos: ${prospectosPendientes}
+- Ventas cerradas este mes en pipeline: ${ventasCerradasMes}
+${paraContactar.length ? '- Top pendientes: ' + paraContactar.join(', ') : ''}
+
+ACTIVIDAD DIGITAL (últimos 7 días):
+- Cotizaciones web recibidas: ${leadsRecientes}
+
+INSTRUCCIONES:
+- Responde siempre en español, de forma concisa y práctica
+- Usa datos reales del contexto para dar recomendaciones específicas
+- Si preguntan por prospectos específicos, usa los datos del pipeline
+- Calcula porcentajes, ritmos y proyecciones cuando sea relevante
+- Sé directo y orientado a la acción — el asesor necesita saber qué hacer
+- Usa emojis con moderación para hacer la respuesta más legible
+- Máximo 250 palabras por respuesta salvo que el usuario pida más detalle`;
+  } catch(e) {
+    console.warn('[Agente] Error construyendo contexto:', e.message);
+    return 'Eres el Asistente SURA Asesor. Ayuda al asesor con análisis de su negocio de seguros SURA Colombia. Responde siempre en español.';
+  }
+}
+
+// ── Enviar mensaje ────────────────────────────────────────────────────
+async function _agenteEnviar() {
+  if (_agente.cargando) return;
+  const inp = document.getElementById('agente-input');
+  const texto = inp?.value?.trim();
+  if (!texto) return;
+
+  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
+  if (!apiKey) {
+    _agenteAgregarMensaje('⚠️ Necesitas configurar tu API Key de Anthropic en **Asistente Clausulados** → ajustes para usar el agente.', 'bot');
+    return;
+  }
+
+  // Limpiar input
+  inp.value = '';
+  inp.style.height = 'auto';
+
+  // Mostrar mensaje del usuario
+  _agenteAgregarMensaje(texto, 'user');
+
+  // Agregar al historial
+  _agente.historial.push({ role: 'user', content: texto });
+
+  // Mostrar typing indicator
+  const msgs = document.getElementById('agente-mensajes');
+  const typing = document.createElement('div');
+  typing.className = 'agente-typing';
+  typing.id = 'agente-typing';
+  typing.textContent = '● ● ●';
+  if (msgs) { msgs.appendChild(typing); msgs.scrollTop = msgs.scrollHeight; }
+
+  _agente.cargando = true;
+  const btn = document.getElementById('agente-send-btn');
+  if (btn) btn.style.opacity = '0.4';
+
+  try {
+    const sistema = _agenteConstruirContexto();
+
+    // Limitar historial a últimos 10 mensajes para no sobrecargar tokens
+    const historialReciente = _agente.historial.slice(-10);
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: sistema,
+        messages: historialReciente
+      })
+    });
+
+    // Quitar typing
+    const typingEl = document.getElementById('agente-typing');
+    if (typingEl) typingEl.remove();
+
+    if (!resp.ok) {
+      const err = await resp.text().catch(() => '');
+      let msg = '❌ Error al conectar con el asistente.';
+      if (resp.status === 401) msg = '❌ API Key inválida. Verifica en Asistente Clausulados.';
+      else if (resp.status === 429) msg = '⚠️ Límite de uso alcanzado. Intenta en unos minutos.';
+      _agenteAgregarMensaje(msg, 'bot');
+      _agente.historial.pop(); // Remover mensaje fallido del historial
+      return;
+    }
+
+    const data = await resp.json();
+    const respTexto = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+
+    if (respTexto) {
+      _agenteAgregarMensaje(respTexto, 'bot');
+      _agente.historial.push({ role: 'assistant', content: respTexto });
+    }
+
+  } catch(e) {
+    const typingEl = document.getElementById('agente-typing');
+    if (typingEl) typingEl.remove();
+    _agenteAgregarMensaje('❌ Sin conexión. Verifica tu internet e intenta de nuevo.', 'bot');
+    _agente.historial.pop();
+    console.warn('[Agente] Error:', e.message);
+  } finally {
+    _agente.cargando = false;
+    if (btn) btn.style.opacity = '1';
+    if (inp) inp.focus();
+  }
+}
+
+// ── Inicializar agente al cargar la app ───────────────────────────────
+(function _agenteInit() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _agenteInyectarHTML);
+  } else {
+    _agenteInyectarHTML();
+  }
+})();
+
+</script>
 </body>
 </html>
