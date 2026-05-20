@@ -32978,7 +32978,9 @@ function _agenteInyectarHTML() {
         <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px;">
           <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">📊 ¿Cómo voy con la meta este mes?</button>
           <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">👥 Lista mis prospectos pendientes de hoy</button>
-          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">🔍 Busca el prospecto Samuel Guzmán</button>
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">💳 Cruza mi cartera con el informe SURA</button>
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">✅ ¿Quién pagó en SURA sin estar registrado?</button>
+          <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">🔴 ¿Quién está en mora según SURA?</button>
           <button class="agente-sugerencia" onclick="_agenteSugerencia(this)">📅 Agenda una visita para mañana a las 10am</button>
         </div>
       </div>
@@ -33193,6 +33195,10 @@ INSTRUCCIONES:
 - Cuando el usuario pida enviar WhatsApp a un cliente, usa abrir_whatsapp con mensaje personalizado
 - Cuando el usuario pida agendar/crear un evento/visita/llamada, usa crear_evento_agenda
 - Cuando el usuario pida ver pendientes/vencidos/lista de contactos, usa listar_prospectos_pendientes
+- Cuando el usuario pida cruzar cartera, verificar pagos, revisar mora o validar informe SURA, usa cruzar_cartera
+- Para registrar pagos: PRIMERO llama registrar_pago_agente con confirmado:false para mostrar el detalle, LUEGO espera que el usuario diga "sí", "confirmo" o "registra" antes de llamar con confirmado:true. NUNCA registres un pago sin confirmación explícita.
+- Cuando cruzar_cartera encuentre registros PAGO_SURA_SIN_REGISTRAR, ofrece registrar cada pago mostrando el detalle y pidiendo confirmación uno a uno
+- Cuando cruzar_cartera retorne aviso de informe no cargado, indícalo claramente al asesor
 - Después de ejecutar una acción, confirma qué hiciste en lenguaje natural
 - Calcula porcentajes, ritmos y proyecciones cuando sea relevante
 - Sé directo y orientado a la acción
@@ -33274,6 +33280,30 @@ const _agenteTools = [
       properties: {
         limite: { type: "number", description: "Máximo de prospectos a retornar (default 10)" }
       }
+    }
+  },
+  {
+    name: "cruzar_cartera",
+    description: "Cruza la cartera voluntarios de la app con el informe de SURA para detectar: pagos que SURA registra pero no están en la app, clientes en mora, discrepancias y clientes al día. Usa fechaExp y periodicidad para calcular vencimientos con la misma lógica del sistema manual.",
+    input_schema: {
+      type: "object",
+      properties: {
+        filtro: { type: "string", description: "Opcional: 'mora' | 'al_dia' | 'sin_pago_sura' | 'todos'. Default: todos" },
+        buscar: { type: "string", description: "Opcional: nombre o cédula para filtrar un cliente específico" }
+      }
+    }
+  },
+  {
+    name: "registrar_pago_agente",
+    description: "Registra un pago para una póliza usando EXACTAMENTE la misma lógica que el registro manual (mismos períodos, mismas comisiones). SIEMPRE llamar primero con confirmado:false para mostrar detalle al asesor, y con confirmado:true solo cuando el asesor diga 'sí' o 'confirmo'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        ventaId:    { type: "string",  description: "ID de la venta/póliza (campo id en ventas)" },
+        fechaPago:  { type: "string",  description: "Fecha del pago YYYY-MM-DD. Si no se especifica usa hoy." },
+        confirmado: { type: "boolean", description: "false para mostrar preview, true solo si el asesor confirmó explícitamente" }
+      },
+      required: ["ventaId", "confirmado"]
     }
   }
 ];
@@ -33398,6 +33428,157 @@ function _agenteEjecutarHerramienta(nombre, input) {
           total: pendientes.length,
           prospectos: pendientes,
           mensaje: pendientes.length ? `${pendientes.length} prospectos pendientes de contacto` : 'No hay prospectos pendientes hoy'
+        };
+      }
+
+      case 'cruzar_cartera': {
+        const suraMap  = window._suraReviewMap;
+        const state    = getState();
+        const ventas   = (state.ventas || []).filter(v => v.producto !== 'PBS' && v.tipo !== 'CANCELACION');
+        const pagos    = getPagos ? getPagos() : {};
+        const filtro   = input.filtro || 'todos';
+        const buscar   = (input.buscar || '').toLowerCase().trim();
+        const COM_PCT  = { SPTI:0.07, SPD:0.08, PSM:0.12, PAC60:0.05 };
+        const mesesMap = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+        const hoy      = new Date(); hoy.setHours(12,0,0,0);
+        const resultados = [];
+
+        ventas.forEach(v => {
+          if (!v.fechaExp) return;
+          if (buscar && !(v.cliente||v.nombre||'').toLowerCase().includes(buscar) && !(v.cedula||'').includes(buscar)) return;
+
+          const cedula     = String(v.cedula||v.documento||'').replace(/[^0-9]/g,'').trim();
+          const nombre     = v.cliente || v.nombre || 'Sin nombre';
+          const intervalo  = mesesMap[v.periodicidad] || 1;
+          const pagosVenta = (pagos[v.id] || []).slice().sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+          const nPagos     = pagosVenta.length;
+          const diaExp     = new Date(v.fechaExp + 'T12:00:00');
+
+          // Próximo vencimiento: misma lógica que getCarteraEstado
+          const proxVenc = new Date(diaExp);
+          proxVenc.setMonth(proxVenc.getMonth() + (nPagos + 1) * intervalo);
+          const diasParaVencer = Math.floor((proxVenc - hoy) / 86400000);
+
+          // Estado en la app
+          const estadoApp = diasParaVencer > 3  ? 'AL_DIA' :
+                            diasParaVencer >= 0 ? 'PROXIMO' :
+                            Math.abs(diasParaVencer) >= 60 ? 'CANCELADO' :
+                            Math.abs(diasParaVencer) >= 35 ? 'SUSPENDIDO' :
+                            Math.abs(diasParaVencer) >= 31 ? 'MORA' : 'VENCIDO';
+
+          // Estado en el informe SURA
+          let estadoSura = null, obsDetalle = null;
+          if (suraMap && cedula) {
+            const info = suraMap.get(cedula);
+            if (info) { estadoSura = info.observacion; obsDetalle = info.detalle; }
+          }
+
+          const appAlDia  = ['AL_DIA','PROXIMO'].includes(estadoApp);
+          const suraAlDia = estadoSura === 'USUARIO YA PAGADO';
+
+          // Categoría del cruce
+          let categoria, accion;
+          if      (suraAlDia && !appAlDia)  { categoria='PAGO_SURA_SIN_REGISTRAR'; accion='SURA confirma pago — registrar en la app'; }
+          else if (suraAlDia && appAlDia)   { categoria='AL_DIA';                   accion='Confirmado en app y SURA'; }
+          else if (!suraAlDia && estadoSura && !appAlDia) { categoria='MORA_CONFIRMADA'; accion='Mora confirmada en app y SURA — gestión urgente'; }
+          else if (!suraAlDia && estadoSura && appAlDia)  { categoria='DISCREPANCIA';    accion='App dice al día pero SURA tiene observación — verificar'; }
+          else if (!estadoSura && !appAlDia) { categoria='SIN_INFO_MORA'; accion='Mora en app sin datos en informe SURA — revisar'; }
+          else { categoria='AL_DIA'; accion='Al día en app'; }
+
+          // Aplicar filtro
+          if (filtro==='mora'          && !['MORA_CONFIRMADA','SIN_INFO_MORA'].includes(categoria)) return;
+          if (filtro==='al_dia'        && categoria!=='AL_DIA') return;
+          if (filtro==='sin_pago_sura' && categoria!=='PAGO_SURA_SIN_REGISTRAR') return;
+
+          resultados.push({
+            ventaId:v.id, nombre, cedula:cedula||'?', producto:v.producto,
+            prima:v.prima||0, periodicidad:v.periodicidad, fechaExp:v.fechaExp,
+            nPagos, proxVencimiento:proxVenc.toISOString().split('T')[0],
+            diasParaVencer, estadoApp,
+            estadoSura: estadoSura || (suraMap ? 'No encontrado en informe' : 'Informe no cargado'),
+            obsDetalle: obsDetalle || '', categoria, accion,
+            comisionEstimada: Math.round((v.prima||0) * (COM_PCT[v.producto]||0.07))
+          });
+        });
+
+        // Ordenar por urgencia
+        const orden = { MORA_CONFIRMADA:0, PAGO_SURA_SIN_REGISTRAR:1, DISCREPANCIA:2, SIN_INFO_MORA:3, AL_DIA:4 };
+        resultados.sort((a,b) => (orden[a.categoria]||9) - (orden[b.categoria]||9));
+
+        const resumen = {
+          totalCartera: ventas.length,
+          informeSuraCargado: !!suraMap,
+          cruzados: resultados.length,
+          porCategoria: {
+            alDia:               resultados.filter(r=>r.categoria==='AL_DIA').length,
+            pagoSuraSinRegistrar:resultados.filter(r=>r.categoria==='PAGO_SURA_SIN_REGISTRAR').length,
+            moraConfirmada:      resultados.filter(r=>r.categoria==='MORA_CONFIRMADA').length,
+            discrepancia:        resultados.filter(r=>r.categoria==='DISCREPANCIA').length,
+            sinInfoMora:         resultados.filter(r=>r.categoria==='SIN_INFO_MORA').length,
+          },
+          registros: resultados.slice(0,20)
+        };
+        if (!suraMap) {
+          resumen.aviso = 'El informe de SURA no está cargado. Ve a Gestión de Cartera → sección comisiones → "Cargar informe" (.xls de SURA) para habilitar el cruce completo. Con el informe cargado puedo detectar quién pagó en SURA sin estar registrado en la app.';
+        }
+        return resumen;
+      }
+
+      case 'registrar_pago_agente': {
+        const { ventaId, fechaPago, confirmado } = input;
+        if (!ventaId) return { error: 'ventaId requerido' };
+        const state  = getState();
+        const venta  = state.ventas.find(v => v.id === ventaId);
+        if (!venta) return { error: `No se encontró la póliza: ${ventaId}` };
+        const nombre = venta.cliente || venta.nombre || 'Sin nombre';
+
+        if (!confirmado) {
+          // Mostrar preview del pago sin registrar nada
+          const COM_PCT   = { SPTI:0.07, SPD:0.08, PSM:0.12, PAC60:0.05 };
+          const mesesM    = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
+          const pagosEx   = getPagosVenta ? getPagosVenta(ventaId) : [];
+          const intervalo = mesesM[venta.periodicidad] || 1;
+          const diaExp    = new Date(venta.fechaExp + 'T12:00:00');
+          const desde     = new Date(diaExp); desde.setMonth(desde.getMonth() + pagosEx.length * intervalo);
+          const hasta     = new Date(diaExp); hasta.setMonth(hasta.getMonth() + (pagosEx.length+1) * intervalo);
+          const comision  = Math.round((venta.prima||0) * (COM_PCT[venta.producto]||0.07));
+          return {
+            requiereConfirmacion: true,
+            mensaje: `¿Confirmas registrar el siguiente pago para ${nombre}?`,
+            detallePago: {
+              cliente:      nombre,
+              producto:     venta.producto,
+              prima:        '$' + (venta.prima||0).toLocaleString('es-CO'),
+              comision:     '$' + comision.toLocaleString('es-CO'),
+              periodoDesde: desde.toISOString().split('T')[0],
+              periodoHasta: hasta.toISOString().split('T')[0],
+              fechaPago:    fechaPago || new Date().toISOString().split('T')[0],
+              pagoNumero:   pagosEx.length + 1
+            }
+          };
+        }
+
+        // Registrar usando EXACTAMENTE la función del sistema manual
+        if (typeof registrarPago !== 'function') return { error: 'Función registrarPago no disponible' };
+        const nuevoPago = registrarPago(ventaId, fechaPago || null);
+        if (!nuevoPago) return { error: 'No se pudo registrar el pago — verifica que la póliza exista' };
+
+        // Re-renderizar vistas afectadas
+        if (typeof renderPagoMes === 'function') try { renderPagoMes(); } catch(_) {}
+        if (typeof renderCartera  === 'function') try { renderCartera();  } catch(_) {}
+
+        const venta2  = getState().ventas.find(v => v.id === ventaId);
+        const nombre2 = venta2?.cliente || venta2?.nombre || nombre;
+        return {
+          exito: true,
+          mensaje: `Pago de ${nombre2} registrado correctamente`,
+          pago: {
+            fecha:        nuevoPago.fecha?.slice(0,10),
+            periodoDesde: nuevoPago.periodoDesde,
+            periodoHasta: nuevoPago.periodoHasta,
+            prima:        '$' + (nuevoPago.prima||0).toLocaleString('es-CO'),
+            comision:     '$' + (nuevoPago.comision||0).toLocaleString('es-CO')
+          }
         };
       }
 
