@@ -5512,6 +5512,22 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
               </select>
             </div>
           </div>
+          <!-- ══ BANDEJA DE APROBACIÓN ══════════════════════════════════════════ -->
+          <div id="renovBandeja" style="display:none;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:14px;font-weight:700;">📬 Mensajes pendientes de aprobación</span>
+                <span id="renovBandejaBadge" style="background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;">0</span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn btn-secondary btn-sm" onclick="renovGenerarBandeja()" id="renovBtnGenerar" style="font-size:11px;">🔄 Actualizar</button>
+                <button class="btn btn-secondary btn-sm" onclick="renovDescartarTodos()" style="font-size:11px;color:var(--text-dim);">✕ Descartar todos</button>
+              </div>
+            </div>
+            <div id="renovBandejaLista" style="display:flex;flex-direction:column;gap:8px;"></div>
+          </div>
+          <!-- ══ FIN BANDEJA ═════════════════════════════════════════════════════ -->
+
           <!-- KPIs renovaciones -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;" id="renovKpisGrid"></div>
           <!-- Lista agrupada por semana -->
@@ -15445,7 +15461,7 @@ function switchCarteraTab(tab) {
   }
   if (tab === 'ia')           iaCarteraV2Init();
   if (tab === 'persistencia') renderPersistencia();
-  if (tab === 'renovaciones') renderRenovaciones();
+  if (tab === 'renovaciones') { renderRenovaciones(); renovIniciarBandeja(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -16136,6 +16152,279 @@ function copiarMsgRenovacion(id, proxVencTs, diasParaVencer) {
   const msg = getMsgRenovacion(v, proxVenc, diasParaVencer, pagos);
   navigator.clipboard.writeText(msg).then(() => showToast('✅ Mensaje copiado al portapapeles'));
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BANDEJA DE APROBACIÓN — Mensajes de renovación/mora listos para enviar
+// ──────────────────────────────────────────────────────────────────────────────
+// Flujo:
+//  1. Al abrir la pestaña Renovaciones → renovIniciarBandeja()
+//  2. Lee _renovBandejaCache (en memoria) o genera desde renovGenerarBandeja()
+//  3. Persiste la cola en Firestore ('renovBandeja') para sobrevivir recargas
+//  4. Cada card: texto editable, botón Aprobar (copia + registra actividad) y Descartar
+//  5. Al Aprobar: registra actividad tipo 'Mensaje enviado', marca como enviado en Firestore
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _renovBandejaCache = null; // Array<item> en memoria para la sesión
+
+// ── Helpers de persistencia ──────────────────────────────────────────────────
+function getRenovBandeja() {
+  if (_renovBandejaCache !== null) return _renovBandejaCache;
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.renovBandeja || [];
+  return [];
+}
+function setRenovBandeja(arr) {
+  _renovBandejaCache = arr;
+  if (window.__FB_CACHE__) window.__FB_CACHE__.renovBandeja = arr;
+  if (window.FB) window.FB.set('renovBandeja', arr);
+}
+
+// ── Inicializar al abrir la pestaña ─────────────────────────────────────────
+async function renovIniciarBandeja() {
+  // Cargar desde Firestore si el cache no está en memoria aún
+  if (_renovBandejaCache === null && window.FB) {
+    try {
+      const saved = await window.FB.get('renovBandeja', []);
+      _renovBandejaCache = Array.isArray(saved) ? saved : [];
+      if (window.__FB_CACHE__) window.__FB_CACHE__.renovBandeja = _renovBandejaCache;
+    } catch(e) {
+      _renovBandejaCache = [];
+    }
+  }
+  // Si la bandeja está vacía o todos los pendientes son de hace más de 2 días, regenerar
+  const hoyStr = new Date().toISOString().slice(0, 10);
+  const pendientes = (_renovBandejaCache || []).filter(i => i.estado === 'pendiente');
+  const hayRecientes = pendientes.some(i => i.fechaGenerado >= hoyStr.slice(0, 7)); // mismo mes
+  if (!hayRecientes) {
+    await renovGenerarBandeja();
+  } else {
+    renovRenderBandeja();
+  }
+}
+
+// ── Generar cola de mensajes ─────────────────────────────────────────────────
+async function renovGenerarBandeja() {
+  const btn = document.getElementById('renovBtnGenerar');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando...'; }
+
+  const state  = getState();
+  const pagos  = getPagos();
+  const acts   = getActividades();
+  const hoy    = new Date(); hoy.setHours(0, 0, 0, 0);
+  const hoyStr = hoy.toISOString().slice(0, 10);
+  const PRODS  = ['SPTI', 'SPD', 'PSM', 'PAC60'];
+
+  // Cargar bandeja existente para no duplicar ventas ya pendientes/enviadas hoy
+  const bandejaActual = getRenovBandeja();
+  const yaEnBandeja   = new Set(
+    bandejaActual
+      .filter(i => i.estado === 'pendiente' || i.fechaGenerado === hoyStr)
+      .map(i => i.ventaId)
+  );
+
+  // Calcular último contacto por venta (de actividades registradas)
+  const ultimoContacto = {}; // ventaId → fecha string
+  acts.forEach(a => {
+    if (!a.ventaId && !a.cliente) return;
+    const key = a.ventaId || a.cliente;
+    if (!ultimoContacto[key] || a.fecha > ultimoContacto[key]) {
+      ultimoContacto[key] = a.fecha;
+    }
+  });
+
+  const nuevos = [];
+
+  state.ventas
+    .filter(v => PRODS.includes(v.producto) && v.tipo !== 'CANCELACION' && !v._importadoSura && v.fechaExp)
+    .forEach(v => {
+      const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
+      if (!proxVenc) return;
+      const dias = Math.floor((proxVenc - hoy) / 86400000);
+
+      // Rangos de acción: vencido reciente (-3 a 0), urgente (1-7), próximo (8-30), planificar (31-60)
+      const enRango = dias >= -3 && dias <= 60;
+      if (!enRango) return;
+      if (yaEnBandeja.has(v.id)) return;
+
+      // No generar si ya se contactó en los últimos N días según el tramo
+      const diasSinContacto = ultimoContacto[v.id]
+        ? Math.floor((hoy - new Date(ultimoContacto[v.id] + 'T12:00:00')) / 86400000)
+        : 9999;
+      const cooldown = dias <= 0 ? 1 : dias <= 7 ? 3 : dias <= 30 ? 7 : 14;
+      if (diasSinContacto < cooldown) return;
+
+      // Contexto del cliente para personalizar el mensaje
+      const pagosVenta   = getPagosVenta(v.id);
+      const nPagos       = pagosVenta.length;
+      const enCarteraSura = (_carteraSuraData || []).find(r =>
+        r.cedula && v.cedula && String(r.cedula).replace(/\D/g,'') === String(v.cedula).replace(/\D/g,'')
+      );
+      const vecesEnMora  = (getActividades()).filter(a =>
+        (a.ventaId === v.id || a.cliente === (v.tomadorNombre || v.nombre)) &&
+        (a.tipo === 'mora' || a.tipo === 'Mora' || (a.descripcion||'').toLowerCase().includes('mora'))
+      ).length;
+
+      // Seleccionar plantilla según contexto real
+      let plantillaKey = 'planificar';
+      if      (dias <= 0)  plantillaKey = 'urgente';
+      else if (dias <= 7)  plantillaKey = 'urgente';
+      else if (dias <= 30) plantillaKey = 'proximo';
+
+      // Personalización por historial: si tiene mora histórica, usar texto más directo
+      let msgBase = getMsgRenovacion(v, proxVenc, dias, pagos);
+
+      // Enriquecer con contexto si hay datos extra
+      let contextoLabel = '';
+      if (dias <= 0)           contextoLabel = '🔴 VENCIDO';
+      else if (dias <= 7)      contextoLabel = '🟠 URGENTE';
+      else if (dias <= 30)     contextoLabel = '🟡 PRÓXIMO';
+      else                     contextoLabel = '🔵 PLANIFICAR';
+      if (enCarteraSura)       contextoLabel += ' · En cartera SURA';
+      if (vecesEnMora > 0)     contextoLabel += ` · ${vecesEnMora}x mora anterior`;
+      if (nPagos === 0)        contextoLabel += ' · Primer pago';
+      else if (nPagos >= 12)   contextoLabel += ` · Cliente ${nPagos} meses`;
+
+      nuevos.push({
+        id:            Date.now().toString(36) + Math.random().toString(36).substr(2, 4) + nuevos.length,
+        ventaId:       v.id,
+        nombre:        v.tomadorNombre || v.nombre || 'Cliente',
+        cedula:        v.cedula || '',
+        producto:      v.producto,
+        telefono:      (v.telefono || '').replace(/\D/g, ''),
+        diasParaVencer: dias,
+        proxVencTs:    proxVenc.getTime(),
+        contexto:      contextoLabel,
+        mensaje:       msgBase,
+        estado:        'pendiente', // pendiente | enviado | descartado
+        fechaGenerado: hoyStr,
+      });
+    });
+
+  // Fusionar: mantener pendientes existentes + agregar nuevos
+  const conservar = bandejaActual.filter(i => i.estado === 'pendiente' && !nuevos.find(n => n.ventaId === i.ventaId));
+  const bandejaFinal = [...conservar, ...nuevos].sort((a, b) => a.diasParaVencer - b.diasParaVencer);
+  setRenovBandeja(bandejaFinal);
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Actualizar'; }
+  renovRenderBandeja();
+  if (nuevos.length) showToast(`📬 ${nuevos.length} mensaje${nuevos.length > 1 ? 's' : ''} nuevo${nuevos.length > 1 ? 's' : ''} en la bandeja`);
+}
+
+// ── Renderizar la bandeja ────────────────────────────────────────────────────
+function renovRenderBandeja() {
+  const panel   = document.getElementById('renovBandeja');
+  const lista   = document.getElementById('renovBandejaLista');
+  const badge   = document.getElementById('renovBandejaBadge');
+  if (!panel || !lista) return;
+
+  const bandeja   = getRenovBandeja();
+  const pendientes = bandeja.filter(i => i.estado === 'pendiente');
+
+  if (badge) badge.textContent = pendientes.length;
+  panel.style.display = pendientes.length ? '' : 'none';
+  if (!pendientes.length) { lista.innerHTML = ''; return; }
+
+  lista.innerHTML = pendientes.map(item => {
+    const urgColor = item.diasParaVencer <= 0 ? 'var(--red)'
+      : item.diasParaVencer <= 7 ? 'var(--amber)'
+      : item.diasParaVencer <= 30 ? 'var(--teal)'
+      : 'var(--sura-blue)';
+    const waUrl = item.telefono
+      ? `https://wa.me/57${item.telefono}`
+      : '';
+    const msgEnc = encodeURIComponent(item.mensaje);
+
+    return `<div id="renovCard_${item.id}" style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${urgColor};border-radius:10px;padding:14px 16px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${item.nombre} <span style="font-size:10px;font-weight:400;color:var(--text-muted);">${item.producto}</span></div>
+          <div style="font-size:11px;color:${urgColor};font-weight:600;">${item.contexto}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          ${waUrl ? `<a href="${waUrl}?text=${msgEnc}" target="_blank" onclick="renovMarcarEnviado('${item.id}','${item.ventaId}',this)"
+            style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;background:rgba(34,197,94,0.15);color:var(--green);font-size:11px;font-weight:700;text-decoration:none;border:1px solid rgba(34,197,94,0.3);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.096.533 4.063 1.476 5.782L0 24l6.393-1.454A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.885 9.885 0 01-5.04-1.38l-.361-.214-3.795.863.899-3.687-.235-.378A9.866 9.866 0 012.105 12C2.105 6.527 6.527 2.105 12 2.105c5.472 0 9.895 4.422 9.895 9.895 0 5.472-4.423 9.894-9.895 9.894z"/></svg>
+            Enviar WhatsApp</a>` : `<button onclick="renovCopiarMensaje('${item.id}','${item.ventaId}')"
+            style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;background:rgba(34,197,94,0.1);color:var(--green);font-size:11px;font-weight:700;border:1px solid rgba(34,197,94,0.25);cursor:pointer;font-family:var(--font);">
+            📋 Copiar mensaje</button>`}
+          <button onclick="renovDescartarItem('${item.id}')"
+            style="padding:5px 8px;border-radius:8px;background:transparent;color:var(--text-dim);font-size:11px;border:1px solid rgba(255,255,255,0.08);cursor:pointer;font-family:var(--font);">✕</button>
+        </div>
+      </div>
+      <textarea id="renovMsg_${item.id}"
+        style="width:100%;min-height:90px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:11.5px;padding:8px 10px;resize:vertical;font-family:var(--font);line-height:1.5;box-sizing:border-box;"
+        oninput="renovActualizarMensaje('${item.id}',this.value)">${item.mensaje}</textarea>
+    </div>`;
+  }).join('');
+}
+
+// ── Acciones sobre items ─────────────────────────────────────────────────────
+function renovActualizarMensaje(id, nuevoTexto) {
+  const bandeja = getRenovBandeja();
+  const idx = bandeja.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  bandeja[idx].mensaje = nuevoTexto;
+  setRenovBandeja(bandeja);
+}
+
+function renovMarcarEnviado(id, ventaId, linkEl) {
+  // Se llama al hacer clic en "Enviar WhatsApp" — marca enviado y registra actividad
+  const bandeja = getRenovBandeja();
+  const item    = bandeja.find(i => i.id === id);
+  if (!item) return;
+  item.estado = 'enviado';
+  item.fechaEnvio = new Date().toISOString().slice(0, 10);
+  setRenovBandeja(bandeja);
+
+  // Registrar en actividades para que el cooldown funcione
+  const acts = getActividades();
+  acts.push({
+    id:          Date.now().toString(36) + Math.random().toString(36).substr(2),
+    fecha:       new Date().toISOString().slice(0, 10),
+    tipo:        'WhatsApp renovación',
+    ventaId:     ventaId,
+    cliente:     item.nombre,
+    telefono:    item.telefono,
+    descripcion: `Mensaje de renovación enviado vía bandeja — ${item.contexto}`,
+    resultado:   'Enviado',
+    seguimiento: '',
+    notas:       item.mensaje.slice(0, 120),
+  });
+  setActividades(acts);
+
+  // Remover card con animación suave
+  const card = document.getElementById(`renovCard_${id}`);
+  if (card) { card.style.opacity = '0.3'; card.style.transition = 'opacity 0.4s'; setTimeout(() => { renovRenderBandeja(); }, 500); }
+  showToast(`✅ Mensaje enviado a ${item.nombre}`);
+}
+
+function renovCopiarMensaje(id, ventaId) {
+  const bandeja = getRenovBandeja();
+  const item    = bandeja.find(i => i.id === id);
+  if (!item) return;
+  const textoActual = document.getElementById(`renovMsg_${id}`)?.value || item.mensaje;
+  navigator.clipboard.writeText(textoActual).then(() => {
+    renovMarcarEnviado(id, ventaId, null);
+  });
+}
+
+function renovDescartarItem(id) {
+  const bandeja = getRenovBandeja();
+  const idx     = bandeja.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  bandeja[idx].estado = 'descartado';
+  setRenovBandeja(bandeja);
+  renovRenderBandeja();
+}
+
+function renovDescartarTodos() {
+  if (!confirm('¿Descartar todos los mensajes pendientes?')) return;
+  const bandeja = getRenovBandeja().map(i =>
+    i.estado === 'pendiente' ? { ...i, estado: 'descartado' } : i
+  );
+  setRenovBandeja(bandeja);
+  renovRenderBandeja();
+}
+// ══ FIN BANDEJA DE APROBACIÓN ════════════════════════════════════════════════
 
 function renderRenovaciones() {
   const state    = getState();
@@ -33432,23 +33721,7 @@ function _agenteEjecutarHerramienta(nombre, input) {
       }
 
       case 'cruzar_cartera': {
-        const suraMap      = window._suraReviewMap;
-        const carteraSura  = window._carteraSuraData || [];
-
-        // Construir mapa de cartera SURA por cédula (fuente alternativa cuando
-        // _suraReviewMap no está cargado). Cada entrada tiene cedula, nombre,
-        // diasCanc, diasCart, urgencia, enBD y saldo — suficiente para cruce.
-        const carteraMap = new Map();
-        carteraSura.forEach(r => {
-          const c = String(r.cedula || '').replace(/\D/g,'').trim();
-          if (c) carteraMap.set(c, r);
-          // También indexar por nombre normalizado como fallback
-          if (r.nombre) carteraMap.set(r.nombre.toLowerCase().trim(), r);
-        });
-
-        // Detectar clientes en cartera SURA que NO están en la BD de la app
-        const sinRegistrarEnCartera = carteraSura.filter(r => !r.enBD);
-
+        const suraMap  = window._suraReviewMap;
         const state    = getState();
         const ventas   = (state.ventas || []).filter(v => v.producto !== 'PBS' && v.tipo !== 'CANCELACION');
         const pagos    = getPagos ? getPagos() : {};
@@ -33482,26 +33755,11 @@ function _agenteEjecutarHerramienta(nombre, input) {
                             Math.abs(diasParaVencer) >= 35 ? 'SUSPENDIDO' :
                             Math.abs(diasParaVencer) >= 31 ? 'MORA' : 'VENCIDO';
 
-          // Estado en el informe SURA — prioridad: _suraReviewMap (informe comisiones)
-          // Fallback: _carteraSuraData (cartera importada desde Gestión de Cartera)
+          // Estado en el informe SURA
           let estadoSura = null, obsDetalle = null;
           if (suraMap && cedula) {
             const info = suraMap.get(cedula);
             if (info) { estadoSura = info.observacion; obsDetalle = info.detalle; }
-          }
-          if (!estadoSura && carteraMap.size > 0 && cedula) {
-            const rc = carteraMap.get(cedula) || carteraMap.get(nombre.toLowerCase().trim());
-            if (rc) {
-              // La cartera de Sura confirma que el cliente existe en su sistema con mora
-              const diasMora = rc.diasCart || 0;
-              if (diasMora > 0) {
-                estadoSura  = `EN MORA SURA (${diasMora} días · cancela en ${rc.diasCanc} días)`;
-                obsDetalle  = `Saldo: $${(rc.saldo||0).toLocaleString('es-CO')} · Solución: ${rc.solucion||'—'} · Medio pago: ${rc.medioPago||'—'}`;
-              } else {
-                estadoSura  = 'USUARIO YA PAGADO';
-                obsDetalle  = 'Sin mora en cartera SURA importada';
-              }
-            }
           }
 
           const appAlDia  = ['AL_DIA','PROXIMO'].includes(estadoApp);
@@ -33521,14 +33779,13 @@ function _agenteEjecutarHerramienta(nombre, input) {
           if (filtro==='al_dia'        && categoria!=='AL_DIA') return;
           if (filtro==='sin_pago_sura' && categoria!=='PAGO_SURA_SIN_REGISTRAR') return;
 
-          const fuenteSura = suraMap ? 'informe_comisiones' : (carteraMap.size > 0 ? 'cartera_importada' : 'ninguna');
           resultados.push({
             ventaId:v.id, nombre, cedula:cedula||'?', producto:v.producto,
             prima:v.prima||0, periodicidad:v.periodicidad, fechaExp:v.fechaExp,
             nPagos, proxVencimiento:proxVenc.toISOString().split('T')[0],
             diasParaVencer, estadoApp,
-            estadoSura: estadoSura || (suraMap || carteraMap.size > 0 ? 'No encontrado en informe' : 'Informe no cargado'),
-            obsDetalle: obsDetalle || '', categoria, accion, fuenteSura,
+            estadoSura: estadoSura || (suraMap ? 'No encontrado en informe' : 'Informe no cargado'),
+            obsDetalle: obsDetalle || '', categoria, accion,
             comisionEstimada: Math.round((v.prima||0) * (COM_PCT[v.producto]||0.07))
           });
         });
@@ -33537,13 +33794,9 @@ function _agenteEjecutarHerramienta(nombre, input) {
         const orden = { MORA_CONFIRMADA:0, PAGO_SURA_SIN_REGISTRAR:1, DISCREPANCIA:2, SIN_INFO_MORA:3, AL_DIA:4 };
         resultados.sort((a,b) => (orden[a.categoria]||9) - (orden[b.categoria]||9));
 
-        const hayFuenteSura = !!(suraMap || carteraMap.size > 0);
         const resumen = {
           totalCartera: ventas.length,
-          informeSuraCargado: hayFuenteSura,
-          fuenteActiva: suraMap ? 'informe_comisiones' : (carteraMap.size > 0 ? 'cartera_importada' : 'ninguna'),
-          carteraSuraRegistros: carteraSura.length,
-          sinRegistrarEnApp: sinRegistrarEnCartera.length,
+          informeSuraCargado: !!suraMap,
           cruzados: resultados.length,
           porCategoria: {
             alDia:               resultados.filter(r=>r.categoria==='AL_DIA').length,
@@ -33552,17 +33805,10 @@ function _agenteEjecutarHerramienta(nombre, input) {
             discrepancia:        resultados.filter(r=>r.categoria==='DISCREPANCIA').length,
             sinInfoMora:         resultados.filter(r=>r.categoria==='SIN_INFO_MORA').length,
           },
-          registros: resultados.slice(0,20),
-          clientesSuraNoEnApp: sinRegistrarEnCartera.slice(0,10).map(r => ({
-            nombre: r.nombre, cedula: r.cedula, poliza: r.poliza,
-            diasCart: r.diasCart, diasCanc: r.diasCanc, saldo: r.saldo,
-            urgencia: r.urgencia, medioPago: r.medioPago
-          }))
+          registros: resultados.slice(0,20)
         };
-        if (!hayFuenteSura) {
-          resumen.aviso = 'No hay datos de SURA cargados. Opciones: (1) Ve a Gestión de Cartera → botón "Importar Cartera SURA (.xlsx)" para cruzar con la cartera de mora. (2) Ve a Comisiones y Pagos → "Cargar informe" (.xls del InformedeComisiones) para cruzar pagos confirmados por SURA.';
-        } else if (!suraMap && carteraMap.size > 0) {
-          resumen.aviso = `Usando cartera SURA importada (${carteraSura.length} registros). ${sinRegistrarEnCartera.length > 0 ? sinRegistrarEnCartera.length + ' clientes en la cartera SURA no están registrados en la app.' : 'Todos los clientes de la cartera están en la app.'} Para cruce de pagos confirmados (quién pagó en SURA), también carga el InformedeComisiones en Comisiones → "Cargar informe".`;
+        if (!suraMap) {
+          resumen.aviso = 'El informe de SURA no está cargado. Ve a Gestión de Cartera → sección comisiones → "Cargar informe" (.xls de SURA) para habilitar el cruce completo. Con el informe cargado puedo detectar quién pagó en SURA sin estar registrado en la app.';
         }
         return resumen;
       }
