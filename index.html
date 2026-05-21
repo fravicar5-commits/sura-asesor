@@ -13790,7 +13790,7 @@ function guardarVenta() {
     console.warn('[guardarVenta] modalTab desconocido:', modalTab);
     return;
   }
-  state = getState();
+  setState(state); // ← persiste a Firestore (fix: antes era state=getState() que no guardaba)
   closeModal('modalVenta');
 
   // Contar beneficiarios guardados para el toast
