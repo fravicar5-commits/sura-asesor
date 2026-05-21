@@ -33432,7 +33432,23 @@ function _agenteEjecutarHerramienta(nombre, input) {
       }
 
       case 'cruzar_cartera': {
-        const suraMap  = window._suraReviewMap;
+        const suraMap      = window._suraReviewMap;
+        const carteraSura  = window._carteraSuraData || [];
+
+        // Construir mapa de cartera SURA por cédula (fuente alternativa cuando
+        // _suraReviewMap no está cargado). Cada entrada tiene cedula, nombre,
+        // diasCanc, diasCart, urgencia, enBD y saldo — suficiente para cruce.
+        const carteraMap = new Map();
+        carteraSura.forEach(r => {
+          const c = String(r.cedula || '').replace(/\D/g,'').trim();
+          if (c) carteraMap.set(c, r);
+          // También indexar por nombre normalizado como fallback
+          if (r.nombre) carteraMap.set(r.nombre.toLowerCase().trim(), r);
+        });
+
+        // Detectar clientes en cartera SURA que NO están en la BD de la app
+        const sinRegistrarEnCartera = carteraSura.filter(r => !r.enBD);
+
         const state    = getState();
         const ventas   = (state.ventas || []).filter(v => v.producto !== 'PBS' && v.tipo !== 'CANCELACION');
         const pagos    = getPagos ? getPagos() : {};
@@ -33466,11 +33482,26 @@ function _agenteEjecutarHerramienta(nombre, input) {
                             Math.abs(diasParaVencer) >= 35 ? 'SUSPENDIDO' :
                             Math.abs(diasParaVencer) >= 31 ? 'MORA' : 'VENCIDO';
 
-          // Estado en el informe SURA
+          // Estado en el informe SURA — prioridad: _suraReviewMap (informe comisiones)
+          // Fallback: _carteraSuraData (cartera importada desde Gestión de Cartera)
           let estadoSura = null, obsDetalle = null;
           if (suraMap && cedula) {
             const info = suraMap.get(cedula);
             if (info) { estadoSura = info.observacion; obsDetalle = info.detalle; }
+          }
+          if (!estadoSura && carteraMap.size > 0 && cedula) {
+            const rc = carteraMap.get(cedula) || carteraMap.get(nombre.toLowerCase().trim());
+            if (rc) {
+              // La cartera de Sura confirma que el cliente existe en su sistema con mora
+              const diasMora = rc.diasCart || 0;
+              if (diasMora > 0) {
+                estadoSura  = `EN MORA SURA (${diasMora} días · cancela en ${rc.diasCanc} días)`;
+                obsDetalle  = `Saldo: $${(rc.saldo||0).toLocaleString('es-CO')} · Solución: ${rc.solucion||'—'} · Medio pago: ${rc.medioPago||'—'}`;
+              } else {
+                estadoSura  = 'USUARIO YA PAGADO';
+                obsDetalle  = 'Sin mora en cartera SURA importada';
+              }
+            }
           }
 
           const appAlDia  = ['AL_DIA','PROXIMO'].includes(estadoApp);
@@ -33490,13 +33521,14 @@ function _agenteEjecutarHerramienta(nombre, input) {
           if (filtro==='al_dia'        && categoria!=='AL_DIA') return;
           if (filtro==='sin_pago_sura' && categoria!=='PAGO_SURA_SIN_REGISTRAR') return;
 
+          const fuenteSura = suraMap ? 'informe_comisiones' : (carteraMap.size > 0 ? 'cartera_importada' : 'ninguna');
           resultados.push({
             ventaId:v.id, nombre, cedula:cedula||'?', producto:v.producto,
             prima:v.prima||0, periodicidad:v.periodicidad, fechaExp:v.fechaExp,
             nPagos, proxVencimiento:proxVenc.toISOString().split('T')[0],
             diasParaVencer, estadoApp,
-            estadoSura: estadoSura || (suraMap ? 'No encontrado en informe' : 'Informe no cargado'),
-            obsDetalle: obsDetalle || '', categoria, accion,
+            estadoSura: estadoSura || (suraMap || carteraMap.size > 0 ? 'No encontrado en informe' : 'Informe no cargado'),
+            obsDetalle: obsDetalle || '', categoria, accion, fuenteSura,
             comisionEstimada: Math.round((v.prima||0) * (COM_PCT[v.producto]||0.07))
           });
         });
@@ -33505,9 +33537,13 @@ function _agenteEjecutarHerramienta(nombre, input) {
         const orden = { MORA_CONFIRMADA:0, PAGO_SURA_SIN_REGISTRAR:1, DISCREPANCIA:2, SIN_INFO_MORA:3, AL_DIA:4 };
         resultados.sort((a,b) => (orden[a.categoria]||9) - (orden[b.categoria]||9));
 
+        const hayFuenteSura = !!(suraMap || carteraMap.size > 0);
         const resumen = {
           totalCartera: ventas.length,
-          informeSuraCargado: !!suraMap,
+          informeSuraCargado: hayFuenteSura,
+          fuenteActiva: suraMap ? 'informe_comisiones' : (carteraMap.size > 0 ? 'cartera_importada' : 'ninguna'),
+          carteraSuraRegistros: carteraSura.length,
+          sinRegistrarEnApp: sinRegistrarEnCartera.length,
           cruzados: resultados.length,
           porCategoria: {
             alDia:               resultados.filter(r=>r.categoria==='AL_DIA').length,
@@ -33516,10 +33552,17 @@ function _agenteEjecutarHerramienta(nombre, input) {
             discrepancia:        resultados.filter(r=>r.categoria==='DISCREPANCIA').length,
             sinInfoMora:         resultados.filter(r=>r.categoria==='SIN_INFO_MORA').length,
           },
-          registros: resultados.slice(0,20)
+          registros: resultados.slice(0,20),
+          clientesSuraNoEnApp: sinRegistrarEnCartera.slice(0,10).map(r => ({
+            nombre: r.nombre, cedula: r.cedula, poliza: r.poliza,
+            diasCart: r.diasCart, diasCanc: r.diasCanc, saldo: r.saldo,
+            urgencia: r.urgencia, medioPago: r.medioPago
+          }))
         };
-        if (!suraMap) {
-          resumen.aviso = 'El informe de SURA no está cargado. Ve a Gestión de Cartera → sección comisiones → "Cargar informe" (.xls de SURA) para habilitar el cruce completo. Con el informe cargado puedo detectar quién pagó en SURA sin estar registrado en la app.';
+        if (!hayFuenteSura) {
+          resumen.aviso = 'No hay datos de SURA cargados. Opciones: (1) Ve a Gestión de Cartera → botón "Importar Cartera SURA (.xlsx)" para cruzar con la cartera de mora. (2) Ve a Comisiones y Pagos → "Cargar informe" (.xls del InformedeComisiones) para cruzar pagos confirmados por SURA.';
+        } else if (!suraMap && carteraMap.size > 0) {
+          resumen.aviso = `Usando cartera SURA importada (${carteraSura.length} registros). ${sinRegistrarEnCartera.length > 0 ? sinRegistrarEnCartera.length + ' clientes en la cartera SURA no están registrados en la app.' : 'Todos los clientes de la cartera están en la app.'} Para cruce de pagos confirmados (quién pagó en SURA), también carga el InformedeComisiones en Comisiones → "Cargar informe".`;
         }
         return resumen;
       }
