@@ -4768,10 +4768,17 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                 <div><label style="font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px;">Notificar por correo</label>
                   <select id="agendaEvNotif" class="form-input" style="width:100%;">
                     <option value="0">Sin recordatorio</option>
+                    <option value="15">15 minutos antes</option>
+                    <option value="30">30 minutos antes</option>
                     <option value="60">1 hora antes</option>
+                    <option value="120">2 horas antes</option>
+                    <option value="360">6 horas antes</option>
                     <option value="1440" selected>1 día antes</option>
                     <option value="2880">2 días antes</option>
-                  </select></div>
+                    <option value="4320">3 días antes</option>
+                    <option value="10080">1 semana antes</option>
+                  </select>
+                  <div style="font-size:10.5px;color:var(--text-muted);margin-top:4px;">📧 Se enviará a <strong>serviciossaludeps@gmail.com</strong> en la hora indicada</div></div>
               </div>
               <input type="hidden" id="agendaEvId">
               <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;">
@@ -12576,9 +12583,10 @@ function calcDatosPSM() {
   const psmValorDcto = Math.round(totalBruto * psmDctoPct);
   const total = totalBruto - psmValorDcto;
 
-  // 5. Calc commission: 12% if ≤50, 6% if >50
+  // 5. Calc commission: 12% if ≤50, 6% if >50 — base sin IVA
   const comPct = edadNum <= 50 ? 0.12 : 0.06;
-  const comision = Math.round(total * comPct);
+  const totalSinIVA = Math.round(total / PSM_IVA);
+  const comision = Math.round(totalSinIVA * comPct);
 
   // 6. Show summary
   document.getElementById('psmResumen').style.display = '';
@@ -12685,7 +12693,8 @@ function calcDatosPAC60() {
   const pac60DctoPct = PAC60_DCTOS[periPAC] || 0;
   const pac60ValorDcto = Math.round(primaBruta * pac60DctoPct);
   const prima = primaBruta - pac60ValorDcto;
-  const comision = Math.round(prima * PAC60_COM_PCT);
+  const primaSinIVA_preview = Math.round(prima / 1.05);
+  const comision = Math.round(primaSinIVA_preview * PAC60_COM_PCT); // base sin IVA
 
   // Show individual prices (siempre mensuales como referencia)
   document.getElementById('pac60PrecioBase').textContent = fmt(tarifas.sinAnexo);
@@ -13347,6 +13356,10 @@ function guardarVenta() {
         };
       } else if (modalTab === 'psm') {
         const fecha = document.getElementById('vFechaPSM')?.value || vOld.fecha;
+        const edadEditPSM = parseInt(document.getElementById('vEdadPSM')?.value) || parseInt(vOld.edad) || 0;
+        const primaEditPSM = vOld.primaTotal || vOld.prima || 0;
+        const primaSinIVAEditPSM = Math.round(primaEditPSM / PSM_IVA);
+        const comPctEditPSM = edadEditPSM <= 50 ? 0.12 : 0.06;
         state.ventas[idxEdit] = {
           ...vOld,
           fecha,
@@ -13363,11 +13376,16 @@ function guardarVenta() {
           ciudad:   document.getElementById('vCiudadPSM')?.value    || vOld.ciudad,
           empresa:  document.getElementById('vEmpresaPSM')?.value   || vOld.empresa,
           notas:    document.getElementById('vNotasPSM')?.value     || vOld.notas,
+          primaTotalSinIVA: primaSinIVAEditPSM,
+          comision: Math.round(primaSinIVAEditPSM * comPctEditPSM), // corregido: base sin IVA
+          comPct: edadEditPSM <= 50 ? 12 : 6,
           tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPSM')?.checked),
           anioTarifa: document.getElementById('chkTarifaCongeladaPSM')?.checked ? (vOld.anioTarifa || AÑO_ACTUAL) : null,
         };
       } else if (modalTab === 'pac60') {
         const fecha = document.getElementById('vFechaPAC60')?.value || vOld.fecha;
+        const primaEditPAC = vOld.primaTotal || vOld.prima || 0;
+        const primaSinIVAEditPAC = Math.round(primaEditPAC / 1.05);
         state.ventas[idxEdit] = {
           ...vOld,
           fecha,
@@ -13384,6 +13402,8 @@ function guardarVenta() {
           ciudad:   document.getElementById('vCiudadPAC60')?.value   || vOld.ciudad,
           notas:    document.getElementById('vNotasPAC60')?.value    || vOld.notas,
           conAnexo: document.getElementById('chkAnexoPAC60')?.checked ?? vOld.conAnexo,
+          primaTotalSinIVA: primaSinIVAEditPAC,
+          comision: Math.round(primaSinIVAEditPAC * PAC60_COM_PCT), // corregido: base sin IVA
           tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPAC60')?.checked),
           anioTarifa: document.getElementById('chkTarifaCongeladaPAC60')?.checked ? (vOld.anioTarifa || AÑO_ACTUAL) : null,
         };
@@ -13654,8 +13674,9 @@ function guardarVenta() {
     if (document.getElementById('chkMaternidad').checked && edadNum >= 15 && edadNum <= 45) { primaMensualBase += PSM_TARIFAS.maternidad[k] * PSM_IVA; modulosArr.push('Maternidad'); }
     const primaMensual = Math.round(primaMensualBase);
     const primaTotal   = Math.round(primaMensualBase * multPSM);
+    const primaTotalSinIVA_PSM = Math.round(primaTotal / PSM_IVA);
     const comPct = edadNum <= 50 ? 0.12 : 0.06;
-    const comision = Math.round(primaTotal * comPct);
+    const comision = Math.round(primaTotalSinIVA_PSM * comPct); // base sin IVA
     const empNombrePSM = document.getElementById('vEmpresaPSM').value;
     const ciudadPSM = document.getElementById('vCiudadPSM').value;
     state.ventas.push({
@@ -13678,7 +13699,7 @@ function guardarVenta() {
       periodicidad: periPSM,
       prima: primaMensual,
       primaTotal: primaTotal,
-      primaTotalSinIVA: Math.round(primaTotal / PSM_IVA),
+      primaTotalSinIVA: primaTotalSinIVA_PSM,
       notas: document.getElementById('vNotasPSM').value,
       comision,
       ramo: 'FAMILIAR',
@@ -13705,7 +13726,8 @@ function guardarVenta() {
     const multPAC = periMultPAC[periPAC] || 1;
     const primaMensualPAC = conAnexo ? PAC60_TARIFAS[rango].conAnexo : PAC60_TARIFAS[rango].sinAnexo;
     const prima = Math.round(primaMensualPAC * multPAC);
-    const comision = Math.round(prima * PAC60_COM_PCT);
+    const primaSinIVA_PAC = Math.round(prima / 1.05);
+    const comision = Math.round(primaSinIVA_PAC * PAC60_COM_PCT); // base sin IVA
     const planLabel = conAnexo ? '60+ Con Anexo' : '60+ Sin Anexo';
     state.ventas.push({
       id, producto: 'PAC60', fecha,
@@ -13728,7 +13750,7 @@ function guardarVenta() {
       periodicidad: periPAC,
       prima: primaMensualPAC,
       primaTotal: prima,
-      primaTotalSinIVA: Math.round(prima / 1.05),
+      primaTotalSinIVA: primaSinIVA_PAC,
       comision,
       comPct: 5,
       rango, criterio: '—', tramite: '—', bd: '—',
@@ -14856,6 +14878,41 @@ function setPagos(p) {
   if (window.__FB_CACHE__) window.__FB_CACHE__.pagos = p;
   if (window.FB) window.FB.set('pagos', p);
   try { localStorage.setItem('sura_pagos_v2', JSON.stringify(p)); } catch(e) {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRACIÓN — Corrige comisiones de PSM y PAC60 calculadas sobre prima con IVA
+// Se ejecuta UNA sola vez al iniciar la app post-login.
+// Detecta ventas donde la comisión guardada difiere de la correcta (sin IVA)
+// y las corrige en memoria + persiste a Firestore.
+// ─────────────────────────────────────────────────────────────────────────────
+function migrarComisionSinIVA() {
+  try {
+    const s = getState();
+    let corregidas = 0;
+    s.ventas.forEach(v => {
+      if (v.producto !== 'PSM' && v.producto !== 'PAC60') return;
+      const primaTotal = v.primaTotal || v.prima || 0;
+      if (!primaTotal) return;
+      const IVA = v.producto === 'PSM' ? 1.05 : 1.05;
+      const sinIVA = Math.round(primaTotal / IVA);
+      const comPct = v.producto === 'PSM'
+        ? ((parseInt(v.edad) || 0) <= 50 ? 0.12 : 0.06)
+        : 0.05;
+      const comCorrecta = Math.round(sinIVA * comPct);
+      if (v.comision !== comCorrecta) {
+        v.comision = comCorrecta;
+        v.primaTotalSinIVA = sinIVA;
+        corregidas++;
+      }
+    });
+    if (corregidas > 0) {
+      setState(s);
+      console.log(`[migrarComisionSinIVA] ${corregidas} venta(s) PSM/PAC60 corregidas a base sin IVA`);
+    }
+  } catch(e) {
+    console.warn('[migrarComisionSinIVA] Error en migración:', e);
+  }
 }
 
 // Migración desde formato v1 (flag booleano) → v2 (array de pagos)
@@ -26509,6 +26566,7 @@ function _iniciarAppTrasLogin() {
   state = initState();
   initMultiAnio();
   migrarPagosV1();
+  migrarComisionSinIVA(); // corrige comisiones PSM y PAC60 calculadas con IVA
   navigate('inicio');
   checkMenuPulse();
   setTimeout(() => initNotificaciones(), 2000);
@@ -30921,50 +30979,89 @@ function agendaEliminarEvento() {
 }
 
 // ── Notificación por correo del evento ───────────────────────
+// ── Notificación por correo del evento ───────────────────────
+// El envío real lo hace agendaVerificarRecordatorios() en un loop
+// cada 5 minutos — así sobrevive recargas de página.
+// Este método solo marca que la notificación fue solicitada.
 async function agendaProgramarNotifEvento(ev) {
   try {
-    const s = getState();
-    const emailDestino = s.config?.emailNotif?.trim() || '';
-    if (!emailDestino || !ev.notifMin) return;
-    await _cargarEmailJS();
-    if (!window.emailjs) return;
-    const fechaEv = new Date(ev.fecha + 'T' + (ev.hora || '09:00') + ':00');
-    const fechaNotif = new Date(fechaEv.getTime() - ev.notifMin * 60 * 1000);
-    const msHasta = fechaNotif.getTime() - Date.now();
-    if (msHasta <= 0) return; // Ya pasó
-    const tiempoLabel = ev.notifMin >= 1440 ? `${ev.notifMin/1440} día(s)` : `${ev.notifMin/60} hora(s)`;
-    setTimeout(async () => {
-      try {
-        await window.emailjs.send('service_hketcd1', 'template_z1tx2n4', {
-          asunto:  `📅 Recordatorio: ${ev.titulo}`,
-          mensaje: `Hola,
-
-Te recordamos que tienes un evento programado:
-
-${AGENDA_TIPO_ICON[ev.tipo]||'📌'} ${ev.titulo}
-Fecha: ${ev.fecha}
-Hora: ${ev.hora || 'Sin hora'}
-Tipo: ${ev.tipo}
-${ev.descripcion ? 'Descripción: ' + ev.descripcion : ''}
-
-— Sistema SURA Asesor`,
-          email:   emailDestino
-        });
-        showToast('📧 Recordatorio enviado al correo');
-      } catch(e) { console.warn('[AgendaNotif] Error correo:', e.message); }
-    }, Math.min(msHasta, 2147483647)); // setTimeout max ~24 días
-  } catch(e) { console.warn('[AgendaNotif]', e.message); }
+    const eventos = getAgendaEventos();
+    const idx = eventos.findIndex(e => e.id === ev.id);
+    if (idx >= 0 && !eventos[idx]._notifProgramada) {
+      eventos[idx]._notifProgramada = true;
+      setAgendaEventos(eventos);
+    }
+  } catch(e) { console.warn('[AgendaNotif] programar:', e.message); }
 }
 
-// ── Verificar recordatorios pendientes al cargar ─────────────
-function agendaVerificarRecordatorios() {
-  // Cargar desde Firestore primero, luego programar recordatorios
-  _agendaCargarFirestore().then(() => {
-    const eventos = getAgendaEventos();
-    eventos.forEach(ev => {
-      if (ev.notifMin > 0) agendaProgramarNotifEvento(ev);
+// ── Enviar correo de recordatorio para un evento ─────────────
+async function _agendaEnviarCorreoEvento(ev) {
+  const AGENDA_NOTIF_EMAIL = 'serviciossaludeps@gmail.com'; // correo fijo destino
+  try {
+    const s = getState();
+    // Prioridad: config guardada → correo fijo del asesor
+    const emailDestino = s.config?.emailNotif?.trim() || AGENDA_NOTIF_EMAIL;
+    const icon = (typeof AGENDA_TIPO_ICON !== 'undefined' && AGENDA_TIPO_ICON[ev.tipo]) ? AGENDA_TIPO_ICON[ev.tipo] : '📌';
+    const asesor = s.config?.nombreAsesor || 'Asesor SURA';
+    await _cargarEmailJS();
+    if (!window.emailjs) { console.warn('[AgendaNotif] EmailJS no disponible'); return false; }
+    await window.emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      asunto:  `📅 Recordatorio: ${ev.titulo}`,
+      mensaje: `Hola ${asesor},
+
+Tienes un evento próximo:
+
+${icon} ${ev.titulo}
+Fecha: ${ev.fecha}
+Hora: ${ev.hora || 'Sin hora definida'}
+Tipo: ${ev.tipo || '—'}
+${ev.descripcion ? 'Descripción: ' + ev.descripcion + '
+' : ''}
+Este recordatorio fue programado ${ev.notifMin >= 1440 ? (ev.notifMin/1440) + ' día(s)' : (ev.notifMin/60) + ' hora(s)'} antes del evento.
+
+— Sistema SURA Asesor`,
+      email:   emailDestino
     });
+    console.log('[AgendaNotif] ✅ Correo enviado a', emailDestino, '| evento:', ev.titulo);
+    return true;
+  } catch(e) {
+    console.warn('[AgendaNotif] Error al enviar correo:', e.message || e);
+    return false;
+  }
+}
+
+// ── Verificar recordatorios pendientes — corre al cargar y cada 5 min ────────
+function agendaVerificarRecordatorios() {
+  _agendaCargarFirestore().then(() => {
+    _agendaCheckYEnviar();
+    // Repetir cada 5 minutos para no perder recordatorios tras recargas
+    if (!window._agendaNotifInterval) {
+      window._agendaNotifInterval = setInterval(_agendaCheckYEnviar, 5 * 60 * 1000);
+    }
   });
+}
+
+async function _agendaCheckYEnviar() {
+  try {
+    const eventos = getAgendaEventos();
+    const ahora = Date.now();
+    let huboEnvio = false;
+    const actualizados = eventos.map(ev => {
+      if (!ev.notifMin || ev._notifEnviada) return ev;
+      const fechaEv   = new Date(ev.fecha + 'T' + (ev.hora || '09:00') + ':00').getTime();
+      const fechaNotif = fechaEv - ev.notifMin * 60 * 1000;
+      // Ventana de disparo: entre la hora de notif y 10 min después (para no disparar tarde)
+      if (ahora >= fechaNotif && ahora <= fechaNotif + 10 * 60 * 1000) {
+        _agendaEnviarCorreoEvento(ev).then(ok => {
+          if (ok) showToast('📧 Recordatorio de agenda enviado al correo');
+        });
+        huboEnvio = true;
+        return { ...ev, _notifEnviada: true }; // marcar para no reenviar
+      }
+      return ev;
+    });
+    if (huboEnvio) setAgendaEventos(actualizados);
+  } catch(e) { console.warn('[AgendaNotif] check:', e.message); }
 }
 
 // Storage helpers
@@ -33699,12 +33796,18 @@ function _agenteEjecutarHerramienta(nombre, input) {
         const eventos = getAgendaEventos ? getAgendaEventos() : [];
         eventos.push(ev);
         if (setAgendaEventos) setAgendaEventos(eventos);
+        // Programar notificación por correo si aplica
+        if (ev.notifMin > 0 && typeof agendaProgramarNotifEvento === 'function') {
+          agendaProgramarNotifEvento(ev);
+        }
         // Re-renderizar si la pestaña agenda está activa
         const panelAgenda = document.getElementById('actPanel-agenda');
         if (panelAgenda && panelAgenda.style.display !== 'none') agendaRender();
+        const notifLabel = ev.notifMin >= 1440 ? `${ev.notifMin/1440} día(s) antes` : ev.notifMin >= 60 ? `${ev.notifMin/60} hora(s) antes` : `${ev.notifMin} min antes`;
         return {
           exito: true,
           mensaje: `Evento "${titulo}" creado para el ${fecha} a las ${hora || '09:00'}`,
+          recordatorio: ev.notifMin > 0 ? `Se enviará correo a serviciossaludeps@gmail.com ${notifLabel}` : 'Sin recordatorio',
           evento: ev
         };
       }
