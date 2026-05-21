@@ -5514,17 +5514,18 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
           </div>
           <!-- ══ BANDEJA DE APROBACIÓN ══════════════════════════════════════════ -->
           <div id="renovBandeja" style="display:none;margin-bottom:20px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <div onclick="renovToggleBandeja()" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;cursor:pointer;user-select:none;">
               <div style="display:flex;align-items:center;gap:8px;">
+                <span id="renovBandejaArrow" style="font-size:11px;color:var(--text-dim);transition:transform 0.2s;">▶</span>
                 <span style="font-size:14px;font-weight:700;">📬 Mensajes pendientes de aprobación</span>
                 <span id="renovBandejaBadge" style="background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;">0</span>
               </div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
                 <button class="btn btn-secondary btn-sm" onclick="renovGenerarBandeja()" id="renovBtnGenerar" style="font-size:11px;">🔄 Actualizar</button>
                 <button class="btn btn-secondary btn-sm" onclick="renovDescartarTodos()" style="font-size:11px;color:var(--text-dim);">✕ Descartar todos</button>
               </div>
             </div>
-            <div id="renovBandejaLista" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <div id="renovBandejaLista" style="display:none;flex-direction:column;gap:8px;"></div>
           </div>
           <!-- ══ FIN BANDEJA ═════════════════════════════════════════════════════ -->
 
@@ -16310,18 +16311,33 @@ async function renovGenerarBandeja() {
 }
 
 // ── Renderizar la bandeja ────────────────────────────────────────────────────
+function renovToggleBandeja() {
+  const lista  = document.getElementById('renovBandejaLista');
+  const arrow  = document.getElementById('renovBandejaArrow');
+  if (!lista) return;
+  const abriendo = lista.style.display === 'none';
+  lista.style.display = abriendo ? 'flex' : 'none';
+  if (arrow) arrow.style.transform = abriendo ? 'rotate(90deg)' : '';
+  // Al abrir por primera vez renderizar el contenido
+  if (abriendo) renovRenderBandeja();
+}
+
 function renovRenderBandeja() {
   const panel   = document.getElementById('renovBandeja');
   const lista   = document.getElementById('renovBandejaLista');
   const badge   = document.getElementById('renovBandejaBadge');
   if (!panel || !lista) return;
 
-  const bandeja   = getRenovBandeja();
+  const bandeja    = getRenovBandeja();
   const pendientes = bandeja.filter(i => i.estado === 'pendiente');
 
   if (badge) badge.textContent = pendientes.length;
   panel.style.display = pendientes.length ? '' : 'none';
   if (!pendientes.length) { lista.innerHTML = ''; return; }
+
+  // Respetar estado colapsado: solo renderizar contenido si está abierto
+  const estaAbierto = lista.style.display !== 'none';
+  if (!estaAbierto) return;
 
   lista.innerHTML = pendientes.map(item => {
     const urgColor = item.diasParaVencer <= 0 ? 'var(--red)'
