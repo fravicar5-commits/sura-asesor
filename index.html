@@ -14115,21 +14115,29 @@ function guardarVenta() {
       const edadAiRaw = document.getElementById('vEdadSPTI_' + ai)?.value || '0';
       const rangoAi = getRangoEdadSPTI(parseInt(edadAiRaw));
       let primaTAi = 0;
+      let primaTAiEsConIVA = true; // SPTI_TARIFAS ya incluye IVA
       if (plan && rangoAi && SPTI_TARIFAS[plan]?.[rangoAi]) {
         const tAi = SPTI_TARIFAS[plan][rangoAi];
         if (periodicidad === 'TRIMESTRAL') primaTAi = tAi.trimestre;
         else if (periodicidad === 'SEMESTRAL') primaTAi = tAi.semestre;
         else if (periodicidad === 'ANUAL') primaTAi = tAi.anual;
         else primaTAi = tAi.mensual;
-      } else { primaTAi = primaTotalSinIVA; }
+        primaTAiEsConIVA = true; // tabla SPTI ya incluye IVA
+      } else {
+        primaTAi = primaTotalSinIVA; // fallback: valor sin IVA de asegurado 1
+        primaTAiEsConIVA = false;
+      }
+      // Normalizar siempre a {primaConIVA, primaSinIVA}
+      const primaConIVAAi  = primaTAiEsConIVA ? primaTAi : Math.round(primaTAi * IVA_FACTOR);
+      const primaSinIVAAi  = primaTAiEsConIVA ? Math.round(primaTAi / IVA_FACTOR) : primaTAi;
       aseguradosSPTI.push({
         nombre: document.getElementById('vAseguradoNombreSPTI_' + ai)?.value || '',
         tipoDoc: document.getElementById('vAseguradoTipoDocSPTI_' + ai)?.value || 'CC',
         doc: document.getElementById('vAseguradoDocSPTI_' + ai)?.value || '',
         fechaNac: document.getElementById('vFechaNacSPTI_' + ai)?.value || '',
         edad: edadAiRaw,
-        primaTotalSinIVA: primaTAi,
-        primaTotal: Math.round(primaTAi * IVA_FACTOR),
+        primaTotalSinIVA: primaSinIVAAi,
+        primaTotal: primaConIVAAi,
       });
     }
     const _sptiBase = {
