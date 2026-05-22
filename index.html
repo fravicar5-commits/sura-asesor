@@ -7603,10 +7603,10 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
       </div>
 
-      <!-- ASEGURADO -->
-      <div style="border:1px solid rgba(200,229,43,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
+      <!-- ASEGURADO SPTI (existente renombrado para consistencia) -->
+      <div style="border:1px solid rgba(200,229,43,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;" id="sptiAsegWrap0">
         <div style="font-size:12px;font-weight:700;color:var(--sura-lime);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          🏥 ASEGURADO <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien recibe el servicio · determina la tarifa)</span>
+          🏥 ASEGURADO 1 <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien recibe el servicio · determina la tarifa)</span>
           <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
             <input type="checkbox" id="vSptiAseguradoMismoTomador" onchange="sptiCopiarTomadorAsegurado()" style="accent-color:var(--sura-lime);">
             Mismo que el tomador
@@ -7642,6 +7642,30 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             <input type="text" class="form-control" id="vEdadSPTI" readonly placeholder="Auto" style="background:var(--surface3);color:var(--sura-lime);font-weight:600;">
           </div>
         </div>
+      </div>
+
+      <!-- Asegurados adicionales SPTI (dinámicos) -->
+      <div id="sptiAseguradosExtra"></div>
+
+      <!-- Botón agregar asegurado SPTI -->
+      <button type="button" onclick="sptiAgregarAsegurado()" style="width:100%;margin-bottom:14px;padding:9px;border:1px dashed rgba(200,229,43,0.4);border-radius:var(--radius-sm);background:rgba(200,229,43,0.04);color:var(--sura-lime);font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        ➕ Agregar otro asegurado (misma póliza)
+      </button>
+
+      <!-- Modo de registro SPTI -->
+      <div style="border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;background:rgba(245,158,11,0.04);">
+        <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:10px;">📋 MODO DE REGISTRO EN PLANTILLA</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:12.5px;">
+            <input type="radio" name="sptiModoRegistro" id="sptiModoIndividual" value="individual" checked onchange="sptiActualizarModoRegistro()" style="margin-top:2px;accent-color:var(--teal);">
+            <span><strong style="color:var(--text);">Registros individuales</strong> — Se crea un registro por cada asegurado con su prima individual</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:12.5px;">
+            <input type="radio" name="sptiModoRegistro" id="sptiModoSumado" value="sumado" onchange="sptiActualizarModoRegistro()" style="margin-top:2px;accent-color:var(--amber);">
+            <span><strong style="color:var(--text);">Registro único sumado</strong> — Un solo registro con la suma de todas las primas (estructura SURA para 2–3 en una póliza)</span>
+          </label>
+        </div>
+        <div id="sptiResumenModo" style="display:none;margin-top:10px;padding:8px 10px;background:rgba(245,158,11,0.08);border-radius:6px;font-size:12px;color:var(--amber);"></div>
       </div>
 
       <div class="form-group">
@@ -7852,12 +7876,26 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
       </div>
 
+      <!-- Modo de registro SPD -->
+      <div style="border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;background:rgba(245,158,11,0.04);">
+        <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:10px;">📋 MODO DE REGISTRO EN PLANTILLA</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:12.5px;">
+            <input type="radio" name="spdModoRegistro" id="spdModoIndividual" value="individual" checked onchange="spdActualizarModoRegistro()" style="margin-top:2px;accent-color:var(--purple);">
+            <span><strong style="color:var(--text);">Registros individuales</strong> — Un registro por asegurado con su prima individual</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:12.5px;">
+            <input type="radio" name="spdModoRegistro" id="spdModoSumado" value="sumado" onchange="spdActualizarModoRegistro()" style="margin-top:2px;accent-color:var(--amber);">
+            <span><strong style="color:var(--text);">Registro único sumado</strong> — Un solo registro con la suma de primas de los 2 asegurados (estructura SURA póliza conjunta)</span>
+          </label>
+        </div>
+        <div id="spdResumenModo" style="display:none;margin-top:10px;padding:8px 10px;background:rgba(245,158,11,0.08);border-radius:6px;font-size:12px;color:var(--amber);"></div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Notas / Observaciones</label>
         <input type="text" class="form-control" id="vNotasSPD" placeholder="Observaciones adicionales">
       </div>
-
-      <!-- Toggle Tarifa Congelada SPD -->
       <div class="tarifa-congelada-toggle" id="tcToggleSPD">
         <label>
           <input type="checkbox" id="chkTarifaCongeladaSPD" onchange="toggleTarifaCongelada('SPD')">
@@ -7901,9 +7939,58 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
       </div>
 
-      <!-- Datos del asegurado -->
-      <div style="border:1px solid rgba(6,182,212,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
-        <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:12px;">👤 DATOS DEL ASEGURADO</div>
+      <!-- TOMADOR PSM -->
+      <div style="border:1px solid rgba(168,85,247,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+          💳 TOMADOR <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien paga la póliza)</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Nombre Completo</label>
+            <input type="text" class="form-control" id="vTomadorNombrePSM" placeholder="Nombre del tomador">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de Documento</label>
+            <select class="form-control" id="vTomadorTipoDocPSM">
+              <option value="CC">CC — Cédula de Ciudadanía</option>
+              <option value="CE">CE — Cédula de Extranjería</option>
+              <option value="PPT">PPT — Permiso de Protección Temporal</option>
+              <option value="PA">PA — Pasaporte</option>
+              <option value="NIT">NIT</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">No. Documento</label>
+            <input type="text" class="form-control" id="vTomadorDocPSM" placeholder="Número de documento">
+          </div>
+          <div class="form-group">
+            <label class="form-label">📱 Teléfono / WhatsApp</label>
+            <input type="tel" class="form-control" id="vTelPSM" placeholder="3001234567">
+          </div>
+          <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">📧 Correo Electrónico</label>
+            <input type="email" class="form-control" id="vCorreoPSM" placeholder="correo@ejemplo.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">🏙️ Ciudad</label>
+            <input type="text" class="form-control" id="vCiudadPSM" placeholder="Ciudad" list="ciudadesList">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Empresa</label>
+            <input type="text" class="form-control" id="vEmpresaPSM" placeholder="Empresa (opcional)">
+          </div>
+        </div>
+      </div>
+
+      <!-- ASEGURADO 1 PSM -->
+      <div style="border:1px solid rgba(6,182,212,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;" id="psmAsegWrap0">
+        <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          🏥 ASEGURADO 1 <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien recibe el servicio · determina la tarifa)</span>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="vPsmAsegMismoTomador0" onchange="psmCopiarTomador(0)" style="accent-color:var(--teal);">
+            Mismo que el tomador
+          </label>
+        </div>
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">Nombre Completo</label>
@@ -7936,23 +8023,31 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             <label class="form-label">Rango Tarifario</label>
             <input type="text" class="form-control" id="vRangoPSM" readonly placeholder="Auto según edad" style="background:var(--surface3);color:var(--teal);font-weight:600;">
           </div>
-          <div class="form-group">
-            <label class="form-label">📱 Teléfono / WhatsApp</label>
-            <input type="tel" class="form-control" id="vTelPSM" placeholder="3001234567">
-          </div>
-          <div class="form-group">
-            <label class="form-label">📧 Correo Electrónico</label>
-            <input type="email" class="form-control" id="vCorreoPSM" placeholder="correo@ejemplo.com">
-          </div>
-          <div class="form-group">
-            <label class="form-label">🏙️ Ciudad</label>
-            <input type="text" class="form-control" id="vCiudadPSM" placeholder="Ciudad" list="ciudadesList">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Empresa</label>
-            <input type="text" class="form-control" id="vEmpresaPSM" placeholder="Empresa (opcional)">
-          </div>
         </div>
+      </div>
+
+      <!-- Asegurados adicionales PSM (dinámicos) -->
+      <div id="psmAseguradosExtra"></div>
+
+      <!-- Botón agregar asegurado PSM -->
+      <button type="button" onclick="psmAgregarAsegurado()" style="width:100%;margin-bottom:14px;padding:9px;border:1px dashed rgba(6,182,212,0.4);border-radius:var(--radius-sm);background:rgba(6,182,212,0.05);color:var(--teal);font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        ➕ Agregar otro asegurado (misma póliza)
+      </button>
+
+      <!-- Modo de registro PSM -->
+      <div style="border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;background:rgba(245,158,11,0.04);">
+        <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:10px;">📋 MODO DE REGISTRO EN PLANTILLA</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:12.5px;">
+            <input type="radio" name="psmModoRegistro" id="psmModoIndividual" value="individual" checked onchange="psmActualizarModoRegistro()" style="margin-top:2px;accent-color:var(--teal);">
+            <span><strong style="color:var(--text);">Registros individuales</strong> — Se crea un registro por cada asegurado con su prima individual</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:12.5px;">
+            <input type="radio" name="psmModoRegistro" id="psmModoSumado" value="sumado" onchange="psmActualizarModoRegistro()" style="margin-top:2px;accent-color:var(--amber);">
+            <span><strong style="color:var(--text);">Registro único sumado</strong> — Un solo registro con la suma de todas las primas (estructura SURA para 2–3 en una póliza)</span>
+          </label>
+        </div>
+        <div id="psmResumenModo" style="display:none;margin-top:10px;padding:8px 10px;background:rgba(245,158,11,0.08);border-radius:6px;font-size:12px;color:var(--amber);"></div>
       </div>
 
       <!-- Módulos -->
@@ -8109,9 +8204,54 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
       </div>
 
-      <!-- Datos del asegurado -->
-      <div style="border:1px solid rgba(34,197,94,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
-        <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:12px;">👤 DATOS DEL ASEGURADO</div>
+      <!-- TOMADOR PAC60 -->
+      <div style="border:1px solid rgba(168,85,247,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+          💳 TOMADOR <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien paga la póliza)</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Nombre Completo</label>
+            <input type="text" class="form-control" id="vTomadorNombrePAC60" placeholder="Nombre del tomador">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo de Documento</label>
+            <select class="form-control" id="vTomadorTipoDocPAC60">
+              <option value="CC">CC — Cédula de Ciudadanía</option>
+              <option value="CE">CE — Cédula de Extranjería</option>
+              <option value="PPT">PPT — Permiso de Protección Temporal</option>
+              <option value="PA">PA — Pasaporte</option>
+              <option value="NIT">NIT</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">No. Documento</label>
+            <input type="text" class="form-control" id="vTomadorDocPAC60" placeholder="Número de documento">
+          </div>
+          <div class="form-group">
+            <label class="form-label">📱 Teléfono / WhatsApp</label>
+            <input type="tel" class="form-control" id="vTelPAC60" placeholder="3001234567">
+          </div>
+          <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">📧 Correo Electrónico</label>
+            <input type="email" class="form-control" id="vCorreoPAC60" placeholder="correo@ejemplo.com">
+          </div>
+          <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">🏙️ Ciudad</label>
+            <input type="text" class="form-control" id="vCiudadPAC60" placeholder="Ciudad" list="ciudadesList">
+          </div>
+        </div>
+      </div>
+
+      <!-- ASEGURADO 1 PAC60 -->
+      <div style="border:1px solid rgba(34,197,94,0.3);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;" id="pac60AsegWrap0">
+        <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          🏥 ASEGURADO 1 <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(quien recibe el servicio · determina la tarifa)</span>
+          <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="vPac60AsegMismoTomador0" onchange="pac60CopiarTomador(0)" style="accent-color:var(--green);">
+            Mismo que el tomador
+          </label>
+        </div>
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">Nombre Completo</label>
@@ -8142,19 +8282,31 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             <label class="form-label">Rango Tarifario</label>
             <input type="text" class="form-control" id="vRangoPAC60" readonly placeholder="Auto según edad" style="background:var(--surface3);color:var(--green);font-weight:600;">
           </div>
-          <div class="form-group">
-            <label class="form-label">📱 Teléfono / WhatsApp</label>
-            <input type="tel" class="form-control" id="vTelPAC60" placeholder="3001234567">
-          </div>
-          <div class="form-group">
-            <label class="form-label">📧 Correo Electrónico</label>
-            <input type="email" class="form-control" id="vCorreoPAC60" placeholder="correo@ejemplo.com">
-          </div>
-          <div class="form-group">
-            <label class="form-label">🏙️ Ciudad</label>
-            <input type="text" class="form-control" id="vCiudadPAC60" placeholder="Ciudad" list="ciudadesList">
-          </div>
         </div>
+      </div>
+
+      <!-- Asegurados adicionales PAC60 (dinámicos) -->
+      <div id="pac60AseguradosExtra"></div>
+
+      <!-- Botón agregar asegurado PAC60 -->
+      <button type="button" onclick="pac60AgregarAsegurado()" style="width:100%;margin-bottom:14px;padding:9px;border:1px dashed rgba(34,197,94,0.4);border-radius:var(--radius-sm);background:rgba(34,197,94,0.05);color:var(--green);font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        ➕ Agregar otro asegurado (misma póliza)
+      </button>
+
+      <!-- Modo de registro PAC60 -->
+      <div style="border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;background:rgba(245,158,11,0.04);">
+        <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:10px;">📋 MODO DE REGISTRO EN PLANTILLA</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:12.5px;">
+            <input type="radio" name="pac60ModoRegistro" id="pac60ModoIndividual" value="individual" checked onchange="pac60ActualizarModoRegistro()" style="margin-top:2px;accent-color:var(--green);">
+            <span><strong style="color:var(--text);">Registros individuales</strong> — Se crea un registro por cada asegurado con su prima individual</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:12.5px;">
+            <input type="radio" name="pac60ModoRegistro" id="pac60ModoSumado" value="sumado" onchange="pac60ActualizarModoRegistro()" style="margin-top:2px;accent-color:var(--amber);">
+            <span><strong style="color:var(--text);">Registro único sumado</strong> — Un solo registro con la suma de todas las primas (estructura SURA para 2–3 en una póliza)</span>
+          </label>
+        </div>
+        <div id="pac60ResumenModo" style="display:none;margin-top:10px;padding:8px 10px;background:rgba(245,158,11,0.08);border-radius:6px;font-size:12px;color:var(--amber);"></div>
       </div>
 
       <!-- Plan y anexo -->
@@ -11717,7 +11869,13 @@ function editarVenta(id) {
         if (s('vFechaPSM'))      s('vFechaPSM').value      = v.fecha     || '';
         if (s('vFechaExpPSM'))   s('vFechaExpPSM').value   = v.fechaExp  || '';
         if (s('vTipoMovPSM'))    s('vTipoMovPSM').value    = v.tipo      || 'NUEVO';
+        // Tomador
+        if (s('vTomadorNombrePSM'))  s('vTomadorNombrePSM').value  = v.tomadorNombre  || v.nombre || '';
+        if (s('vTomadorTipoDocPSM')) s('vTomadorTipoDocPSM').value = v.tomadorTipoDoc || v.tipoDoc || 'CC';
+        if (s('vTomadorDocPSM'))     s('vTomadorDocPSM').value     = v.tomadorDoc     || v.doc    || '';
+        // Asegurado 1
         if (s('vNombrePSM'))     s('vNombrePSM').value     = v.nombre    || '';
+        if (s('vTipoDocPSM'))    s('vTipoDocPSM').value    = v.tipoDoc   || 'CC';
         if (s('vDocPSM'))        s('vDocPSM').value        = v.doc       || '';
         if (s('vFechaNacPSM'))   s('vFechaNacPSM').value   = v.fechaNac  || '';
         if (s('vEdadPSM'))       s('vEdadPSM').value       = parseInt(v.edad) || '';
@@ -11741,7 +11899,13 @@ function editarVenta(id) {
         if (s('vFechaPAC60'))     s('vFechaPAC60').value     = v.fecha     || '';
         if (s('vFechaExpPAC60'))  s('vFechaExpPAC60').value  = v.fechaExp  || '';
         if (s('vTipoMovPAC60'))   s('vTipoMovPAC60').value   = v.tipo      || 'NUEVO';
+        // Tomador
+        if (s('vTomadorNombrePAC60'))  s('vTomadorNombrePAC60').value  = v.tomadorNombre  || v.nombre || '';
+        if (s('vTomadorTipoDocPAC60')) s('vTomadorTipoDocPAC60').value = v.tomadorTipoDoc || v.tipoDoc || 'CC';
+        if (s('vTomadorDocPAC60'))     s('vTomadorDocPAC60').value     = v.tomadorDoc     || v.doc    || '';
+        // Asegurado 1
         if (s('vNombrePAC60'))    s('vNombrePAC60').value    = v.nombre    || '';
+        if (s('vTipoDocPAC60'))   s('vTipoDocPAC60').value   = v.tipoDoc   || 'CC';
         if (s('vDocPAC60'))       s('vDocPAC60').value       = v.doc       || '';
         if (s('vFechaNacPAC60'))  s('vFechaNacPAC60').value  = v.fechaNac  || '';
         if (s('vEdadPAC60'))      s('vEdadPAC60').value      = parseInt(v.edad) || '';
@@ -12050,6 +12214,7 @@ function openModal(id) {
   document.getElementById(id).classList.add('open');
   const today = new Date().toISOString().split('T')[0];
   if (id === 'modalVenta') {
+    _resetMultiAsegurados();
     document.getElementById('vFecha').value = today;
     document.getElementById('vFechaSPTI').value = today;
     document.getElementById('vFechaSPD').value = today;
@@ -12148,6 +12313,7 @@ function openModal(id) {
     // Reset PSM fields
     const today = new Date().toISOString().split('T')[0];
     ['vFechaPSM','vFechaExpPSM','vPolizaPSM','vNombrePSM','vDocPSM','vFechaNacPSM',
+     'vTomadorNombrePSM','vTomadorDocPSM',
      'vTelPSM','vCorreoPSM','vCiudadPSM','vEmpresaPSM','vNotasPSM'].forEach(fid => {
       const el = document.getElementById(fid); if (el) el.value = '';
     });
@@ -12160,6 +12326,7 @@ function openModal(id) {
     document.getElementById('psmResumen').style.display = 'none';
     // Reset PAC60 fields
     ['vFechaPAC60','vFechaExpPAC60','vPolizaPAC60','vNombrePAC60','vDocPAC60',
+     'vTomadorNombrePAC60','vTomadorDocPAC60',
      'vFechaNacPAC60','vTelPAC60','vCorreoPAC60','vCiudadPAC60','vNotasPAC60'].forEach(fid => {
       const el = document.getElementById(fid); if (el) el.value = '';
     });
@@ -12273,6 +12440,310 @@ function checkPolizaExiste(polizaVal, producto, avisoId) {
 }
 
 // Copiar datos del tomador al asegurado en SPTI
+// ═══════════════════════════════════════════════════════════════
+// MULTI-ASEGURADO: PSM, PAC60, SPTI — helpers
+// ═══════════════════════════════════════════════════════════════
+
+// ── PSM: copiar tomador al asegurado N ──────────────────────────
+function psmCopiarTomador(idx) {
+  const chk = document.getElementById('vPsmAsegMismoTomador' + idx);
+  if (!chk) return;
+  if (idx === 0) {
+    // Asegurado 1 (campos fijos)
+    if (chk.checked) {
+      const v = e => document.getElementById(e)?.value || '';
+      const s = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      s('vNombrePSM', v('vTomadorNombrePSM'));
+      s('vTipoDocPSM', v('vTomadorTipoDocPSM'));
+      s('vDocPSM', v('vTomadorDocPSM'));
+    } else {
+      const s = (id) => { const el = document.getElementById(id); if (el) el.value = ''; };
+      s('vNombrePSM'); s('vDocPSM'); s('vFechaNacPSM'); s('vEdadPSM'); s('vRangoPSM');
+    }
+  } else {
+    // Asegurados adicionales (campos dinámicos)
+    const n = idx + 1;
+    if (chk.checked) {
+      const v = e => document.getElementById(e)?.value || '';
+      const s = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      s('vNombrePSM_' + n, v('vTomadorNombrePSM'));
+      s('vTipoDocPSM_' + n, v('vTomadorTipoDocPSM'));
+      s('vDocPSM_' + n, v('vTomadorDocPSM'));
+    }
+  }
+  psmActualizarModoRegistro();
+}
+
+// ── PSM: agregar asegurado dinámico ─────────────────────────────
+let _psmAsegCount = 1; // cuántos asegurados hay (1 = el fijo)
+function psmAgregarAsegurado() {
+  if (_psmAsegCount >= 4) { showToast('Máximo 4 asegurados por póliza PSM'); return; }
+  const n = _psmAsegCount + 1;
+  const idx = _psmAsegCount;
+  const container = document.getElementById('psmAseguradosExtra');
+  const div = document.createElement('div');
+  div.id = 'psmAsegWrap' + idx;
+  div.style.cssText = 'border:1px solid rgba(6,182,212,0.25);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;';
+  div.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      🏥 ASEGURADO ${n}
+      <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="vPsmAsegMismoTomador${idx}" onchange="psmCopiarTomador(${idx})" style="accent-color:var(--teal);">
+        Mismo que el tomador
+      </label>
+      <button type="button" onclick="psmEliminarAsegurado(${idx})" style="background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.25);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ Quitar</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Nombre Completo</label><input type="text" class="form-control" id="vNombrePSM_${n}" placeholder="Nombre del asegurado"></div>
+      <div class="form-group"><label class="form-label">Tipo Documento</label>
+        <select class="form-control" id="vTipoDocPSM_${n}">
+          <option value="CC">CC</option><option value="TI">TI</option><option value="RC">RC</option><option value="CE">CE</option><option value="PPT">PPT</option><option value="PA">PA</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">No. Documento</label><input type="text" class="form-control" id="vDocPSM_${n}" placeholder="Número de documento"></div>
+      <div class="form-group"><label class="form-label">Fecha de Nacimiento</label><input type="date" class="form-control" id="vFechaNacPSM_${n}" onchange="calcEdadDinamica('PSM','vFechaNacPSM_${n}','vEdadPSM_${n}','vRangoPSM_${n}','psm')"></div>
+      <div class="form-group"><label class="form-label">Edad</label><input type="text" class="form-control" id="vEdadPSM_${n}" readonly placeholder="Auto" style="background:var(--surface3);color:var(--sura-lime);font-weight:600;"></div>
+      <div class="form-group"><label class="form-label">Rango Tarifario</label><input type="text" class="form-control" id="vRangoPSM_${n}" readonly placeholder="Auto" style="background:var(--surface3);color:var(--teal);font-weight:600;"></div>
+    </div>`;
+  container.appendChild(div);
+  _psmAsegCount++;
+  psmActualizarModoRegistro();
+}
+
+function psmEliminarAsegurado(idx) {
+  const wrap = document.getElementById('psmAsegWrap' + idx);
+  if (wrap) wrap.remove();
+  _psmAsegCount = Math.max(1, _psmAsegCount - 1);
+  psmActualizarModoRegistro();
+}
+
+function psmActualizarModoRegistro() {
+  const modo = document.querySelector('input[name="psmModoRegistro"]:checked')?.value || 'individual';
+  const res = document.getElementById('psmResumenModo');
+  if (!res) return;
+  if (_psmAsegCount <= 1) { res.style.display = 'none'; return; }
+  res.style.display = '';
+  if (modo === 'sumado') {
+    res.textContent = `📌 Se creará 1 registro con la prima sumada de ${_psmAsegCount} asegurados bajo la misma póliza.`;
+  } else {
+    res.textContent = `📌 Se crearán ${_psmAsegCount} registros individuales, uno por cada asegurado.`;
+  }
+}
+
+// ── PAC60: copiar tomador al asegurado N ────────────────────────
+function pac60CopiarTomador(idx) {
+  const chk = document.getElementById('vPac60AsegMismoTomador' + idx);
+  if (!chk) return;
+  if (idx === 0) {
+    if (chk.checked) {
+      const v = e => document.getElementById(e)?.value || '';
+      const s = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      s('vNombrePAC60', v('vTomadorNombrePAC60'));
+      s('vTipoDocPAC60', v('vTomadorTipoDocPAC60'));
+      s('vDocPAC60', v('vTomadorDocPAC60'));
+    } else {
+      ['vNombrePAC60','vDocPAC60','vFechaNacPAC60','vEdadPAC60','vRangoPAC60'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
+    }
+  } else {
+    const n = idx + 1;
+    if (chk.checked) {
+      const v = e => document.getElementById(e)?.value || '';
+      const s = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      s('vNombrePAC60_' + n, v('vTomadorNombrePAC60'));
+      s('vTipoDocPAC60_' + n, v('vTomadorTipoDocPAC60'));
+      s('vDocPAC60_' + n, v('vTomadorDocPAC60'));
+    }
+  }
+  pac60ActualizarModoRegistro();
+}
+
+// ── PAC60: agregar asegurado dinámico ───────────────────────────
+let _pac60AsegCount = 1;
+function pac60AgregarAsegurado() {
+  if (_pac60AsegCount >= 4) { showToast('Máximo 4 asegurados por póliza 60+'); return; }
+  const n = _pac60AsegCount + 1;
+  const idx = _pac60AsegCount;
+  const container = document.getElementById('pac60AseguradosExtra');
+  const div = document.createElement('div');
+  div.id = 'pac60AsegWrap' + idx;
+  div.style.cssText = 'border:1px solid rgba(34,197,94,0.25);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;';
+  div.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      🏥 ASEGURADO ${n}
+      <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="vPac60AsegMismoTomador${idx}" onchange="pac60CopiarTomador(${idx})" style="accent-color:var(--green);">
+        Mismo que el tomador
+      </label>
+      <button type="button" onclick="pac60EliminarAsegurado(${idx})" style="background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.25);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ Quitar</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Nombre Completo</label><input type="text" class="form-control" id="vNombrePAC60_${n}" placeholder="Nombre del asegurado"></div>
+      <div class="form-group"><label class="form-label">Tipo Documento</label>
+        <select class="form-control" id="vTipoDocPAC60_${n}">
+          <option value="CC">CC</option><option value="CE">CE</option><option value="PPT">PPT</option><option value="PA">PA</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">No. Documento</label><input type="text" class="form-control" id="vDocPAC60_${n}" placeholder="Número de documento"></div>
+      <div class="form-group"><label class="form-label">Fecha de Nacimiento</label><input type="date" class="form-control" id="vFechaNacPAC60_${n}" onchange="calcEdadDinamica('PAC60','vFechaNacPAC60_${n}','vEdadPAC60_${n}','vRangoPAC60_${n}','pac60')"></div>
+      <div class="form-group"><label class="form-label">Edad</label><input type="text" class="form-control" id="vEdadPAC60_${n}" readonly placeholder="Auto" style="background:var(--surface3);color:var(--sura-lime);font-weight:600;"></div>
+      <div class="form-group"><label class="form-label">Rango Tarifario</label><input type="text" class="form-control" id="vRangoPAC60_${n}" readonly placeholder="Auto" style="background:var(--surface3);color:var(--green);font-weight:600;"></div>
+    </div>`;
+  container.appendChild(div);
+  _pac60AsegCount++;
+  pac60ActualizarModoRegistro();
+}
+
+function pac60EliminarAsegurado(idx) {
+  const wrap = document.getElementById('pac60AsegWrap' + idx);
+  if (wrap) wrap.remove();
+  _pac60AsegCount = Math.max(1, _pac60AsegCount - 1);
+  pac60ActualizarModoRegistro();
+}
+
+function pac60ActualizarModoRegistro() {
+  const modo = document.querySelector('input[name="pac60ModoRegistro"]:checked')?.value || 'individual';
+  const res = document.getElementById('pac60ResumenModo');
+  if (!res) return;
+  if (_pac60AsegCount <= 1) { res.style.display = 'none'; return; }
+  res.style.display = '';
+  res.textContent = modo === 'sumado'
+    ? `📌 Se creará 1 registro con la prima sumada de ${_pac60AsegCount} asegurados bajo la misma póliza.`
+    : `📌 Se crearán ${_pac60AsegCount} registros individuales, uno por cada asegurado.`;
+}
+
+// ── SPTI: agregar asegurado dinámico ────────────────────────────
+let _sptiAsegCount = 1;
+function sptiAgregarAsegurado() {
+  if (_sptiAsegCount >= 5) { showToast('Máximo 5 asegurados por póliza SPTI'); return; }
+  const n = _sptiAsegCount + 1;
+  const idx = _sptiAsegCount;
+  const container = document.getElementById('sptiAseguradosExtra');
+  const div = document.createElement('div');
+  div.id = 'sptiAsegWrap' + idx;
+  div.style.cssText = 'border:1px solid rgba(200,229,43,0.2);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;';
+  div.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--sura-lime);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      🏥 ASEGURADO ${n}
+      <label style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="vSptiAsegMismoTomador${idx}" onchange="sptiCopiarTomadorExtra(${idx})" style="accent-color:var(--sura-lime);">
+        Mismo que el tomador
+      </label>
+      <button type="button" onclick="sptiEliminarAsegurado(${idx})" style="background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.25);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ Quitar</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Nombre Completo</label><input type="text" class="form-control" id="vAseguradoNombreSPTI_${n}" placeholder="Nombre del asegurado"></div>
+      <div class="form-group"><label class="form-label">Tipo Documento</label>
+        <select class="form-control" id="vAseguradoTipoDocSPTI_${n}">
+          <option value="CC">CC</option><option value="TI">TI</option><option value="RC">RC</option><option value="CE">CE</option><option value="PPT">PPT</option><option value="PA">PA</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">No. Documento</label><input type="text" class="form-control" id="vAseguradoDocSPTI_${n}" placeholder="Número de documento"></div>
+      <div class="form-group"><label class="form-label">Fecha de Nacimiento</label><input type="date" class="form-control" id="vFechaNacSPTI_${n}" onchange="calcEdadDinamica('SPTI','vFechaNacSPTI_${n}','vEdadSPTI_${n}',null,'spti')"></div>
+      <div class="form-group"><label class="form-label">Edad</label><input type="text" class="form-control" id="vEdadSPTI_${n}" readonly placeholder="Auto" style="background:var(--surface3);color:var(--sura-lime);font-weight:600;"></div>
+    </div>`;
+  container.appendChild(div);
+  _sptiAsegCount++;
+  sptiActualizarModoRegistro();
+}
+
+function sptiEliminarAsegurado(idx) {
+  const wrap = document.getElementById('sptiAsegWrap' + idx);
+  if (wrap) wrap.remove();
+  _sptiAsegCount = Math.max(1, _sptiAsegCount - 1);
+  sptiActualizarModoRegistro();
+}
+
+function sptiCopiarTomadorExtra(idx) {
+  const chk = document.getElementById('vSptiAsegMismoTomador' + idx);
+  if (!chk) return;
+  const n = idx + 1;
+  if (chk.checked) {
+    const v = e => document.getElementById(e)?.value || '';
+    const s = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    s('vAseguradoNombreSPTI_' + n, v('vNombreSPTI'));
+    s('vAseguradoTipoDocSPTI_' + n, v('vTipoDocSPTI'));
+    s('vAseguradoDocSPTI_' + n, v('vDocSPTI'));
+  }
+  sptiActualizarModoRegistro();
+}
+
+function sptiActualizarModoRegistro() {
+  const modo = document.querySelector('input[name="sptiModoRegistro"]:checked')?.value || 'individual';
+  const res = document.getElementById('sptiResumenModo');
+  if (!res) return;
+  if (_sptiAsegCount <= 1) { res.style.display = 'none'; return; }
+  res.style.display = '';
+  res.textContent = modo === 'sumado'
+    ? `📌 Se creará 1 registro con la prima sumada de ${_sptiAsegCount} asegurados bajo la misma póliza.`
+    : `📌 Se crearán ${_sptiAsegCount} registros individuales, uno por cada asegurado.`;
+}
+
+// ── SPD: modo registro ───────────────────────────────────────────
+function spdActualizarModoRegistro() {
+  const modo = document.querySelector('input[name="spdModoRegistro"]:checked')?.value || 'individual';
+  const soloUno = document.getElementById('vAsegurado2SoloUno')?.checked;
+  const res = document.getElementById('spdResumenModo');
+  if (!res) return;
+  if (soloUno) { res.style.display = 'none'; return; }
+  res.style.display = '';
+  res.textContent = modo === 'sumado'
+    ? '📌 Se creará 1 registro con la suma de las primas de los 2 asegurados (póliza conjunta SURA).'
+    : '📌 Se crearán 2 registros individuales, uno por cada asegurado.';
+}
+
+// ── Edad dinámica para asegurados adicionales ────────────────────
+function calcEdadDinamica(prod, fechaId, edadId, rangoId, tipo) {
+  const fechaEl = document.getElementById(fechaId);
+  const edadEl  = document.getElementById(edadId);
+  const rangoEl = rangoId ? document.getElementById(rangoId) : null;
+  if (!fechaEl || !edadEl) return;
+  const fecha = fechaEl.value;
+  if (!fecha) return;
+  const hoy = new Date();
+  const nac = new Date(fecha + 'T12:00:00');
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  edadEl.value = edad;
+  if (rangoEl) {
+    if (tipo === 'psm') {
+      const r = getRangoPSM(edad);
+      rangoEl.value = r ? r.key : (edad > 64 ? 'Fuera de rango' : '—');
+    } else if (tipo === 'pac60') {
+      const r = getRangoPAC60(edad);
+      rangoEl.value = r || (edad < 60 ? 'Menor de 60' : 'Mayor de 79');
+    }
+  }
+  if (tipo === 'psm') psmActualizarModoRegistro();
+  if (tipo === 'pac60') pac60ActualizarModoRegistro();
+}
+
+// ── Reset contadores al abrir/cerrar modal ───────────────────────
+function _resetMultiAsegurados() {
+  _psmAsegCount = 1;
+  _pac60AsegCount = 1;
+  _sptiAsegCount = 1;
+  const psmExtra = document.getElementById('psmAseguradosExtra');
+  const pac60Extra = document.getElementById('pac60AseguradosExtra');
+  const sptiExtra = document.getElementById('sptiAseguradosExtra');
+  if (psmExtra) psmExtra.innerHTML = '';
+  if (pac60Extra) pac60Extra.innerHTML = '';
+  if (sptiExtra) sptiExtra.innerHTML = '';
+  // Reset radio buttons
+  ['psm','pac60','spti','spd'].forEach(p => {
+    const r = document.getElementById(p + 'ModoIndividual');
+    if (r) r.checked = true;
+    const res = document.getElementById(p + 'ResumenModo');
+    if (res) res.style.display = 'none';
+  });
+  // Reset checkboxes
+  ['vPsmAsegMismoTomador0','vPac60AsegMismoTomador0','vSptiAseguradoMismoTomador'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.checked = false;
+  });
+}
+
 function sptiCopiarTomadorAsegurado() {
   const checked = document.getElementById('vSptiAseguradoMismoTomador')?.checked;
   const fields  = document.getElementById('aseguradoFieldsSPTI');
@@ -12808,7 +13279,6 @@ function toggleAsegurado2() {
   if (soloUno) {
     fields2.style.opacity = '0.35';
     fields2.style.pointerEvents = 'none';
-    // Limpiar campos de asegurado 2 al desactivar
     ['vAsegurado2Nombre','vAsegurado2Doc','vAsegurado2FechaNac','vAsegurado2Edad'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
@@ -12819,6 +13289,7 @@ function toggleAsegurado2() {
     fields2.style.opacity = '';
     fields2.style.pointerEvents = '';
   }
+  spdActualizarModoRegistro();
 }
 
 // =============================================
@@ -13367,7 +13838,11 @@ function guardarVenta() {
           fechaExp: document.getElementById('vFechaExpPSM')?.value  || vOld.fechaExp,
           poliza:   document.getElementById('vPolizaPSM')?.value    || vOld.poliza,
           tipo:     document.getElementById('vTipoMovPSM')?.value   || vOld.tipo,
+          tomadorNombre:  document.getElementById('vTomadorNombrePSM')?.value  || vOld.tomadorNombre  || vOld.nombre || '',
+          tomadorTipoDoc: document.getElementById('vTomadorTipoDocPSM')?.value || vOld.tomadorTipoDoc || vOld.tipoDoc || 'CC',
+          tomadorDoc:     document.getElementById('vTomadorDocPSM')?.value     || vOld.tomadorDoc     || vOld.doc    || '',
           nombre:   document.getElementById('vNombrePSM')?.value    || vOld.nombre,
+          tipoDoc:  document.getElementById('vTipoDocPSM')?.value   || vOld.tipoDoc,
           doc:      document.getElementById('vDocPSM')?.value       || vOld.doc,
           fechaNac: document.getElementById('vFechaNacPSM')?.value  || vOld.fechaNac,
           edad:     document.getElementById('vEdadPSM')?.value      || vOld.edad,
@@ -13377,7 +13852,7 @@ function guardarVenta() {
           empresa:  document.getElementById('vEmpresaPSM')?.value   || vOld.empresa,
           notas:    document.getElementById('vNotasPSM')?.value     || vOld.notas,
           primaTotalSinIVA: primaSinIVAEditPSM,
-          comision: Math.round(primaSinIVAEditPSM * comPctEditPSM), // corregido: base sin IVA
+          comision: Math.round(primaSinIVAEditPSM * comPctEditPSM),
           comPct: edadEditPSM <= 50 ? 12 : 6,
           tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPSM')?.checked),
           anioTarifa: document.getElementById('chkTarifaCongeladaPSM')?.checked ? (vOld.anioTarifa || AÑO_ACTUAL) : null,
@@ -13393,7 +13868,11 @@ function guardarVenta() {
           fechaExp: document.getElementById('vFechaExpPAC60')?.value || vOld.fechaExp,
           poliza:   document.getElementById('vPolizaPAC60')?.value   || vOld.poliza,
           tipo:     document.getElementById('vTipoMovPAC60')?.value  || vOld.tipo,
+          tomadorNombre:  document.getElementById('vTomadorNombrePAC60')?.value  || vOld.tomadorNombre  || vOld.nombre || '',
+          tomadorTipoDoc: document.getElementById('vTomadorTipoDocPAC60')?.value || vOld.tomadorTipoDoc || vOld.tipoDoc || 'CC',
+          tomadorDoc:     document.getElementById('vTomadorDocPAC60')?.value     || vOld.tomadorDoc     || vOld.doc    || '',
           nombre:   document.getElementById('vNombrePAC60')?.value   || vOld.nombre,
+          tipoDoc:  document.getElementById('vTipoDocPAC60')?.value  || vOld.tipoDoc,
           doc:      document.getElementById('vDocPAC60')?.value      || vOld.doc,
           fechaNac: document.getElementById('vFechaNacPAC60')?.value || vOld.fechaNac,
           edad:     document.getElementById('vEdadPAC60')?.value     || vOld.edad,
@@ -13606,8 +14085,7 @@ function guardarVenta() {
     const periodicidad = document.getElementById('vPeriodicidadSPTI').value;
     const edadRaw = document.getElementById('vEdadSPTI').value;
     const rangoEdad = getRangoEdadSPTI(parseInt(edadRaw));
-    let primaTotalSinIVA = 0;
-    let dctoNum = 0;
+    let primaTotalSinIVA = 0, dctoNum = 0;
     if (plan && rangoEdad && SPTI_TARIFAS[plan] && SPTI_TARIFAS[plan][rangoEdad]) {
       const t = SPTI_TARIFAS[plan][rangoEdad];
       if (periodicidad === 'TRIMESTRAL') { primaTotalSinIVA = t.trimestre; dctoNum = t.dctoTrim || 0; }
@@ -13622,50 +14100,87 @@ function guardarVenta() {
     const sptiTomadorTipoDoc= document.getElementById('vTipoDocSPTI').value;
     const sptiTomadorTel    = document.getElementById('vTelSPTI').value;
     const sptiTomadorCorreo = document.getElementById('vCorreoSPTI').value;
+    const sptiCiudad        = document.getElementById('vCiudadSPTI').value;
     const sptiAsegNombre    = document.getElementById('vAseguradoNombreSPTI')?.value || sptiTomadorNombre;
     const sptiAsegTipoDoc   = document.getElementById('vAseguradoTipoDocSPTI')?.value || sptiTomadorTipoDoc;
     const sptiAsegDoc       = document.getElementById('vAseguradoDocSPTI')?.value || sptiTomadorDoc;
-    state.ventas.push({
-      id, producto: 'SPTI', fecha,
-      mesComp: getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth()),
+    const sptiAsegFechaNac  = document.getElementById('vFechaNacSPTI').value;
+    const sptiAsegEdad      = document.getElementById('vEdadSPTI').value;
+    const modoRegistroSPTI  = document.querySelector('input[name="sptiModoRegistro"]:checked')?.value || 'individual';
+    const tcFlagSPTI = !!(document.getElementById('chkTarifaCongeladaSPTI')?.checked);
+    const mesCompSPTI = getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth());
+    // Asegurados adicionales SPTI
+    const aseguradosSPTI = [];
+    for (let ai = 2; ai <= _sptiAsegCount; ai++) {
+      const edadAiRaw = document.getElementById('vEdadSPTI_' + ai)?.value || '0';
+      const rangoAi = getRangoEdadSPTI(parseInt(edadAiRaw));
+      let primaTAi = 0;
+      if (plan && rangoAi && SPTI_TARIFAS[plan]?.[rangoAi]) {
+        const tAi = SPTI_TARIFAS[plan][rangoAi];
+        if (periodicidad === 'TRIMESTRAL') primaTAi = tAi.trimestre;
+        else if (periodicidad === 'SEMESTRAL') primaTAi = tAi.semestre;
+        else if (periodicidad === 'ANUAL') primaTAi = tAi.anual;
+        else primaTAi = tAi.mensual;
+      } else { primaTAi = primaTotalSinIVA; }
+      aseguradosSPTI.push({
+        nombre: document.getElementById('vAseguradoNombreSPTI_' + ai)?.value || '',
+        tipoDoc: document.getElementById('vAseguradoTipoDocSPTI_' + ai)?.value || 'CC',
+        doc: document.getElementById('vAseguradoDocSPTI_' + ai)?.value || '',
+        fechaNac: document.getElementById('vFechaNacSPTI_' + ai)?.value || '',
+        edad: edadAiRaw,
+        primaTotalSinIVA: primaTAi,
+        primaTotal: Math.round(primaTAi * IVA_FACTOR),
+      });
+    }
+    const _sptiBase = {
       fechaExp: document.getElementById('vFechaExpSPTI').value,
       poliza: document.getElementById('vPolizaSPTI').value,
       tipo: document.getElementById('vTipoSPTI').value,
-      // Tomador (quien paga)
-      tomadorNombre:  sptiTomadorNombre,
-      tomadorTipoDoc: sptiTomadorTipoDoc,
-      tomadorDoc:     sptiTomadorDoc,
-      tomadorTel:     sptiTomadorTel,
-      tomadorCorreo:  sptiTomadorCorreo,
-      // Asegurado (quien recibe el servicio — determina tarifa)
-      nombre:  sptiAsegNombre,
-      tipoDoc: sptiAsegTipoDoc,
-      doc:     sptiAsegDoc,
-      fechaNac: document.getElementById('vFechaNacSPTI').value,
-      edad: document.getElementById('vEdadSPTI').value,
-      // Compatibilidad: nombre y telefono principal = tomador
-      telefono: sptiTomadorTel,
-      correo:   sptiTomadorCorreo,
-      plan, periodicidad, prima: primaBase, primaTotal, primaTotalSinIVA, dcto: dctoNum,
+      tomadorNombre: sptiTomadorNombre, tomadorTipoDoc: sptiTomadorTipoDoc,
+      tomadorDoc: sptiTomadorDoc, tomadorTel: sptiTomadorTel, tomadorCorreo: sptiTomadorCorreo,
+      telefono: sptiTomadorTel, correo: sptiTomadorCorreo,
+      plan, periodicidad, prima: primaBase, dcto: dctoNum,
       notas: document.getElementById('vNotasSPTI').value,
-      ciudad: document.getElementById('vCiudadSPTI').value,
+      ciudad: sptiCiudad,
       comision: 0, rango: '—', criterio: '—', empresa: '—', tramite: '—',
-      tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaSPTI')?.checked),
-      anioTarifa: document.getElementById('chkTarifaCongeladaSPTI')?.checked ? AÑO_ACTUAL : null,
-    });
+      tarifaCongelada: tcFlagSPTI, anioTarifa: tcFlagSPTI ? AÑO_ACTUAL : null,
+    };
+    if (modoRegistroSPTI === 'sumado' && aseguradosSPTI.length > 0) {
+      const primaSTot = primaTotal + aseguradosSPTI.reduce((s, a) => s + a.primaTotal, 0);
+      const primaSINIVA = Math.round(primaSTot / IVA_FACTOR);
+      state.ventas.push({ id, producto: 'SPTI', fecha, mesComp: mesCompSPTI, ..._sptiBase,
+        nombre: sptiAsegNombre, tipoDoc: sptiAsegTipoDoc, doc: sptiAsegDoc,
+        fechaNac: sptiAsegFechaNac, edad: sptiAsegEdad,
+        asegurados: aseguradosSPTI, numAsegurados: _sptiAsegCount, modoRegistro: 'sumado',
+        primaTotal: primaSTot, primaTotalSinIVA: primaSINIVA,
+      });
+    } else {
+      state.ventas.push({ id, producto: 'SPTI', fecha, mesComp: mesCompSPTI, ..._sptiBase,
+        nombre: sptiAsegNombre, tipoDoc: sptiAsegTipoDoc, doc: sptiAsegDoc,
+        fechaNac: sptiAsegFechaNac, edad: sptiAsegEdad, modoRegistro: 'individual',
+        primaTotal, primaTotalSinIVA,
+      });
+      aseguradosSPTI.forEach(a => {
+        const idAi = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        state.ventas.push({ id: idAi, producto: 'SPTI', fecha, mesComp: mesCompSPTI, ..._sptiBase,
+          nombre: a.nombre, tipoDoc: a.tipoDoc, doc: a.doc,
+          fechaNac: a.fechaNac, edad: a.edad, modoRegistro: 'individual',
+          primaTotal: a.primaTotal, primaTotalSinIVA: a.primaTotalSinIVA,
+        });
+      });
+    }
 
   } else if (modalTab === 'psm') {
     const fecha = document.getElementById('vFechaPSM').value;
     if (!fecha) return alert('Ingresa la fecha');
     const edadNum = parseInt(document.getElementById('vEdadPSM').value) || 0;
     const rango = getRangoPSM(edadNum);
-    if (!rango) return alert('La edad del asegurado está fuera del rango asegurable (0–64 años)');
+    if (!rango) return alert('La edad del asegurado 1 está fuera del rango asegurable (0–64 años)');
     const k = rango.key;
-    // Periodicidad
     const periPSM = document.getElementById('vPeriodicidadPSM')?.value || 'MENSUAL';
     const periMultPSM = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
     const multPSM = periMultPSM[periPSM] || 1;
-    // Calc total mensual con IVA
+    // Calc prima Asegurado 1
     let primaMensualBase = PSM_TARIFAS.basico[k] * PSM_IVA;
     const modulosArr = ['Básico'];
     if (document.getElementById('chkEMD')?.checked) { primaMensualBase += PSM_TARIFAS.emd[k] * PSM_IVA; modulosArr.push('Atención Domiciliaria'); }
@@ -13673,42 +14188,113 @@ function guardarVenta() {
     if (document.getElementById('chkCirugia').checked) { primaMensualBase += PSM_TARIFAS.cirugia[k] * PSM_IVA; modulosArr.push('Cirugía Ambulatoria'); }
     if (document.getElementById('chkMaternidad').checked && edadNum >= 15 && edadNum <= 45) { primaMensualBase += PSM_TARIFAS.maternidad[k] * PSM_IVA; modulosArr.push('Maternidad'); }
     const primaMensual = Math.round(primaMensualBase);
-    const primaTotal   = Math.round(primaMensualBase * multPSM);
-    const primaTotalSinIVA_PSM = Math.round(primaTotal / PSM_IVA);
-    const comPct = edadNum <= 50 ? 0.12 : 0.06;
-    const comision = Math.round(primaTotalSinIVA_PSM * comPct); // base sin IVA
+    const primaTotal1  = Math.round(primaMensualBase * multPSM);
+    // Tomador
+    const tomNomPSM  = document.getElementById('vTomadorNombrePSM')?.value || '';
+    const tomDocPSM  = document.getElementById('vTomadorDocPSM')?.value || '';
+    const tomTDocPSM = document.getElementById('vTomadorTipoDocPSM')?.value || 'CC';
     const empNombrePSM = document.getElementById('vEmpresaPSM').value;
     const ciudadPSM = document.getElementById('vCiudadPSM').value;
-    state.ventas.push({
-      id, producto: 'PSM', fecha,
-      mesComp: getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth()),
-      fechaExp: document.getElementById('vFechaExpPSM').value,
-      poliza: document.getElementById('vPolizaPSM').value,
-      tipo: document.getElementById('vTipoMovPSM').value,
-      nombre: document.getElementById('vNombrePSM').value,
-      tipoDoc: document.getElementById('vTipoDocPSM').value,
-      doc: document.getElementById('vDocPSM').value,
-      fechaNac: document.getElementById('vFechaNacPSM').value,
-      edad: document.getElementById('vEdadPSM').value,
-      rangoEdad: k,
-      modulos: modulosArr,          // guardado como array para plantilla y cartera
-      telefono: document.getElementById('vTelPSM').value,
-      correo: document.getElementById('vCorreoPSM').value,
-      ciudad: ciudadPSM,
-      empresa: empNombrePSM,
-      periodicidad: periPSM,
-      prima: primaMensual,
-      primaTotal: primaTotal,
-      primaTotalSinIVA: primaTotalSinIVA_PSM,
-      notas: document.getElementById('vNotasPSM').value,
-      comision,
-      ramo: 'FAMILIAR',
-      tipoNegocio: 'NUEVO',
-      comPct: edadNum <= 50 ? 12 : 6,
-      rango: k, criterio: '—', tramite: '—', bd: '—',
-      tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPSM')?.checked),
-      anioTarifa: document.getElementById('chkTarifaCongeladaPSM')?.checked ? AÑO_ACTUAL : null,
-    });
+    const modoRegistroPSM = document.querySelector('input[name="psmModoRegistro"]:checked')?.value || 'individual';
+    const tcFlag = !!(document.getElementById('chkTarifaCongeladaPSM')?.checked);
+    const mesCompPSM = getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth());
+    // Recopilar asegurados adicionales
+    const aseguradosPSM = [];
+    for (let ai = 2; ai <= _psmAsegCount; ai++) {
+      const edadAi = parseInt(document.getElementById('vEdadPSM_' + ai)?.value) || 0;
+      const rangoAi = getRangoPSM(edadAi);
+      aseguradosPSM.push({
+        nombre: document.getElementById('vNombrePSM_' + ai)?.value || '',
+        tipoDoc: document.getElementById('vTipoDocPSM_' + ai)?.value || 'CC',
+        doc: document.getElementById('vDocPSM_' + ai)?.value || '',
+        fechaNac: document.getElementById('vFechaNacPSM_' + ai)?.value || '',
+        edad: edadAi,
+        rangoEdad: rangoAi?.key || '—',
+        primaTotal: rangoAi ? Math.round(PSM_TARIFAS.basico[rangoAi.key] * PSM_IVA * multPSM) : 0,
+      });
+    }
+    if (modoRegistroPSM === 'sumado' && aseguradosPSM.length > 0) {
+      // Un registro sumado
+      const primaSum = primaTotal1 + aseguradosPSM.reduce((s, a) => s + a.primaTotal, 0);
+      const primaSinIVASum = Math.round(primaSum / PSM_IVA);
+      const comPctPSM = edadNum <= 50 ? 0.12 : 0.06;
+      state.ventas.push({
+        id, producto: 'PSM', fecha, mesComp: mesCompPSM,
+        fechaExp: document.getElementById('vFechaExpPSM').value,
+        poliza: document.getElementById('vPolizaPSM').value,
+        tipo: document.getElementById('vTipoMovPSM').value,
+        tomadorNombre: tomNomPSM, tomadorDoc: tomDocPSM, tomadorTipoDoc: tomTDocPSM,
+        nombre: document.getElementById('vNombrePSM').value,
+        tipoDoc: document.getElementById('vTipoDocPSM').value,
+        doc: document.getElementById('vDocPSM').value,
+        fechaNac: document.getElementById('vFechaNacPSM').value,
+        edad: edadNum, rangoEdad: k,
+        asegurados: aseguradosPSM,
+        numAsegurados: _psmAsegCount,
+        modoRegistro: 'sumado',
+        modulos: modulosArr,
+        telefono: document.getElementById('vTelPSM').value,
+        correo: document.getElementById('vCorreoPSM').value,
+        ciudad: ciudadPSM, empresa: empNombrePSM, periodicidad: periPSM,
+        prima: primaMensual, primaTotal: primaSum, primaTotalSinIVA: primaSinIVASum,
+        notas: document.getElementById('vNotasPSM').value,
+        comision: Math.round(primaSinIVASum * comPctPSM),
+        ramo: 'FAMILIAR', tipoNegocio: 'NUEVO', comPct: edadNum <= 50 ? 12 : 6,
+        rango: k, criterio: '—', tramite: '—', bd: '—',
+        tarifaCongelada: tcFlag, anioTarifa: tcFlag ? AÑO_ACTUAL : null,
+      });
+    } else {
+      // Registros individuales — Asegurado 1
+      const primaSinIVA1 = Math.round(primaTotal1 / PSM_IVA);
+      const comPct1 = edadNum <= 50 ? 0.12 : 0.06;
+      state.ventas.push({
+        id, producto: 'PSM', fecha, mesComp: mesCompPSM,
+        fechaExp: document.getElementById('vFechaExpPSM').value,
+        poliza: document.getElementById('vPolizaPSM').value,
+        tipo: document.getElementById('vTipoMovPSM').value,
+        tomadorNombre: tomNomPSM, tomadorDoc: tomDocPSM, tomadorTipoDoc: tomTDocPSM,
+        nombre: document.getElementById('vNombrePSM').value,
+        tipoDoc: document.getElementById('vTipoDocPSM').value,
+        doc: document.getElementById('vDocPSM').value,
+        fechaNac: document.getElementById('vFechaNacPSM').value,
+        edad: edadNum, rangoEdad: k, modoRegistro: 'individual',
+        modulos: modulosArr,
+        telefono: document.getElementById('vTelPSM').value,
+        correo: document.getElementById('vCorreoPSM').value,
+        ciudad: ciudadPSM, empresa: empNombrePSM, periodicidad: periPSM,
+        prima: primaMensual, primaTotal: primaTotal1, primaTotalSinIVA: primaSinIVA1,
+        notas: document.getElementById('vNotasPSM').value,
+        comision: Math.round(primaSinIVA1 * comPct1),
+        ramo: 'FAMILIAR', tipoNegocio: 'NUEVO', comPct: edadNum <= 50 ? 12 : 6,
+        rango: k, criterio: '—', tramite: '—', bd: '—',
+        tarifaCongelada: tcFlag, anioTarifa: tcFlag ? AÑO_ACTUAL : null,
+      });
+      // Asegurados adicionales individuales
+      aseguradosPSM.forEach((a, ai) => {
+        const idAi = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        const primaSinIVAAi = Math.round(a.primaTotal / PSM_IVA);
+        const comPctAi = (parseInt(a.edad) || 0) <= 50 ? 0.12 : 0.06;
+        state.ventas.push({
+          id: idAi, producto: 'PSM', fecha, mesComp: mesCompPSM,
+          fechaExp: document.getElementById('vFechaExpPSM').value,
+          poliza: document.getElementById('vPolizaPSM').value,
+          tipo: document.getElementById('vTipoMovPSM').value,
+          tomadorNombre: tomNomPSM, tomadorDoc: tomDocPSM, tomadorTipoDoc: tomTDocPSM,
+          nombre: a.nombre, tipoDoc: a.tipoDoc, doc: a.doc,
+          fechaNac: a.fechaNac, edad: a.edad, rangoEdad: a.rangoEdad, modoRegistro: 'individual',
+          modulos: modulosArr,
+          telefono: document.getElementById('vTelPSM').value,
+          correo: document.getElementById('vCorreoPSM').value,
+          ciudad: ciudadPSM, empresa: empNombrePSM, periodicidad: periPSM,
+          prima: Math.round(a.primaTotal / multPSM), primaTotal: a.primaTotal, primaTotalSinIVA: primaSinIVAAi,
+          notas: document.getElementById('vNotasPSM').value,
+          comision: Math.round(primaSinIVAAi * comPctAi),
+          ramo: 'FAMILIAR', tipoNegocio: 'NUEVO', comPct: (parseInt(a.edad)||0) <= 50 ? 12 : 6,
+          rango: a.rangoEdad, criterio: '—', tramite: '—', bd: '—',
+          tarifaCongelada: tcFlag, anioTarifa: tcFlag ? AÑO_ACTUAL : null,
+        });
+      });
+    }
     if (empNombrePSM) autoRegistrarEmpresaDesdeVenta(empNombrePSM, '', ciudadPSM);
 
   } else if (modalTab === 'pac60') {
@@ -13725,38 +14311,66 @@ function guardarVenta() {
     const periMultPAC = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
     const multPAC = periMultPAC[periPAC] || 1;
     const primaMensualPAC = conAnexo ? PAC60_TARIFAS[rango].conAnexo : PAC60_TARIFAS[rango].sinAnexo;
-    const prima = Math.round(primaMensualPAC * multPAC);
-    const primaSinIVA_PAC = Math.round(prima / 1.05);
-    const comision = Math.round(primaSinIVA_PAC * PAC60_COM_PCT); // base sin IVA
+    const prima1 = Math.round(primaMensualPAC * multPAC);
     const planLabel = conAnexo ? '60+ Con Anexo' : '60+ Sin Anexo';
-    state.ventas.push({
-      id, producto: 'PAC60', fecha,
-      mesComp: getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth()),
-      fechaExp: document.getElementById('vFechaExpPAC60').value,
-      poliza: document.getElementById('vPolizaPAC60').value,
-      tipo: tipoMov,
-      nombre: document.getElementById('vNombrePAC60').value,
-      tipoDoc: document.getElementById('vTipoDocPAC60').value,
-      doc: document.getElementById('vDocPAC60').value,
-      fechaNac: document.getElementById('vFechaNacPAC60').value,
-      edad: document.getElementById('vEdadPAC60').value,
-      rangoEdad: rango,
-      plan: planLabel,
-      conAnexo,
-      telefono: document.getElementById('vTelPAC60').value,
-      correo: document.getElementById('vCorreoPAC60').value,
-      ciudad: document.getElementById('vCiudadPAC60').value,
-      notas: document.getElementById('vNotasPAC60').value,
-      periodicidad: periPAC,
-      prima: primaMensualPAC,
-      primaTotal: prima,
-      primaTotalSinIVA: primaSinIVA_PAC,
-      comision,
-      comPct: 5,
-      rango, criterio: '—', tramite: '—', bd: '—',
-      tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaPAC60')?.checked),
-      anioTarifa: document.getElementById('chkTarifaCongeladaPAC60')?.checked ? AÑO_ACTUAL : null,
-    });
+    const tomNomPAC  = document.getElementById('vTomadorNombrePAC60')?.value || '';
+    const tomDocPAC  = document.getElementById('vTomadorDocPAC60')?.value || '';
+    const tomTDocPAC = document.getElementById('vTomadorTipoDocPAC60')?.value || 'CC';
+    const ciudadPAC  = document.getElementById('vCiudadPAC60').value;
+    const modoRegistroPAC = document.querySelector('input[name="pac60ModoRegistro"]:checked')?.value || 'individual';
+    const tcFlagPAC = !!(document.getElementById('chkTarifaCongeladaPAC60')?.checked);
+    const mesCompPAC = getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth());
+    // Asegurados adicionales PAC60
+    const aseguradosPAC = [];
+    for (let ai = 2; ai <= _pac60AsegCount; ai++) {
+      const edadAi = parseInt(document.getElementById('vEdadPAC60_' + ai)?.value) || 0;
+      const rangoAi = getRangoPAC60(edadAi);
+      const primaAi = rangoAi ? Math.round((conAnexo ? PAC60_TARIFAS[rangoAi].conAnexo : PAC60_TARIFAS[rangoAi].sinAnexo) * multPAC) : 0;
+      aseguradosPAC.push({
+        nombre: document.getElementById('vNombrePAC60_' + ai)?.value || '',
+        tipoDoc: document.getElementById('vTipoDocPAC60_' + ai)?.value || 'CC',
+        doc: document.getElementById('vDocPAC60_' + ai)?.value || '',
+        fechaNac: document.getElementById('vFechaNacPAC60_' + ai)?.value || '',
+        edad: edadAi, rangoEdad: rangoAi || '—', primaTotal: primaAi,
+      });
+    }
+    const _pushPAC = (idP, nomAseg, tdocAseg, docAseg, fnacAseg, edadAseg, rangoAseg, primaTot, numAseg, modoReg) => {
+      const pSinIVA = Math.round(primaTot / 1.05);
+      state.ventas.push({
+        id: idP, producto: 'PAC60', fecha, mesComp: mesCompPAC,
+        fechaExp: document.getElementById('vFechaExpPAC60').value,
+        poliza: document.getElementById('vPolizaPAC60').value,
+        tipo: tipoMov,
+        tomadorNombre: tomNomPAC, tomadorDoc: tomDocPAC, tomadorTipoDoc: tomTDocPAC,
+        nombre: nomAseg, tipoDoc: tdocAseg, doc: docAseg,
+        fechaNac: fnacAseg, edad: edadAseg, rangoEdad: rangoAseg,
+        plan: planLabel, conAnexo,
+        asegurados: numAseg > 1 ? aseguradosPAC : undefined,
+        numAsegurados: numAseg, modoRegistro: modoReg,
+        telefono: document.getElementById('vTelPAC60').value,
+        correo: document.getElementById('vCorreoPAC60').value,
+        ciudad: ciudadPAC, periodicidad: periPAC,
+        prima: primaMensualPAC, primaTotal: primaTot, primaTotalSinIVA: pSinIVA,
+        notas: document.getElementById('vNotasPAC60').value,
+        comision: Math.round(pSinIVA * PAC60_COM_PCT), comPct: 5,
+        rango: rangoAseg, criterio: '—', tramite: '—', bd: '—',
+        tarifaCongelada: tcFlagPAC, anioTarifa: tcFlagPAC ? AÑO_ACTUAL : null,
+      });
+    };
+    if (modoRegistroPAC === 'sumado' && aseguradosPAC.length > 0) {
+      const primaSum = prima1 + aseguradosPAC.reduce((s, a) => s + a.primaTotal, 0);
+      _pushPAC(id, document.getElementById('vNombrePAC60').value,
+        document.getElementById('vTipoDocPAC60').value, document.getElementById('vDocPAC60').value,
+        document.getElementById('vFechaNacPAC60').value, edadNum, rango, primaSum, _pac60AsegCount, 'sumado');
+    } else {
+      _pushPAC(id, document.getElementById('vNombrePAC60').value,
+        document.getElementById('vTipoDocPAC60').value, document.getElementById('vDocPAC60').value,
+        document.getElementById('vFechaNacPAC60').value, edadNum, rango, prima1, 1, 'individual');
+      aseguradosPAC.forEach(a => {
+        const idAi = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        _pushPAC(idAi, a.nombre, a.tipoDoc, a.doc, a.fechaNac, a.edad, a.rangoEdad, a.primaTotal, 1, 'individual');
+      });
+    }
 
   } else if (modalTab === 'spd') {
     const fecha = document.getElementById('vFechaSPD').value;
@@ -13770,15 +14384,16 @@ function guardarVenta() {
     const primaMen = SPD_TARIFAS[per] || SPD_TARIFAS.MENSUAL;
     const primaTotal = primaMen;
     const primaTotalSinIVA = Math.round(primaTotal / IVA_FACTOR);
-    state.ventas.push({
-      id, producto: 'SPD', fecha,
-      mesComp: getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth()),
+    const soloUnoSPD = document.getElementById('vAsegurado2SoloUno')?.checked;
+    const modoRegistroSPD = document.querySelector('input[name="spdModoRegistro"]:checked')?.value || 'individual';
+    const mesCompSPD = getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth());
+    const tcFlagSPD = !!(document.getElementById('chkTarifaCongeladaSPD')?.checked);
+    const _spdBase = {
       fechaExp: document.getElementById('vFechaExpSPD').value,
       poliza: document.getElementById('vPolizaSPD').value,
       tipo: document.getElementById('vTipoSPD').value,
       plan: document.getElementById('vPlanSPD').value,
-      periodicidad: document.getElementById('vPeriodicidadSPD').value,
-      prima: primaMen, primaTotal, primaTotalSinIVA,
+      periodicidad: per,
       tomadorNombre: document.getElementById('vTomadorNombre').value,
       tomadorTipoDoc: document.getElementById('vTomadorTipoDoc').value,
       tomadorDoc: document.getElementById('vTomadorDoc').value,
@@ -13786,16 +14401,6 @@ function guardarVenta() {
       tomadorEdad: document.getElementById('vTomadorEdad').value,
       tomadorTel: document.getElementById('vTomadorTel').value,
       tomadorCorreo: document.getElementById('vTomadorCorreo').value,
-      aseguradoNombre: document.getElementById('vAseguradoNombre').value,
-      aseguradoTipoDoc: document.getElementById('vAseguradoTipoDoc').value,
-      aseguradoDoc: document.getElementById('vAseguradoDoc').value,
-      aseguradoFechaNac: document.getElementById('vAseguradoFechaNac').value,
-      aseguradoEdad: document.getElementById('vAseguradoEdad').value,
-      asegurado2Nombre: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Nombre')?.value || ''),
-      asegurado2TipoDoc: document.getElementById('vAsegurado2SoloUno')?.checked ? 'CC' : (document.getElementById('vAsegurado2TipoDoc')?.value || 'CC'),
-      asegurado2Doc: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Doc')?.value || ''),
-      asegurado2FechaNac: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2FechaNac')?.value || ''),
-      asegurado2Edad: document.getElementById('vAsegurado2SoloUno')?.checked ? '' : (document.getElementById('vAsegurado2Edad')?.value || ''),
       nombre: document.getElementById('vTomadorNombre').value,
       tipoDoc: document.getElementById('vTomadorTipoDoc').value,
       doc: document.getElementById('vTomadorDoc').value,
@@ -13804,9 +14409,64 @@ function guardarVenta() {
       ciudad: document.getElementById('vCiudadSPD').value,
       notas: document.getElementById('vNotasSPD').value,
       comision: 0, rango: '—', criterio: '—', empresa: '—', tramite: '—',
-      tarifaCongelada: !!(document.getElementById('chkTarifaCongeladaSPD')?.checked),
-      anioTarifa: document.getElementById('chkTarifaCongeladaSPD')?.checked ? AÑO_ACTUAL : null,
-    });
+      tarifaCongelada: tcFlagSPD, anioTarifa: tcFlagSPD ? AÑO_ACTUAL : null,
+    };
+    const aseg1SPD = {
+      aseguradoNombre: document.getElementById('vAseguradoNombre').value,
+      aseguradoTipoDoc: document.getElementById('vAseguradoTipoDoc').value,
+      aseguradoDoc: document.getElementById('vAseguradoDoc').value,
+      aseguradoFechaNac: document.getElementById('vAseguradoFechaNac').value,
+      aseguradoEdad: document.getElementById('vAseguradoEdad').value,
+    };
+    const aseg2SPD = soloUnoSPD ? {} : {
+      asegurado2Nombre: document.getElementById('vAsegurado2Nombre')?.value || '',
+      asegurado2TipoDoc: document.getElementById('vAsegurado2TipoDoc')?.value || 'CC',
+      asegurado2Doc: document.getElementById('vAsegurado2Doc')?.value || '',
+      asegurado2FechaNac: document.getElementById('vAsegurado2FechaNac')?.value || '',
+      asegurado2Edad: document.getElementById('vAsegurado2Edad')?.value || '',
+    };
+    if (!soloUnoSPD && modoRegistroSPD === 'sumado') {
+      // Registro único: prima * 2 (2 asegurados en misma póliza)
+      const primaSum = primaMen * 2;
+      const primaSumSinIVA = Math.round(primaSum / IVA_FACTOR);
+      state.ventas.push({
+        id, producto: 'SPD', fecha, mesComp: mesCompSPD, ..._spdBase,
+        ...aseg1SPD, ...aseg2SPD,
+        prima: primaMen, primaTotal: primaSum, primaTotalSinIVA: primaSumSinIVA,
+        modoRegistro: 'sumado', numAsegurados: 2,
+      });
+    } else if (!soloUnoSPD && modoRegistroSPD === 'individual') {
+      // Registro individual asegurado 1
+      state.ventas.push({
+        id, producto: 'SPD', fecha, mesComp: mesCompSPD, ..._spdBase,
+        ...aseg1SPD, asegurado2Nombre: '', asegurado2Doc: '',
+        prima: primaMen, primaTotal, primaTotalSinIVA,
+        modoRegistro: 'individual',
+      });
+      // Registro individual asegurado 2
+      const idA2 = Date.now().toString(36) + Math.random().toString(36).substr(2);
+      state.ventas.push({
+        id: idA2, producto: 'SPD', fecha, mesComp: mesCompSPD, ..._spdBase,
+        aseguradoNombre: aseg2SPD.asegurado2Nombre,
+        aseguradoTipoDoc: aseg2SPD.asegurado2TipoDoc,
+        aseguradoDoc: aseg2SPD.asegurado2Doc,
+        aseguradoFechaNac: aseg2SPD.asegurado2FechaNac,
+        aseguradoEdad: aseg2SPD.asegurado2Edad,
+        asegurado2Nombre: '', asegurado2Doc: '',
+        prima: primaMen, primaTotal, primaTotalSinIVA,
+        modoRegistro: 'individual',
+      });
+    } else {
+      // Solo un asegurado (checkbox marcado) — comportamiento legacy
+      state.ventas.push({
+        id, producto: 'SPD', fecha, mesComp: mesCompSPD, ..._spdBase,
+        ...aseg1SPD,
+        asegurado2Nombre: '', asegurado2TipoDoc: 'CC', asegurado2Doc: '',
+        asegurado2FechaNac: '', asegurado2Edad: '',
+        prima: primaMen, primaTotal, primaTotalSinIVA,
+        modoRegistro: 'individual',
+      });
+    }
   } else {
     // Tab desconocido — no guardar nada, evita registro silencioso con datos incorrectos
     console.warn('[guardarVenta] modalTab desconocido:', modalTab);
