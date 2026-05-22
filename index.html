@@ -2604,12 +2604,11 @@
         <!-- ── VOLUNTARIOS TAB ── -->
         <div id="comTabVol" style="display:none;">
           <div class="alert alert-info" style="margin-bottom:16px;">
-            💡 <strong>SPTI: 7%</strong> sobre prima total cobrada · <strong>SPD Plus: 8%</strong> sobre prima total cobrada.
-            La comisión <span style="color:var(--amber)">proyectada</span> se genera al registrar la venta.
-            La comisión <span style="color:var(--green)">real</span> se acumula cuando marcas el pago en Gestión de Cartera.
+            💡 <strong>SPTI: 7%</strong> sobre prima total cobrada · <strong>SPD Plus: 8%</strong> sobre prima total cobrada. La comisión <span style="color:var(--amber)">proyectada</span> se genera al registrar la venta. La comisión <span style="color:var(--green)">real</span> se acumula cuando marcas el pago en Gestión de Cartera.
+            <span style="color:var(--teal);font-weight:600;"> · PSM y PAC 60+</span>: la comisión se toma del campo registrado en cada venta.
           </div>
 
-          <div class="grid-4" style="margin-bottom:16px;">
+          <div class="grid-4" style="margin-bottom:12px;">
             <div class="stat-card teal">
               <div class="stat-label">SPTI Proyectado Total</div>
               <div class="stat-value" id="vol-com-spti-proy" style="font-size:18px;">$0</div>
@@ -2620,6 +2619,18 @@
               <div class="stat-value" id="vol-com-spd-proy" style="font-size:18px;">$0</div>
               <div class="stat-sub">8% prima total · todas las ventas</div>
             </div>
+            <div class="stat-card" style="border-top:3px solid var(--teal);">
+              <div class="stat-label" style="color:var(--teal);">PSM Proyectado Total</div>
+              <div class="stat-value" id="vol-com-psm-proy" style="font-size:18px;color:var(--teal);">$0</div>
+              <div class="stat-sub">Com. registrada · todas las ventas</div>
+            </div>
+            <div class="stat-card" style="border-top:3px solid var(--green);">
+              <div class="stat-label" style="color:var(--green);">PAC 60+ Proyectado Total</div>
+              <div class="stat-value" id="vol-com-pac60-proy" style="font-size:18px;color:var(--green);">$0</div>
+              <div class="stat-sub">Com. registrada · todas las ventas</div>
+            </div>
+          </div>
+          <div class="grid-2" style="margin-bottom:16px;">
             <div class="stat-card green">
               <div class="stat-label">Comisión Real Cobrada</div>
               <div class="stat-value" id="vol-com-real" style="font-size:18px;">$0</div>
@@ -2635,16 +2646,20 @@
           <!-- Monthly breakdown voluntarios -->
           <div class="card" style="margin-bottom:16px;">
             <div class="card-title">Comisiones Voluntarios por Mes de Venta — 2026</div>
-            <div class="table-wrap">
-              <table>
+            <div class="table-wrap" style="overflow-x:auto;">
+              <table style="min-width:900px;">
                 <thead><tr>
                   <th>Mes</th>
                   <th class="td-right">Ventas SPTI</th>
                   <th class="td-right">Prima Total SPTI</th>
-                  <th class="td-right">Com. SPTI (7%)</th>
+                  <th class="td-right" style="color:var(--teal);">Com. SPTI (7%)</th>
                   <th class="td-right">Ventas SPD Plus</th>
                   <th class="td-right">Prima Total SPD Plus</th>
-                  <th class="td-right">Com. SPD Plus (8%)</th>
+                  <th class="td-right" style="color:var(--purple);">Com. SPD (8%)</th>
+                  <th class="td-right">Ventas PSM</th>
+                  <th class="td-right" style="color:var(--teal);">Com. PSM</th>
+                  <th class="td-right">Ventas PAC 60+</th>
+                  <th class="td-right" style="color:var(--green);">Com. PAC 60+</th>
                   <th class="td-right">Total Mes</th>
                 </tr></thead>
                 <tbody id="volComTabla"></tbody>
@@ -10549,7 +10564,7 @@ function renderVoluntarios() {
   document.getElementById('volIVALabel').textContent = volConIVA ? `Con IVA · Ref: Pref 0-40 = ${fmt(REF_PREF_040_CON_IVA)}/mes` : `Sin IVA · Ref: Pref 0-40 = ${fmt(REF_PREF_040_SIN_IVA)}/mes`;
 
   // Mini commission cards
-  const { sptiProy, spdProy, real: volReal, pendiente } = getVolComisionesSummary();
+  const { sptiProy, spdProy, psmProy: _psmMini, pac60Proy: _pac60Mini, real: volReal, pendiente } = getVolComisionesSummary();
   document.getElementById('vol-com-spti-mini').textContent = fmt(sptiProy);
   document.getElementById('vol-com-spd-mini').textContent  = fmt(spdProy);
   document.getElementById('vol-com-real-mini').textContent = fmt(volReal);
@@ -10829,6 +10844,10 @@ function calcVolComisionVenta(v) {
     }
   }
 
+  // PSM and PAC60: commission stored directly on the record
+  if (v.producto === 'PSM' || v.producto === 'PAC60') {
+    return v.comision || 0;
+  }
   const pct = v.producto === 'SPTI' ? COM_SPTI_PCT : COM_SPD_PCT;
   return Math.round(baseSinIVA * pct);
 }
@@ -10884,24 +10903,30 @@ function getVolComisionesSummary() {
 function renderVolComisiones() {
   state = getState();
   const pagos = getPagos();
-  const { sptiProy, spdProy, totalProy, real, pendiente } = getVolComisionesSummary();
+  const { sptiProy, spdProy, psmProy, pac60Proy, totalProy, real, pendiente } = getVolComisionesSummary();
 
-  document.getElementById('vol-com-spti-proy').textContent = fmt(sptiProy);
-  document.getElementById('vol-com-spd-proy').textContent  = fmt(spdProy);
-  document.getElementById('vol-com-real').textContent      = fmt(real);
-  document.getElementById('vol-com-pendiente').textContent = fmt(pendiente);
+  document.getElementById('vol-com-spti-proy').textContent  = fmt(sptiProy);
+  document.getElementById('vol-com-spd-proy').textContent   = fmt(spdProy);
+  document.getElementById('vol-com-psm-proy').textContent   = fmt(psmProy);
+  document.getElementById('vol-com-pac60-proy').textContent = fmt(pac60Proy);
+  document.getElementById('vol-com-real').textContent       = fmt(real);
+  document.getElementById('vol-com-pendiente').textContent  = fmt(pendiente);
 
   // Monthly table
   const tbody = document.getElementById('volComTabla');
   tbody.innerHTML = MESES.map((mes, i) => {
-    const sptiV = getVentasByProduct(i,'SPTI');
-    const spdV  = getVentasByProduct(i,'SPD');
+    const sptiV  = getVentasByProduct(i,'SPTI');
+    const spdV   = getVentasByProduct(i,'SPD');
+    const psmV   = getVentasByProduct(i,'PSM');
+    const pac60V = getVentasByProduct(i,'PAC60');
     const primaSpti = sptiV.reduce((s,v) => s + getSinIVABase(v), 0);
     const primaSPD  = spdV.reduce((s,v)  => s + getSinIVABase(v), 0);
-    const comSpti = Math.round(primaSpti * COM_SPTI_PCT);
-    const comSpd  = Math.round(primaSPD  * COM_SPD_PCT);
-    const total   = comSpti + comSpd;
-    const isX2    = X2_MONTHS.includes(i);
+    const comSpti  = Math.round(primaSpti * COM_SPTI_PCT);
+    const comSpd   = Math.round(primaSPD  * COM_SPD_PCT);
+    const comPsm   = psmV.reduce((s,v)   => s + (v.comision || 0), 0);
+    const comPac60 = pac60V.reduce((s,v) => s + (v.comision || 0), 0);
+    const total    = comSpti + comSpd + comPsm + comPac60;
+    const isX2     = X2_MONTHS.includes(i);
     return `<tr class="${isX2?'highlight-row':''}">
       <td>${mes}${isX2?' <span class="chip chip-teal" style="font-size:10px;padding:1px 5px;">x2</span>':''}</td>
       <td class="td-right td-num">${contarPolizas(sptiV)}</td>
@@ -10910,12 +10935,16 @@ function renderVolComisiones() {
       <td class="td-right td-num">${contarPolizas(spdV)}</td>
       <td class="td-right td-num" style="color:var(--purple);">${primaSPD?fmt(primaSPD):'—'}</td>
       <td class="td-right td-num" style="color:var(--purple);font-weight:600;">${comSpd?fmt(comSpd):'—'}</td>
+      <td class="td-right td-num">${contarPolizas(psmV)}</td>
+      <td class="td-right td-num" style="color:var(--teal);font-weight:600;">${comPsm?fmt(comPsm):'—'}</td>
+      <td class="td-right td-num">${contarPolizas(pac60V)}</td>
+      <td class="td-right td-num" style="color:var(--green);font-weight:600;">${comPac60?fmt(comPac60):'—'}</td>
       <td class="td-right td-num" style="color:var(--green);font-weight:700;">${total?fmt(total):'—'}</td>
     </tr>`;
   }).join('');
 
   // Per-client detail
-  const ventas = state.ventas.filter(v => ['SPTI','SPD'].includes(v.producto));
+  const ventas = state.ventas.filter(v => ['SPTI','SPD','PSM','PAC60'].includes(v.producto));
   const detalleEl = document.getElementById('volComDetalle');
   if (!ventas.length) {
     detalleEl.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-dim);">Sin ventas de voluntarios registradas</td></tr>`;
@@ -10928,14 +10957,14 @@ function renderVolComisiones() {
     const comAnual = calcVolComisionAnual(v);
     // Comisión real: suma de p.comision de cada pago registrado
     const comReal = isPagado ? pagos[v.id].reduce((s, p) => s + (p.comision || 0), 0) : 0;
-    const pct = v.producto==='SPTI' ? '7%' : '8%';
+    const pct = v.producto==='SPTI' ? '7%' : v.producto==='SPD' ? '8%' : (v.comision && getSinIVABase(v) > 0 ? Math.round(v.comision/getSinIVABase(v)*100)+'%' : '—');
     const nombre = tc(v.tomadorNombre || v.nombre || '—');
-    const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial', 'Salud Para Dos':'Salud Para Dos Plus', 'Salud Para Dos Plus':'Salud Para Dos Plus' };
+    const planLabel = { CLASICO:'Clásico', PREFERENCIAL:'Preferencial', 'Salud Para Dos':'Salud Para Dos Plus', 'Salud Para Dos Plus':'Salud Para Dos Plus', MODULAR:'Modular', PSM:'Plan Modular', PAC60:'Plan 60+', COMPLEMENTARIO:'Complementario 60+' };
     const baseSinIVA = getSinIVABase(v);
     const rowBg = i%2===0?'':'background:rgba(255,255,255,0.015)';
     return `<tr style="${rowBg};border-top:1px solid var(--border);">
       <td style="padding:9px 12px;font-weight:500;">${nombre}${v.tarifaCongelada ? ' <span title="Tarifa congelada 2026 — no reajusta en 2027" style="font-size:10px;color:var(--amber);font-weight:700;background:rgba(245,158,11,0.12);padding:1px 6px;border-radius:10px;border:1px solid rgba(245,158,11,0.3);">🧊 T.Fija</span>' : ''}</td>
-      <td style="padding:9px 12px;"><span class="chip ${v.producto==='SPTI'?'chip-teal':'chip-purple'}" style="font-size:10px;">${v.producto}</span></td>
+      <td style="padding:9px 12px;"><span class="chip ${v.producto==='SPTI'?'chip-teal':v.producto==='SPD'?'chip-purple':v.producto==='PSM'?'chip-blue':'chip-green'}" style="font-size:10px;">${v.producto==='PAC60'?'60+':v.producto}</span></td>
       <td style="padding:9px 12px;font-size:12px;">${planLabel[v.plan]||v.plan||'—'}</td>
       <td style="padding:9px 12px;"><span class="chip chip-blue" style="font-size:10px;">${perLabel[v.periodicidad]||'—'}</span></td>
       <td style="padding:9px 12px;text-align:right;font-family:var(--mono);">
@@ -11192,7 +11221,7 @@ function renderPagoMes() {
   // ═══════════════════════════════════════════════════════════════════
   const pagos = getPagos();
   const volProductos = ['SPTI','SPD','PSM','PAC60'];
-  const comPcts = { SPTI: COM_SPTI_PCT, SPD: COM_SPD_PCT };
+  const comPcts = { SPTI: COM_SPTI_PCT, SPD: COM_SPD_PCT, PSM: null, PAC60: null };
 
   // Recolectar todos los pagos de voluntarios registrados en el mes seleccionado
   const pagosQ1 = []; // 1–10
@@ -11221,6 +11250,7 @@ function renderPagoMes() {
   function calcComVol(venta, prima) {
     if (venta.producto === 'SPTI') return Math.round((prima || getSinIVABase(venta)) * COM_SPTI_PCT);
     if (venta.producto === 'SPD')  return Math.round((prima || getSinIVABase(venta)) * COM_SPD_PCT);
+    if (venta.producto === 'PSM' || venta.producto === 'PAC60') return venta.comision || 0;
     return venta.comision || 0; // PSM / PAC60 usan comisión almacenada
   }
 
