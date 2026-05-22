@@ -9844,6 +9844,12 @@ function getVentasByProduct(month, product) {
   return getVentas2026(month).filter(v => v.producto === product);
 }
 
+// Cuenta pólizas reales: si modoRegistro === 'sumado' suma numAsegurados (mínimo 1),
+// de lo contrario cuenta el registro como 1 póliza. Acepta un array de ventas.
+function contarPolizas(ventas) {
+  return ventas.reduce((s, v) => s + (v.modoRegistro === 'sumado' ? (v.numAsegurados || 1) : 1), 0);
+}
+
 function getPbsCotizantes(month) {
   return getVentasByProduct(month, 'PBS').filter(v => v.tipo === 'COTIZANTE');
 }
@@ -10163,10 +10169,10 @@ function renderDashboard() {
   renderMapa();
 
   const pbsVentas  = getVentasByProduct(selectedMonth, 'PBS').length;
-  const sptiVentas = getVentasByProduct(selectedMonth, 'SPTI').length;
-  const spdVentas  = getVentasByProduct(selectedMonth, 'SPD').length;
-  const psmVentasMes  = state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
-  const pac60VentasMes = state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
+  const sptiVentas = contarPolizas(getVentasByProduct(selectedMonth, 'SPTI'));
+  const spdVentas  = contarPolizas(getVentasByProduct(selectedMonth, 'SPD'));
+  const psmVentasMes  = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL));
+  const pac60VentasMes = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL));
 
   const pbsPpto  = state.config.pbs[selectedMonth];
   const sptiPpto = state.config.spti[selectedMonth];
@@ -10178,10 +10184,10 @@ function renderDashboard() {
 
   // Acumulados año
   const accPbs   = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'PBS').length, 0);
-  const accSpti  = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'SPTI').length, 0);
-  const accSpd   = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'SPD').length, 0);
-  const accPsm   = state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
-  const accPac60 = state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length;
+  const accSpti  = MESES.reduce((s,_,i) => s + contarPolizas(getVentasByProduct(i,'SPTI')), 0);
+  const accSpd   = MESES.reduce((s,_,i) => s + contarPolizas(getVentasByProduct(i,'SPD')), 0);
+  const accPsm   = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getFullYear()===AÑO_ACTUAL));
+  const accPac60 = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getFullYear()===AÑO_ACTUAL));
   const accCom   = MESES.reduce((s,_,i) => s + calcMesComisionTotal(i), 0);
 
   // Fill KPI row 1 — ventas
@@ -10230,8 +10236,8 @@ function renderDashboard() {
 
   // Bar chart voluntarios (SPTI + SPD + PSM + PAC60)
   renderBarChartCuatro('barChartVol', MESES_SHORT,
-    MESES.map((_,i) => getVentasByProduct(i,'SPTI').length),
-    MESES.map((_,i) => getVentasByProduct(i,'SPD').length),
+    MESES.map((_,i) => contarPolizas(getVentasByProduct(i,'SPTI'))),
+    MESES.map((_,i) => contarPolizas(getVentasByProduct(i,'SPD'))),
     MESES.map((_,i) => state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===i && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length),
     MESES.map((_,i) => state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===i && new Date(v.fecha).getFullYear()===AÑO_ACTUAL).length),
     'var(--teal)', 'var(--purple)', 'rgba(6,182,212,0.45)', 'var(--green)'
@@ -10345,10 +10351,10 @@ function renderBarChartCuatro(id, labels, d1, d2, d3, d4, c1, c2, c3, c4) {
 
 function renderCampaignProgress() {
   const el = document.getElementById('campaignProgress');
-  const accSpti = MESES.reduce((s, _, i) => s + getVentasByProduct(i,'SPTI').length, 0);
+  const accSpti = MESES.reduce((s, _, i) => s + contarPolizas(getVentasByProduct(i,'SPTI')), 0);
   const accPbs = MESES.reduce((s, _, i) => s + getVentasByProduct(i,'PBS').length, 0);
-  const eneroAbril = [0,1,2,3].reduce((s,i) => s + getVentasByProduct(i,'SPTI').length, 0);
-  const eneroAgosto = [0,1,2,3,4,5,6,7].reduce((s,i) => s + getVentasByProduct(i,'SPTI').length, 0);
+  const eneroAbril = [0,1,2,3].reduce((s,i) => s + contarPolizas(getVentasByProduct(i,'SPTI')), 0);
+  const eneroAgosto = [0,1,2,3,4,5,6,7].reduce((s,i) => s + contarPolizas(getVentasByProduct(i,'SPTI')), 0);
 
   const camps = [
     { name: '🏔️ Reto Guatapé', target: state.config.tipoAsesor === 'antiguo' ? 60.8 : 36.1, current: eneroAbril, label: 'SPTI Ene-Abr', unit: 'und' },
@@ -10510,10 +10516,10 @@ function toggleIVAVol() {
 
 function renderVoluntarios() {
   buildMonthSelector('monthSelectorVol', renderVoluntarios);
-  const sptiMes = getVentasByProduct(selectedMonth,'SPTI').length;
-  const spdMes  = getVentasByProduct(selectedMonth,'SPD').length;
-  const sptiAcc = MESES.reduce((s,_,i) => s+getVentasByProduct(i,'SPTI').length,0);
-  const spdAcc  = MESES.reduce((s,_,i) => s+getVentasByProduct(i,'SPD').length,0);
+  const sptiMes = contarPolizas(getVentasByProduct(selectedMonth,'SPTI'));
+  const spdMes  = contarPolizas(getVentasByProduct(selectedMonth,'SPD'));
+  const sptiAcc = MESES.reduce((s,_,i) => s+contarPolizas(getVentasByProduct(i,'SPTI')),0);
+  const spdAcc  = MESES.reduce((s,_,i) => s+contarPolizas(getVentasByProduct(i,'SPD')),0);
 
   document.getElementById('vol-spti-mes').textContent = sptiMes;
   document.getElementById('vol-spd-mes').textContent  = spdMes;
@@ -10551,8 +10557,8 @@ function renderVoluntarios() {
 
   // PSM — Plan Salud Modular
   const psmVentas = state.ventas.filter(v => v.producto === 'PSM');
-  const psmMes  = psmVentas.filter(v => new Date(v.fecha).getMonth() === selectedMonth && new Date(v.fecha).getFullYear() === AÑO_ACTUAL).length;
-  const psmAcc  = psmVentas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL).length;
+  const psmMes  = contarPolizas(psmVentas.filter(v => new Date(v.fecha).getMonth() === selectedMonth && new Date(v.fecha).getFullYear() === AÑO_ACTUAL));
+  const psmAcc  = contarPolizas(psmVentas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL));
   const psmComisionAcc = psmVentas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL).reduce((s,v) => s + (v.comision||0), 0);
   const psmPrimaCartera = psmVentas.filter(v => v.tipo !== 'CANCELACION').reduce((s,v) => s + (v.prima||0), 0);
 
@@ -10579,8 +10585,8 @@ function renderVoluntarios() {
 
   // PAC60 — Plan Complementario 60+
   const pac60Ventas = state.ventas.filter(v => v.producto === 'PAC60');
-  const pac60Mes = pac60Ventas.filter(v => new Date(v.fecha).getMonth() === selectedMonth && new Date(v.fecha).getFullYear() === AÑO_ACTUAL).length;
-  const pac60Acc = pac60Ventas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL).length;
+  const pac60Mes = contarPolizas(pac60Ventas.filter(v => new Date(v.fecha).getMonth() === selectedMonth && new Date(v.fecha).getFullYear() === AÑO_ACTUAL));
+  const pac60Acc = contarPolizas(pac60Ventas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL));
   const pac60ComAcc = pac60Ventas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL).reduce((s,v) => s + (v.comision||0), 0);
   const pac60PrimaCartera = pac60Ventas.filter(v => v.tipo !== 'CANCELACION').reduce((s,v) => s + (v.prima||0), 0);
 
@@ -10609,10 +10615,10 @@ function renderVoluntarios() {
 
   const tbody = document.getElementById('volResumenMensual');
   tbody.innerHTML = MESES.map((mes,i) => {
-    const spti = getVentasByProduct(i,'SPTI').length;
-    const spd  = getVentasByProduct(i,'SPD').length;
-    const psm  = getVentasByProduct(i,'PSM').length;
-    const pac60 = getVentasByProduct(i,'PAC60').length;
+    const spti = contarPolizas(getVentasByProduct(i,'SPTI'));
+    const spd  = contarPolizas(getVentasByProduct(i,'SPD'));
+    const psm  = contarPolizas(getVentasByProduct(i,'PSM'));
+    const pac60 = contarPolizas(getVentasByProduct(i,'PAC60'));
     const ps = state.config.spti[i];
     const pd = state.config.spd[i];
     const pSpti = pct(spti, ps);
@@ -10638,9 +10644,9 @@ function renderVoluntarios() {
 // =============================================
 function renderCampanas() {
   const tipo = state.config.tipoAsesor;
-  const accSpti = MESES.reduce((s,_,i) => s+getVentasByProduct(i,'SPTI').length,0);
-  const eneroAbril = [0,1,2,3].reduce((s,i) => s+getVentasByProduct(i,'SPTI').length,0);
-  const eneroAgosto = [0,1,2,3,4,5,6,7].reduce((s,i) => s+getVentasByProduct(i,'SPTI').length,0);
+  const accSpti = MESES.reduce((s,_,i) => s+contarPolizas(getVentasByProduct(i,'SPTI')),0);
+  const eneroAbril = [0,1,2,3].reduce((s,i) => s+contarPolizas(getVentasByProduct(i,'SPTI')),0);
+  const eneroAgosto = [0,1,2,3,4,5,6,7].reduce((s,i) => s+contarPolizas(getVentasByProduct(i,'SPTI')),0);
   const pbsAcc = MESES.reduce((s,_,i) => s+getVentasByProduct(i,'PBS').length,0);
 
   const campanas = [
@@ -10898,10 +10904,10 @@ function renderVolComisiones() {
     const isX2    = X2_MONTHS.includes(i);
     return `<tr class="${isX2?'highlight-row':''}">
       <td>${mes}${isX2?' <span class="chip chip-teal" style="font-size:10px;padding:1px 5px;">x2</span>':''}</td>
-      <td class="td-right td-num">${sptiV.length}</td>
+      <td class="td-right td-num">${contarPolizas(sptiV)}</td>
       <td class="td-right td-num" style="color:var(--teal);">${primaSpti?fmt(primaSpti):'—'}</td>
       <td class="td-right td-num" style="color:var(--teal);font-weight:600;">${comSpti?fmt(comSpti):'—'}</td>
-      <td class="td-right td-num">${spdV.length}</td>
+      <td class="td-right td-num">${contarPolizas(spdV)}</td>
       <td class="td-right td-num" style="color:var(--purple);">${primaSPD?fmt(primaSPD):'—'}</td>
       <td class="td-right td-num" style="color:var(--purple);font-weight:600;">${comSpd?fmt(comSpd):'—'}</td>
       <td class="td-right td-num" style="color:var(--green);font-weight:700;">${total?fmt(total):'—'}</td>
@@ -19906,10 +19912,10 @@ function renderResumenDia() {
   const pctMes         = diasTotales > 0 ? Math.round((diasTotales - diasRestantes) / diasTotales * 100) : 0;
 
   const vPBS   = getVentasByProduct(mesActual,'PBS').length;
-  const vSPTI  = getVentasByProduct(mesActual,'SPTI').length;
-  const vSPD   = getVentasByProduct(mesActual,'SPD').length;
-  const vPSM   = getVentasByProduct(mesActual,'PSM').length;
-  const vPAC60 = getVentasByProduct(mesActual,'PAC60').length;
+  const vSPTI  = contarPolizas(getVentasByProduct(mesActual,'SPTI'));
+  const vSPD   = contarPolizas(getVentasByProduct(mesActual,'SPD'));
+  const vPSM   = contarPolizas(getVentasByProduct(mesActual,'PSM'));
+  const vPAC60 = contarPolizas(getVentasByProduct(mesActual,'PAC60'));
 
   const pPBS  = state.config.pbs[mesActual]  || 0;
   const pSPTI = state.config.spti[mesActual] || 0;
@@ -20108,7 +20114,7 @@ function getDiasHabilesRestantes() {
 function renderSimulador() {
   state = getState();
   // Auto-fill from actual data
-  const sptiAcc = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'SPTI').length, 0);
+  const sptiAcc = MESES.reduce((s,_,i) => s + contarPolizas(getVentasByProduct(i,'SPTI')), 0);
   const cancelaciones = parseInt(document.getElementById('simCancelaciones').value) || 0;
   const sptiInput = document.getElementById('simSpti');
   if (!sptiInput.value) {
@@ -20132,14 +20138,14 @@ function renderSimulador() {
       periodo: 'Ene–Abr', cupos: 30, consolacion: 1500000,
       metaSpti: tipo === 'antiguo' ? 60.8 : 36.1,
       metaPbs: 100, metaSin: 80, regsReq: 3,
-      sptiActual: [0,1,2,3].reduce((s,i) => s + getVentasByProduct(i,'SPTI').length, 0),
+      sptiActual: [0,1,2,3].reduce((s,i) => s + contarPolizas(getVentasByProduct(i,'SPTI')), 0),
     },
     {
       nombre: '🐋 Experiencia Nuquí', color: 'var(--teal)', colorText: 'white',
       periodo: 'Ene–Ago', cupos: 30, consolacion: 1500000,
       metaSpti: tipo === 'antiguo' ? 138.7 : 114.0,
       metaPbs: 100, metaSin: 80, regsReq: 7,
-      sptiActual: [0,1,2,3,4,5,6,7].reduce((s,i) => s + getVentasByProduct(i,'SPTI').length, 0),
+      sptiActual: [0,1,2,3,4,5,6,7].reduce((s,i) => s + contarPolizas(getVentasByProduct(i,'SPTI')), 0),
     },
     {
       nombre: '✈️ Convención Cancún', color: 'var(--sura-blue)', colorText: 'white',
@@ -20229,8 +20235,8 @@ function renderSemaforo() {
   const ritmoActual = diasTranscurridos > 0 ? (ventasPBS / diasTranscurridos).toFixed(1) : 0;
 
   // Voluntarios
-  const ventasSpti = getVentasByProduct(mes, 'SPTI').length;
-  const ventasSpd  = getVentasByProduct(mes, 'SPD').length;
+  const ventasSpti = contarPolizas(getVentasByProduct(mes, 'SPTI'));
+  const ventasSpd  = contarPolizas(getVentasByProduct(mes, 'SPD'));
   const pptoSpti = state.config.spti[mes];
   const pptoSpd  = state.config.spd[mes];
   const pSpti = pptoSpti > 0 ? Math.round(ventasSpti / pptoSpti * 100) : 0;
@@ -34187,8 +34193,8 @@ function _agenteConstruirContexto() {
     // Ventas del mes
     const ventasMes = {
       PBS:   getVentasByProduct ? getVentasByProduct(mesActual, 'PBS').length : 0,
-      SPTI:  getVentasByProduct ? getVentasByProduct(mesActual, 'SPTI').length : 0,
-      SPD:   getVentasByProduct ? getVentasByProduct(mesActual, 'SPD').length : 0,
+      SPTI:  getVentasByProduct ? contarPolizas(getVentasByProduct(mesActual, 'SPTI')) : 0,
+      SPD:   getVentasByProduct ? contarPolizas(getVentasByProduct(mesActual, 'SPD')) : 0,
       PSM:   (s.ventas||[]).filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===mesActual && new Date(v.fecha).getFullYear()===anio).length,
       PAC60: (s.ventas||[]).filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===mesActual && new Date(v.fecha).getFullYear()===anio).length,
     };
