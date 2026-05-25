@@ -34303,7 +34303,8 @@ INSTRUCCIONES:
 - Cuando el usuario pida cruzar cartera, verificar pagos, revisar mora o validar informe SURA, usa cruzar_cartera
 - Para registrar pagos: PRIMERO llama registrar_pago_agente con confirmado:false para mostrar el detalle, LUEGO espera que el usuario diga "sí", "confirmo" o "registra" antes de llamar con confirmado:true. NUNCA registres un pago sin confirmación explícita.
 - Cuando cruzar_cartera encuentre registros PAGO_SURA_SIN_REGISTRAR, ofrece registrar cada pago mostrando el detalle y pidiendo confirmación uno a uno
-- Cuando cruzar_cartera retorne aviso de informe no cargado, indícalo claramente al asesor
+- Cuando cruzar_cartera retorne aviso de informe no cargado, dile al asesor exactamente: "Para hacer el cruce debes ir a la pestaña Gestión de Cartera e importar el archivo XLS de SURA (botón 'Importar XLS de Sura'). Una vez cargado vuelve a pedirme el cruce."
+- Cuando cruzar_cartera encuentre MORA_CONFIRMADA, reporta nombre, días cartera, saldo y días para cancelación con urgencia
 - Después de ejecutar una acción, confirma qué hiciste en lenguaje natural
 - Calcula porcentajes, ritmos y proyecciones cuando sea relevante
 - Sé directo y orientado a la acción
@@ -34543,7 +34544,12 @@ function _agenteEjecutarHerramienta(nombre, input) {
       }
 
       case 'cruzar_cartera': {
-        const suraMap  = window._suraReviewMap;
+        // Fuente 1: _carteraSuraData — XLS de Cartera (tiene diasCart, saldo, nombre, cedula, ventaId)
+        // Fuente 2: _suraReviewMap  — XLS de Pago del Mes (tiene OBSERVACION por cedula)
+        const cartData   = (typeof _carteraSuraData !== 'undefined' && Array.isArray(_carteraSuraData) && _carteraSuraData.length > 0) ? _carteraSuraData : null;
+        const suraMap    = (typeof _suraReviewMap !== 'undefined') ? _suraReviewMap : null;
+        const hayDatos   = !!(cartData || suraMap);
+
         const state    = getState();
         const ventas   = (state.ventas || []).filter(v => v.producto !== 'PBS' && v.tipo !== 'CANCELACION');
         const pagos    = getPagos ? getPagos() : {};
@@ -34553,6 +34559,15 @@ function _agenteEjecutarHerramienta(nombre, input) {
         const mesesMap = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
         const hoy      = new Date(); hoy.setHours(12,0,0,0);
         const resultados = [];
+
+        // Construir índice de cartera Sura por cédula para búsqueda rápida
+        const cartMap = new Map();
+        if (cartData) {
+          cartData.forEach(r => {
+            const ced = String(r.cedula || '').replace(/\D/g, '').trim();
+            if (ced) cartMap.set(ced, r);
+          });
+        }
 
         ventas.forEach(v => {
           if (!v.fechaExp) return;
@@ -34577,24 +34592,37 @@ function _agenteEjecutarHerramienta(nombre, input) {
                             Math.abs(diasParaVencer) >= 35 ? 'SUSPENDIDO' :
                             Math.abs(diasParaVencer) >= 31 ? 'MORA' : 'VENCIDO';
 
-          // Estado en el informe SURA
-          let estadoSura = null, obsDetalle = null;
-          if (suraMap && cedula) {
+          // ── Cruce con cartera SURA (fuente primaria: XLS de Cartera) ──
+          let estadoSura = null, obsDetalle = null, datosSura = null;
+          const cartEntry = cedula ? cartMap.get(cedula) : null;
+          if (cartEntry) {
+            datosSura = cartEntry;
+            // Si aparece en la cartera de mora de SURA = tiene saldo pendiente
+            if (cartEntry.saldo > 0 || cartEntry.diasCart > 0) {
+              estadoSura = 'EN_MORA_SURA';
+              obsDetalle = `Días cartera: ${cartEntry.diasCart} | Saldo: $${(cartEntry.saldo||0).toLocaleString('es-CO')} | Días para cancelación: ${cartEntry.diasCanc}`;
+            } else {
+              estadoSura = 'USUARIO YA PAGADO'; // saldo 0 en cartera = al día
+            }
+          }
+          // Fuente secundaria: _suraReviewMap (si no se encontró en cartera)
+          if (!estadoSura && suraMap && cedula) {
             const info = suraMap.get(cedula);
             if (info) { estadoSura = info.observacion; obsDetalle = info.detalle; }
           }
 
           const appAlDia  = ['AL_DIA','PROXIMO'].includes(estadoApp);
-          const suraAlDia = estadoSura === 'USUARIO YA PAGADO';
+          const suraEnMora = estadoSura === 'EN_MORA_SURA';
+          const suraAlDia  = estadoSura === 'USUARIO YA PAGADO';
 
           // Categoría del cruce
           let categoria, accion;
-          if      (suraAlDia && !appAlDia)  { categoria='PAGO_SURA_SIN_REGISTRAR'; accion='SURA confirma pago — registrar en la app'; }
-          else if (suraAlDia && appAlDia)   { categoria='AL_DIA';                   accion='Confirmado en app y SURA'; }
-          else if (!suraAlDia && estadoSura && !appAlDia) { categoria='MORA_CONFIRMADA'; accion='Mora confirmada en app y SURA — gestión urgente'; }
-          else if (!suraAlDia && estadoSura && appAlDia)  { categoria='DISCREPANCIA';    accion='App dice al día pero SURA tiene observación — verificar'; }
-          else if (!estadoSura && !appAlDia) { categoria='SIN_INFO_MORA'; accion='Mora en app sin datos en informe SURA — revisar'; }
-          else { categoria='AL_DIA'; accion='Al día en app'; }
+          if      (suraEnMora && !appAlDia) { categoria='MORA_CONFIRMADA';        accion=`Mora confirmada en SURA · ${obsDetalle || ''} — gestión urgente`; }
+          else if (suraEnMora && appAlDia)  { categoria='DISCREPANCIA';           accion='App dice al día pero SURA reporta mora — verificar'; }
+          else if (suraAlDia  && !appAlDia) { categoria='PAGO_SURA_SIN_REGISTRAR'; accion='SURA confirma pago — registrar en la app'; }
+          else if (suraAlDia  && appAlDia)  { categoria='AL_DIA';                  accion='Confirmado en app y SURA'; }
+          else if (!estadoSura && !appAlDia){ categoria='SIN_INFO_MORA';           accion='Mora en app sin datos en SURA — revisar'; }
+          else                              { categoria='AL_DIA';                  accion='Al día en app'; }
 
           // Aplicar filtro
           if (filtro==='mora'          && !['MORA_CONFIRMADA','SIN_INFO_MORA'].includes(categoria)) return;
@@ -34606,8 +34634,11 @@ function _agenteEjecutarHerramienta(nombre, input) {
             prima:v.prima||0, periodicidad:v.periodicidad, fechaExp:v.fechaExp,
             nPagos, proxVencimiento:proxVenc.toISOString().split('T')[0],
             diasParaVencer, estadoApp,
-            estadoSura: estadoSura || (suraMap ? 'No encontrado en informe' : 'Informe no cargado'),
+            estadoSura: estadoSura || (hayDatos ? 'No encontrado en informe' : 'Informe no cargado'),
             obsDetalle: obsDetalle || '', categoria, accion,
+            diasCarteraSura: datosSura?.diasCart || null,
+            saldoSura: datosSura?.saldo || null,
+            diasCancelacion: datosSura?.diasCanc || null,
             comisionEstimada: Math.round((v.prima||0) * (COM_PCT[v.producto]||0.07))
           });
         });
@@ -34618,7 +34649,8 @@ function _agenteEjecutarHerramienta(nombre, input) {
 
         const resumen = {
           totalCartera: ventas.length,
-          informeSuraCargado: !!suraMap,
+          fuentesDatos: { carteraXLS: !!cartData, informePagoMes: !!suraMap },
+          registrosCartXLS: cartData ? cartData.length : 0,
           cruzados: resultados.length,
           porCategoria: {
             alDia:               resultados.filter(r=>r.categoria==='AL_DIA').length,
@@ -34627,10 +34659,12 @@ function _agenteEjecutarHerramienta(nombre, input) {
             discrepancia:        resultados.filter(r=>r.categoria==='DISCREPANCIA').length,
             sinInfoMora:         resultados.filter(r=>r.categoria==='SIN_INFO_MORA').length,
           },
-          registros: resultados.slice(0,20)
+          registros: resultados.slice(0, 25)
         };
-        if (!suraMap) {
-          resumen.aviso = 'El informe de SURA no está cargado. Ve a Gestión de Cartera → sección comisiones → "Cargar informe" (.xls de SURA) para habilitar el cruce completo. Con el informe cargado puedo detectar quién pagó en SURA sin estar registrado en la app.';
+        if (!hayDatos) {
+          resumen.aviso = 'No hay ningún informe de SURA cargado. Ve a la pestaña "Gestión de Cartera" e importa el archivo XLS de cartera de SURA (botón "Importar XLS de Sura"). Una vez cargado, vuelve a pedirme el cruce y podré analizar mora, pagos pendientes y discrepancias.';
+        } else if (cartData) {
+          resumen.fuenteInfo = `Cruce usando cartera XLS de SURA (${cartData.length} registros importados).`;
         }
         return resumen;
       }
