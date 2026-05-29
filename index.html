@@ -6934,9 +6934,11 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                     <label class="form-label">Filtrar por producto</label>
                     <select class="form-control" id="wm_producto" onchange="wmFiltrarClientes()">
                       <option value="todos">Todos los productos</option>
-                      <option value="pbs">PBS / EPS</option>
-                      <option value="spti">SPTI</option>
-                      <option value="spd">SPD Plus</option>
+                      <option value="PBS">PBS / EPS</option>
+                      <option value="SPTI">SPTI</option>
+                      <option value="SPD">SPD Plus</option>
+                      <option value="PSM">PSM Modular</option>
+                      <option value="PAC60">PAC 60+</option>
                     </select>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
@@ -6966,7 +6968,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                   </div>
                 </div>
                 <input type="file" id="wm_excel_input" accept=".xlsx,.xls,.csv" style="display:none"
-                  onchange="wmImportarExcel(this.files[0])">
+                  onchange="wmImportarExcel(event)">
               </div>
 
               <!-- Panel MANUAL -->
@@ -32875,50 +32877,74 @@ function wmSetTab(tab) {
 
 // ── FUENTE: CLIENTES SURA ────────────────────────────────────────────────
 function wmFiltrarClientes() {
-  const producto    = document.getElementById('wm_producto')?.value || 'todos';
-  const estadoFiltro = document.getElementById('wm_estado')?.value  || 'todos';
-  const s = getState();
+  const producto     = document.getElementById('wm_producto')?.value  || 'todos';
+  const estadoFiltro = document.getElementById('wm_estado')?.value    || 'todos';
+  const s    = getState();
   const pagos = getPagos ? getPagos() : {};
   const ventas = (s.ventas || []);
+  const hoy = new Date(); hoy.setHours(12,0,0,0);
+  const mesesMap = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
   let clientes = [];
 
   ventas.forEach(v => {
+    // ── Filtro producto (comparación case-sensitive correcta) ──────────────
     if (producto !== 'todos' && v.producto !== producto) return;
+    // Solo voluntarios y PBS activos (sin cancelaciones)
+    if (v.tipo === 'CANCELACION' || v.estado === 'CANCELADO') return;
+
     const tel = (v.telefono || v.celular || v.tel || '').replace(/\s/g, '');
     if (!tel || tel.length < 7) return;
 
-    // Calcular si tiene pagos en mora (SPTI/SPD/PSM)
-    const pagosList = pagos[v.id] || [];
-    const tienePago = pagosList.length > 0;
-    const enMora = !tienePago && ['SPTI','SPD','PSM','PAC60'].includes(v.producto);
+    // ── Calcular estado de cartera real (igual que getCarteraEstado) ───────
+    let diasParaVencer = null;
+    let estadoCartera  = 'AL_DIA';
+    if (['SPTI','SPD','PSM','PAC60'].includes(v.producto) && v.fechaExp) {
+      const pagosList = pagos[v.id] || [];
+      const intervalo = mesesMap[v.periodicidad] || 1;
+      const diaExp    = new Date(v.fechaExp + 'T12:00:00');
+      const proxVenc  = new Date(diaExp);
+      proxVenc.setMonth(proxVenc.getMonth() + (pagosList.length + 1) * intervalo);
+      diasParaVencer  = Math.floor((proxVenc - hoy) / 86400000);
+      estadoCartera   =
+        diasParaVencer > 3   ? 'AL_DIA'    :
+        diasParaVencer >= 0  ? 'PROXIMO'   :
+        Math.abs(diasParaVencer) >= 60 ? 'CANCELADO' :
+        Math.abs(diasParaVencer) >= 35 ? 'SUSPENDIDO':
+        Math.abs(diasParaVencer) >= 31 ? 'MORA'      : 'VENCIDO';
+    }
 
-    if (estadoFiltro === 'mora'   && !enMora) return;
-    if (estadoFiltro === 'al_dia' && enMora) return;
+    // ── Aplicar filtro de estado ───────────────────────────────────────────
+    if (estadoFiltro === 'al_dia'    && !['AL_DIA','PROXIMO'].includes(estadoCartera)) return;
+    if (estadoFiltro === 'mora'      && !['MORA','VENCIDO'].includes(estadoCartera))   return;
+    if (estadoFiltro === 'suspension'&& estadoCartera !== 'SUSPENDIDO')                return;
 
-    // Calcular mora aproximada desde cartera SURA si disponible
-    let moraStr = '$0';
-    if (_carteraSuraData && _carteraSuraData.length) {
+    // ── Saldo mora desde cartera SURA si disponible ────────────────────────
+    let moraStr = diasParaVencer !== null && diasParaVencer < 0
+      ? `${Math.abs(diasParaVencer)} días vencido` : '$0';
+    if (typeof _carteraSuraData !== 'undefined' && _carteraSuraData?.length) {
+      const docV  = (v.doc || v.cedula || '').replace(/\D/g,'');
       const match = _carteraSuraData.find(r =>
-        r.cedula && v.doc && r.cedula.replace(/\D/g,'') === v.doc.replace(/\D/g,'')
+        r.cedula && docV && r.cedula.replace(/\D/g,'') === docV
       );
       if (match) moraStr = '$' + (match.saldoTotal || match.saldo || 0).toLocaleString('es-CO');
     }
 
     clientes.push({
-      nombre:   (v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0],
-      telefono: wmNormalizarTel(tel),
-      producto: v.producto,
-      mora:     moraStr,
-      cedula:   v.doc || v.cedula || ''
+      nombre:        tc ? tc(v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0]
+                        : (v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0],
+      telefono:      wmNormalizarTel(tel),
+      producto:      v.producto,
+      mora:          moraStr,
+      cedula:        v.doc || v.cedula || '',
+      estadoCartera: estadoCartera,
     });
   });
 
-  // Deduplicar por teléfono
+  // ── Deduplicar por teléfono ────────────────────────────────────────────
   const seen = new Set();
   wmClientesSegmento = clientes.filter(c => {
     if (seen.has(c.telefono)) return false;
-    seen.add(c.telefono);
-    return true;
+    seen.add(c.telefono); return true;
   });
 
   wmRenderizarListaContactos();
@@ -32926,8 +32952,11 @@ function wmFiltrarClientes() {
 }
 
 // ── FUENTE: IMPORTAR EXCEL / CSV ─────────────────────────────────────────
-async function wmImportarExcel(event) {
-  const file = event.target.files[0];
+async function wmImportarExcel(eventOrFile) {
+  // Acepta tanto un Event (input change) como un File directamente (drop handler)
+  const file = (eventOrFile instanceof File)
+    ? eventOrFile
+    : (eventOrFile?.target?.files?.[0] || eventOrFile?.dataTransfer?.files?.[0]);
   if (!file) return;
   const statusEl = document.getElementById('wm_excel_status');
   if (statusEl) statusEl.textContent = 'Cargando...';
@@ -32999,7 +33028,8 @@ async function wmImportarExcel(event) {
     if (statusEl) statusEl.textContent = '❌ Error: ' + e.message;
     console.error('wmImportarExcel:', e);
   }
-  event.target.value = '';
+  // Limpiar el input si el llamado vino de un input file
+  if (eventOrFile?.target?.value !== undefined) eventOrFile.target.value = '';
 }
 
 // ── FUENTE: PEGAR NÚMEROS MANUAL ─────────────────────────────────────────
