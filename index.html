@@ -2313,7 +2313,11 @@
                     <th class="td-right" style="color:var(--text-muted);font-size:10px;">Ventana inicio</th>
                     <th class="td-right" style="color:var(--text-muted);font-size:10px;">Ventana fin</th>
                     <th class="td-right">Cotizantes</th>
+                    <th class="td-right" style="color:#6B9EFF;font-size:10.5px;">📱 SAT</th>
+                    <th class="td-right" style="color:var(--purple);font-size:10.5px;">📋 Form.</th>
                     <th class="td-right">Beneficiarios</th>
+                    <th class="td-right" style="color:#6B9EFF;font-size:10.5px;">📱 SAT</th>
+                    <th class="td-right" style="color:var(--purple);font-size:10.5px;">📋 Form.</th>
                     <th class="td-right">Total VB</th>
                     <th class="td-right">% Cumpl.</th>
                     <th class="td-right">Comisión Est.</th>
@@ -10447,23 +10451,37 @@ function renderPBSCompensado() {
   tbody.innerHTML = MESES.map((mes, i) => {
     const ventana = getVentanaCompensado(i, anio);
     const ventas = getVentasPBSCompensado(i, anio);
-    const mc = ventas.filter(v => v.tipo === 'COTIZANTE').length;
-    const mb = ventas.filter(v => v.tipo === 'BENEFICIARIO').length;
-    const mt = ventas.length;
-    const mp = state.config.pbs[i];
+    const cot  = ventas.filter(v => v.tipo === 'COTIZANTE');
+    const ben  = ventas.filter(v => v.tipo === 'BENEFICIARIO');
+    const mc   = cot.length;
+    const mb   = ben.length;
+    const mt   = ventas.length;
+    const mp   = state.config.pbs[i];
     const pctCumpl = pct(mt, mp);
+    // SAT / Formulario desglosado por cotizantes y beneficiarios
+    const cotSAT   = cot.filter(v => v.tramiteGrupo === 'SAT').length;
+    const cotForm  = cot.filter(v => v.tramiteGrupo === 'FORMULARIO').length;
+    const benSAT   = ben.filter(v => v.tramiteGrupo === 'SAT').length;
+    const benForm  = ben.filter(v => v.tramiteGrupo === 'FORMULARIO').length;
     // Recalcular comisión del período usando el rango final acumulado (no el valor guardado)
     const rangoFinalPer = getRango(mc);
     const mcom = calcComisionPeriodoPBS(ventas);
-    const rng = mc > 0 ? rangoFinalPer.label : '—';
+    const rng  = mc > 0 ? rangoFinalPer.label : '—';
     const pctColor = pctCumpl >= 100 ? 'chip-green' : pctCumpl >= 70 ? 'chip-amber' : pctCumpl > 0 ? 'chip-red' : '';
     const isX2 = X2_MONTHS.includes(i);
+    const _chip = (val, color) => val
+      ? `<span class="chip" style="font-size:10.5px;background:${color}22;color:${color};border:1px solid ${color}44;">${val}</span>`
+      : '<span style="color:var(--text-dim);font-size:11px;">—</span>';
     return `<tr class="${isX2 ? 'highlight-row' : ''}">
       <td style="font-weight:600;">${mes}${isX2 ? ' <span class="chip chip-teal" style="font-size:10px;padding:1px 5px;">x2</span>' : ''}</td>
       <td class="td-right" style="font-size:11px;color:var(--text-muted);">${ventana ? fmt2(ventana.inicioStr) : '—'}</td>
       <td class="td-right" style="font-size:11px;color:var(--text-muted);">${ventana ? fmt2(ventana.finStr) : '—'}</td>
-      <td class="td-right td-num" style="color:var(--teal);">${mc||'—'}</td>
-      <td class="td-right td-num" style="color:var(--amber);">${mb||'—'}</td>
+      <td class="td-right td-num" style="color:var(--teal);font-weight:700;">${mc||'—'}</td>
+      <td class="td-right">${_chip(cotSAT,  '#6B9EFF')}</td>
+      <td class="td-right">${_chip(cotForm, '#A78BFA')}</td>
+      <td class="td-right td-num" style="color:var(--amber);font-weight:700;">${mb||'—'}</td>
+      <td class="td-right">${_chip(benSAT,  '#6B9EFF')}</td>
+      <td class="td-right">${_chip(benForm, '#A78BFA')}</td>
       <td class="td-right td-num" style="font-weight:700;">${mt||'—'}</td>
       <td class="td-right"><span class="chip ${pctColor}" style="font-size:11px;">${mt ? pctCumpl+'%' : '—'}</span></td>
       <td class="td-right td-num" style="color:var(--green);">${mcom ? fmt(mcom) : '—'}</td>
