@@ -15643,6 +15643,39 @@ function setPagos(p) {
 // Detecta ventas donde la comisión guardada difiere de la correcta (sin IVA)
 // y las corrige en memoria + persiste a Firestore.
 // ─────────────────────────────────────────────────────────────────────────────
+function migrarComisionPagosSinIVA() {
+  // Recalcula la comisión de pagos ya guardados de PSM y PAC60 usando base sin IVA.
+  // Se ejecuta una sola vez (marca en localStorage).
+  const FLAG = 'sura_pagos_siniva_v1';
+  if (localStorage.getItem(FLAG)) return;
+  try {
+    const state  = getState();
+    const pagos  = getPagos();
+    const COM_PCT = { PSM: 0.12, PAC60: 0.05 };
+    let corregidos = 0;
+    state.ventas
+      .filter(v => v.producto === 'PSM' || v.producto === 'PAC60')
+      .forEach(v => {
+        const arr = pagos[v.id];
+        if (!arr || !arr.length) return;
+        const pct  = COM_PCT[v.producto];
+        const base = _baseComVol(v); // prima sin IVA
+        arr.forEach(p => {
+          const correcto = Math.round(base * pct);
+          if (p.comision !== correcto) {
+            p.comision = correcto;
+            corregidos++;
+          }
+        });
+      });
+    if (corregidos > 0) {
+      setPagos(pagos);
+      console.log(`[migrarComisionPagosSinIVA] ${corregidos} pago(s) PSM/PAC60 corregidos a base sin IVA`);
+    }
+    localStorage.setItem(FLAG, '1');
+  } catch(e) { console.warn('migrarComisionPagosSinIVA error', e); }
+}
+
 function migrarComisionSinIVA() {
   try {
     const s = getState();
@@ -15694,7 +15727,7 @@ function migrarPagosV1() {
         periodoDesde: prevVenc ? prevVenc.toISOString().slice(0,10) : venta.fechaExp,
         periodoHasta: proxVenc ? proxVenc.toISOString().slice(0,10) : '',
         prima: venta.prima || 0,
-        comision: Math.round((venta.prima || 0) * (COM_PCT[venta.producto] || 0.07)),
+        comision: Math.round(_baseComVol(venta) * (COM_PCT[venta.producto] || 0.07)),
       }];
     });
     setPagos(nuevo);
@@ -15753,6 +15786,17 @@ function calcPrevVencimiento(proxVenc, periodicidad) {
 
 // Registrar un nuevo pago para una póliza
 // fechaPago: fecha string 'YYYY-MM-DD' opcional — si no se pasa usa hoy
+// Retorna la base de prima sin IVA para calcular comisión de voluntarios.
+// Para PSM y PAC60 usa primaTotalSinIVA guardado, o primaSinIVA, o prima/1.05.
+// Para SPTI/SPD usa getSinIVABase que ya maneja tarifas conocidas.
+function _baseComVol(venta) {
+  if (!venta) return 0;
+  if (venta.producto === 'PSM' || venta.producto === 'PAC60') {
+    return venta.primaTotalSinIVA || venta.primaSinIVA || Math.round((venta.prima || 0) / 1.05);
+  }
+  return getSinIVABase(venta);
+}
+
 function registrarPago(ventaId, fechaPago) {
   const state = getState();
   const venta = state.ventas.find(v => v.id === ventaId);
@@ -15776,7 +15820,7 @@ function registrarPago(ventaId, fechaPago) {
 
   const COM_PCT = { SPTI:0.07, SPD:0.08, PSM:0.12, PAC60:0.05 };
   const prima    = venta.prima || 0;
-  const comision = Math.round(prima * (COM_PCT[venta.producto] || 0.07));
+  const comision = Math.round(_baseComVol(venta) * (COM_PCT[venta.producto] || 0.07));
 
   const nuevoPago = {
     id: Date.now().toString(36) + Math.random().toString(36).substr(2,4),
@@ -19476,7 +19520,7 @@ function confirmarImportVol() {
 
     // Calcular comisión estimada
     const pctCom = { SPTI: 0.07, SPD: 0.08, PSM: 0.12, PAC60: 0.05 }[v.producto] || 0.07;
-    const comision = Math.round((v.prima || 0) * pctCom);
+    const comision = Math.round(_baseComVol(v) * pctCom);
 
     state.ventas.push({
       id,
@@ -27323,7 +27367,8 @@ function _iniciarAppTrasLogin() {
   state = initState();
   initMultiAnio();
   migrarPagosV1();
-  migrarComisionSinIVA(); // corrige comisiones PSM y PAC60 calculadas con IVA
+  migrarComisionSinIVA();
+  migrarComisionPagosSinIVA(); // corrige comisiones PSM y PAC60 calculadas con IVA
   navigate('inicio');
   checkMenuPulse();
   setTimeout(() => initNotificaciones(), 2000);
@@ -28948,7 +28993,7 @@ function sincronizarFechaExpDesdeCarteraSura() {
         const proxVenc = calcProxVencimiento(v.fechaExp, v.periodicidad, v.id);
         const prevVenc = proxVenc ? calcPrevVencimiento(proxVenc, v.periodicidad) : null;
         const prima    = v.prima || v.primaTotal || 0;
-        const comision = Math.round(prima * (COM_PCT[v.producto] || 0.07));
+        const comision = Math.round(_baseComVol(v) * (COM_PCT[v.producto] || 0.07));
         if (!pagos[item.ventaId]) pagos[item.ventaId] = [];
         pagos[item.ventaId].push({
           id: 'sync_' + Date.now().toString(36) + '_' + item.ventaId.slice(-4),
@@ -34739,7 +34784,7 @@ function _agenteEjecutarHerramienta(nombre, input) {
           const diaExp    = new Date(venta.fechaExp + 'T12:00:00');
           const desde     = new Date(diaExp); desde.setMonth(desde.getMonth() + pagosEx.length * intervalo);
           const hasta     = new Date(diaExp); hasta.setMonth(hasta.getMonth() + (pagosEx.length+1) * intervalo);
-          const comision  = Math.round((venta.prima||0) * (COM_PCT[venta.producto]||0.07));
+          const comision  = Math.round(_baseComVol(venta) * (COM_PCT[venta.producto]||0.07));
           return {
             requiereConfirmacion: true,
             mensaje: `¿Confirmas registrar el siguiente pago para ${nombre}?`,
