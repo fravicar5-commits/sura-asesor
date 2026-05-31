@@ -23130,6 +23130,11 @@ function renderEmpresas() {
     '>=91% NO AGIL': '≥91% NoÁg.',
   };
 
+  // Resolver trimestre activo para filtrar historial de siniestralidad por empresa
+  const _reTrims = (typeof getBDSin === 'function' ? getBDSin().trimestres : null) || [];
+  const _reTrimLbl = (typeof _bdSinTrimActivo === 'function' ? _bdSinTrimActivo() : null) || (_reTrims[0] && _reTrims[0].label) || null;
+  const _trimActObj = _reTrims.find(t => t.label === _reTrimLbl) || _reTrims[0] || null;
+
   const tbody = document.getElementById('empTablaBody');
   if (filtered.length === 0) {
     tbody.innerHTML = '<tr><td colspan="10"><div class="empty-state"><div class="icon">🏢</div><div>No hay empresas registradas</div></div></td></tr>';
