@@ -6934,11 +6934,9 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                     <label class="form-label">Filtrar por producto</label>
                     <select class="form-control" id="wm_producto" onchange="wmFiltrarClientes()">
                       <option value="todos">Todos los productos</option>
-                      <option value="PBS">PBS / EPS</option>
-                      <option value="SPTI">SPTI</option>
-                      <option value="SPD">SPD Plus</option>
-                      <option value="PSM">PSM Modular</option>
-                      <option value="PAC60">PAC 60+</option>
+                      <option value="pbs">PBS / EPS</option>
+                      <option value="spti">SPTI</option>
+                      <option value="spd">SPD Plus</option>
                     </select>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
@@ -6968,7 +6966,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                   </div>
                 </div>
                 <input type="file" id="wm_excel_input" accept=".xlsx,.xls,.csv" style="display:none"
-                  onchange="wmImportarExcel(event)">
+                  onchange="wmImportarExcel(this.files[0])">
               </div>
 
               <!-- Panel MANUAL -->
@@ -22131,22 +22129,67 @@ function setEmpresas(arr) {
   try { localStorage.setItem('sura_empresas_v1', JSON.stringify(arr)); } catch(e) {}
 }
 
-// ── BD Siniestralidad persistente ─────────────────────────────────────────
+// ── BD Siniestralidad persistente (chunked para superar límite 5MB localStorage) ──
+const _BDSIN_KEY   = 'sura_bdsin_v2_meta';   // trimestres + meta
+const _BDSIN_CHUNK = 'sura_bdsin_v2_chunk_'; // registros en trozos de 2000
+const _BDSIN_NCHK  = 'sura_bdsin_v2_nchunks';
+const _BDSIN_TACT  = 'sura_bdsin_v2_trimActivo'; // trimestre seleccionado por usuario
+
+function _bdSinTrimActivo() {
+  // Retorna el id del trimestre activo (elegido por usuario o el primero por defecto)
+  try { return localStorage.getItem(_BDSIN_TACT) || null; } catch { return null; }
+}
+function _bdSinSetTrimActivo(label) {
+  try { localStorage.setItem(_BDSIN_TACT, label); } catch {}
+}
+
 function getBDSin() {
+  // 1. Firebase cache (si existe)
   if (window.__FB_CACHE__) return window.__FB_CACHE__.bdSiniestralidad || { trimestres: [], registros: [] };
+  // 2. Intentar leer chunked (v2)
+  try {
+    const meta = JSON.parse(localStorage.getItem(_BDSIN_KEY) || 'null');
+    const nChunks = parseInt(localStorage.getItem(_BDSIN_NCHK) || '0');
+    if (meta && nChunks > 0) {
+      let registros = [];
+      for (let i = 0; i < nChunks; i++) {
+        const chunk = JSON.parse(localStorage.getItem(_BDSIN_CHUNK + i) || '[]');
+        registros = registros.concat(chunk);
+      }
+      return { trimestres: meta.trimestres || [], registros };
+    }
+  } catch {}
+  // 3. Fallback v1 (legacy)
   try { return JSON.parse(localStorage.getItem('sura_bdsin_v1') || '{"trimestres":[],"registros":[]}'); } catch { return { trimestres: [], registros: [] }; }
 }
+
 function setBDSin(data) {
   if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = data;
   if (window.FB) window.FB.set('bdSiniestralidad', data);
-  try { localStorage.setItem('sura_bdsin_v1', JSON.stringify(data)); } catch(e) {}
+  // Guardar en chunks de 2000 registros para no superar límite localStorage
+  try {
+    const CHUNK_SIZE = 2000;
+    const registros  = data.registros || [];
+    const meta       = { trimestres: data.trimestres || [], total: registros.length };
+    const nChunks    = Math.ceil(registros.length / CHUNK_SIZE);
+    // Limpiar chunks anteriores
+    const prevN = parseInt(localStorage.getItem(_BDSIN_NCHK) || '0');
+    for (let i = 0; i < prevN; i++) { try { localStorage.removeItem(_BDSIN_CHUNK + i); } catch {} }
+    // Guardar nuevos chunks
+    for (let i = 0; i < nChunks; i++) {
+      localStorage.setItem(_BDSIN_CHUNK + i, JSON.stringify(registros.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
+    }
+    localStorage.setItem(_BDSIN_KEY,  JSON.stringify(meta));
+    localStorage.setItem(_BDSIN_NCHK, String(nChunks));
+  } catch(e) { console.warn('setBDSin localStorage error:', e.message); }
   // Actualizar cache en memoria para autocompletado
   bdSinConstruirCache(data.registros || []);
 }
 
 // Construye los índices en memoria para búsqueda rápida
 function bdSinConstruirCache(registros) {
-  window._BD_FULL_LIST = registros;
+  window._BD_FULL_LIST_ALL = registros; // todos los registros (todos los trimestres)
+  window._BD_FULL_LIST = registros;     // alias actualizado al cargar
   const map = new Map();
   registros.forEach(r => {
     if (!r.nit && !r.nombre) return;
@@ -22155,6 +22198,18 @@ function bdSinConstruirCache(registros) {
     map.get(key).push(r);
   });
   window._BD_FULL_CACHE = map;
+  // Actualizar _BD_FULL_LIST al trimestre activo si hay uno seleccionado
+  bdSinActualizarCacheTrimActivo();
+}
+
+function bdSinActualizarCacheTrimActivo() {
+  const bdSin  = getBDSin();
+  const trims  = bdSin.trimestres || [];
+  const actLbl = _bdSinTrimActivo() || (trims[0] && trims[0].label);
+  const todos  = window._BD_FULL_LIST_ALL || [];
+  if (!actLbl) { window._BD_FULL_LIST = todos; return; }
+  const filtrados = todos.filter(r => !r.trim || r.trim === actLbl || r.trimLabel === actLbl);
+  window._BD_FULL_LIST = filtrados.length > 0 ? filtrados : todos;
 }
 
 // Trimestres SURA fijos
@@ -22460,21 +22515,52 @@ function renderBdSinEstado() {
     return;
   }
 
-  const vigente = trims[0];
+  // Determinar trimestre activo (guardado por usuario o el primero por defecto)
+  const trimActivoLabel = _bdSinTrimActivo() || (trims[0] && trims[0].label);
+  const vigente = trims.find(t => t.label === trimActivoLabel) || trims[0];
+
   // Actualizar badge trimestre vigente en consultor
   const badge = document.getElementById('bdSinTrimVigente');
   if (badge) badge.textContent = `Trimestre vigente: ${vigente.label}`;
+
+  // Registros del trimestre activo para el conteo
+  const regActivos = registros.filter(r => r.trim === vigente.label || r.trimLabel === vigente.label || r.trimId === vigente.id);
+  const totalActivos = regActivos.length > 0 ? regActivos.length : registros.length;
 
   banner.innerHTML = `<div style="background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius-sm);padding:12px 16px;">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
       <div style="font-size:13px;font-weight:700;color:var(--green);">✅ BD Siniestralidad activa · ${registros.length.toLocaleString()} registros</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
-        ${trims.slice(0,4).map((t,i) => `<span style="font-size:11px;padding:3px 10px;border-radius:12px;background:${i===0?'rgba(34,197,94,0.15)':'rgba(255,255,255,0.05)'};color:${i===0?'var(--green)':'var(--text-muted)'};border:1px solid ${i===0?'rgba(34,197,94,0.3)':'var(--border)'};">
-          ${t.label}${i===0?' ✓':''}
-        </span>`).join('')}
+        ${trims.slice(0,4).map(t => {
+          const isActivo = t.label === vigente.label;
+          return `<span onclick="bdSinSeleccionarTrimestre('${t.label}')"
+            style="font-size:11px;padding:3px 12px;border-radius:12px;cursor:pointer;transition:all .2s;
+            background:${isActivo?'rgba(34,197,94,0.2)':'rgba(255,255,255,0.04)'};
+            color:${isActivo?'var(--green)':'var(--text-muted)'};
+            border:1.5px solid ${isActivo?'var(--green)':'var(--border)'};
+            font-weight:${isActivo?'700':'400'};"
+            title="Cambiar a ${t.label}">
+            ${t.label}${isActivo?' ✓':''}
+          </span>`;
+        }).join('')}
       </div>
     </div>
+    <div style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">
+      Mostrando: <strong style="color:var(--green);">${vigente.label}</strong> · ${totalActivos.toLocaleString()} registros · Haz clic en otro trimestre para cambiar la vista
+    </div>
   </div>`;
+}
+
+function bdSinSeleccionarTrimestre(label) {
+  _bdSinSetTrimActivo(label);
+  bdSinActualizarCacheTrimActivo(); // actualiza _BD_FULL_LIST al trimestre elegido
+  renderBdSinEstado();
+  // Refrescar consultor si hay búsqueda activa
+  const nit = document.getElementById('sinConsultaNIT')?.value || '';
+  const nom = document.getElementById('sinConsultaNombre')?.value || '';
+  if (nit.length >= 3 || nom.length >= 3) sinConsultar();
+  renderEmpresas();
+  showToast(\`📊 Vista cambiada a \${label}\`);
 }
 
 function sinConsultar() {
@@ -22501,8 +22587,18 @@ function sinConsultar() {
   const qNit    = nit.replace(/\D/g, '');
   const qNombre = bdNormalizar(nombre);
 
-  // Filtrar registros
+  // Determinar trimestre activo para filtrar
+  const trimActivoLbl = _bdSinTrimActivo() || (trims[0] && trims[0].label);
+  const trimActivoObj = trims.find(t => t.label === trimActivoLbl) || trims[0];
+
+  // Filtrar registros por trimestre activo + búsqueda
   let encontrados = registros.filter(r => {
+    // Filtrar por trimestre activo
+    if (trimActivoObj) {
+      const rTrim = r.trim || r.trimLabel || r.trimId || '';
+      const matchTrim = rTrim === trimActivoObj.label || rTrim === trimActivoObj.id;
+      if (!matchTrim) return false;
+    }
     const nitMatch    = qNit.length >= 3 && r.nit && r.nit.replace(/\D/g,'').includes(qNit);
     const nombreMatch = qNombre.length >= 3 && r.nombre && bdNormalizar(r.nombre).includes(qNombre);
     if (!nitMatch && !nombreMatch) return false;
@@ -22526,8 +22622,9 @@ function sinConsultar() {
     porNit.get(key).push(r);
   });
 
-  // Obtener trimestre vigente para mostrar los meses
-  const trimVig = trims[0];
+  // Obtener trimestre activo (el seleccionado por usuario) para mostrar los meses
+  const trimActivoL2 = _bdSinTrimActivo() || (trims[0] && trims[0].label);
+  const trimVig = trims.find(t => t.label === trimActivoL2) || trims[0];
   const trimObj = trimVig ? SURA_TRIMESTRES.find(t => t.id === trimVig.id) : null;
 
   res.innerHTML = Array.from(porNit.values()).map(grupo => {
@@ -22735,10 +22832,15 @@ function renderEmpresaConsolidado() {
   const ciudadFiltro = (document.getElementById('empConsolidadoCiudad')?.value || '');
 
   const bdSinData = getBDSin ? getBDSin() : { registros: [] };
-  const bdRegistros = bdSinData.registros || [];
+  // Filtrar registros al trimestre activo para que Estado por Empresa muestre datos correctos
+  const _epTrims   = bdSinData.trimestres || [];
+  const _epTrimLbl = _bdSinTrimActivo() || (_epTrims[0] && _epTrims[0].label);
+  const bdRegistros = _epTrimLbl
+    ? (bdSinData.registros || []).filter(r => !r.trim || r.trim === _epTrimLbl || r.trimLabel === _epTrimLbl)
+    : (bdSinData.registros || []);
   const asesorProp = (s.config?.nombreAsesor || 'Tu asesor SURA').trim();
 
-  // Helper: buscar registro SURA más reciente por NIT o nombre, opcionalmente filtrado por ciudad
+  // Helper: buscar registro SURA del trimestre activo por NIT o nombre, filtrado por ciudad
   const getSuraEmpresa = (nit, nombre, ciudad) => {
     if (!bdRegistros.length) return null;
     const nitL = (nit||'').replace(/\D/g,'');
@@ -22748,12 +22850,10 @@ function renderEmpresaConsolidado() {
       return false;
     });
     if (!regs.length) return null;
-    // Si hay filtro ciudad, priorizar ese registro; si no hay ninguno de esa ciudad, devolver el más reciente
     if (ciudad) {
       const porCiudad = regs.filter(r => bdNormalizarCiudad(r.ciudad) === bdNormalizarCiudad(ciudad));
-      if (porCiudad.length) { porCiudad.sort((a,b) => (b.anio||0) - (a.anio||0)); return porCiudad[0]; }
+      if (porCiudad.length) { return porCiudad[0]; }
     }
-    regs.sort((a,b) => (b.anio||0) - (a.anio||0));
     return regs[0];
   };
 
@@ -23029,8 +23129,13 @@ function renderEmpresas() {
   tbody.innerHTML = filtered.map(e => {
     const k = (e.nit || e.nombre || '').toLowerCase();
     const vStats = ventasPorEmpresa[k] || { pbs: 0, vol: 0, ultimaFecha: '' };
-    const sinClass = sinColors[e.siniestralidad] || 'chip-blue';
-    const sinLabel = sinLabels[e.siniestralidad] || (e.siniestralidad || '—');
+    // Usar siniestralidad del trimestre activo (desde historialSin) o la global
+    const _hSin = _trimActObj && e.historialSin
+      ? e.historialSin.find(h => h.trim === _trimActObj.label)
+      : null;
+    const _sinEfectiva = (_hSin && _hSin.sinCat) || e.siniestralidad;
+    const sinClass = sinColors[_sinEfectiva] || 'chip-blue';
+    const sinLabel = sinLabels[_sinEfectiva] || (_sinEfectiva || '—');
     const pctLabel = e.sinPct ? ` (${e.sinPct}%)` : '';
     const ultimaFecha = vStats.ultimaFecha ? new Date(vStats.ultimaFecha + 'T12:00:00').toLocaleDateString('es-CO') : '—';
     return `<tr>
@@ -23280,7 +23385,8 @@ async function confirmarImportSin() {
 
   // Guardar/actualizar registros — reemplaza los del mismo trimestre, conserva los demás
   const registrosOtros = (bdSin.registros || []).filter(r => r.trimId !== trimId || r.anio !== anio);
-  const registrosNuevos = raw.map(r => ({ ...r }));
+  // Estampar trimId y trimLabel en cada registro para poder filtrar por trimestre
+  const registrosNuevos = raw.map(r => ({ ...r, trimId, trim: trimLabel, trimLabel, anio }));
   bdSin.registros = [...registrosOtros, ...registrosNuevos];
 
   // Actualizar siniestralidad en panel de empresas (historial)
@@ -23293,14 +23399,22 @@ async function confirmarImportSin() {
       bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)
     );
     if (idx >= 0 && r.sinCat) {
+      // ── Guardar en historial por trimestre (siempre) ───────────────────
       if (!empresas[idx].historialSin) empresas[idx].historialSin = [];
       const existeTrim = empresas[idx].historialSin.findIndex(h => h.trim === trimLabel);
       const entrada = { trim: trimLabel, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
       if (existeTrim >= 0) empresas[idx].historialSin[existeTrim] = entrada;
       else { empresas[idx].historialSin.unshift(entrada); }
-      empresas[idx].siniestralidad = r.sinCat;
-      empresas[idx].sinPct = r.sinPct;
-      empresas[idx].trimRef = trimLabel;
+      // ── NO sobreescribir empresa.siniestralidad global ─────────────────
+      // El campo global se dejó de actualizar automáticamente al importar para
+      // que las ventas PBS ya registradas conserven la siniestralidad con la
+      // que fueron creadas. La vista usa historialSin filtrado por trimestre activo.
+      // Solo se actualiza si la empresa aún NO tiene siniestralidad registrada.
+      if (!empresas[idx].siniestralidad) {
+        empresas[idx].siniestralidad = r.sinCat;
+        empresas[idx].sinPct = r.sinPct;
+        empresas[idx].trimRef = trimLabel;
+      }
       actualizadas++;
     }
   });
@@ -23311,13 +23425,16 @@ async function confirmarImportSin() {
   bdSinConstruirCache(bdSin.registros || []);
   setEmpresas(empresas);
   _sinImportData = null;
+  // Auto-seleccionar el trimestre recién importado como activo
+  _bdSinSetTrimActivo(trimLabel);
   closeModal('modalImportSin');
 
   if (resultGuardado === false) {
     showToast('⚠️ BD cargada en memoria pero NO se pudo guardar en Firebase. Verifica tu conexión.', 6000);
   } else {
-    showToast(`✅ BD guardada en Firebase · ${actualizadas} empresas del panel actualizadas`);
+    showToast(`✅ BD guardada · ${actualizadas} empresas actualizadas · Vista: ${trimLabel}`, 5000);
   }
+  renderBdSinEstado();
   renderEmpresas();
 }
 
@@ -32877,74 +32994,50 @@ function wmSetTab(tab) {
 
 // ── FUENTE: CLIENTES SURA ────────────────────────────────────────────────
 function wmFiltrarClientes() {
-  const producto     = document.getElementById('wm_producto')?.value  || 'todos';
-  const estadoFiltro = document.getElementById('wm_estado')?.value    || 'todos';
-  const s    = getState();
+  const producto    = document.getElementById('wm_producto')?.value || 'todos';
+  const estadoFiltro = document.getElementById('wm_estado')?.value  || 'todos';
+  const s = getState();
   const pagos = getPagos ? getPagos() : {};
   const ventas = (s.ventas || []);
-  const hoy = new Date(); hoy.setHours(12,0,0,0);
-  const mesesMap = { MENSUAL:1, TRIMESTRAL:3, SEMESTRAL:6, ANUAL:12 };
   let clientes = [];
 
   ventas.forEach(v => {
-    // ── Filtro producto (comparación case-sensitive correcta) ──────────────
     if (producto !== 'todos' && v.producto !== producto) return;
-    // Solo voluntarios y PBS activos (sin cancelaciones)
-    if (v.tipo === 'CANCELACION' || v.estado === 'CANCELADO') return;
-
     const tel = (v.telefono || v.celular || v.tel || '').replace(/\s/g, '');
     if (!tel || tel.length < 7) return;
 
-    // ── Calcular estado de cartera real (igual que getCarteraEstado) ───────
-    let diasParaVencer = null;
-    let estadoCartera  = 'AL_DIA';
-    if (['SPTI','SPD','PSM','PAC60'].includes(v.producto) && v.fechaExp) {
-      const pagosList = pagos[v.id] || [];
-      const intervalo = mesesMap[v.periodicidad] || 1;
-      const diaExp    = new Date(v.fechaExp + 'T12:00:00');
-      const proxVenc  = new Date(diaExp);
-      proxVenc.setMonth(proxVenc.getMonth() + (pagosList.length + 1) * intervalo);
-      diasParaVencer  = Math.floor((proxVenc - hoy) / 86400000);
-      estadoCartera   =
-        diasParaVencer > 3   ? 'AL_DIA'    :
-        diasParaVencer >= 0  ? 'PROXIMO'   :
-        Math.abs(diasParaVencer) >= 60 ? 'CANCELADO' :
-        Math.abs(diasParaVencer) >= 35 ? 'SUSPENDIDO':
-        Math.abs(diasParaVencer) >= 31 ? 'MORA'      : 'VENCIDO';
-    }
+    // Calcular si tiene pagos en mora (SPTI/SPD/PSM)
+    const pagosList = pagos[v.id] || [];
+    const tienePago = pagosList.length > 0;
+    const enMora = !tienePago && ['SPTI','SPD','PSM','PAC60'].includes(v.producto);
 
-    // ── Aplicar filtro de estado ───────────────────────────────────────────
-    if (estadoFiltro === 'al_dia'    && !['AL_DIA','PROXIMO'].includes(estadoCartera)) return;
-    if (estadoFiltro === 'mora'      && !['MORA','VENCIDO'].includes(estadoCartera))   return;
-    if (estadoFiltro === 'suspension'&& estadoCartera !== 'SUSPENDIDO')                return;
+    if (estadoFiltro === 'mora'   && !enMora) return;
+    if (estadoFiltro === 'al_dia' && enMora) return;
 
-    // ── Saldo mora desde cartera SURA si disponible ────────────────────────
-    let moraStr = diasParaVencer !== null && diasParaVencer < 0
-      ? `${Math.abs(diasParaVencer)} días vencido` : '$0';
-    if (typeof _carteraSuraData !== 'undefined' && _carteraSuraData?.length) {
-      const docV  = (v.doc || v.cedula || '').replace(/\D/g,'');
+    // Calcular mora aproximada desde cartera SURA si disponible
+    let moraStr = '$0';
+    if (_carteraSuraData && _carteraSuraData.length) {
       const match = _carteraSuraData.find(r =>
-        r.cedula && docV && r.cedula.replace(/\D/g,'') === docV
+        r.cedula && v.doc && r.cedula.replace(/\D/g,'') === v.doc.replace(/\D/g,'')
       );
       if (match) moraStr = '$' + (match.saldoTotal || match.saldo || 0).toLocaleString('es-CO');
     }
 
     clientes.push({
-      nombre:        tc ? tc(v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0]
-                        : (v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0],
-      telefono:      wmNormalizarTel(tel),
-      producto:      v.producto,
-      mora:          moraStr,
-      cedula:        v.doc || v.cedula || '',
-      estadoCartera: estadoCartera,
+      nombre:   (v.tomadorNombre || v.nombre || 'Cliente').split(' ')[0],
+      telefono: wmNormalizarTel(tel),
+      producto: v.producto,
+      mora:     moraStr,
+      cedula:   v.doc || v.cedula || ''
     });
   });
 
-  // ── Deduplicar por teléfono ────────────────────────────────────────────
+  // Deduplicar por teléfono
   const seen = new Set();
   wmClientesSegmento = clientes.filter(c => {
     if (seen.has(c.telefono)) return false;
-    seen.add(c.telefono); return true;
+    seen.add(c.telefono);
+    return true;
   });
 
   wmRenderizarListaContactos();
@@ -32952,11 +33045,8 @@ function wmFiltrarClientes() {
 }
 
 // ── FUENTE: IMPORTAR EXCEL / CSV ─────────────────────────────────────────
-async function wmImportarExcel(eventOrFile) {
-  // Acepta tanto un Event (input change) como un File directamente (drop handler)
-  const file = (eventOrFile instanceof File)
-    ? eventOrFile
-    : (eventOrFile?.target?.files?.[0] || eventOrFile?.dataTransfer?.files?.[0]);
+async function wmImportarExcel(event) {
+  const file = event.target.files[0];
   if (!file) return;
   const statusEl = document.getElementById('wm_excel_status');
   if (statusEl) statusEl.textContent = 'Cargando...';
@@ -33028,8 +33118,7 @@ async function wmImportarExcel(eventOrFile) {
     if (statusEl) statusEl.textContent = '❌ Error: ' + e.message;
     console.error('wmImportarExcel:', e);
   }
-  // Limpiar el input si el llamado vino de un input file
-  if (eventOrFile?.target?.value !== undefined) eventOrFile.target.value = '';
+  event.target.value = '';
 }
 
 // ── FUENTE: PEGAR NÚMEROS MANUAL ─────────────────────────────────────────
