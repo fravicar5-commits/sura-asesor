@@ -27128,7 +27128,13 @@ function bootApp() {
 
   // Restaurar sesión Firebase Auth y ESPERAR antes de cargar datos de Firestore
   if (window.fbGetUsuario && _ccIngresada) {
-    window.fbGetUsuario(_ccIngresada).then(async u => {
+    // Esperar a que Firebase esté listo antes de intentar restaurar usuario
+    const _doRestaurar = async () => {
+      let u = null;
+      try { u = await window.fbGetUsuario(_ccIngresada); } catch(e) {
+        console.warn('[bootApp] fbGetUsuario falló — mostrando login:', e?.message);
+        pinMostrarPantalla(); return;
+      }
       if (u) {
         _usuarioActual = u;
         if (window.fbAuthSignIn && u.pinHash && !window.fbGetAuthUID?.()) {
@@ -27141,35 +27147,27 @@ function bootApp() {
       const authActivo = window.__fbAuth__?.currentUser != null;
       console.log('[bootApp] Auth tras restauración:', authActivo ? window.__fbAuth__.currentUser.uid : 'NO AUTH — mostrando PIN');
       if (!authActivo) {
-        // Auth no se pudo restaurar automáticamente → pedir PIN al usuario
-        // sessionStorage sigue teniendo la CC para pre-llenar el paso de PIN directamente
+        // Auth no se pudo restaurar → pedir PIN (con CC pre-llenada)
         _pinModo = 'verificar';
         _pinBuffer = '';
-        if (window.__FB_READY__) {
-          // Ir directo al paso PIN (no al de CC — ya sabemos quién es)
-          document.getElementById('pinScreen').style.display = 'flex';
-          _loginMostrarPaso('PIN');
-          loginSetLabel('Confirma tu PIN para continuar');
-          pinActualizarDots();
-          const splash = document.getElementById('fb-splash');
-          if (splash) splash.style.display = 'none';
-        } else {
-          document.addEventListener('fb-ready', () => {
-            document.getElementById('pinScreen').style.display = 'flex';
-            _loginMostrarPaso('PIN');
-            loginSetLabel('Confirma tu PIN para continuar');
-            pinActualizarDots();
-            const splash = document.getElementById('fb-splash');
-            if (splash) splash.style.display = 'none';
-          }, { once: true });
-        }
+        document.getElementById('pinScreen').style.display = 'flex';
+        _loginMostrarPaso('PIN');
+        loginSetLabel('Confirma tu PIN para continuar');
+        pinActualizarDots();
+        const splash = document.getElementById('fb-splash');
+        if (splash) splash.style.display = 'none';
         return; // no cargar Firestore sin auth
       }
       _esperarFirebaseYArrancar();
-    }).catch(() => {
-      // Error leyendo usuario — mostrar login completo
-      pinMostrarPantalla();
-    });
+    };
+
+    if (window.__FB_READY__) {
+      _doRestaurar().catch(() => pinMostrarPantalla());
+    } else {
+      document.addEventListener('fb-ready', () => {
+        _doRestaurar().catch(() => pinMostrarPantalla());
+      }, { once: true });
+    }
   } else {
     _esperarFirebaseYArrancar();
   }
@@ -27430,6 +27428,28 @@ async function _esperarFirebaseYArrancar() {
     }
     clearTimeout(msgTimer);
     if (splash) splash.style.display = 'none';
+  }
+
+  // 4a. Si cache existe pero ventas vacías y sessionStorage tiene CC → posible auth expirado
+  //     En ese caso mostrar PIN para revalidar en vez de app con datos vacíos
+  if (window.__FB_CACHE__) {
+    const tieneVentas = (window.__FB_CACHE__.estado?.ventas || []).length > 0;
+    const tieneConfig = !!(window.__FB_CACHE__.estado?.config?.nombreAsesor);
+    const esPrimerUso = !tieneVentas && !tieneConfig;
+    if (!tieneVentas && !esPrimerUso && _ccIngresada) {
+      // Podría ser permission-denied silencioso — verificar auth
+      const authActivo = window.__fbAuth__?.currentUser != null;
+      if (!authActivo) {
+        console.warn('[_esperarFirebaseYArrancar] Auth inactivo y sin datos — pidiendo PIN');
+        _pinModo = 'verificar'; _pinBuffer = '';
+        document.getElementById('pinScreen').style.display = 'flex';
+        _loginMostrarPaso('PIN');
+        loginSetLabel('Sesión expirada · Confirma tu PIN');
+        pinActualizarDots();
+        if (splash) splash.style.display = 'none';
+        return;
+      }
+    }
   }
 
   // 4. Si no hay cache aún → error de conexión
