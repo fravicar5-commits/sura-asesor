@@ -22144,8 +22144,13 @@ function _bdSinSetTrimActivo(label) {
 }
 
 function getBDSin() {
-  // 1. Firebase cache (si existe)
-  if (window.__FB_CACHE__) return window.__FB_CACHE__.bdSiniestralidad || { trimestres: [], registros: [] };
+  // 1. Firebase cache — solo usar si tiene registros reales
+  if (window.__FB_CACHE__) {
+    const fbBdSin = window.__FB_CACHE__.bdSiniestralidad;
+    if (fbBdSin && (fbBdSin.registros || []).length > 0) return fbBdSin;
+    // Si Firebase cache existe pero bdSiniestralidad está vacío, caer a localStorage chunked
+    // (ocurre cuando los datos se importaron solo en localStorage y no se subieron a Firestore)
+  }
   // 2. Intentar leer chunked (v2)
   try {
     const meta = JSON.parse(localStorage.getItem(_BDSIN_KEY) || 'null');
@@ -22156,7 +22161,12 @@ function getBDSin() {
         const chunk = JSON.parse(localStorage.getItem(_BDSIN_CHUNK + i) || '[]');
         registros = registros.concat(chunk);
       }
-      return { trimestres: meta.trimestres || [], registros };
+      const resultado = { trimestres: meta.trimestres || [], registros };
+      // Sincronizar al cache de Firebase para que las demás funciones lo encuentren
+      if (window.__FB_CACHE__ && resultado.registros.length > 0) {
+        window.__FB_CACHE__.bdSiniestralidad = resultado;
+      }
+      return resultado;
     }
   } catch {}
   // 3. Fallback v1 (legacy)
@@ -22164,6 +22174,7 @@ function getBDSin() {
 }
 
 function setBDSin(data) {
+  // Sincronizar al cache de memoria inmediatamente (fuente de verdad en runtime)
   if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = data;
   if (window.FB) window.FB.set('bdSiniestralidad', data);
   // Guardar en chunks de 2000 registros para no superar límite localStorage
@@ -22560,7 +22571,7 @@ function bdSinSeleccionarTrimestre(label) {
   const nom = document.getElementById('sinConsultaNombre')?.value || '';
   if (nit.length >= 3 || nom.length >= 3) sinConsultar();
   renderEmpresas();
-  showToast(\`📊 Vista cambiada a \${label}\`);
+  showToast(`📊 Vista cambiada a ${label}`);
 }
 
 function sinConsultar() {
@@ -27144,8 +27155,17 @@ function bootApp() {
         }
       }
       // Verificar si Auth quedó activo tras la restauración
-      const authActivo = window.__fbAuth__?.currentUser != null;
-      console.log('[bootApp] Auth tras restauración:', authActivo ? window.__fbAuth__.currentUser.uid : 'NO AUTH — mostrando PIN');
+      // Esperar hasta 3s a que onAuthStateChanged confirme (evita falsos negativos por timing)
+      let authActivo = window.__fbAuth__?.currentUser != null;
+      if (!authActivo && window.__fbAuth__ && window.__fbOnAuthStateChanged__) {
+        authActivo = await new Promise(resolve => {
+          const unsub = window.__fbOnAuthStateChanged__(window.__fbAuth__, user => {
+            unsub(); resolve(!!user);
+          });
+          setTimeout(() => resolve(false), 3000);
+        });
+      }
+      console.log('[bootApp] Auth tras restauración:', authActivo ? window.__fbAuth__?.currentUser?.uid : 'NO AUTH — mostrando PIN');
       if (!authActivo) {
         // Auth no se pudo restaurar → pedir PIN (con CC pre-llenada)
         _pinModo = 'verificar';
@@ -27389,19 +27409,31 @@ async function _esperarFirebaseYArrancar() {
   }
 
   // 2b. Esperar que Firebase Auth confirme sesión activa antes de leer Firestore
-  // Sin esto, auth.currentUser puede ser null cuando llegan las primeras lecturas → permission-denied
+  // Sin esto, auth.currentUser puede ser null → permission-denied silencioso → datos vacíos
   if (window.__fbAuth__ && window.__fbOnAuthStateChanged__) {
     if (!window.__fbAuth__.currentUser) {
       console.log('[Firebase] Esperando sesión Auth activa…');
-      await new Promise(resolve => {
+      const authUser = await new Promise(resolve => {
         const unsub = window.__fbOnAuthStateChanged__(window.__fbAuth__, user => {
           unsub();
           if (user) console.log('[Firebase] Auth confirmado UID:', user.uid);
-          else console.warn('[Firebase] Auth resolvió sin usuario — posible sesión expirada');
+          else console.warn('[Firebase] Auth resolvió sin usuario — sesión expirada');
           resolve(user);
         });
-        setTimeout(() => { console.warn('[Firebase] Auth timeout — continuando'); resolve(null); }, 5000);
+        setTimeout(() => { console.warn('[Firebase] Auth timeout — continuando sin auth'); resolve(null); }, 5000);
       });
+      // *** FIX PRINCIPAL: si hay CC activa pero Auth no se restauró → pedir PIN ***
+      // Evita que la app cargue con datos vacíos por permission-denied silencioso
+      if (!authUser && _ccIngresada) {
+        console.warn('[Firebase] Sin auth con CC activa — mostrando PIN para revalidar');
+        _pinModo = 'verificar'; _pinBuffer = '';
+        document.getElementById('pinScreen').style.display = 'flex';
+        _loginMostrarPaso('PIN');
+        loginSetLabel('Sesión expirada · Confirma tu PIN');
+        pinActualizarDots();
+        if (splash) splash.style.display = 'none';
+        return;
+      }
     } else {
       console.log('[Firebase] Auth ya activo:', window.__fbAuth__.currentUser.uid);
     }
@@ -27435,12 +27467,28 @@ async function _esperarFirebaseYArrancar() {
   if (window.__FB_CACHE__) {
     const tieneVentas = (window.__FB_CACHE__.estado?.ventas || []).length > 0;
     const tieneConfig = !!(window.__FB_CACHE__.estado?.config?.nombreAsesor);
+    // esPrimerUso: nunca ha tenido ventas Y tampoco tiene nombre configurado (cuenta nueva real)
     const esPrimerUso = !tieneVentas && !tieneConfig;
+    // Si no hay ventas y no es primer uso real → puede ser permission-denied silencioso
     if (!tieneVentas && !esPrimerUso && _ccIngresada) {
       // Podría ser permission-denied silencioso — verificar auth
       const authActivo = window.__fbAuth__?.currentUser != null;
       if (!authActivo) {
         console.warn('[_esperarFirebaseYArrancar] Auth inactivo y sin datos — pidiendo PIN');
+        _pinModo = 'verificar'; _pinBuffer = '';
+        document.getElementById('pinScreen').style.display = 'flex';
+        _loginMostrarPaso('PIN');
+        loginSetLabel('Sesión expirada · Confirma tu PIN');
+        pinActualizarDots();
+        if (splash) splash.style.display = 'none';
+        return;
+      }
+    }
+    // Si hay ventas pero auth está inactivo → también pedir PIN (sesión Firebase expirada)
+    if (tieneVentas && _ccIngresada) {
+      const authActivo = window.__fbAuth__?.currentUser != null;
+      if (!authActivo) {
+        console.warn('[_esperarFirebaseYArrancar] Auth inactivo con datos en cache — pidiendo PIN');
         _pinModo = 'verificar'; _pinBuffer = '';
         document.getElementById('pinScreen').style.display = 'flex';
         _loginMostrarPaso('PIN');
@@ -27495,9 +27543,12 @@ function _iniciarAppTrasLogin() {
   if (window.__APP_INITIALIZED__) return;
   window.__APP_INITIALIZED__ = true;
   // Cargar BD siniestralidad en cache de memoria
+  // getBDSin() ahora hace fallback a localStorage chunked si Firebase lo trajo vacío
   const bdSinData = getBDSin();
   if (bdSinData && (bdSinData.registros || []).length > 0) {
     bdSinConstruirCache(bdSinData.registros);
+    // Sincronizar al cache de Firebase si vino del localStorage
+    if (window.__FB_CACHE__) window.__FB_CACHE__.bdSiniestralidad = bdSinData;
   } else if (window.__BD_SIN_PENDING__ && window.__BD_SIN_PENDING__.length > 0) {
     bdSinConstruirCache(window.__BD_SIN_PENDING__);
     window.__BD_SIN_PENDING__ = null;
