@@ -8921,7 +8921,9 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         </div>
         <div class="form-group">
           <label class="form-label">Trimestre de Referencia</label>
-          <input type="text" class="form-control" id="empTrimRef" placeholder="Ej: Q1-2026, Ene-Mar 2026">
+          <select class="form-control" id="empTrimRef" onchange="empOnTrimRefChange()">
+            <option value="">— Sin trimestre —</option>
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label">% Siniestralidad (número)</label>
@@ -22709,8 +22711,9 @@ function openModalEmpresa(id) {
     document.getElementById('empContacto').value = e.contacto || '';
     document.getElementById('empTelContacto').value = e.telContacto || '';
     document.getElementById('empSiniestralidad').value = e.siniestralidad || '';
-    document.getElementById('empTrimRef').value = e.trimRef || '';
     document.getElementById('empSinPct').value = e.sinPct || '';
+    // Poblar select de trimestre con opciones disponibles en la BD de siniestralidad
+    _empPoblarTrimRefSelect(e.trimRef || '');
     document.getElementById('empNotas').value = e.notas || '';
 
     // Mostrar historial de siniestralidad
@@ -22732,14 +22735,60 @@ function openModalEmpresa(id) {
       histWrap.style.display = 'none';
     }
   } else {
-    ['empNombre','empNIT','empCiudad','empSector','empContacto','empTelContacto','empTrimRef','empSinPct','empNotas'].forEach(id => {
+    ['empNombre','empNIT','empCiudad','empSector','empContacto','empTelContacto','empSinPct','empNotas'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
+    _empPoblarTrimRefSelect('');
     document.getElementById('empSiniestralidad').value = '';
     if (histWrap) histWrap.style.display = 'none';
   }
   document.getElementById('modalEmpresa').classList.add('open');
+}
+
+// Pobla el select de trimestre de referencia con los trimestres disponibles en la BD
+function _empPoblarTrimRefSelect(valorActual) {
+  const sel = document.getElementById('empTrimRef');
+  if (!sel) return;
+  // Opciones: trimestres importados en la BD de siniestralidad
+  const bdSin = typeof getBDSin === 'function' ? getBDSin() : { trimestres: [] };
+  const trims = bdSin.trimestres || [];
+  // Reconstruir opciones
+  sel.innerHTML = '<option value="">— Sin trimestre —</option>';
+  trims.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.label;
+    opt.textContent = t.label + (t.fechaImport ? '  (imp. ' + t.fechaImport + ')' : '');
+    sel.appendChild(opt);
+  });
+  // Si no hay trimestres en la BD, agregar opción manual basada en SURA_TRIMESTRES
+  if (trims.length === 0 && typeof SURA_TRIMESTRES !== 'undefined') {
+    const anio = new Date().getFullYear();
+    SURA_TRIMESTRES.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.label;
+      opt.textContent = t.label;
+      sel.appendChild(opt);
+    });
+  }
+  sel.value = valorActual || '';
+}
+
+// Al cambiar el trimestre de referencia en el modal, actualizar sin/sinPct desde historialSin
+function empOnTrimRefChange() {
+  const trimLabel = document.getElementById('empTrimRef')?.value || '';
+  const id = document.getElementById('empModalId')?.value;
+  if (!id || !trimLabel) return;
+  const empresas = getEmpresas();
+  const e = empresas.find(x => x.id === id);
+  if (!e || !e.historialSin) return;
+  const entrada = e.historialSin.find(h => h.trim === trimLabel);
+  if (entrada) {
+    // Actualizar campos de siniestralidad con los datos de ese trimestre
+    if (entrada.sinCat) document.getElementById('empSiniestralidad').value = entrada.sinCat;
+    if (entrada.sinPct !== undefined && entrada.sinPct !== '') document.getElementById('empSinPct').value = entrada.sinPct;
+    showToast('ℹ️ Siniestralidad actualizada al trimestre ' + trimLabel);
+  }
 }
 
 function guardarEmpresa() {
@@ -23410,10 +23459,20 @@ async function confirmarImportSin() {
   const fechaHoy = new Date().toISOString().split('T')[0];
   resultados.forEach(r => {
     const nitL = (r.nit||'').replace(/\D/g,'');
-    const idx = empresas.findIndex(e =>
-      (nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
-      bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)
+    const rCiudad = bdNormalizar(r.ciudad || '');
+    // Buscar match exacto: NIT + ciudad (o nombre + ciudad)
+    let idx = empresas.findIndex(e =>
+      ((nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
+       bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)) &&
+      (rCiudad && bdNormalizar(e.ciudad||'').includes(rCiudad.substring(0,6)))
     );
+    // Fallback: solo NIT (sin filtro ciudad) si no hay match con ciudad
+    if (idx < 0) {
+      idx = empresas.findIndex(e =>
+        (nitL && e.nit && e.nit.replace(/\D/g,'')===nitL) ||
+        bdNormalizar(e.nombre).substring(0,12)===bdNormalizar(r.nombre).substring(0,12)
+      );
+    }
     if (idx >= 0 && r.sinCat) {
       // ── Guardar en historial por trimestre (siempre) ───────────────────
       if (!empresas[idx].historialSin) empresas[idx].historialSin = [];
