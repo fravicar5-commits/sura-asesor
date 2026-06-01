@@ -1326,7 +1326,7 @@
   const UID_LEGADO = 'fran';
   async function fbMigrarDesdeFran() {
     if (UID === UID_LEGADO) return; // ya es el mismo, nada que migrar
-    const COLECCIONES = ['pagos','pipeline','actividades','cierres','configAnios',
+    const COLECCIONES = ['pagos','pipeline','pipelineEmpresas','actividades','cierres','configAnios',
                          'productosExtra','empresas','cotizaciones','syncConfig',
                          'plantillas','bdSiniestralidad','contactos'];
     console.log(`[Migración] Copiando datos de '${UID_LEGADO}' → '${UID}'…`);
@@ -1404,7 +1404,7 @@
 
   async function cargarDatosFirebase() {
     const [
-      stateData, pagosData, pipelineData, actividadesData,
+      stateData, pagosData, pipelineData, pipelineEmpData, actividadesData,
       cierresData, configAniosData, productosExtraData,
       empresasData, cotizacionesData, syncConfigData, plantillasData,
       bdSinData, contactosData
@@ -1412,6 +1412,7 @@
       fbGetEstado(),          // ← usa chunked reader
       fbGet('pagos',         {}),
       fbGet('pipeline',      []),
+      fbGet('pipelineEmpresas', []),
       fbGet('actividades',   []),
       fbGet('cierres',       {}),
       fbGet('configAnios',   {}),
@@ -1424,7 +1425,7 @@
       fbGet('contactos',     []),
     ]);
     return {
-      estado: stateData, pagos: pagosData, pipeline: pipelineData,
+      estado: stateData, pagos: pagosData, pipeline: pipelineData, pipelineEmpresas: pipelineEmpData,
       actividades: actividadesData, cierres: cierresData, configAnios: configAniosData,
       productosExtra: productosExtraData, empresas: empresasData,
       cotizaciones: cotizacionesData, syncConfig: syncConfigData,
@@ -4469,17 +4470,56 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
               <option value="PBS">PBS</option>
             </select>
             <button class="btn btn-primary" onclick="abrirModalNuevoProspecto()">+ Nuevo Prospecto</button>
+          <button class="btn btn-secondary" onclick="pipEmpAbrirModal()" style="background:rgba(37,88,240,0.1);border-color:rgba(37,88,240,0.3);color:var(--sura-blue);">🏢 + Oportunidad Empresa</button>
           </div>
         </div>
 
-        <!-- KPIs resumen -->
-        <div id="pipResumenKpis" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:20px;"></div>
+        <!-- Tabs pipeline -->
+        <div class="tab-pills" style="margin-bottom:16px;">
+          <button class="tab-pill active" id="pipTabPersonas" onclick="pipSetTab('personas',this)">👤 Prospectos Personas</button>
+          <button class="tab-pill" id="pipTabEmpresas" onclick="pipSetTab('empresas',this)">🏢 Oportunidades Empresas</button>
+        </div>
 
-        <!-- Alerta de contactos pendientes hoy -->
-        <div id="pipAlertaHoy" style="margin-bottom:14px;"></div>
+        <!-- TAB PERSONAS -->
+        <div id="pipSectionPersonas">
+          <!-- KPIs resumen -->
+          <div id="pipResumenKpis" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:20px;"></div>
+          <!-- Alerta de contactos pendientes hoy -->
+          <div id="pipAlertaHoy" style="margin-bottom:14px;"></div>
+          <!-- Vista lista -->
+          <div id="pipListaContainer"></div>
+        </div>
 
-        <!-- Vista lista -->
-        <div id="pipListaContainer"></div>
+        <!-- TAB EMPRESAS -->
+        <div id="pipSectionEmpresas" style="display:none;">
+          <!-- KPIs empresa pipeline -->
+          <div id="pipEmpKpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;"></div>
+          <!-- Filtros -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+            <input type="text" id="pipEmpBuscar" placeholder="🔍 Buscar empresa..." oninput="renderPipEmp()"
+              style="font-size:12px;padding:6px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font);width:200px;">
+            <select id="pipEmpFiltroEtapa" onchange="renderPipEmp()" style="font-size:12px;padding:6px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font);">
+              <option value="">Todas las etapas</option>
+              <option value="prospecto">Prospecto</option>
+              <option value="contactado">Contactado</option>
+              <option value="cotizacion">Cotización enviada</option>
+              <option value="negociacion">En negociación</option>
+              <option value="ganada">Ganada ✅</option>
+              <option value="perdida">Perdida ❌</option>
+            </select>
+            <select id="pipEmpFiltroProducto" onchange="renderPipEmp()" style="font-size:12px;padding:6px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font);">
+              <option value="">Todos los productos</option>
+              <option value="PBS">PBS</option>
+              <option value="SPTI">SPTI</option>
+              <option value="SPD">SPD Plus</option>
+              <option value="PSM">Modular</option>
+              <option value="PAC60">60+</option>
+              <option value="VARIOS">Varios</option>
+            </select>
+          </div>
+          <!-- Lista oportunidades empresa -->
+          <div id="pipEmpLista"></div>
+        </div>
 
       </div>
 
@@ -18520,18 +18560,50 @@ function eliminarProspecto(id) {
   if (!confirm('¿Eliminar este prospecto del pipeline?')) return;
   const pipe = getPipeline();
   const prospecto = pipe.find(p => p.id === id);
-  // Usar _firestoreId si existe (docs web), si no usar id como fallback
   const firestoreId = prospecto?._firestoreId || id;
-  // Persistir en localStorage para que el listener no lo reinserte
-  try {
-    const eliminadas = JSON.parse(localStorage.getItem('sura_pipe_web_eliminadas') || '[]');
-    if (!eliminadas.includes(firestoreId)) { eliminadas.push(firestoreId); localStorage.setItem('sura_pipe_web_eliminadas', JSON.stringify(eliminadas)); }
-  } catch(e) {}
-  // Eliminar de Firestore
-  _eliminarDocFirestore('pipeline_web', firestoreId);
+
+  // ── Guardar eliminado en Firestore (persiste entre PCs) ──────────────
+  // También se guarda en localStorage como respaldo offline
+  _pipGuardarEliminado(firestoreId);
+
+  // Eliminar documento de pipeline_web en Firestore si aplica
+  if (prospecto?._firestoreId) _eliminarDocFirestore('pipeline_web', firestoreId);
+
   setPipeline(pipe.filter(p => p.id !== id));
   renderPipeline();
   showToast('Prospecto eliminado');
+}
+
+// Guarda el ID eliminado en Firestore Y localStorage para que no reaparezca en ningún PC
+async function _pipGuardarEliminado(firestoreId) {
+  // localStorage (respaldo offline)
+  try {
+    const locales = JSON.parse(localStorage.getItem('sura_pipe_web_eliminadas') || '[]');
+    if (!locales.includes(firestoreId)) { locales.push(firestoreId); localStorage.setItem('sura_pipe_web_eliminadas', JSON.stringify(locales)); }
+  } catch(e) {}
+  // Firestore: documento en colección 'pipe_eliminados/{UID}' con array de IDs
+  try {
+    if (!window.FB?.db || !window.FB?.UID) return;
+    const { doc, setDoc, getDoc, arrayUnion } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const ref = doc(window.FB.db, 'pipe_eliminados', window.FB.UID);
+    await setDoc(ref, { ids: arrayUnion(firestoreId) }, { merge: true });
+  } catch(e) { console.warn('[PipEliminados] No se pudo guardar en Firestore:', e.message); }
+}
+
+// Carga los IDs eliminados desde Firestore al iniciar (llamar tras login)
+async function _pipCargarEliminados() {
+  try {
+    if (!window.FB?.db || !window.FB?.UID) return;
+    const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const snap = await getDoc(doc(window.FB.db, 'pipe_eliminados', window.FB.UID));
+    if (!snap.exists()) return;
+    const idsFirestore = snap.data().ids || [];
+    // Fusionar con localStorage
+    const locales = JSON.parse(localStorage.getItem('sura_pipe_web_eliminadas') || '[]');
+    const fusionados = [...new Set([...locales, ...idsFirestore])];
+    localStorage.setItem('sura_pipe_web_eliminadas', JSON.stringify(fusionados));
+    console.log('[PipEliminados] Sincronizados', fusionados.length, 'IDs eliminados desde Firestore');
+  } catch(e) { console.warn('[PipEliminados] No se pudo cargar desde Firestore:', e.message); }
 }
 
 function registrarActividadProspecto(id) {
@@ -24995,6 +25067,77 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#fff;font-size:13px;}
 
 </div>
 <script>window.onload=function(){window.print();}<\/script>
+
+<!-- ═══════════════════════════════════════════════════════
+     MODAL PIPELINE EMPRESA
+═══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalPipEmp">
+  <div class="modal-content" style="max-width:560px;">
+    <div class="modal-header">
+      <h3 class="modal-title">🏢 Oportunidad de Empresa</h3>
+      <button class="modal-close" onclick="closeModal('modalPipEmp')">×</button>
+    </div>
+    <input type="hidden" id="pipEmpModalId">
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">Empresa *</label>
+        <input type="text" class="form-control" id="pipEmpNombre" placeholder="Nombre de la empresa" oninput="pipEmpAutocompletar()" autocomplete="off">
+        <div id="pipEmpSugerencias" style="display:none;position:absolute;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:8px;width:100%;max-height:180px;overflow-y:auto;margin-top:2px;"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">NIT</label>
+        <input type="text" class="form-control" id="pipEmpNIT" placeholder="NIT de la empresa">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ciudad</label>
+        <input type="text" class="form-control" id="pipEmpCiudad" placeholder="Ciudad">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Producto objetivo *</label>
+        <select class="form-control" id="pipEmpProducto">
+          <option value="">— Selecciona —</option>
+          <option value="PBS">PBS</option>
+          <option value="SPTI">SPTI</option>
+          <option value="SPD">SPD Plus</option>
+          <option value="PSM">Modular</option>
+          <option value="PAC60">60+</option>
+          <option value="VARIOS">Varios productos</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Etapa</label>
+        <select class="form-control" id="pipEmpEtapa">
+          <option value="prospecto">Prospecto</option>
+          <option value="contactado">Contactado</option>
+          <option value="cotizacion">Cotización enviada</option>
+          <option value="negociacion">En negociación</option>
+          <option value="ganada">Ganada ✅</option>
+          <option value="perdida">Perdida ❌</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prima estimada mensual ($)</label>
+        <input type="number" class="form-control" id="pipEmpPrima" placeholder="Ej: 5000000" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Próximo seguimiento</label>
+        <input type="date" class="form-control" id="pipEmpProxContacto">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">Contacto en la empresa</label>
+        <input type="text" class="form-control" id="pipEmpContacto" placeholder="Nombre · Cargo · Teléfono">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">Nota / último contacto</label>
+        <input type="text" class="form-control" id="pipEmpNota" placeholder="Ej: Reunión agendada, esperan propuesta formal">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalPipEmp')">Cancelar</button>
+      <button class="btn btn-primary" onclick="pipEmpGuardar()">💾 Guardar Oportunidad</button>
+    </div>
+  </div>
+</div>
 </body></html>`;
   const w = window.open('', '_blank'); w.document.write(html); w.document.close();
 
@@ -27571,7 +27714,7 @@ async function _esperarFirebaseYArrancar() {
     if (splashSub) {
       splashSub.innerHTML = `Firebase no respondió. Verifica tu conexión e intenta de nuevo.<br>
         <button onclick="location.reload()" style="margin-top:14px;padding:10px 24px;background:#1A4CE8;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;">🔄 Recargar página</button>
-        <button onclick="window.__FB_CACHE__={estado:{},pagos:{},pipeline:[],actividades:[],cierres:{},configAnios:{},productosExtra:[],empresas:[],cotizaciones:[],syncConfig:{},plantillas:{},bdSiniestralidad:{trimestres:[],registros:[]},contactos:[]};document.getElementById('fb-splash').style.display='none';_iniciarAppTrasLogin();" style="margin-top:14px;margin-left:10px;padding:10px 24px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;">Continuar sin datos</button>`;
+        <button onclick="window.__FB_CACHE__={estado:{},pagos:{},pipeline:[],actividades:[],cierres:{},configAnios:{},productosExtra:[],empresas:[],cotizaciones:[],syncConfig:{},plantillas:{},bdSiniestralidad:{trimestres:[],registros:[]},pipelineEmpresas:[],contactos:[]};document.getElementById('fb-splash').style.display='none';_iniciarAppTrasLogin();" style="margin-top:14px;margin-left:10px;padding:10px 24px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;">Continuar sin datos</button>`;
     }
     return;
   }
@@ -27606,6 +27749,9 @@ async function _esperarFirebaseYArrancar() {
 function _iniciarAppTrasLogin() {
   if (window.__APP_INITIALIZED__) return;
   window.__APP_INITIALIZED__ = true;
+  // Sincronizar IDs eliminados del pipeline desde Firestore (fix: no reaparecen al cambiar PC)
+  _pipCargarEliminados().catch(() => {});
+
   // Cargar BD siniestralidad en cache de memoria
   // getBDSin() ahora hace fallback a localStorage chunked si Firebase lo trajo vacío
   const bdSinData = getBDSin();
@@ -34236,6 +34382,314 @@ function copiarEnlaceEmpresa() {
     if (inp) { inp.select(); document.execCommand('copy'); showToast('✅ Enlace copiado'); }
   }
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// PIPELINE DE EMPRESAS
+// Oportunidades comerciales vinculadas a empresas del panel
+// Eliminaciones persisten en Firestore → no reaparecen al cambiar PC
+// ══════════════════════════════════════════════════════════════════
+
+const PIP_EMP_ETAPAS = [
+  { key:'prospecto',   label:'Prospecto',          color:'var(--sura-blue)',  icon:'🔵' },
+  { key:'contactado',  label:'Contactado',          color:'var(--teal)',       icon:'📞' },
+  { key:'cotizacion',  label:'Cotización enviada',  color:'var(--amber)',      icon:'📄' },
+  { key:'negociacion', label:'En negociación',      color:'var(--purple)',     icon:'🤝' },
+  { key:'ganada',      label:'Ganada',              color:'var(--green)',      icon:'✅' },
+  { key:'perdida',     label:'Perdida',             color:'var(--text-dim)',   icon:'❌' },
+];
+
+function getPipEmp() {
+  if (window.__FB_CACHE__) return window.__FB_CACHE__.pipelineEmpresas || [];
+  try { return JSON.parse(localStorage.getItem('sura_pip_emp_v1') || '[]'); } catch { return []; }
+}
+
+function setPipEmp(arr) {
+  if (window.__FB_CACHE__) window.__FB_CACHE__.pipelineEmpresas = arr;
+  if (window.FB) window.FB.set('pipelineEmpresas', arr);
+  try { localStorage.setItem('sura_pip_emp_v1', JSON.stringify(arr)); } catch(e) {}
+}
+
+// Switch entre tab personas y empresas
+function pipSetTab(tab, btn) {
+  document.getElementById('pipSectionPersonas').style.display = tab === 'personas' ? '' : 'none';
+  document.getElementById('pipSectionEmpresas').style.display = tab === 'empresas'  ? '' : 'none';
+  document.querySelectorAll('#page-pipeline .tab-pill').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab === 'empresas') renderPipEmp();
+}
+
+// Abrir modal nueva oportunidad
+function pipEmpAbrirModal(id) {
+  document.getElementById('pipEmpModalId').value = id || '';
+  if (id) {
+    const op = getPipEmp().find(o => o.id === id);
+    if (!op) return;
+    document.getElementById('pipEmpNombre').value  = op.nombre || '';
+    document.getElementById('pipEmpNIT').value     = op.nit    || '';
+    document.getElementById('pipEmpCiudad').value  = op.ciudad || '';
+    document.getElementById('pipEmpProducto').value= op.producto || '';
+    document.getElementById('pipEmpEtapa').value   = op.etapa || 'prospecto';
+    document.getElementById('pipEmpPrima').value   = op.prima || '';
+    document.getElementById('pipEmpProxContacto').value = op.proxContacto || '';
+    document.getElementById('pipEmpContacto').value= op.contacto || '';
+    document.getElementById('pipEmpNota').value    = op.nota || '';
+  } else {
+    ['pipEmpNombre','pipEmpNIT','pipEmpCiudad','pipEmpPrima','pipEmpProxContacto','pipEmpContacto','pipEmpNota'].forEach(i => {
+      const el = document.getElementById(i); if (el) el.value = '';
+    });
+    document.getElementById('pipEmpProducto').value = '';
+    document.getElementById('pipEmpEtapa').value    = 'prospecto';
+    // Fecha sugerida: en 3 días
+    const d = new Date(); d.setDate(d.getDate() + 3);
+    document.getElementById('pipEmpProxContacto').value = d.toISOString().split('T')[0];
+  }
+  document.getElementById('pipEmpSugerencias').style.display = 'none';
+  document.getElementById('modalPipEmp').classList.add('open');
+}
+
+// Autocompletar empresa desde panel de empresas
+function pipEmpAutocompletar() {
+  const q = (document.getElementById('pipEmpNombre')?.value || '').toLowerCase().trim();
+  const sug = document.getElementById('pipEmpSugerencias');
+  if (!sug) return;
+  if (q.length < 2) { sug.style.display = 'none'; return; }
+  const empresas = typeof getEmpresas === 'function' ? getEmpresas() : [];
+  const matches = empresas.filter(e => (e.nombre||'').toLowerCase().includes(q) || (e.nit||'').includes(q)).slice(0, 8);
+  if (!matches.length) { sug.style.display = 'none'; return; }
+  sug.style.display = '';
+  const sinColor = s => s?.includes('91') ? 'var(--red)' : s?.includes('76') ? 'var(--amber)' : s ? 'var(--green)' : 'var(--text-dim)';
+  sug.innerHTML = matches.map(e => `
+    <div onclick="pipEmpSeleccionarEmpresa('${e.id}')"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between;align-items:center;"
+      onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+      <div>
+        <span style="font-weight:600;">${e.nombre}</span>
+        <span style="color:var(--text-dim);font-size:11px;margin-left:8px;">${e.nit ? 'NIT '+e.nit : ''} ${e.ciudad ? '· '+e.ciudad : ''}</span>
+      </div>
+      ${e.siniestralidad ? `<span style="font-size:10.5px;color:${sinColor(e.siniestralidad)};padding:1px 6px;border-radius:6px;background:${sinColor(e.siniestralidad)}18;">${e.sinPct ? e.sinPct+'%' : e.siniestralidad}</span>` : ''}
+    </div>`).join('');
+}
+
+function pipEmpSeleccionarEmpresa(id) {
+  const e = (typeof getEmpresas === 'function' ? getEmpresas() : []).find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('pipEmpNombre').value = e.nombre || '';
+  document.getElementById('pipEmpNIT').value    = e.nit    || '';
+  document.getElementById('pipEmpCiudad').value = e.ciudad || '';
+  document.getElementById('pipEmpSugerencias').style.display = 'none';
+}
+
+function pipEmpGuardar() {
+  const nombre = document.getElementById('pipEmpNombre')?.value.trim();
+  if (!nombre) { alert('El nombre de la empresa es requerido'); return; }
+  const producto = document.getElementById('pipEmpProducto')?.value;
+  if (!producto) { alert('Selecciona el producto objetivo'); return; }
+
+  const id = document.getElementById('pipEmpModalId')?.value;
+  const arr = getPipEmp();
+
+  const data = {
+    nombre,
+    nit:          document.getElementById('pipEmpNIT')?.value.trim() || '',
+    ciudad:       document.getElementById('pipEmpCiudad')?.value.trim() || '',
+    producto,
+    etapa:        document.getElementById('pipEmpEtapa')?.value || 'prospecto',
+    prima:        parseFloat(document.getElementById('pipEmpPrima')?.value) || 0,
+    proxContacto: document.getElementById('pipEmpProxContacto')?.value || '',
+    contacto:     document.getElementById('pipEmpContacto')?.value.trim() || '',
+    nota:         document.getElementById('pipEmpNota')?.value.trim() || '',
+    updatedAt:    new Date().toISOString().split('T')[0],
+  };
+
+  if (id) {
+    const idx = arr.findIndex(o => o.id === id);
+    if (idx >= 0) {
+      // Preservar historial de actividades y fecha creación
+      data.actividades = arr[idx].actividades || [];
+      data.createdAt   = arr[idx].createdAt;
+      arr[idx] = { ...arr[idx], ...data };
+    }
+  } else {
+    data.id        = 'pipe_emp_' + Date.now().toString(36) + Math.random().toString(36).substr(2,4);
+    data.createdAt = new Date().toISOString().split('T')[0];
+    data.actividades = [];
+    arr.unshift(data);
+  }
+
+  setPipEmp(arr);
+  closeModal('modalPipEmp');
+  showToast('✅ Oportunidad guardada');
+  renderPipEmp();
+}
+
+function pipEmpEliminar(id) {
+  if (!confirm('¿Eliminar esta oportunidad? La acción es definitiva.')) return;
+  const arr = getPipEmp().filter(o => o.id !== id);
+  setPipEmp(arr);
+  renderPipEmp();
+  showToast('Oportunidad eliminada');
+}
+
+function pipEmpRegistrarActividad(id) {
+  const texto = prompt('Registrar nota de actividad (ej: "Llamada con RRHH, enviar propuesta el lunes")');
+  if (!texto?.trim()) return;
+  const arr = getPipEmp();
+  const idx = arr.findIndex(o => o.id === id);
+  if (idx < 0) return;
+  if (!arr[idx].actividades) arr[idx].actividades = [];
+  arr[idx].actividades.unshift({ fecha: new Date().toISOString().split('T')[0], texto: texto.trim() });
+  arr[idx].updatedAt = new Date().toISOString().split('T')[0];
+  setPipEmp(arr);
+  renderPipEmp();
+  showToast('Actividad registrada');
+}
+
+function pipEmpCambiarEtapa(id, etapa) {
+  const arr = getPipEmp();
+  const idx = arr.findIndex(o => o.id === id);
+  if (idx < 0) return;
+  arr[idx].etapa = etapa;
+  arr[idx].updatedAt = new Date().toISOString().split('T')[0];
+  if (etapa === 'ganada') arr[idx].actividades = [{ fecha: arr[idx].updatedAt, texto: '✅ Oportunidad marcada como GANADA' }, ...(arr[idx].actividades||[])];
+  if (etapa === 'perdida') arr[idx].actividades = [{ fecha: arr[idx].updatedAt, texto: '❌ Oportunidad marcada como PERDIDA' }, ...(arr[idx].actividades||[])];
+  setPipEmp(arr);
+  renderPipEmp();
+  showToast('Etapa actualizada → ' + (PIP_EMP_ETAPAS.find(e => e.key === etapa)?.label || etapa));
+}
+
+function renderPipEmp() {
+  const todos  = getPipEmp();
+  const q      = (document.getElementById('pipEmpBuscar')?.value || '').toLowerCase();
+  const fEtapa = document.getElementById('pipEmpFiltroEtapa')?.value || '';
+  const fProd  = document.getElementById('pipEmpFiltroProducto')?.value || '';
+  const hoy    = new Date().toISOString().split('T')[0];
+
+  const activos = todos.filter(o => o.etapa !== 'ganada' && o.etapa !== 'perdida');
+  const ganadas = todos.filter(o => o.etapa === 'ganada');
+  const hoyCall = activos.filter(o => o.proxContacto === hoy);
+  const vencidos = activos.filter(o => o.proxContacto && o.proxContacto < hoy);
+  const primaTotal = activos.reduce((s, o) => s + (o.prima || 0), 0);
+
+  // KPIs
+  const kpiEl = document.getElementById('pipEmpKpis');
+  if (kpiEl) {
+    const fmtCOP = n => n >= 1e6 ? '$' + (n/1e6).toFixed(1) + 'M' : '$' + Math.round(n).toLocaleString('es-CO');
+    kpiEl.innerHTML = [
+      { label:'En curso', val: activos.length, color:'var(--sura-blue)' },
+      { label:'Llamar hoy', val: hoyCall.length, color: hoyCall.length > 0 ? 'var(--red)' : 'var(--text-dim)' },
+      { label:'Vencidas', val: vencidos.length, color: vencidos.length > 0 ? 'var(--amber)' : 'var(--text-dim)' },
+      { label:'Ganadas', val: ganadas.length, color:'var(--green)' },
+      { label:'Prima potencial', val: fmtCOP(primaTotal), color:'var(--teal)', isText: true },
+    ].map(k => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-top:2px solid ${k.color};border-radius:10px;padding:12px 14px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:4px;">${k.label}</div>
+        <div style="font-family:var(--mono);font-size:${k.isText?'18':'22'}px;font-weight:700;color:${k.color};">${k.val}</div>
+      </div>`).join('');
+  }
+
+  // Alertas hoy
+  if (hoyCall.length > 0 || vencidos.length > 0) {
+    const alertHtml = [
+      hoyCall.length > 0 ? `<div style="background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:10px;padding:10px 16px;margin-bottom:8px;font-size:13px;font-weight:600;color:var(--red);">
+        📞 Hoy toca contactar: ${hoyCall.map(o => o.nombre).join(', ')}</div>` : '',
+      vencidos.length > 0 ? `<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:8px 16px;margin-bottom:8px;font-size:12px;color:var(--amber);">
+        ⏰ ${vencidos.length} oportunidad${vencidos.length>1?'es':''} con seguimiento vencido — reprograma</div>` : ''
+    ].join('');
+    // Mostrar encima de la lista si el contenedor existe
+    const listaEl = document.getElementById('pipEmpLista');
+    if (listaEl) listaEl.insertAdjacentHTML('afterbegin', '<div id="pipEmpAlertas">' + alertHtml + '</div>');
+  }
+
+  const filtrados = todos.filter(o => {
+    if (q && !(o.nombre||'').toLowerCase().includes(q) && !(o.nit||'').includes(q)) return false;
+    if (fEtapa && o.etapa !== fEtapa) return false;
+    if (fProd  && o.producto !== fProd) return false;
+    return true;
+  });
+
+  const listaEl = document.getElementById('pipEmpLista');
+  if (!listaEl) return;
+
+  if (!filtrados.length) {
+    listaEl.innerHTML = `<div style="text-align:center;padding:48px;color:var(--text-dim);">
+      <div style="font-size:32px;margin-bottom:12px;">🏢</div>
+      <div style="font-size:14px;">Sin oportunidades${fEtapa||fProd||q?' con ese filtro':' registradas'}.</div>
+      <button class="btn btn-primary" style="margin-top:16px;" onclick="pipEmpAbrirModal()">+ Agregar primera oportunidad</button>
+    </div>`;
+    return;
+  }
+
+  const etapaOrden = { prospecto:0, contactado:1, cotizacion:2, negociacion:3, ganada:4, perdida:5 };
+  const sinColor = s => s?.includes('91') ? 'var(--red)' : s?.includes('76') ? 'var(--amber)' : 'var(--green)';
+  const fmtPrima = n => n ? '$' + Math.round(n).toLocaleString('es-CO') : '—';
+
+  // Agrupar por etapa
+  const grupos = {};
+  filtrados.forEach(o => { const k = o.etapa || 'prospecto'; if (!grupos[k]) grupos[k] = []; grupos[k].push(o); });
+
+  listaEl.innerHTML = PIP_EMP_ETAPAS.map(etapa => {
+    const items = grupos[etapa.key] || [];
+    if (!items.length && !fEtapa) return '';
+    if (!items.length) return `<div style="text-align:center;padding:24px;color:var(--text-dim);font-size:13px;">Sin oportunidades en esta etapa.</div>`;
+
+    return `<div style="margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${etapa.color};margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+        ${etapa.icon} ${etapa.label} <span style="font-weight:400;color:var(--text-dim);">(${items.length})</span>
+      </div>
+      ${items.sort((a,b) => (a.proxContacto||'9999') < (b.proxContacto||'9999') ? -1 : 1).map(o => {
+        const eHoy  = o.proxContacto === hoy;
+        const eVenc = o.proxContacto && o.proxContacto < hoy;
+        const proxColor = eHoy ? 'var(--red)' : eVenc ? 'var(--amber)' : 'var(--teal)';
+        const ult = (o.actividades||[])[0];
+        // Siniestralidad desde empresa registrada
+        const empReg = typeof getEmpresas === 'function' ? getEmpresas().find(e => (o.nit && e.nit && e.nit.replace(/\D/g,'') === (o.nit||'').replace(/\D/g,'')) || (e.nombre||'').toLowerCase() === (o.nombre||'').toLowerCase()) : null;
+        const sinLabel = empReg?.siniestralidad ? `<span style="font-size:10px;padding:1px 6px;border-radius:6px;background:${sinColor(empReg.siniestralidad)}18;color:${sinColor(empReg.siniestralidad)};">${empReg.sinPct ? empReg.sinPct+'% sin.' : empReg.siniestralidad}</span>` : '';
+
+        return `<div style="background:var(--surface2);border:1px solid ${eHoy?'rgba(220,38,38,0.3)':'var(--border)'};border-left:3px solid ${etapa.color};border-radius:10px;padding:14px 16px;margin-bottom:8px;">
+          <!-- Fila 1 -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:var(--text);">${o.nombre}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:center;">
+                <span style="font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:10px;background:var(--sura-blue)18;color:var(--sura-blue);">${o.producto||'—'}</span>
+                ${o.ciudad ? `<span style="font-size:10.5px;color:var(--text-dim);">📍${o.ciudad}</span>` : ''}
+                ${sinLabel}
+                ${o.prima ? `<span style="font-size:10.5px;font-weight:600;color:var(--green);">Prima: ${fmtPrima(o.prima)}/mes</span>` : ''}
+              </div>
+            </div>
+            <!-- Acciones -->
+            <div style="display:flex;gap:5px;flex-shrink:0;">
+              <button onclick="pipEmpRegistrarActividad('${o.id}')"
+                style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--surface3);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;" title="Registrar nota">
+                ✏️</button>
+              <button onclick="pipEmpAbrirModal('${o.id}')"
+                style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--surface3);color:var(--text-muted);border:1px solid var(--border);cursor:pointer;" title="Editar">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button onclick="pipEmpEliminar('${o.id}')"
+                style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:rgba(220,38,38,0.1);color:var(--red);border:1px solid rgba(220,38,38,0.2);cursor:pointer;" title="Eliminar">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+              </button>
+            </div>
+          </div>
+          <!-- Fila 2: seguimiento + cambio de etapa -->
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;font-size:11.5px;">
+              ${o.proxContacto ? `<span style="color:${proxColor};font-weight:600;">${eHoy?'📞 HOY':'📅'} ${new Date(o.proxContacto+'T12:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})}</span>` : '<span style="color:var(--text-dim);">Sin fecha de seguimiento</span>'}
+              ${ult ? `<span style="color:var(--text-dim);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ult.texto}">💬 ${ult.texto}</span>` : ''}
+            </div>
+            <select onchange="pipEmpCambiarEtapa('${o.id}', this.value)"
+              style="font-size:11px;padding:3px 8px;border-radius:6px;background:var(--surface3);border:1px solid var(--border);color:var(--text);font-family:var(--font);cursor:pointer;">
+              ${PIP_EMP_ETAPAS.map(e => `<option value="${e.key}" ${e.key === o.etapa ? 'selected' : ''}>${e.icon} ${e.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
 
 bootApp();
 </script>
