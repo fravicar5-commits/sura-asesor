@@ -28223,6 +28223,22 @@ async function ipsBuscar() {
 
   const rawNorm = ipsNormKey(raw);
 
+  // ── Detectar si el input parece una dirección real (no solo municipio)
+  // Si tiene número, '#', 'calle', 'carrera', 'av', 'avenida', 'cra', 'cl' → es dirección
+  const _esDir = /\d|#|calle|carrera|cra|cl|avenida|av|trans|diag|autopista/i.test(raw);
+
+  // ── 0. Geocodificar SIEMPRE que sea dirección real, en paralelo con búsqueda en BD ──
+  // Esto permite ordenar por distancia real aunque la BD ya tenga el municipio
+  let coords = null;
+  let _geoPromise = null;
+  if (_esDir) {
+    // Extraer ciudad del input (última parte separada por coma, o detectar ciudad conocida)
+    const partes = raw.split(',').map(s => s.trim());
+    const ciudadHint = partes.length > 1 ? partes[partes.length - 1] : '';
+    if (geoEl) geoEl.textContent = '⏳ Geocodificando dirección...';
+    _geoPromise = ipsGeocodificar(raw, ciudadHint);
+  }
+
   // ── 1. Buscar en BD Firestore (cobertura completa) ───────────────────────
   let dbMunicipio = ipsDbBuscarMunicipio(rawNorm);
   let dbDepartamento = null; // array de municipios si busca por depto
@@ -28261,8 +28277,7 @@ async function ipsBuscar() {
     if (geoEl) geoEl.textContent = `🏙️ ${municipioLabel} — ${dbMunicipio.basicas?.length||0} básicas · ${dbMunicipio.urgencias?.length||0} urgencias · ${dbMunicipio.ambulancias?.length||0} ambulancias`;
   }
 
-  // ── 2. Si no encontró directamente, intentar geocodificar y buscar por ciudad ──
-  let coords = null;
+  // ── 2. Si no encontró directamente, buscar por partes del texto ──────────
   if (!dbMunicipio) {
     // Intentar extraer ciudad del texto (ej: "Calle 5, Amaga" → "Amaga")
     const partes = raw.split(',').map(s => s.trim());
@@ -28271,13 +28286,24 @@ async function ipsBuscar() {
       const res = ipsDbBuscarMunicipio(k);
       if (res) { dbMunicipio = res; municipioLabel = res.municipio || parte.toUpperCase(); break; }
     }
+    // Si no es dirección (solo municipio/texto libre) y aún no encontró → geocodificar para fallback
+    if (!dbMunicipio && !_geoPromise) {
+      if (geoEl) geoEl.textContent = '⏳ Geocodificando...';
+      const partes2 = raw.split(',').map(s => s.trim());
+      const ciudadParaGeo = partes2[partes2.length-1] || raw;
+      _geoPromise = ipsGeocodificar(raw, ciudadParaGeo);
+    }
+  }
 
-    // Si aún no encontró, geocodificar
-    if (!dbMunicipio) {
-      if (geoEl) geoEl.textContent = '⏳ Geocodificando dirección...';
-      const ciudadParaGeo = partes[partes.length-1] || raw;
-      coords = await ipsGeocodificar(raw, ciudadParaGeo);
-      if (coords && geoEl) geoEl.textContent = `📍 ${coords.display.split(',').slice(0,3).join(',')}`;
+  // ── 2b. Resolver geocodificación (lanzada en paralelo o recién iniciada) ──
+  if (_geoPromise) {
+    coords = await _geoPromise;
+    if (coords && geoEl) {
+      const labelGeo = coords.display.split(',').slice(0,3).join(',');
+      const labelMun = dbMunicipio ? ` · Mostrando IPS de ${municipioLabel||'municipio'}` : '';
+      geoEl.textContent = `📍 ${labelGeo}${labelMun}`;
+    } else if (!coords && !dbMunicipio) {
+      if (geoEl) geoEl.textContent = '⚠️ No se pudo geocodificar la dirección — intenta solo el municipio';
     }
   }
 
@@ -28387,15 +28413,29 @@ async function ipsBuscar() {
     if (geoEl) geoEl.textContent = `🏙️ Mostrando IPS de ${ciudadDetectada} (datos de referencia)`;
   }
 
-  // Ordenar por distancia si tenemos coords y lat/lng en los datos
+  // Ordenar por distancia real si tenemos coordenadas geocodificadas
+  // Esto corre incluso cuando la BD de Firestore tiene el municipio (fix principal)
   if (coords) {
     const conDist = arr => arr
-      .map(x => x.lat ? { ...x, distKm: ipsHaversine(coords.lat, coords.lng, x.lat, x.lng) } : x)
-      .sort((a,b) => (a.distKm??999) - (b.distKm??999));
-    basicasOrdenadas      = conDist(basicasOrdenadas);
-    urgenciasOrdenadas    = conDist(urgenciasOrdenadas);
-    urgOdontOrdenadas     = conDist(urgOdontOrdenadas);
-    ambulanciasOrdenadas  = conDist(ambulanciasOrdenadas);
+      .map(x => x.lat && x.lng
+        ? { ...x, distKm: ipsHaversine(coords.lat, coords.lng, x.lat, x.lng) }
+        : x)
+      .sort((a, b) => (a.distKm ?? 9999) - (b.distKm ?? 9999));
+    basicasOrdenadas     = conDist(basicasOrdenadas);
+    urgenciasOrdenadas   = conDist(urgenciasOrdenadas);
+    urgOdontOrdenadas    = conDist(urgOdontOrdenadas);
+    ambulanciasOrdenadas = conDist(ambulanciasOrdenadas);
+    // Actualizar label informativo
+    if (geoEl) {
+      const sinCoords = basicasOrdenadas.filter(x => x.distKm === undefined).length;
+      const conCoords = basicasOrdenadas.filter(x => x.distKm !== undefined).length;
+      const baseMsg   = geoEl.textContent.replace(/\s*·\s*Ordenado.*$/, '');
+      geoEl.textContent = baseMsg +
+        (conCoords > 0 ? ` · Ordenado por distancia desde tu dirección` : ` · Sin coordenadas en BD para ordenar`);
+    }
+  } else if (dbMunicipio) {
+    // Sin geocodificación: informar que el orden es el de la BD (no por distancia)
+    if (geoEl) geoEl.textContent += ' · Orden por defecto (ingresa dirección exacta para ordenar por cercanía)';
   }
 
   // En búsqueda por departamento mostrar top 10 básicas; por municipio top 3
