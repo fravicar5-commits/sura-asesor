@@ -9888,6 +9888,16 @@ function fmt(n) { return new Intl.NumberFormat('es-CO', { style: 'currency', cur
 function pct(a, b) { return b > 0 ? Math.round(a / b * 100) : 0; }
 function getMesKey(year, monthIdx) { return `${MESES[monthIdx].toUpperCase()}.${year}`; }
 
+// ── Helper: parsea 'YYYY-MM-DD' como fecha LOCAL (evita bug UTC en Colombia UTC-5)
+// new Date('2026-06-01') → interpreta en UTC → getMonth() devuelve mayo en Colombia
+// parseFechaLocal('2026-06-01') → Date con getFullYear()=2026 getMonth()=5 (Junio) correcto
+function parseFechaLocal(str) {
+  if (!str) return new Date(NaN);
+  const p = String(str).split('T')[0].split('-');
+  if (p.length < 3) return new Date(str); // fallback
+  return new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+}
+
 function getVentas2026(month) {
   return state.ventas.filter(v => {
     // Excluir polizas importadas desde cartera SURA — son de años anteriores
@@ -9896,7 +9906,7 @@ function getVentas2026(month) {
     // Fallback: si fecha está vacía o es inválida, usar fechaExp
     const fechaRef = v.fecha || v.fechaExp || '';
     if (!fechaRef) return false;
-    const d = new Date(fechaRef);
+    const d = parseFechaLocal(fechaRef);
     if (isNaN(d.getTime())) return false;
     return d.getFullYear() === AÑO_ACTUAL && d.getMonth() === month;
   });
@@ -9957,7 +9967,7 @@ function renderInicio() {
 
   // KPI voluntarios acumulados
   const accVol = ['SPTI','SPD','PSM','PAC60'].reduce((s2, prod) =>
-    s2 + s.ventas.filter(v => !v._importadoSura && v.producto === prod && new Date(v.fecha).getFullYear() === AÑO_ACTUAL).length, 0);
+    s2 + s.ventas.filter(v => !v._importadoSura && v.producto === prod && parseFechaLocal(v.fecha).getFullYear() === AÑO_ACTUAL).length, 0);
   const elVol = document.getElementById('inicioKpiVol');
   if (elVol) elVol.textContent = accVol;
 
@@ -10233,8 +10243,8 @@ function renderDashboard() {
   const pbsVentas  = getVentasByProduct(selectedMonth, 'PBS').length;
   const sptiVentas = contarPolizas(getVentasByProduct(selectedMonth, 'SPTI'));
   const spdVentas  = contarPolizas(getVentasByProduct(selectedMonth, 'SPD'));
-  const psmVentasMes  = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL));
-  const pac60VentasMes = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===selectedMonth && new Date(v.fecha).getFullYear()===AÑO_ACTUAL));
+  const psmVentasMes  = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && parseFechaLocal(v.fecha).getMonth()===selectedMonth && parseFechaLocal(v.fecha).getFullYear()===AÑO_ACTUAL));
+  const pac60VentasMes = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && parseFechaLocal(v.fecha).getMonth()===selectedMonth && parseFechaLocal(v.fecha).getFullYear()===AÑO_ACTUAL));
 
   const pbsPpto  = state.config.pbs[selectedMonth];
   const sptiPpto = state.config.spti[selectedMonth];
@@ -10248,8 +10258,8 @@ function renderDashboard() {
   const accPbs   = MESES.reduce((s,_,i) => s + getVentasByProduct(i,'PBS').length, 0);
   const accSpti  = MESES.reduce((s,_,i) => s + contarPolizas(getVentasByProduct(i,'SPTI')), 0);
   const accSpd   = MESES.reduce((s,_,i) => s + contarPolizas(getVentasByProduct(i,'SPD')), 0);
-  const accPsm   = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getFullYear()===AÑO_ACTUAL));
-  const accPac60 = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getFullYear()===AÑO_ACTUAL));
+  const accPsm   = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'  && parseFechaLocal(v.fecha).getFullYear()===AÑO_ACTUAL));
+  const accPac60 = contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && parseFechaLocal(v.fecha).getFullYear()===AÑO_ACTUAL));
   const accCom   = MESES.reduce((s,_,i) => s + calcMesComisionTotal(i), 0);
 
   // Fill KPI row 1 — ventas
@@ -10300,8 +10310,8 @@ function renderDashboard() {
   renderBarChartStacked('barChartVol', MESES_SHORT, [
     { data: MESES.map((_,i) => contarPolizas(getVentasByProduct(i,'SPTI'))),  color: 'var(--teal)',   label: 'SPTI'     },
     { data: MESES.map((_,i) => contarPolizas(getVentasByProduct(i,'SPD'))),   color: 'var(--purple)', label: 'SPD Plus' },
-    { data: MESES.map((_,i) => contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'   && new Date(v.fecha).getMonth()===i && new Date(v.fecha).getFullYear()===AÑO_ACTUAL))), color: '#38BDF8', label: 'PSM' },
-    { data: MESES.map((_,i) => contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===i && new Date(v.fecha).getFullYear()===AÑO_ACTUAL))), color: 'var(--green)', label: '60+' },
+    { data: MESES.map((_,i) => contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PSM'   && parseFechaLocal(v.fecha).getMonth()===i && parseFechaLocal(v.fecha).getFullYear()===AÑO_ACTUAL))), color: '#38BDF8', label: 'PSM' },
+    { data: MESES.map((_,i) => contarPolizas(state.ventas.filter(v => !v._importadoSura && v.producto==='PAC60' && parseFechaLocal(v.fecha).getMonth()===i && parseFechaLocal(v.fecha).getFullYear()===AÑO_ACTUAL))), color: 'var(--green)', label: '60+' },
   ]);
 
   // Acumulado año progress bars
@@ -10667,9 +10677,9 @@ function renderVoluntarios() {
 
   // PSM — Plan Salud Modular
   const psmVentas = state.ventas.filter(v => v.producto === 'PSM');
-  const psmMes  = contarPolizas(psmVentas.filter(v => new Date(v.fecha).getMonth() === selectedMonth && new Date(v.fecha).getFullYear() === AÑO_ACTUAL));
-  const psmAcc  = contarPolizas(psmVentas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL));
-  const psmComisionAcc = psmVentas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL).reduce((s,v) => s + (v.comision||0), 0);
+  const psmMes  = contarPolizas(psmVentas.filter(v => parseFechaLocal(v.fecha).getMonth() === selectedMonth && parseFechaLocal(v.fecha).getFullYear() === AÑO_ACTUAL));
+  const psmAcc  = contarPolizas(psmVentas.filter(v => parseFechaLocal(v.fecha).getFullYear() === AÑO_ACTUAL));
+  const psmComisionAcc = psmVentas.filter(v => parseFechaLocal(v.fecha).getFullYear() === AÑO_ACTUAL).reduce((s,v) => s + (v.comision||0), 0);
   const psmPrimaCartera = psmVentas.filter(v => v.tipo !== 'CANCELACION').reduce((s,v) => s + (v.prima||0), 0);
 
   document.getElementById('psmMes').textContent = psmMes;
@@ -10695,9 +10705,9 @@ function renderVoluntarios() {
 
   // PAC60 — Plan Complementario 60+
   const pac60Ventas = state.ventas.filter(v => v.producto === 'PAC60');
-  const pac60Mes = contarPolizas(pac60Ventas.filter(v => new Date(v.fecha).getMonth() === selectedMonth && new Date(v.fecha).getFullYear() === AÑO_ACTUAL));
-  const pac60Acc = contarPolizas(pac60Ventas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL));
-  const pac60ComAcc = pac60Ventas.filter(v => new Date(v.fecha).getFullYear() === AÑO_ACTUAL).reduce((s,v) => s + (v.comision||0), 0);
+  const pac60Mes = contarPolizas(pac60Ventas.filter(v => parseFechaLocal(v.fecha).getMonth() === selectedMonth && parseFechaLocal(v.fecha).getFullYear() === AÑO_ACTUAL));
+  const pac60Acc = contarPolizas(pac60Ventas.filter(v => parseFechaLocal(v.fecha).getFullYear() === AÑO_ACTUAL));
+  const pac60ComAcc = pac60Ventas.filter(v => parseFechaLocal(v.fecha).getFullYear() === AÑO_ACTUAL).reduce((s,v) => s + (v.comision||0), 0);
   const pac60PrimaCartera = pac60Ventas.filter(v => v.tipo !== 'CANCELACION').reduce((s,v) => s + (v.prima||0), 0);
 
   // Render PAC60 in voluntarios if elements exist
@@ -12200,8 +12210,8 @@ function renderTabla() {
   // Excluir pólizas importadas desde cartera SURA — son de años anteriores
   // y se gestionan exclusivamente desde el módulo de cartera
   ventas = ventas.filter(v => !v._importadoSura);
-  if (filterAnio) ventas = ventas.filter(v => new Date(v.fecha).getFullYear() == filterAnio);
-  if (filterMes) ventas = ventas.filter(v => MESES[new Date(v.fecha).getMonth()] === filterMes);
+  if (filterAnio) ventas = ventas.filter(v => parseFechaLocal(v.fecha).getFullYear() == filterAnio);
+  if (filterMes) ventas = ventas.filter(v => MESES[parseFechaLocal(v.fecha).getMonth()] === filterMes);
   if (filterProd) ventas = ventas.filter(v => v.producto === filterProd);
   if (filterTipo) ventas = ventas.filter(v => v.tipo === filterTipo);
 
@@ -12213,7 +12223,7 @@ function renderTabla() {
   }
 
   tbody.innerHTML = ventas.map((v, idx) => {
-    const d = new Date(v.fecha);
+    const d = parseFechaLocal(v.fecha);
     const fecha = d.toLocaleDateString('es-CO');
     const prodChip = { PBS: 'chip-blue', SPTI: 'chip-teal', SPD: 'chip-purple' }[v.producto] || 'chip-blue';
     const tipoChip = v.tipo === 'COTIZANTE' ? 'chip-green' : 'chip-amber';
@@ -14239,7 +14249,7 @@ function guardarVenta() {
     const sptiAsegEdad      = document.getElementById('vEdadSPTI').value;
     const modoRegistroSPTI  = document.querySelector('input[name="sptiModoRegistro"]:checked')?.value || 'individual';
     const tcFlagSPTI = !!(document.getElementById('chkTarifaCongeladaSPTI')?.checked);
-    const mesCompSPTI = getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth());
+    const mesCompSPTI = getMesKey(parseFechaLocal(fecha).getFullYear(), parseFechaLocal(fecha).getMonth());
     // Asegurados adicionales SPTI
     const aseguradosSPTI = [];
     for (let ai = 2; ai <= _sptiAsegCount; ai++) {
@@ -14336,7 +14346,7 @@ function guardarVenta() {
     const ciudadPSM = document.getElementById('vCiudadPSM').value;
     const modoRegistroPSM = document.querySelector('input[name="psmModoRegistro"]:checked')?.value || 'individual';
     const tcFlag = !!(document.getElementById('chkTarifaCongeladaPSM')?.checked);
-    const mesCompPSM = getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth());
+    const mesCompPSM = getMesKey(parseFechaLocal(fecha).getFullYear(), parseFechaLocal(fecha).getMonth());
     // Recopilar asegurados adicionales
     const aseguradosPSM = [];
     for (let ai = 2; ai <= _psmAsegCount; ai++) {
@@ -14458,7 +14468,7 @@ function guardarVenta() {
     const ciudadPAC  = document.getElementById('vCiudadPAC60').value;
     const modoRegistroPAC = document.querySelector('input[name="pac60ModoRegistro"]:checked')?.value || 'individual';
     const tcFlagPAC = !!(document.getElementById('chkTarifaCongeladaPAC60')?.checked);
-    const mesCompPAC = getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth());
+    const mesCompPAC = getMesKey(parseFechaLocal(fecha).getFullYear(), parseFechaLocal(fecha).getMonth());
     // Asegurados adicionales PAC60
     const aseguradosPAC = [];
     for (let ai = 2; ai <= _pac60AsegCount; ai++) {
@@ -14525,7 +14535,7 @@ function guardarVenta() {
     const primaTotalSinIVA = Math.round(primaTotal / IVA_FACTOR);
     const soloUnoSPD = document.getElementById('vAsegurado2SoloUno')?.checked;
     const modoRegistroSPD = document.querySelector('input[name="spdModoRegistro"]:checked')?.value || 'individual';
-    const mesCompSPD = getMesKey(new Date(fecha).getFullYear(), new Date(fecha).getMonth());
+    const mesCompSPD = getMesKey(parseFechaLocal(fecha).getFullYear(), parseFechaLocal(fecha).getMonth());
     const tcFlagSPD = !!(document.getElementById('chkTarifaCongeladaSPD')?.checked);
     const _spdBase = {
       fechaExp: document.getElementById('vFechaExpSPD').value,
@@ -15243,8 +15253,8 @@ function renderPlantilla() {
   }
 
   let ventas = state.ventas.filter(v => v.producto === producto);
-  if (anioFilter) ventas = ventas.filter(v => new Date(v.fecha).getFullYear() == anioFilter);
-  if (mesFilter) ventas = ventas.filter(v => MESES[new Date(v.fecha).getMonth()] === mesFilter);
+  if (anioFilter) ventas = ventas.filter(v => parseFechaLocal(v.fecha).getFullYear() == anioFilter);
+  if (mesFilter) ventas = ventas.filter(v => MESES[parseFechaLocal(v.fecha).getMonth()] === mesFilter);
 
   const isPBS  = producto === 'PBS';
   const isSPTI = producto === 'SPTI';
@@ -19815,7 +19825,7 @@ async function previewImport(event) {
         </div>
         <div class="stat-card teal" style="padding:12px 16px;flex:1;min-width:120px;">
           <div class="stat-label">Meses cubiertos</div>
-          <div class="stat-value" style="font-size:24px;">${new Set(_importData.map(v=>new Date(v.fecha).getMonth())).size}</div>
+          <div class="stat-value" style="font-size:24px;">${new Set(_importData.map(v=>parseFechaLocal(v.fecha).getMonth())).size}</div>
         </div>
       `;
 
@@ -19855,7 +19865,7 @@ function confirmarImport() {
     // Remove all PBS entries of the current import year
     const _importAnio = new Date().getFullYear();
     state.ventas = state.ventas.filter(v => {
-      const y = new Date(v.fecha).getFullYear();
+      const y = parseFechaLocal(v.fecha).getFullYear();
       return !(y === _importAnio && v.producto === 'PBS');
     });
     state.ventas.push(..._importData);
@@ -19870,7 +19880,7 @@ function confirmarImport() {
   setState(state);
   _importData = [];
   document.getElementById('importPreviewSection').style.display = 'none';
-  if (mode === 'replace') { const _ay = new Date().getFullYear(); showToast(`✅ Reemplazados con ${state.ventas.filter(v=>new Date(v.fecha).getFullYear()===_ay&&v.producto==='PBS').length} registros ${_ay}`); }
+  if (mode === 'replace') { const _ay = new Date().getFullYear(); showToast(`✅ Reemplazados con ${state.ventas.filter(v=>parseFechaLocal(v.fecha).getFullYear()===_ay&&v.producto==='PBS').length} registros ${_ay}`); }
   setTimeout(() => navigate('dashboard'), 1200);
 }
 
@@ -21725,7 +21735,7 @@ function saveConfigAnio(anio, data) {
 
 function getAniosDisponibles() {
   const all = getAllConfigAnios();
-  const aniosVentas = new Set(getState().ventas.map(v => new Date(v.fecha).getFullYear()));
+  const aniosVentas = new Set(getState().ventas.map(v => parseFechaLocal(v.fecha).getFullYear()));
   const aniosConfig = new Set(Object.keys(all).map(Number));
   aniosVentas.add(AÑO_ACTUAL);
   const combined = [...new Set([...aniosVentas, ...aniosConfig])].sort((a,b) => b-a);
@@ -22013,7 +22023,7 @@ function renderHistorico() {
   const kpisEl = document.getElementById('historicoKPIs');
   kpisEl.innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap;">
     ${aniosArr.map(a => {
-      const ventas = state.ventas.filter(v => new Date(v.fecha).getFullYear() == a);
+      const ventas = state.ventas.filter(v => parseFechaLocal(v.fecha).getFullYear() == a);
       const pbs = ventas.filter(v=>v.producto==='PBS').length;
       const spti = ventas.filter(v=>v.producto==='SPTI').length;
       const spd = ventas.filter(v=>v.producto==='SPD').length;
@@ -22036,7 +22046,7 @@ function renderHistorico() {
     aniosArr.map(a => `<th style="padding:9px 12px;text-align:right;font-size:10.5px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">${a}</th>`).join('');
   bodyPBS.innerHTML = MESES.map((mes,i) => {
     const vals = aniosArr.map(a => {
-      const v = state.ventas.filter(v => v.producto==='PBS' && new Date(v.fecha).getFullYear()==a && new Date(v.fecha).getMonth()==i).length;
+      const v = state.ventas.filter(v => v.producto==='PBS' && parseFechaLocal(v.fecha).getFullYear()==a && parseFechaLocal(v.fecha).getMonth()==i).length;
       const cfg = getConfigAnio(a);
       const p = cfg.pbs[i]||0;
       const pct = p>0?Math.round(v/p*100):0;
@@ -22059,8 +22069,8 @@ function renderHistorico() {
     return `<tr style="border-top:1px solid var(--border);">
       <td style="padding:8px 12px;font-size:13px;">${mes}</td>
       ${aniosArr.map(a => {
-        const spti = state.ventas.filter(v=>v.producto==='SPTI'&&new Date(v.fecha).getFullYear()==a&&new Date(v.fecha).getMonth()==i).length;
-        const spd  = state.ventas.filter(v=>v.producto==='SPD' &&new Date(v.fecha).getFullYear()==a&&new Date(v.fecha).getMonth()==i).length;
+        const spti = state.ventas.filter(v=>v.producto==='SPTI'&&parseFechaLocal(v.fecha).getFullYear()==a&&parseFechaLocal(v.fecha).getMonth()==i).length;
+        const spd  = state.ventas.filter(v=>v.producto==='SPD' &&parseFechaLocal(v.fecha).getFullYear()==a&&parseFechaLocal(v.fecha).getMonth()==i).length;
         return `<td style="padding:8px 12px;text-align:right;font-family:var(--mono);color:var(--teal);">${spti||'—'}</td>
                 <td style="padding:8px 12px;text-align:right;font-family:var(--mono);color:var(--purple);">${spd||'—'}</td>`;
       }).join('')}
@@ -22078,7 +22088,7 @@ function renderHistorico() {
       ${['Com. PBS','Com. Vol. (Proy.)','Total'].map((label,li) => `<tr style="border-top:1px solid var(--border);">
         <td style="padding:9px 12px;font-size:13px;font-weight:${li===2?'700':'400'}">${label}</td>
         ${aniosArr.map(a => {
-          const vs = state.ventas.filter(v=>new Date(v.fecha).getFullYear()==a);
+          const vs = state.ventas.filter(v=>parseFechaLocal(v.fecha).getFullYear()==a);
           const comPbs = vs.filter(v=>v.producto==='PBS').reduce((s,v)=>s+(v.comision||0),0);
           const comVol = vs.filter(v=>['SPTI','SPD'].includes(v.producto)).reduce((s,v)=>s+calcVolComisionVenta(v),0);
           const val = li===0?comPbs:li===1?comVol:comPbs+comVol;
@@ -35031,8 +35041,8 @@ function _agenteConstruirContexto() {
       PBS:   getVentasByProduct ? getVentasByProduct(mesActual, 'PBS').length : 0,
       SPTI:  getVentasByProduct ? contarPolizas(getVentasByProduct(mesActual, 'SPTI')) : 0,
       SPD:   getVentasByProduct ? contarPolizas(getVentasByProduct(mesActual, 'SPD')) : 0,
-      PSM:   (s.ventas||[]).filter(v => !v._importadoSura && v.producto==='PSM'  && new Date(v.fecha).getMonth()===mesActual && new Date(v.fecha).getFullYear()===anio).length,
-      PAC60: (s.ventas||[]).filter(v => !v._importadoSura && v.producto==='PAC60' && new Date(v.fecha).getMonth()===mesActual && new Date(v.fecha).getFullYear()===anio).length,
+      PSM:   (s.ventas||[]).filter(v => !v._importadoSura && v.producto==='PSM'  && parseFechaLocal(v.fecha).getMonth()===mesActual && parseFechaLocal(v.fecha).getFullYear()===anio).length,
+      PAC60: (s.ventas||[]).filter(v => !v._importadoSura && v.producto==='PAC60' && parseFechaLocal(v.fecha).getMonth()===mesActual && parseFechaLocal(v.fecha).getFullYear()===anio).length,
     };
 
     // Metas del mes
