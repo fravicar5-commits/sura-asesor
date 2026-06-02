@@ -27998,17 +27998,39 @@ function ipsHaversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// Geocodificar dirección usando Nominatim (gratuito, sin API key)
-async function ipsGeocodificar(direccion, ciudad) {
-  const query = encodeURIComponent(`${direccion}, ${ciudad}, Colombia`);
-  try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=co`, {
-      headers: { 'Accept-Language': 'es', 'User-Agent': 'SURA-App/1.0' },
-      signal: AbortSignal.timeout(8000)
-    });
-    const data = await r.json();
-    if (data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), display: data[0].display_name };
-  } catch(e) {}
+// Geocodificar dirección usando Nominatim + Photon como fallback
+async function ipsGeocodificar(direccion, ciudadHint) {
+  // Limpiar: si la ciudad ya está dentro de la dirección, no duplicarla
+  const dirNorm  = direccion.trim();
+  const cidNorm  = (ciudadHint || '').trim();
+  const yaInclCiudad = cidNorm && dirNorm.toLowerCase().includes(cidNorm.toLowerCase());
+  // Construir queries en orden de especificidad (más específica primero)
+  const queries = [];
+  if (cidNorm && !yaInclCiudad) {
+    queries.push(`${dirNorm}, ${cidNorm}, Colombia`);   // dirección + ciudad + país
+  }
+  queries.push(`${dirNorm}, Colombia`);                 // dirección + país (sin ciudad dup.)
+  if (cidNorm) queries.push(`${cidNorm}, Colombia`);    // solo ciudad como último fallback
+
+  for (const q of queries) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=3&countrycodes=co&addressdetails=1`;
+      const r = await fetch(url, {
+        headers: { 'Accept-Language': 'es', 'User-Agent': 'SuraAsesor/2.0 (app interna)' },
+        signal: AbortSignal.timeout(9000)
+      });
+      if (!r.ok) continue;
+      const data = await r.json();
+      if (data.length > 0) {
+        // Preferir resultado que sea vía/calle (no solo país/ciudad)
+        const vias = data.filter(d => ['road','residential','pedestrian','path','suburb','quarter','neighbourhood'].includes(d.type) || d.class === 'highway' || d.addresstype === 'road');
+        const best = vias[0] || data[0];
+        return { lat: parseFloat(best.lat), lng: parseFloat(best.lon), display: best.display_name };
+      }
+    } catch(e) { /* continuar con siguiente query */ }
+    // Pausa mínima entre requests a Nominatim (política de uso: 1 req/s)
+    await new Promise(res => setTimeout(res, 1100));
+  }
   return null;
 }
 
@@ -28232,9 +28254,23 @@ async function ipsBuscar() {
   let coords = null;
   let _geoPromise = null;
   if (_esDir) {
-    // Extraer ciudad del input (última parte separada por coma, o detectar ciudad conocida)
+    // Extraer ciudad hint: última parte separada por coma (ej: "Carrera 28a #76, Bogotá" → "Bogotá")
+    // Si no hay coma, buscar ciudad conocida dentro del texto
     const partes = raw.split(',').map(s => s.trim());
-    const ciudadHint = partes.length > 1 ? partes[partes.length - 1] : '';
+    let ciudadHint = partes.length > 1 ? partes[partes.length - 1] : '';
+    // Si no hay coma, detectar ciudad conocida en el texto
+    if (!ciudadHint) {
+      const CIUDADES_CO = ['bogota','bogotá','medellin','medellín','cali','barranquilla',
+        'bucaramanga','cartagena','manizales','pereira','tunja','cucuta','cúcuta',
+        'ibague','ibagué','neiva','villavicencio','pasto','monteria','montería',
+        'sincelejo','valledupar','riohacha','quibdo','quibdó','arauca','yopal',
+        'florencia','mocoa','leticia','mitú','puerto inirida','san andres',
+        'envigado','bello','itagui','itagüí','sabaneta','rionegro','copacabana',
+        'soacha','chia','chía','zipaquira','zipaquirá','facatativa','facatativá',
+        'girardot','fusagasuga','fusagasugá','mosquera','funza','madrid'];
+      const rawLow = raw.toLowerCase();
+      ciudadHint = CIUDADES_CO.find(c => rawLow.includes(c)) || '';
+    }
     if (geoEl) geoEl.textContent = '⏳ Geocodificando dirección...';
     _geoPromise = ipsGeocodificar(raw, ciudadHint);
   }
@@ -28274,7 +28310,8 @@ async function ipsBuscar() {
   if (dbMunicipio) {
     municipioLabel = dbMunicipio.municipio || raw.toUpperCase();
     fuenteLabel    = `📦 BD importada · ${municipioLabel}`;
-    if (geoEl) geoEl.textContent = `🏙️ ${municipioLabel} — ${dbMunicipio.basicas?.length||0} básicas · ${dbMunicipio.urgencias?.length||0} urgencias · ${dbMunicipio.ambulancias?.length||0} ambulancias`;
+    // Solo actualizar geoEl si no está geocodificando (no pisar el mensaje de progreso)
+    if (geoEl && !_geoPromise) geoEl.textContent = `🏙️ ${municipioLabel} — ${dbMunicipio.basicas?.length||0} básicas · ${dbMunicipio.urgencias?.length||0} urgencias · ${dbMunicipio.ambulancias?.length||0} ambulancias`;
   }
 
   // ── 2. Si no encontró directamente, buscar por partes del texto ──────────
@@ -28293,17 +28330,29 @@ async function ipsBuscar() {
       const ciudadParaGeo = partes2[partes2.length-1] || raw;
       _geoPromise = ipsGeocodificar(raw, ciudadParaGeo);
     }
+    // Si dbMunicipio se encontró en paso 2 (por parte del texto), actualizar label
+    if (dbMunicipio) {
+      if (geoEl && !_esDir) geoEl.textContent = `🏙️ ${municipioLabel} — ${dbMunicipio.basicas?.length||0} básicas · ${dbMunicipio.urgencias?.length||0} urgencias`;
+    }
   }
 
   // ── 2b. Resolver geocodificación (lanzada en paralelo o recién iniciada) ──
   if (_geoPromise) {
     coords = await _geoPromise;
     if (coords && geoEl) {
-      const labelGeo = coords.display.split(',').slice(0,3).join(',');
-      const labelMun = dbMunicipio ? ` · Mostrando IPS de ${municipioLabel||'municipio'}` : '';
-      geoEl.textContent = `📍 ${labelGeo}${labelMun}`;
-    } else if (!coords && !dbMunicipio) {
-      if (geoEl) geoEl.textContent = '⚠️ No se pudo geocodificar la dirección — intenta solo el municipio';
+      // Mostrar barrio/localidad más cercano para confirmar la ubicación detectada
+      const partsDisplay = coords.display.split(',').map(s => s.trim());
+      // Tomar las 2-3 primeras partes (calle, barrio, ciudad) — las más informativas
+      const labelGeo = partsDisplay.slice(0, Math.min(3, partsDisplay.length)).join(', ');
+      const labelMun = dbMunicipio ? ` · IPS de ${municipioLabel||'municipio'}` : '';
+      geoEl.innerHTML = `📍 <strong>Ubicación detectada:</strong> ${labelGeo}${labelMun} · <span style="color:var(--green);font-weight:600;">Ordenado por cercanía ✓</span>`;
+    } else if (!coords) {
+      if (dbMunicipio) {
+        // Geocodificación falló pero tenemos municipio — informar claramente
+        if (geoEl) geoEl.innerHTML = `🏙️ ${municipioLabel} — <span style="color:var(--amber);">No se pudo geocodificar la dirección exacta · Orden por defecto</span> · <span style="font-size:10.5px;color:var(--text-dim);">Tip: usa coma para separar ciudad: "Calle 5 #10, Bogotá"</span>`;
+      } else {
+        if (geoEl) geoEl.textContent = '⚠️ No se pudo encontrar la dirección — intenta con el nombre del municipio';
+      }
     }
   }
 
@@ -28434,8 +28483,11 @@ async function ipsBuscar() {
         (conCoords > 0 ? ` · Ordenado por distancia desde tu dirección` : ` · Sin coordenadas en BD para ordenar`);
     }
   } else if (dbMunicipio) {
-    // Sin geocodificación: informar que el orden es el de la BD (no por distancia)
-    if (geoEl) geoEl.textContent += ' · Orden por defecto (ingresa dirección exacta para ordenar por cercanía)';
+    // coords es null — geocodificación falló o no era dirección
+    // Solo añadir el aviso si no fue sobreescrito ya en el bloque anterior
+    if (geoEl && _esDir && !geoEl.innerHTML.includes('Ordenado') && !geoEl.innerHTML.includes('geocodificar')) {
+      geoEl.innerHTML += ` · <span style="color:var(--amber);">Orden por defecto</span> · <span style="font-size:10.5px;color:var(--text-dim);">Tip: "Calle 5 #10, Bogotá" (incluye ciudad)</span>`;
+    }
   }
 
   // En búsqueda por departamento mostrar top 10 básicas; por municipio top 3
