@@ -22426,18 +22426,42 @@ function bdBuscarEmpresa(modo) {
 
   if (delPanel.length > 0) {
     html += `<div style="padding:5px 12px;font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;background:var(--surface3);letter-spacing:.06em;">📋 Tu panel</div>`;
+    const _trimAct = _bdSinTrimActivo();
+    const _bdTrims = (typeof getBDSin === 'function' ? getBDSin().trimestres : null) || [];
     html += delPanel.map((e, idx) => {
       const ciudadMatch = ciudad && bdNormalizarCiudad(e.ciudad) === ciudad;
       const mapKey = 'panel_' + idx;
       window._bdSugPanelMap[mapKey] = e.id;
+      // Resolver siniestralidad del trimestre activo desde historialSin
+      let sinMostrar = e.siniestralidad || '';
+      let pctMostrar = e.sinPct || '';
+      let trimMostrar = e.trimRef || '';
+      const historial = e.historialSin || [];
+      if (historial.length > 0) {
+        let entrada = _trimAct ? historial.find(h => h.trim === _trimAct || h.trimLabel === _trimAct) : null;
+        if (!entrada && _bdTrims.length > 0) {
+          for (const bt of _bdTrims) {
+            entrada = historial.find(h => h.trim === bt.label || h.trimLabel === bt.label);
+            if (entrada) break;
+          }
+        }
+        if (!entrada) entrada = historial[0];
+        if (entrada) {
+          sinMostrar  = entrada.sinCat   || sinMostrar;
+          pctMostrar  = entrada.sinPct   || pctMostrar;
+          trimMostrar = entrada.trim     || entrada.trimLabel || trimMostrar;
+        }
+      }
+      const esTrimOk = _trimAct && (trimMostrar === _trimAct);
       return `<div class="bd-sugerencia-item" onmousedown="event.preventDefault();bdSeleccionarEmpresaKey('${mapKey}')"
         style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12.5px;background:${ciudadMatch?'rgba(34,197,94,0.08)':'transparent'};">
         <div style="font-weight:600;">${e.nombre}</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
           NIT: ${e.nit||'—'} · ${e.ciudad||'Sin ciudad'}
-          ${e.siniestralidad ? `· <span style="color:${sinColor(e.siniestralidad)};">${e.siniestralidad}${e.sinPct?' ('+e.sinPct+'%)':''}</span>` : ''}
+          ${sinMostrar ? `· <span style="color:${sinColor(sinMostrar)};">${sinMostrar}${pctMostrar?' ('+pctMostrar+'%)':''}</span>` : ''}
+          ${trimMostrar ? `<span style="font-size:10px;color:${esTrimOk?'var(--green)':'var(--amber)'};margin-left:3px;">${trimMostrar}</span>` : ''}
           ${ciudadMatch ? ' <span style="color:var(--green);">✓</span>' : ''}
-          ${(e.historialSin||[]).length>1 ? ' 📋' : ''}
+          ${historial.length > 1 ? ' 📋' : ''}
         </div>
       </div>`;
     }).join('');
@@ -22509,20 +22533,67 @@ function bdAplicarEmpresa(id) {
   document.getElementById('vEmpresa').value = e.nombre;
   document.getElementById('vNIT').value = e.nit || '';
 
-  // Aplicar siniestralidad si existe
-  if (e.siniestralidad) {
-    const sel = document.getElementById('vSiniestralidad');
-    // Buscar opción que contenga el valor
-    const opt = Array.from(sel.options).find(o => o.value === e.siniestralidad);
-    if (opt) {
-      sel.value = e.siniestralidad;
-      sel.dispatchEvent(new Event('change'));
-      // Mostrar indicador
-      const fuente = document.getElementById('bdSinFuente');
-      if (fuente) {
-        fuente.style.display = '';
-        fuente.innerHTML = `✅ Siniestralidad cargada desde BD · ${e.ciudad || ''} · ${e.sinPct ? e.sinPct + '%' : e.siniestralidad}${e.trimRef ? ` · Trim: ${e.trimRef}` : ''}${(e.historialSin||[]).length > 1 ? ` · <span style="color:var(--amber);">📋 ${e.historialSin.length} trimestres en historial</span>` : ''}`;
+  // ── Resolver siniestralidad desde historialSin al trimestre ACTIVO ──────
+  // Prioridad: 1) historialSin del trimestre activo, 2) siniestralidad manual
+  let sinCat    = e.siniestralidad || '';
+  let sinPct    = e.sinPct        || '';
+  let trimLabel = e.trimRef       || '';
+  let fuenteMsg = '';
+
+  const historial = e.historialSin || [];
+  if (historial.length > 0) {
+    // Obtener trimestre activo de la BD de siniestralidad
+    const trimActivo = _bdSinTrimActivo();
+    // También leer trimestres disponibles en la BD para identificar el más reciente
+    const bdTrims = (typeof getBDSin === 'function' ? getBDSin().trimestres : null) || [];
+
+    // Buscar en historial: 1) trimestre activo exacto, 2) más reciente disponible
+    let entradaActiva = null;
+    if (trimActivo) {
+      entradaActiva = historial.find(h =>
+        h.trim === trimActivo || h.trimLabel === trimActivo
+      );
+    }
+    // Si no hay match exacto con trimActivo, buscar el trimestre más reciente en historial
+    // que coincida con alguno de los trimestres importados en la BD
+    if (!entradaActiva && bdTrims.length > 0) {
+      // bdTrims[0] es el más reciente (orden de importación)
+      for (const bt of bdTrims) {
+        const match = historial.find(h =>
+          h.trim === bt.label || h.trimLabel === bt.label || h.trim === bt.id
+        );
+        if (match) { entradaActiva = match; break; }
       }
+    }
+    // Último fallback: la primera entrada del historial (más reciente cronológicamente)
+    if (!entradaActiva) entradaActiva = historial[0];
+
+    if (entradaActiva) {
+      sinCat    = entradaActiva.sinCat   || sinCat;
+      sinPct    = entradaActiva.sinPct   || sinPct;
+      trimLabel = entradaActiva.trim     || entradaActiva.trimLabel || trimLabel;
+      const esTrimActivo = trimActivo && (entradaActiva.trim === trimActivo || entradaActiva.trimLabel === trimActivo);
+      fuenteMsg = `✅ Siniestralidad cargada desde BD · ${e.ciudad || ''} · ${sinPct ? sinPct + '%' : sinCat}`
+        + (trimLabel ? ` · Trim: ${trimLabel}` : '')
+        + (esTrimActivo ? ` <span style="color:var(--green);font-weight:700;">● Trimestre activo</span>` : ` <span style="color:var(--amber);">⚠ No hay dato para el trimestre activo</span>`)
+        + (historial.length > 1 ? ` · <span style="color:var(--amber);">📋 ${historial.length} trimestres en historial</span>` : '');
+    }
+  }
+
+  // Aplicar al select si tenemos valor
+  if (sinCat) {
+    const sel = document.getElementById('vSiniestralidad');
+    if (sel) {
+      const opt = Array.from(sel.options).find(o => o.value === sinCat);
+      if (opt) {
+        sel.value = sinCat;
+        sel.dispatchEvent(new Event('change'));
+      }
+    }
+    const fuente = document.getElementById('bdSinFuente');
+    if (fuente) {
+      fuente.style.display = '';
+      fuente.innerHTML = fuenteMsg || `✅ Siniestralidad cargada desde BD · ${e.ciudad || ''} · ${sinPct ? sinPct + '%' : sinCat}${trimLabel ? ' · Trim: ' + trimLabel : ''}`;
     }
   }
 
@@ -22535,17 +22606,27 @@ function bdAplicarEmpresa(id) {
 function bdAplicarDesdeBDCompleta(el) {
   try {
     const data = JSON.parse(el.getAttribute('data-bd').replace(/&#39;/g, "'"));
-    // Verificar si hay múltiples ciudades para este NIT en la BD completa
+    // Buscar en TODOS los registros (no solo el filtrado al trimestre activo)
+    // para poder mostrar opciones de ciudad y elegir el trimestre correcto
+    const todosReg = (window._BD_FULL_LIST_ALL || window._BD_FULL_LIST || []);
+    const trimActivo = _bdSinTrimActivo();
     let opcionesCiudad = [];
-    if (window._BD_FULL_LIST && data.nit) {
+    if (todosReg.length > 0 && data.nit) {
       const nitLimpio = data.nit.replace(/\D/g,'');
       const seen = new Set();
-      opcionesCiudad = window._BD_FULL_LIST.filter(r => {
-        if (!r.nit || r.nit.replace(/\D/g,'') !== nitLimpio) return false;
+      // Priorizar registros del trimestre activo para cada ciudad
+      const delTrimActivo = trimActivo
+        ? todosReg.filter(r => r.nit && r.nit.replace(/\D/g,'') === nitLimpio &&
+            (r.trim === trimActivo || r.trimLabel === trimActivo))
+        : [];
+      const fuente = delTrimActivo.length > 0 ? delTrimActivo : todosReg.filter(r =>
+        r.nit && r.nit.replace(/\D/g,'') === nitLimpio);
+      for (const r of fuente) {
         const k = bdNormalizarCiudad(r.ciudad);
-        if (seen.has(k)) return false;
-        seen.add(k); return true;
-      });
+        if (seen.has(k)) continue;
+        seen.add(k);
+        opcionesCiudad.push(r);
+      }
     }
 
     document.getElementById('vEmpresa').value = data.nombre;
@@ -22573,15 +22654,44 @@ function bdAplicarDesdeBDCompleta(el) {
 }
 
 function bdAplicarDatosBD(el, dataIn) {
-  const data = dataIn || JSON.parse((el?.getAttribute('data-bd') || '{}').replace(/&#39;/g,"'"));
+  const raw = dataIn || JSON.parse((el?.getAttribute('data-bd') || '{}').replace(/&#39;/g,"'"));
+
+  // Buscar el registro del TRIMESTRE ACTIVO para este NIT+ciudad en la BD completa
+  const trimActivo = _bdSinTrimActivo();
+  const todosReg   = window._BD_FULL_LIST_ALL || window._BD_FULL_LIST || [];
+  let data = raw; // fallback al dato que vino
+
+  if (trimActivo && raw.nit && todosReg.length > 0) {
+    const nitLimpio  = raw.nit.replace(/\D/g,'');
+    const ciudadNorm = bdNormalizarCiudad(raw.ciudad || '');
+    // Buscar registro exacto: mismo NIT + ciudad + trimestre activo
+    const exacto = todosReg.find(r =>
+      r.nit && r.nit.replace(/\D/g,'') === nitLimpio &&
+      bdNormalizarCiudad(r.ciudad || '') === ciudadNorm &&
+      (r.trim === trimActivo || r.trimLabel === trimActivo)
+    );
+    if (exacto) {
+      data = { ...raw, sinCat: exacto.sinCat || raw.sinCat,
+                        sinPct: exacto.sinPct || raw.sinPct,
+                        trim:   exacto.trim   || raw.trim };
+    }
+  }
+
   if (data.sinCat) {
     const sel = document.getElementById('vSiniestralidad');
-    const opt = Array.from(sel.options).find(o => o.value === data.sinCat);
-    if (opt) { sel.value = data.sinCat; sel.dispatchEvent(new Event('change')); }
+    if (sel) {
+      const opt = Array.from(sel.options).find(o => o.value === data.sinCat);
+      if (opt) { sel.value = data.sinCat; sel.dispatchEvent(new Event('change')); }
+    }
     const fuente = document.getElementById('bdSinFuente');
     if (fuente) {
+      const esTrimActivo = trimActivo && data.trim === trimActivo;
       fuente.style.display = '';
-      fuente.innerHTML = `✅ Siniestralidad desde BD · ${data.ciudad||''} · ${data.sinPct?data.sinPct+'%':data.sinCat}${data.trim?' · Trim: '+data.trim:''}`;
+      fuente.innerHTML = `✅ Siniestralidad desde BD · ${data.ciudad||''} · ${data.sinPct?data.sinPct+'%':data.sinCat}`
+        + (data.trim ? ` · Trim: ${data.trim}` : '')
+        + (esTrimActivo
+            ? ` <span style="color:var(--green);font-weight:700;">● Trimestre activo</span>`
+            : (trimActivo ? ` <span style="color:var(--amber);">⚠ Sin dato para trimestre activo</span>` : ''));
     }
   }
   const panel = document.getElementById('bdCiudadPanel');
