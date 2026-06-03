@@ -22513,47 +22513,116 @@ function bdSeleccionarEmpresa(id) {
   const e = empresas.find(emp => emp.id === id);
   if (!e) return;
 
-  // Verificar si hay múltiples registros con mismo NIT en distintas ciudades
-  const mismoNIT = e.nit ? empresas.filter(x => x.nit && x.nit.replace(/\D/g,'') === e.nit.replace(/\D/g,'')) : [e];
+  // ── Buscar todas las ciudades del NIT en _BD_FULL_LIST (fuente de verdad) ──
+  // Esto cubre el caso donde el panel solo tiene 1 entrada pero la BD tiene múltiples ciudades
+  const nitLimpio = (e.nit || '').replace(/\D/g,'');
+  const trimActivo = _bdSinTrimActivo();
+  const bdTrims   = (typeof getBDSin === 'function' ? getBDSin().trimestres : null) || [];
+  const todosReg  = window._BD_FULL_LIST_ALL || window._BD_FULL_LIST || [];
 
-  if (mismoNIT.length > 1) {
-    // Mostrar panel de selección de ciudad
+  // Recopilar ciudades únicas del NIT en el trimestre activo (o el más reciente)
+  let ciudadesEnBD = [];
+  if (nitLimpio && todosReg.length > 0) {
+    // Filtrar registros del NIT en el trimestre activo
+    let regNIT = trimActivo
+      ? todosReg.filter(r => r.nit && r.nit.replace(/\D/g,'') === nitLimpio &&
+          (r.trim === trimActivo || r.trimLabel === trimActivo))
+      : [];
+    // Si no hay en trimestre activo, usar el trimestre más reciente disponible
+    if (regNIT.length === 0 && bdTrims.length > 0) {
+      for (const bt of bdTrims) {
+        regNIT = todosReg.filter(r => r.nit && r.nit.replace(/\D/g,'') === nitLimpio &&
+          (r.trim === bt.label || r.trimLabel === bt.label));
+        if (regNIT.length > 0) break;
+      }
+    }
+    // Deduplicar por ciudad normalizada
+    const seen = new Set();
+    for (const r of regNIT) {
+      const ck = bdNormalizarCiudad(r.ciudad || '');
+      if (!seen.has(ck)) { seen.add(ck); ciudadesEnBD.push(r); }
+    }
+  }
+
+  // También verificar duplicados en el panel (por si el asesor tiene la misma empresa en varias ciudades)
+  const mismoNITPanel = nitLimpio
+    ? empresas.filter(x => x.nit && x.nit.replace(/\D/g,'') === nitLimpio)
+    : [e];
+
+  // ── Si hay múltiples ciudades (en BD o en panel) → mostrar selector ──────
+  const multiCiudad = ciudadesEnBD.length > 1 || mismoNITPanel.length > 1;
+
+  if (multiCiudad) {
     bdOcultarSugerencias();
     document.getElementById('vEmpresa').value = e.nombre;
     document.getElementById('vNIT').value = e.nit || '';
     const panel = document.getElementById('bdCiudadPanel');
-    const opts = document.getElementById('bdCiudadOpciones');
+    const opts  = document.getElementById('bdCiudadOpciones');
     panel.style.display = '';
+
     const _sinColor = s => s?.includes('91') ? 'var(--red)' : s?.includes('76') ? 'var(--amber)' : 'var(--green)';
-    const _trimActMC = _bdSinTrimActivo();
-    const _bdTrimsMC = (typeof getBDSin === 'function' ? getBDSin().trimestres : null) || [];
-    opts.innerHTML = mismoNIT.map(emp => {
-      // Resolver siniestralidad del trimestre activo + ciudad correcta para este botón
-      let sinBtn = emp.siniestralidad || '—';
-      let pctBtn = emp.sinPct || '';
-      const histEmp = emp.historialSin || [];
-      const empCiudNMC = bdNormalizar(emp.ciudad || '');
-      const cidOkMC = h => !h.ciudad || bdNormalizar(h.ciudad).substring(0,6) === empCiudNMC.substring(0,6);
-      let entBtn = _trimActMC ? histEmp.find(h => (h.trim === _trimActMC || h.trimLabel === _trimActMC) && cidOkMC(h)) : null;
-      if (!entBtn && _trimActMC) entBtn = histEmp.find(h => h.trim === _trimActMC || h.trimLabel === _trimActMC);
-      if (!entBtn && _bdTrimsMC.length > 0) {
-        for (const bt of _bdTrimsMC) {
-          entBtn = histEmp.find(h => (h.trim === bt.label || h.trimLabel === bt.label) && cidOkMC(h));
-          if (entBtn) break;
-        }
-      }
-      if (!entBtn) entBtn = histEmp.find(cidOkMC) || histEmp[0];
-      if (entBtn) { sinBtn = entBtn.sinCat || sinBtn; pctBtn = entBtn.sinPct || pctBtn; }
-      return `<button class="btn btn-secondary btn-sm" onclick="bdAplicarEmpresa('${emp.id}')" style="font-size:12px;gap:6px;">
-        🏙️ ${emp.ciudad || 'Sin ciudad'}
-        <span style="color:${_sinColor(sinBtn)};">${sinBtn}${pctBtn ? ' (' + pctBtn + '%)' : ''}</span>
-      </button>`;
-    }).join('');
+
+    if (ciudadesEnBD.length > 1) {
+      // Usar ciudades de la BD (más completo y correcto)
+      opts.innerHTML = `<div style="font-size:10px;color:var(--text-dim);padding:4px 8px 8px;">
+        Selecciona la ciudad del afiliado — siniestralidad ${trimActivo||'trimestre activo'}:
+      </div>` + ciudadesEnBD.map(r => {
+        const dataStr = JSON.stringify({
+          nombre: r.nombre, nit: r.nit, ciudad: r.ciudad,
+          sinCat: r.sinCat, sinPct: r.sinPct, trim: r.trim || trimActivo
+        }).replace(/'/g,"&#39;");
+        // Buscar también si esta ciudad está en el panel para usar bdAplicarEmpresa
+        const empPanel = mismoNITPanel.find(x =>
+          bdNormalizarCiudad(x.ciudad||'') === bdNormalizarCiudad(r.ciudad||''));
+        const onclick = empPanel
+          ? `bdAplicarEmpresa('${empPanel.id}')`
+          : `bdAplicarDatosBD(null,${dataStr.replace(/&#39;/g,"'")})`;
+        return `<button class="btn btn-secondary btn-sm"
+          onclick="${empPanel ? `bdAplicarEmpresa('${empPanel.id}')` : `bdAplicarDatosBDInline(this)`}"
+          ${!empPanel ? `data-bd='${dataStr}'` : ''}
+          style="font-size:12px;gap:6px;margin:2px;">
+          🏙️ ${r.ciudad || 'Sin ciudad'}
+          <span style="color:${_sinColor(r.sinCat)};">${r.sinCat||'—'}${r.sinPct?' ('+r.sinPct+'%)':''}</span>
+        </button>`;
+      }).join('');
+    } else {
+      // Solo hay múltiples en el panel → usar panel
+      opts.innerHTML = mismoNITPanel.map(emp => {
+        const sinBtn = emp.siniestralidad || '—';
+        const pctBtn = emp.sinPct || '';
+        return `<button class="btn btn-secondary btn-sm" onclick="bdAplicarEmpresa('${emp.id}')"
+          style="font-size:12px;gap:6px;margin:2px;">
+          🏙️ ${emp.ciudad || 'Sin ciudad'}
+          <span style="color:${_sinColor(sinBtn)};">${sinBtn}${pctBtn?' ('+pctBtn+'%)':''}</span>
+        </button>`;
+      }).join('');
+    }
     return;
   }
 
-  // Un solo resultado — aplicar directo
+  // Un solo resultado — aplicar directo usando ciudad de la BD si existe
+  if (ciudadesEnBD.length === 1) {
+    // Verificar que el % de la BD coincide con el panel, si no usar BD directamente
+    const rBD = ciudadesEnBD[0];
+    const empPanel = mismoNITPanel[0] || e;
+    // Aplicar con datos de BD (más actualizados) combinados con panel
+    document.getElementById('vEmpresa').value = empPanel.nombre || rBD.nombre;
+    document.getElementById('vNIT').value = empPanel.nit || rBD.nit || '';
+    bdOcultarSugerencias();
+    // Usar bdAplicarEmpresa para que use la lógica de historialSin con ciudad correcta
+    bdAplicarEmpresa(empPanel.id);
+    return;
+  }
+
   bdAplicarEmpresa(e.id);
+}
+
+// Helper para aplicar datos de BD desde un botón inline (sin panel de empresas)
+function bdAplicarDatosBDInline(btn) {
+  try {
+    const data = JSON.parse((btn.getAttribute('data-bd') || '{}').replace(/&#39;/g,"'"));
+    bdAplicarDatosBD(null, data);
+  } catch(ex) { console.error('bdAplicarDatosBDInline:', ex); }
 }
 
 function bdAplicarEmpresa(id) {
