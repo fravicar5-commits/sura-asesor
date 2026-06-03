@@ -22432,24 +22432,37 @@ function bdBuscarEmpresa(modo) {
       const ciudadMatch = ciudad && bdNormalizarCiudad(e.ciudad) === ciudad;
       const mapKey = 'panel_' + idx;
       window._bdSugPanelMap[mapKey] = e.id;
-      // Resolver siniestralidad del trimestre activo desde historialSin
-      let sinMostrar = e.siniestralidad || '';
-      let pctMostrar = e.sinPct || '';
+      // Resolver siniestralidad del trimestre activo + ciudad correcta desde historialSin
+      let sinMostrar  = e.siniestralidad || '';
+      let pctMostrar  = e.sinPct  || '';
       let trimMostrar = e.trimRef || '';
       const historial = e.historialSin || [];
       if (historial.length > 0) {
-        let entrada = _trimAct ? historial.find(h => h.trim === _trimAct || h.trimLabel === _trimAct) : null;
+        const empCiudN = bdNormalizar(e.ciudad || '');
+        const cidOk = h => !h.ciudad || bdNormalizar(h.ciudad).substring(0,6) === empCiudN.substring(0,6);
+        // 1) trim activo + ciudad
+        let entrada = _trimAct ? historial.find(h => (h.trim === _trimAct || h.trimLabel === _trimAct) && cidOk(h)) : null;
+        // 2) trim activo sin ciudad
+        if (!entrada && _trimAct) entrada = historial.find(h => h.trim === _trimAct || h.trimLabel === _trimAct);
+        // 3) trim más reciente + ciudad
+        if (!entrada && _bdTrims.length > 0) {
+          for (const bt of _bdTrims) {
+            entrada = historial.find(h => (h.trim === bt.label || h.trimLabel === bt.label) && cidOk(h));
+            if (entrada) break;
+          }
+        }
+        // 4) trim más reciente sin ciudad
         if (!entrada && _bdTrims.length > 0) {
           for (const bt of _bdTrims) {
             entrada = historial.find(h => h.trim === bt.label || h.trimLabel === bt.label);
             if (entrada) break;
           }
         }
-        if (!entrada) entrada = historial[0];
+        if (!entrada) entrada = historial.find(cidOk) || historial[0];
         if (entrada) {
-          sinMostrar  = entrada.sinCat   || sinMostrar;
-          pctMostrar  = entrada.sinPct   || pctMostrar;
-          trimMostrar = entrada.trim     || entrada.trimLabel || trimMostrar;
+          sinMostrar  = entrada.sinCat  || sinMostrar;
+          pctMostrar  = entrada.sinPct  || pctMostrar;
+          trimMostrar = entrada.trim    || entrada.trimLabel || trimMostrar;
         }
       }
       const esTrimOk = _trimAct && (trimMostrar === _trimAct);
@@ -22511,13 +22524,31 @@ function bdSeleccionarEmpresa(id) {
     const panel = document.getElementById('bdCiudadPanel');
     const opts = document.getElementById('bdCiudadOpciones');
     panel.style.display = '';
-    opts.innerHTML = mismoNIT.map(emp => `
-      <button class="btn btn-secondary btn-sm" onclick="bdAplicarEmpresa('${emp.id}')" style="font-size:12px;gap:6px;">
+    const _sinColor = s => s?.includes('91') ? 'var(--red)' : s?.includes('76') ? 'var(--amber)' : 'var(--green)';
+    const _trimActMC = _bdSinTrimActivo();
+    const _bdTrimsMC = (typeof getBDSin === 'function' ? getBDSin().trimestres : null) || [];
+    opts.innerHTML = mismoNIT.map(emp => {
+      // Resolver siniestralidad del trimestre activo + ciudad correcta para este botón
+      let sinBtn = emp.siniestralidad || '—';
+      let pctBtn = emp.sinPct || '';
+      const histEmp = emp.historialSin || [];
+      const empCiudNMC = bdNormalizar(emp.ciudad || '');
+      const cidOkMC = h => !h.ciudad || bdNormalizar(h.ciudad).substring(0,6) === empCiudNMC.substring(0,6);
+      let entBtn = _trimActMC ? histEmp.find(h => (h.trim === _trimActMC || h.trimLabel === _trimActMC) && cidOkMC(h)) : null;
+      if (!entBtn && _trimActMC) entBtn = histEmp.find(h => h.trim === _trimActMC || h.trimLabel === _trimActMC);
+      if (!entBtn && _bdTrimsMC.length > 0) {
+        for (const bt of _bdTrimsMC) {
+          entBtn = histEmp.find(h => (h.trim === bt.label || h.trimLabel === bt.label) && cidOkMC(h));
+          if (entBtn) break;
+        }
+      }
+      if (!entBtn) entBtn = histEmp.find(cidOkMC) || histEmp[0];
+      if (entBtn) { sinBtn = entBtn.sinCat || sinBtn; pctBtn = entBtn.sinPct || pctBtn; }
+      return `<button class="btn btn-secondary btn-sm" onclick="bdAplicarEmpresa('${emp.id}')" style="font-size:12px;gap:6px;">
         🏙️ ${emp.ciudad || 'Sin ciudad'}
-        <span style="color:${emp.siniestralidad?.includes('91')?'var(--red)':emp.siniestralidad?.includes('76')?'var(--amber)':'var(--green)'};">
-          ${emp.siniestralidad || '—'}
-        </span>
-      </button>`).join('');
+        <span style="color:${_sinColor(sinBtn)};">${sinBtn}${pctBtn ? ' (' + pctBtn + '%)' : ''}</span>
+      </button>`;
+    }).join('');
     return;
   }
 
@@ -22544,20 +22575,44 @@ function bdAplicarEmpresa(id) {
   if (historial.length > 0) {
     // Obtener trimestre activo de la BD de siniestralidad
     const trimActivo = _bdSinTrimActivo();
-    // También leer trimestres disponibles en la BD para identificar el más reciente
     const bdTrims = (typeof getBDSin === 'function' ? getBDSin().trimestres : null) || [];
 
-    // Buscar en historial: 1) trimestre activo exacto, 2) más reciente disponible
+    // Ciudad de la empresa registrada (para filtrar entradas del historial)
+    const empCiudadNorm = bdNormalizar(e.ciudad || '');
+
+    // Helper: verifica si una entrada del historial corresponde a la ciudad de la empresa
+    // Las entradas nuevas tienen campo 'ciudad'; las antiguas no → se aceptan como fallback
+    const ciudadMatch = h => {
+      if (!h.ciudad) return true; // entrada antigua sin ciudad → no filtrar
+      return bdNormalizar(h.ciudad).substring(0, 6) === empCiudadNorm.substring(0, 6);
+    };
+
+    // Buscar en historial priorizando: trimestre activo + ciudad correcta
     let entradaActiva = null;
+
+    // 1) Trimestre activo + ciudad correcta
     if (trimActivo) {
+      entradaActiva = historial.find(h =>
+        (h.trim === trimActivo || h.trimLabel === trimActivo) && ciudadMatch(h)
+      );
+    }
+    // 2) Trimestre activo sin filtro ciudad (entrada antigua sin ciudad guardada)
+    if (!entradaActiva && trimActivo) {
       entradaActiva = historial.find(h =>
         h.trim === trimActivo || h.trimLabel === trimActivo
       );
     }
-    // Si no hay match exacto con trimActivo, buscar el trimestre más reciente en historial
-    // que coincida con alguno de los trimestres importados en la BD
+    // 3) Trimestre más reciente de la BD + ciudad correcta
     if (!entradaActiva && bdTrims.length > 0) {
-      // bdTrims[0] es el más reciente (orden de importación)
+      for (const bt of bdTrims) {
+        const match = historial.find(h =>
+          (h.trim === bt.label || h.trimLabel === bt.label || h.trim === bt.id) && ciudadMatch(h)
+        );
+        if (match) { entradaActiva = match; break; }
+      }
+    }
+    // 4) Trimestre más reciente sin filtro ciudad
+    if (!entradaActiva && bdTrims.length > 0) {
       for (const bt of bdTrims) {
         const match = historial.find(h =>
           h.trim === bt.label || h.trimLabel === bt.label || h.trim === bt.id
@@ -22565,7 +22620,11 @@ function bdAplicarEmpresa(id) {
         if (match) { entradaActiva = match; break; }
       }
     }
-    // Último fallback: la primera entrada del historial (más reciente cronológicamente)
+    // 5) Último fallback: primera entrada del historial con ciudad correcta
+    if (!entradaActiva && empCiudadNorm) {
+      entradaActiva = historial.find(h => ciudadMatch(h));
+    }
+    // 6) Última opción: primera entrada sin importar ciudad
     if (!entradaActiva) entradaActiva = historial[0];
 
     if (entradaActiva) {
@@ -23669,7 +23728,7 @@ async function confirmarImportSin() {
       // ── Guardar en historial por trimestre (siempre) ───────────────────
       if (!empresas[idx].historialSin) empresas[idx].historialSin = [];
       const existeTrim = empresas[idx].historialSin.findIndex(h => h.trim === trimLabel);
-      const entrada = { trim: trimLabel, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy };
+      const entrada = { trim: trimLabel, sinCat: r.sinCat, sinPct: r.sinPct, fechaImport: fechaHoy, ciudad: r.ciudad || '' };
       if (existeTrim >= 0) empresas[idx].historialSin[existeTrim] = entrada;
       else { empresas[idx].historialSin.unshift(entrada); }
       // ── NO sobreescribir empresa.siniestralidad global ─────────────────
