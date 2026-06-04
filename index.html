@@ -732,6 +732,35 @@
   .fab-btn:hover { box-shadow: 0 6px 28px rgba(26,76,232,0.55); }
   .fab-btn.dragging { cursor: grabbing; opacity: 0.9; box-shadow: 0 8px 32px rgba(26,76,232,0.6); transition: none; }
   @media (max-width:900px) { .fab-btn { bottom: 16px; right: 16px; padding: 11px 20px; font-size: 13px; } }
+  .fab-wa {
+    position: fixed;
+    bottom: 90px;
+    right: 32px;
+    z-index: 997;
+    background: #25D366;
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 11px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    box-shadow: 0 4px 16px rgba(37,211,102,0.45);
+    transition: box-shadow 0.15s, opacity 0.15s;
+    font-family: var(--font);
+    letter-spacing: 0.02em;
+    user-select: none;
+  }
+  .fab-wa:hover { box-shadow: 0 6px 24px rgba(37,211,102,0.6); }
+  @keyframes slideLoad {
+    0%   { transform: translateX(-100%); }
+    50%  { transform: translateX(60%); }
+    100% { transform: translateX(200%); }
+  }
+  @media (max-width:900px) { .fab-wa { bottom: 72px; right: 16px; padding: 9px 16px; font-size: 12px; } }
 
   /* ── AGENDA DIARIA ── */
   .agenda-wrap{padding:0 36px 32px;}
@@ -9060,6 +9089,60 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
 </div>
 
 <!-- BOTÓN FLOTANTE REGISTRO RÁPIDO -->
+<!-- FAB: Captura rápida prospecto WhatsApp -->
+<button class="fab-wa" id="fabWA" onclick="abrirCapturaWA()" title="Capturar prospecto desde WhatsApp">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.555 4.118 1.525 5.847L.057 23.5l5.8-1.52A11.95 11.95 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.003-1.368l-.359-.213-3.722.976.993-3.622-.234-.372A9.818 9.818 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
+  Captura WA
+</button>
+
+<!-- MODAL: Captura rápida prospecto WhatsApp -->
+<div class="modal-overlay" id="modalCapturaWA" onclick="if(event.target===this)closeModal('modalCapturaWA')">
+  <div class="modal" style="width:440px;">
+    <div class="modal-header">
+      <div class="modal-title">📱 Captura rápida · WhatsApp</div>
+      <button class="modal-close" onclick="closeModal('modalCapturaWA')">×</button>
+    </div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:11px;">
+      <div style="font-size:12px;color:var(--text-muted);background:var(--surface2);border-radius:8px;padding:9px 13px;border-left:3px solid #25D366;">
+        Captura los datos esenciales. Puedes completar el resto después desde Pipeline.
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Nombre <span style="color:var(--red)">*</span></label>
+        <input type="text" class="form-control" id="waName" placeholder="Nombre completo" autocomplete="off" style="font-size:15px;">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Teléfono <span style="color:var(--red)">*</span></label>
+        <input type="tel" class="form-control" id="waTel" placeholder="3001234567" inputmode="numeric" style="font-size:15px;">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Producto</label>
+          <select class="form-control" id="waProd">
+            <option value="SPTI">SPTI</option>
+            <option value="SPD">SPD Plus</option>
+            <option value="PSM">PSM Modular</option>
+            <option value="PAC60">PAC 60+</option>
+            <option value="PBS">PBS</option>
+            <option value="VARIOS">Varios</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Próximo contacto</label>
+          <input type="date" class="form-control" id="waFecha">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Nota rápida</label>
+        <input type="text" class="form-control" id="waNota" placeholder="Ej: interesado en plan familiar, precio aprox..." style="font-size:13px;">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalCapturaWA')">Cancelar</button>
+      <button class="btn btn-primary" style="background:#25D366;border-color:#25D366;" onclick="guardarCapturaWA()">📱 Guardar en Pipeline</button>
+    </div>
+  </div>
+</div>
+
 <button class="fab-btn" id="fabBtn" title="Registro rápido PBS (arrastrable)">
   <span style="font-size:20px;line-height:1;">＋</span> Registro rápido
 </button>
@@ -18778,6 +18861,7 @@ function renderPipeline() {
               </div>
             </div>
             <div style="display:flex;gap:5px;flex-shrink:0;">
+              <button title="Redactar mensaje IA" onclick="abrirRedaccionIAPip('${p.id}')" style="background:none;border:1px solid var(--border);border-radius:7px;padding:5px 8px;cursor:pointer;font-size:13px;color:var(--text-muted);">✍️</button>
               ${tel?`<a href="https://wa.me/57${tel}?text=${encodeURIComponent('Hola '+p.nombre+', te contacto por tu inter\u00e9s en el plan '+p.producto+' SURA.')}" target="_blank"
                 style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);text-decoration:none;" title="WhatsApp">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.096.533 4.063 1.476 5.782L0 24l6.393-1.454A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.885 9.885 0 01-5.04-1.38l-.361-.214-3.795.863.899-3.687-.235-.378A9.866 9.866 0 012.105 12C2.105 6.527 6.527 2.105 12 2.105c5.472 0 9.895 4.422 9.895 9.895 0 5.472-4.423 9.894-9.895 9.894z"/></svg>
@@ -21096,6 +21180,7 @@ function renderBuscador() {
       ${(asesorBadge||cotBadge||sinBadge)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">${cotBadge}${sinBadge}${asesorBadge}</div>`:''}
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" onclick="abrirPerfil360('${v.doc||v.tomadorDoc||''}','${v.id}')">👤 Perfil 360°</button>
+        <button class="btn btn-secondary btn-sm" onclick="abrirRedaccionIAVenta('${v.id}')">✍️ Mensaje IA</button>
         <button class="btn btn-secondary btn-sm" onclick="editarVenta('${v.id}')">✏️ Editar</button>
         ${tel?`<button class="btn btn-secondary btn-sm" onclick="window.open('https://wa.me/57${tel.replace(/\D/g,'')}','_blank')">📱 WhatsApp</button>`:''}
         ${correo?`<button class="btn btn-secondary btn-sm" onclick="window.location='mailto:${correo}'">📧 Email</button>`:''}
@@ -30467,6 +30552,247 @@ function abrirWhatsApp() {
 // =============================================
 // REGISTRO RÁPIDO PBS
 // =============================================
+// ══════════════════════════════════════════════════════════════════════════
+// CAPTURA RÁPIDA WHATSAPP → PIPELINE
+// ══════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════
+// REDACCIÓN DE MENSAJES CON IA
+// ══════════════════════════════════════════════════════════════════════════
+let _redaccionCtx = {};  // contexto del cliente actual
+
+// Wrappers que resuelven el contexto por ID (evitan comillas rotas en onclick)
+function abrirRedaccionIAPip(id) {
+  const p = getPipeline().find(x => x.id === id);
+  if (!p) return;
+  abrirRedaccionIA({
+    nombre:   p.nombre  || '',
+    tel:      p.telefono || '',
+    producto: p.producto || '',
+    plan:     p.plan    || '',
+    empresa:  p.empresa || '',
+    notas:    p.notas   || '',
+    tipo:     'pipeline',
+  });
+}
+
+function abrirRedaccionIAVenta(id) {
+  const v = (getState().ventas || []).find(x => x.id === id);
+  if (!v) return;
+  const pagos = getPagos();
+  const est   = getCarteraEstado(v, pagos);
+  abrirRedaccionIA({
+    nombre:        v.tomadorNombre || v.nombre || '',
+    tel:           v.tomadorTel   || v.telefono || '',
+    producto:      v.producto     || '',
+    plan:          v.plan         || '',
+    prima:         v.primaTotal   || v.prima   || 0,
+    periodicidad:  v.periodicidad || '',
+    empresa:       v.empresa      || '',
+    estadoCartera: est ? est.label : '',
+    diasVence:     est ? est.diasVence : null,
+    fechaExp:      v.fechaExp     || '',
+    notas:         v.notas        || '',
+    tipo:          'seguimiento',
+  });
+}
+
+function abrirRedaccionIA(ctx) {
+  // ctx = { nombre, tel, producto, estadoCartera, diasVence, fechaExp, notas, tipo }
+  _redaccionCtx = ctx || {};
+
+  const info = document.getElementById('redaccionContextoInfo');
+  if (info) {
+    const partes = [];
+    if (ctx.nombre)        partes.push(`👤 ${ctx.nombre}`);
+    if (ctx.producto)      partes.push(`📋 ${ctx.producto}`);
+    if (ctx.estadoCartera) partes.push(`💳 ${ctx.estadoCartera}`);
+    if (ctx.diasVence != null) partes.push(`📅 Vence en ${ctx.diasVence} días`);
+    if (ctx.empresa)       partes.push(`🏢 ${ctx.empresa}`);
+    info.textContent = partes.join('  ·  ') || 'Sin contexto adicional';
+  }
+
+  // Preseleccionar tono según contexto
+  const tonoEl = document.getElementById('redaccionTono');
+  if (tonoEl) {
+    if (ctx.tipo === 'cumpleanos')        tonoEl.value = 'felicitacion';
+    else if (ctx.tipo === 'mora')         tonoEl.value = 'urgente';
+    else if (ctx.tipo === 'pipeline')     tonoEl.value = 'seguimiento';
+    else if (ctx.tipo === 'bienvenida')   tonoEl.value = 'bienvenida';
+    else                                  tonoEl.value = 'profesional';
+  }
+
+  const extra = document.getElementById('redaccionExtra');
+  if (extra) extra.value = '';
+
+  const resultado = document.getElementById('redaccionResultado');
+  if (resultado) resultado.style.display = 'none';
+
+  const loading = document.getElementById('redaccionLoadingIA');
+  if (loading) loading.style.display = 'none';
+
+  openModal('modalRedaccionIA');
+}
+
+async function generarMensajeIA() {
+  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
+  if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+    showToast('⚠️ Configura tu API key de Claude en el Agente IA');
+    return;
+  }
+
+  const tono  = document.getElementById('redaccionTono')?.value || 'profesional';
+  const extra = (document.getElementById('redaccionExtra')?.value || '').trim();
+  const ctx   = _redaccionCtx;
+
+  const tonoDesc = {
+    profesional:  'profesional, cordial y respetuoso',
+    cercano:      'cercano, amigable y cálido, tutéalo',
+    urgente:      'urgente pero respetuoso, sin ser agresivo',
+    seguimiento:  'suave, recordatorio amable sin presionar',
+    felicitacion: 'alegre, cálido, de felicitación por su cumpleaños',
+    bienvenida:   'cálido de bienvenida como nuevo cliente SURA',
+  }[tono] || 'profesional';
+
+  const contexto = [
+    ctx.nombre        ? `Cliente: ${ctx.nombre}` : '',
+    ctx.producto      ? `Producto: ${ctx.producto}` : '',
+    ctx.plan          ? `Plan: ${ctx.plan}` : '',
+    ctx.empresa       ? `Empresa: ${ctx.empresa}` : '',
+    ctx.estadoCartera ? `Estado cartera: ${ctx.estadoCartera}` : '',
+    ctx.diasVence != null ? `Días para vencer: ${ctx.diasVence}` : '',
+    ctx.fechaExp      ? `Fecha vencimiento: ${ctx.fechaExp}` : '',
+    ctx.prima         ? `Prima: $${ctx.prima.toLocaleString('es-CO')}` : '',
+    ctx.periodicidad  ? `Periodicidad: ${ctx.periodicidad}` : '',
+    ctx.notas         ? `Notas: ${ctx.notas}` : '',
+    extra             ? `Instrucción adicional: ${extra}` : '',
+  ].filter(Boolean).join('\n');
+
+  // UI: mostrar loading
+  const loadEl = document.getElementById('redaccionLoadingIA');
+  const resEl  = document.getElementById('redaccionResultado');
+  const btnEl  = document.getElementById('btnGenerarIA');
+  if (loadEl) loadEl.style.display = 'block';
+  if (resEl)  resEl.style.display  = 'none';
+  if (btnEl)  btnEl.disabled = true;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 400,
+        system: `Eres un asistente de un asesor de seguros SURA en Colombia. 
+Redactas mensajes de WhatsApp breves, naturales y efectivos para que el asesor envíe a sus clientes.
+Reglas:
+- Máximo 5 oraciones. Mensaje corto para WhatsApp.
+- Siempre en español colombiano, sin tecnicismos.
+- No uses asteriscos ni markdown. Solo texto plano.
+- Firma siempre como "Fran - Asesor SURA" al final.
+- Tono: ${tonoDesc}.
+- No inventes datos que no están en el contexto.
+- Si es cumpleaños, no menciones seguros directamente.`,
+        messages: [{
+          role: 'user',
+          content: `Redacta un mensaje de WhatsApp con el siguiente contexto:
+${contexto || 'Mensaje general de seguimiento a cliente SURA.'}`
+        }]
+      })
+    });
+
+    const data = await resp.json();
+    const texto = data?.content?.[0]?.text || '';
+
+    if (texto) {
+      const textoEl = document.getElementById('redaccionTexto');
+      if (textoEl) textoEl.value = texto;
+      if (resEl) resEl.style.display = 'flex';
+    } else {
+      showToast('❌ No se pudo generar el mensaje. Intenta de nuevo.');
+    }
+  } catch(e) {
+    console.error('[IA Redacción]', e);
+    showToast('❌ Error al conectar con Claude IA');
+  } finally {
+    if (loadEl) loadEl.style.display = 'none';
+    if (btnEl)  btnEl.disabled = false;
+  }
+}
+
+function copiarMensajeIA() {
+  const texto = document.getElementById('redaccionTexto')?.value || '';
+  if (!texto) return;
+  navigator.clipboard.writeText(texto).then(() => showToast('📋 Mensaje copiado'));
+}
+
+function abrirWhatsAppIA() {
+  const texto = document.getElementById('redaccionTexto')?.value || '';
+  const tel   = (_redaccionCtx.tel || '').replace(/\D/g, '');
+  if (!texto) { showToast('⚠️ Genera el mensaje primero'); return; }
+  const url = tel
+    ? `https://wa.me/57${tel}?text=${encodeURIComponent(texto)}`
+    : `https://wa.me/?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
+}
+
+function abrirCapturaWA() {
+  const hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('waName').value = '';
+  document.getElementById('waTel').value  = '';
+  document.getElementById('waNota').value = '';
+  document.getElementById('waFecha').value = hoy;
+  document.getElementById('waProd').value  = 'SPTI';
+  openModal('modalCapturaWA');
+  setTimeout(() => document.getElementById('waName').focus(), 120);
+}
+
+function guardarCapturaWA() {
+  const nombre = (document.getElementById('waName')?.value || '').trim();
+  const tel    = (document.getElementById('waTel')?.value  || '').trim();
+  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  if (!tel)    { showToast('⚠️ El teléfono es obligatorio'); return; }
+
+  const lista = getPipeline();
+  const ahora = new Date().toISOString();
+  const id    = 'pip_wa_' + Date.now().toString(36) + Math.random().toString(36).substr(2,5);
+
+  lista.push({
+    id,
+    nombre,
+    telefono:    tel,
+    producto:    document.getElementById('waProd')?.value  || 'SPTI',
+    proxContacto:document.getElementById('waFecha')?.value || '',
+    notas:       (document.getElementById('waNota')?.value || '').trim(),
+    estado:      '0',
+    origen:      'WHATSAPP',
+    paraQuien:   'PROPIO',
+    beneficiarios: 1,
+    cedula:      '',
+    correo:      '',
+    empresa:     '',
+    referidoPor: '',
+    refCotizacion:'',
+    actividades: [{
+      fecha: ahora,
+      texto: '📱 Capturado desde WhatsApp',
+      tipo: 'nota',
+    }],
+    fechaCreacion: ahora,
+    updatedAt:     ahora,
+  });
+
+  setPipeline(lista);
+  closeModal('modalCapturaWA');
+  showToast('✅ Prospecto guardado en Pipeline · origen: WhatsApp');
+  if (currentPage === 'pipeline') renderPipeline();
+  if (currentPage === 'inicio')   renderInicio();
+}
+
 function abrirRegistroRapido() {
   // Fecha por defecto = hoy
   const hoy = new Date().toISOString().split('T')[0];
@@ -35605,6 +35931,52 @@ bootApp();
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modalEnlaceEmpresa')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL REDACCIÓN IA ══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalRedaccionIA" onclick="if(event.target===this)closeModal('modalRedaccionIA')">
+  <div class="modal" style="width:540px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-header" style="position:sticky;top:0;background:var(--surface);z-index:2;">
+      <div class="modal-title">✍️ Redactar mensaje con IA</div>
+      <button class="modal-close" onclick="closeModal('modalRedaccionIA')">×</button>
+    </div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+      <div id="redaccionContextoInfo" style="font-size:12px;color:var(--text-muted);background:var(--surface2);border-radius:8px;padding:10px 13px;border-left:3px solid var(--sura-blue);"></div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Tono del mensaje</label>
+        <select class="form-control" id="redaccionTono">
+          <option value="profesional">Profesional y cordial</option>
+          <option value="cercano">Cercano y amigable</option>
+          <option value="urgente">Urgente (cartera vencida)</option>
+          <option value="seguimiento">Seguimiento suave</option>
+          <option value="felicitacion">Felicitación / cumpleaños</option>
+          <option value="bienvenida">Bienvenida nuevo cliente</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Instrucción adicional (opcional)</label>
+        <input type="text" class="form-control" id="redaccionExtra" placeholder="Ej: menciona el valor de la prima, invítalo a agendar...">
+      </div>
+      <button class="btn btn-primary" onclick="generarMensajeIA()" id="btnGenerarIA" style="width:100%;">
+        ✨ Generar mensaje
+      </button>
+      <div id="redaccionLoadingIA" style="display:none;text-align:center;padding:16px;color:var(--text-muted);font-size:13px;">
+        <div style="margin-bottom:8px;">✨ Redactando mensaje...</div>
+        <div style="width:100%;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;">
+          <div style="width:60%;height:100%;background:var(--sura-blue);border-radius:2px;animation:slideLoad 1.2s ease-in-out infinite;"></div>
+        </div>
+      </div>
+      <div id="redaccionResultado" style="display:none;flex-direction:column;gap:10px;">
+        <label class="form-label">Mensaje generado</label>
+        <textarea id="redaccionTexto" class="form-control" rows="8" style="font-size:13px;line-height:1.6;resize:vertical;"></textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="copiarMensajeIA()">📋 Copiar</button>
+          <button class="btn btn-secondary btn-sm" onclick="abrirWhatsAppIA()">📱 Abrir WhatsApp</button>
+          <button class="btn btn-secondary btn-sm" onclick="generarMensajeIA()">🔄 Regenerar</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
