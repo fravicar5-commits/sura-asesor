@@ -1315,7 +1315,7 @@
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, setBdSinShared: fbSetBdSinShared, setIpsDbShared: fbSetIpsDbShared, patchDoc: fbPatchDoc, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase, messaging: _fcmMessaging, onMessage, getToken };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, setBdSinShared: fbSetBdSinShared, setIpsDbShared: fbSetIpsDbShared, patchDoc: fbPatchDoc, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase, messaging: _fcmMessaging, onMessage, getToken, setDoc };
   // Exponer auth para espera de sesión activa antes de leer Firestore
   window.__fbAuth__ = auth;
   window.__fbOnAuthStateChanged__ = onAuthStateChanged;
@@ -16555,10 +16555,10 @@ async function initNotificaciones() {
     if (token && _uid) {
       try {
         // Guardar en colección raíz fcmToken/{UID} — cubierta por Security Rules
-        await setDoc(doc(db, 'fcmToken', _uid),
+        await window.FB.setDoc(window.FB.doc(window.FB.db, 'fcmToken', _uid),
           { token, updatedAt: new Date().toISOString(), ua: navigator.userAgent.slice(0,100) },
           { merge: true });
-      } catch(_) {}
+      } catch(e) { console.warn('[FCM] setDoc error:', e.message); }
     }
     if (window.FB?.onMessage) window.FB.onMessage(_msg, payload => {
       const { title, body } = payload.notification || {};
@@ -20827,6 +20827,178 @@ document.addEventListener('click', function(e) {
 // =============================================
 // BUSCADOR GLOBAL
 // =============================================
+// ══════════════════════════════════════════════════════════════════════════
+// PERFIL 360° DEL CLIENTE
+// ══════════════════════════════════════════════════════════════════════════
+function abrirPerfil360(docCliente, ventaIdRef) {
+  // Reunir todos los datos del cliente desde todas las fuentes
+  const s       = getState();
+  const pagos   = getPagos();
+  const pipeline = getPipeline();
+  const contactos = getContactos();
+
+  // Identificar cliente por doc o por id de venta de referencia
+  const ventaRef = s.ventas.find(v => v.id === ventaIdRef);
+  const docKey   = docCliente || ventaRef?.doc || ventaRef?.tomadorDoc || '';
+  const nombreKey = tc(ventaRef?.tomadorNombre || ventaRef?.nombre || '');
+
+  // Todas sus pólizas (coincidencia por doc o tomadorDoc)
+  const polizas = s.ventas.filter(v =>
+    (v.doc && v.doc === docKey) ||
+    (v.tomadorDoc && v.tomadorDoc === docKey) ||
+    (v.aseguradoDoc && v.aseguradoDoc === docKey)
+  ).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+
+  // Si no hay doc, al menos mostrar la venta de referencia
+  const polizasShow = polizas.length ? polizas : (ventaRef ? [ventaRef] : []);
+
+  // Datos de contacto (primera póliza con datos o contacto guardado)
+  const pRef   = polizasShow[0] || {};
+  const tel    = pRef.tomadorTel || pRef.telefono || '';
+  const correo = pRef.tomadorCorreo || pRef.correo || '';
+  const ciudad = pRef.ciudad || '';
+  const nombre = tc(pRef.tomadorNombre || pRef.nombre || nombreKey || '—');
+
+  // Contacto en BD de contactos
+  const contactoBD = contactos.find(c =>
+    (docKey && c.cedula === docKey) ||
+    (nombre && bdNormalizar(c.nombre||'').startsWith(bdNormalizar(nombre).slice(0,8)))
+  );
+
+  // Prospectos del pipeline asociados
+  const prospectos = pipeline.filter(p =>
+    (docKey && (p.cedula===docKey || p.doc===docKey)) ||
+    (nombre && bdNormalizar(p.nombre||'').startsWith(bdNormalizar(nombre).slice(0,8)))
+  );
+
+  // Score: valor total de primas activas
+  const primaTotal = polizasShow.reduce((s,v) => s + (v.primaTotal||v.prima||0), 0);
+  const polizasActivas = polizasShow.filter(v => {
+    const est = getCarteraEstado(v, pagos);
+    return est && !['CANCELADO','BAJA'].includes(est.estado);
+  }).length;
+  const antiguedadAnios = polizasShow.length
+    ? Math.floor((Date.now() - new Date((polizasShow[polizasShow.length-1].fecha||'2026-01-01')+'T12:00:00')) / (365.25*86400000))
+    : 0;
+
+  // Score simple (0-100)
+  const score = Math.min(100, Math.round(
+    (polizasActivas * 20) +
+    (Math.min(primaTotal/50000,30)) +
+    (Math.min(antiguedadAnios*10,30))
+  ));
+  const scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
+  const scoreLabel = score >= 70 ? 'Cliente Premium' : score >= 40 ? 'Cliente Activo' : 'Cliente Nuevo';
+
+  // ── HTML del modal ──────────────────────────────────────────────────────
+  const chip = p => {
+    const cols = { PBS:'rgba(37,88,240,0.12)','PBS_texto':'var(--sura-blue)', SPTI:'rgba(6,182,212,0.12)', SPTI_texto:'var(--teal)', SPD:'rgba(168,85,247,0.12)', SPD_texto:'var(--purple)', PSM:'rgba(6,182,212,0.12)', PSM_texto:'var(--teal)', PAC60:'rgba(34,197,94,0.12)', PAC60_texto:'var(--green)' };
+    const bg = cols[p] || 'rgba(100,116,139,0.1)'; const col = cols[p+'_texto'] || 'var(--text-muted)';
+    return `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${bg};color:${col};font-weight:600;">${p}</span>`;
+  };
+
+  const polizasHtml = polizasShow.map(v => {
+    const est = getCarteraEstado(v, pagos);
+    const pagosList = (pagos[v.id] || []);
+    const ultimoPago = pagosList.length ? pagosList[pagosList.length-1] : null;
+    const estLabel = est ? est.label : '';
+    const prima = v.primaTotal || v.prima || 0;
+    return `<div style="padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          ${chip(v.producto)}
+          <span style="font-size:12px;font-weight:600;">${v.plan||v.producto}</span>
+          ${v.poliza?`<span style="font-size:11px;color:var(--text-muted);">· Pól. ${v.poliza}</span>`:''}
+        </div>
+        <span style="font-size:11.5px;">${estLabel}</span>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted);">
+        <span>📅 ${v.fecha||'—'}</span>
+        ${prima?`<span style="color:var(--sura-lime);font-weight:600;">${fmt(prima)}</span>`:''}
+        ${v.periodicidad?`<span>${v.periodicidad}</span>`:''}
+        ${ultimoPago?`<span>Último pago: ${ultimoPago.fecha||''}</span>`:''}
+        ${v.numAsegurados>1?`<span>👥 ${v.numAsegurados} asegurados</span>`:''}
+      </div>
+      ${v.notas?`<div style="margin-top:4px;font-size:11px;color:var(--text-dim);font-style:italic;">"${v.notas}"</div>`:''}
+    </div>`;
+  }).join('');
+
+  const prospHtml = prospectos.length ? prospectos.map(p => {
+    const estadoLabels = {'0':'Nuevo','1':'Contactado','2':'En seguimiento','3':'Propuesta enviada','4':'Ganado','5':'Perdido'};
+    return `<div style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);margin-bottom:6px;font-size:12px;">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="font-weight:600;">${p.producto||'—'} · ${p.plan||''}</span>
+        <span style="color:var(--text-muted);">${estadoLabels[String(p.estado||'0')]||'—'}</span>
+      </div>
+      ${p.proxContacto?`<div style="color:var(--text-muted);font-size:11px;">📅 Próximo contacto: ${p.proxContacto}</div>`:''}
+      ${p.notas?`<div style="color:var(--text-dim);font-size:11px;font-style:italic;">"${p.notas}"</div>`:''}
+    </div>`;
+  }).join('') : '<div style="color:var(--text-muted);font-size:12px;padding:8px 0;">Sin prospectos en pipeline</div>';
+
+  const body = `
+    <!-- Cabecera cliente -->
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:18px;font-weight:800;margin-bottom:4px;">${nombre}</div>
+        <div style="font-size:12.5px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;">
+          ${docKey?`<span>🪪 ${docKey}</span>`:''}
+          ${tel?`<span>📱 ${tel}</span>`:''}
+          ${correo?`<span>📧 ${correo}</span>`:''}
+          ${ciudad?`<span>📍 ${ciudad}</span>`:''}
+        </div>
+        ${contactoBD?.celular && contactoBD.celular !== tel ? `<div style="font-size:11.5px;color:var(--text-muted);margin-top:3px;">📱 BD: ${contactoBD.celular}</div>` : ''}
+      </div>
+      <!-- Score -->
+      <div style="text-align:center;min-width:80px;">
+        <div style="font-size:28px;font-weight:800;color:${scoreColor};line-height:1;">${score}</div>
+        <div style="font-size:10.5px;color:${scoreColor};font-weight:600;">${scoreLabel}</div>
+      </div>
+    </div>
+
+    <!-- KPIs rápidos -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);">
+      <div style="background:var(--surface);padding:12px;text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:var(--sura-blue);">${polizasShow.length}</div>
+        <div style="font-size:11px;color:var(--text-muted);">Pólizas totales</div>
+      </div>
+      <div style="background:var(--surface);padding:12px;text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:var(--green);">${polizasActivas}</div>
+        <div style="font-size:11px;color:var(--text-muted);">Activas</div>
+      </div>
+      <div style="background:var(--surface);padding:12px;text-align:center;">
+        <div style="font-size:16px;font-weight:800;color:var(--sura-lime);">${primaTotal?fmt(primaTotal):'—'}</div>
+        <div style="font-size:11px;color:var(--text-muted);">Prima total</div>
+      </div>
+    </div>
+
+    <!-- Sección pólizas -->
+    <div style="padding:14px 20px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        <span>📋 Pólizas</span>
+        <span style="font-size:11px;color:var(--text-muted);">${antiguedadAnios > 0 ? antiguedadAnios + ' año(s) como cliente' : 'Cliente nuevo'}</span>
+      </div>
+      ${polizasHtml}
+    </div>
+
+    <!-- Sección pipeline -->
+    <div style="padding:0 20px 14px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;">🎯 Pipeline</div>
+      ${prospHtml}
+    </div>
+
+    <!-- Acciones rápidas -->
+    <div style="padding:12px 20px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;background:var(--surface2);">
+      ${tel?`<button class="btn btn-secondary btn-sm" onclick="window.open('https://wa.me/57${tel.replace(/\D/g,'')}','_blank')">📱 WhatsApp</button>`:''}
+      ${correo?`<button class="btn btn-secondary btn-sm" onclick="window.location='mailto:${correo}'">📧 Email</button>`:''}
+      ${polizasShow[0]?`<button class="btn btn-secondary btn-sm" onclick="closeModal('modal360');editarVenta('${polizasShow[0].id}')">✏️ Editar póliza</button>`:''}
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('modal360')">Cerrar</button>
+    </div>`;
+
+  document.getElementById('modal360Titulo').textContent = '👤 ' + nombre;
+  document.getElementById('modal360Body').innerHTML = body;
+  openModal('modal360');
+}
+
 function renderBuscador() {
   const q = document.getElementById('buscadorInput').value.trim().toLowerCase();
   const el = document.getElementById('buscadorResultados');
@@ -20910,7 +21082,8 @@ function renderBuscador() {
         ${v.primaTotal?`<span style="color:var(--sura-lime);">Prima: ${fmt(v.primaTotal)}</span>`:''}
       </div>
       ${(asesorBadge||cotBadge||sinBadge)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">${cotBadge}${sinBadge}${asesorBadge}</div>`:''}
-      <div style="margin-top:8px;display:flex;gap:8px;">
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="abrirPerfil360('${v.doc||v.tomadorDoc||''}','${v.id}')">👤 Perfil 360°</button>
         <button class="btn btn-secondary btn-sm" onclick="editarVenta('${v.id}')">✏️ Editar</button>
         ${tel?`<button class="btn btn-secondary btn-sm" onclick="window.open('https://wa.me/57${tel.replace(/\D/g,'')}','_blank')">📱 WhatsApp</button>`:''}
         ${correo?`<button class="btn btn-secondary btn-sm" onclick="window.location='mailto:${correo}'">📧 Email</button>`:''}
@@ -35171,6 +35344,17 @@ bootApp();
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modalEnlaceEmpresa')">Cerrar</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL PERFIL 360° ════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal360" onclick="if(event.target===this)closeModal('modal360')">
+  <div class="modal" style="width:660px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-header" style="position:sticky;top:0;background:var(--surface);z-index:2;border-bottom:1px solid var(--border);">
+      <div class="modal-title" id="modal360Titulo">👤 Perfil del Cliente</div>
+      <button class="modal-close" onclick="closeModal('modal360')">×</button>
+    </div>
+    <div id="modal360Body" style="padding:0;"></div>
   </div>
 </div>
 
