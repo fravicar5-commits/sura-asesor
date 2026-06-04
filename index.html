@@ -28958,7 +28958,10 @@ async function ipsBuscar() {
               <div style="font-size:11.5px;color:var(--text-muted);">${subtitulo}</div>
             </div>
           </div>
-          <span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:${accentColor}18;color:${accentColor};font-weight:700;">${items.length} sede${items.length>1?'s':''}</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:${accentColor}18;color:${accentColor};font-weight:700;">${items.length} sede${items.length>1?'s':''}</span>
+            <button onclick="ipsExportarPDF('${tipo}')" style="background:${accentColor}18;border:1px solid ${accentColor}44;color:${accentColor};border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:600;">📄 Exportar</button>
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           ${top.map((x,i) => ipsTarjeta(x, i, tipo, accentColor, true)).join('')}
@@ -28990,11 +28993,12 @@ async function ipsBuscar() {
                 <div style="font-size:11.5px;color:var(--text-muted);">Consulta externa · Laboratorio · Terapias</div>
               </div>
             </div>
-            <div style="display:flex;gap:6px;align-items:center;">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
               <span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(6,182,212,0.12);color:var(--teal);font-weight:700;">${basicasOrdenadas.length} sedes</span>
               ${usandoFallback
                 ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,0.15);color:var(--amber);font-weight:700;">⚠️ Referencia</span>`
                 : `<span style="font-size:10.5px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;">✅ BD actual</span>`}
+              <button onclick="ipsExportarPDF('basica')" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.3);color:var(--teal);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-weight:600;">📄 Exportar</button>
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;">
@@ -29074,6 +29078,17 @@ async function ipsBuscar() {
     </div><!-- fin grid -->
   `;
 
+  // Guardar datos de la consulta para exportación PDF
+  window._ipsUltimaConsulta = {
+    municipio: municipioLabel,
+    fuente: fuenteLabel,
+    fecha: new Date().toLocaleDateString('es-CO', {day:'2-digit',month:'long',year:'numeric'}),
+    basica: basicasOrdenadas,
+    urgencia: urgenciasOrdenadas,
+    urgodont: urgOdontOrdenadas,
+    ambulancia: ambulanciasOrdenadas,
+  };
+
   // Aplicar layout responsive si pantalla estrecha
   ipsAjustarLayout();
 
@@ -29082,6 +29097,160 @@ async function ipsBuscar() {
 }
 
 // ── Ajuste responsive del grid ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════
+// EXPORTAR PDF RED IPS
+// ══════════════════════════════════════════════════════════════════════════
+async function ipsExportarPDF(tipo) {
+  const d = window._ipsUltimaConsulta;
+  if (!d) { showToast('⚠️ Realiza una búsqueda primero'); return; }
+
+  showToast('⏳ Generando PDF...');
+
+  // Cargar jsPDF dinámicamente si no está disponible
+  if (typeof window.jspdf === 'undefined') {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210; const margin = 14; const colW = W - margin * 2;
+  let y = 0;
+
+  // Config por tipo
+  const cfg = {
+    basica:     { label: 'IPS Básicas',              icon: '🏥', color: [6,182,212],  items: d.basica },
+    urgencia:   { label: 'Urgencias Médicas',         icon: '🚨', color: [220,38,38],  items: d.urgencia },
+    urgodont:   { label: 'Urgencias Odontológicas',   icon: '🦷', color: [217,119,6],  items: d.urgodont },
+    ambulancia: { label: 'Ambulancias',               icon: '🚑', color: [124,58,237], items: d.ambulancia },
+  };
+  const c = cfg[tipo] || cfg.basica;
+  const [r,g,b] = c.color;
+
+  // ── Página: header ────────────────────────────────────────────────────────
+  // Franja azul SURA
+  doc.setFillColor(26, 76, 232);
+  doc.rect(0, 0, W, 28, 'F');
+
+  // Título
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Red IPS SURA', margin, 12);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${c.label} · ${d.municipio}`, margin, 20);
+
+  // Fecha y fuente (derecha)
+  doc.setFontSize(8.5);
+  doc.text(`Generado: ${d.fecha}`, W - margin, 12, { align: 'right' });
+  doc.text(d.fuente, W - margin, 20, { align: 'right' });
+
+  y = 36;
+
+  // Línea separadora color del tipo
+  doc.setDrawColor(r, g, b);
+  doc.setLineWidth(0.8);
+  doc.line(margin, y - 2, W - margin, y - 2);
+
+  // Total IPS
+  doc.setFontSize(9.5);
+  doc.setTextColor(r, g, b);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${c.items.length} sede${c.items.length !== 1 ? 's' : ''} encontradas`, margin, y + 4);
+  y += 12;
+
+  // ── Tarjetas IPS ─────────────────────────────────────────────────────────
+  c.items.forEach((ips, idx) => {
+    const lineaNombre = `${idx + 1}. ${ips.nombre || '—'}`;
+    const lineaDir    = `   📍 ${ips.direccion || ips.dir || '—'}`;
+    const lineaTel    = `   📞 ${ips.telefonos || ips.tel || '—'}`;
+    const lineaDist   = ips.distKm !== undefined
+      ? `   📏 ${ips.distKm < 1 ? (ips.distKm * 1000).toFixed(0) + ' m' : ips.distKm.toFixed(1) + ' km'}`
+      : '';
+    const lineaMuni   = ips.municipio ? `   🏙️ ${ips.municipio}` : '';
+
+    // Altura estimada de la tarjeta
+    const lines = [lineaNombre, lineaDir, lineaTel, lineaDist, lineaMuni].filter(Boolean);
+    const cardH = lines.length * 5.5 + 6;
+
+    // Nueva página si no cabe
+    if (y + cardH > 275) {
+      doc.addPage();
+      y = 16;
+      // Mini-header en páginas siguientes
+      doc.setFillColor(26, 76, 232);
+      doc.rect(0, 0, W, 10, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Red IPS SURA · ${c.label} · ${d.municipio}`, margin, 7);
+      y = 16;
+    }
+
+    // Fondo tarjeta (primera = color acento suave, resto gris)
+    if (idx === 0) {
+      doc.setFillColor(r, g, b, 0.08);
+      doc.setFillColor(...[r, g, b].map(x => Math.min(255, Math.round(x * 0.15 + 240))));
+    } else {
+      doc.setFillColor(247, 248, 250);
+    }
+    doc.roundedRect(margin, y, colW, cardH, 2, 2, 'F');
+
+    // Borde izquierdo color tipo
+    doc.setFillColor(r, g, b);
+    doc.rect(margin, y, 2, cardH, 'F');
+
+    // Badge "MÁS CERCANA" en la primera
+    if (idx === 0 && c.items[0].distKm !== undefined) {
+      doc.setFillColor(r, g, b);
+      doc.roundedRect(W - margin - 24, y + 2, 22, 5, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text('MÁS CERCANA', W - margin - 13, y + 5.8, { align: 'center' });
+    }
+
+    // Nombre
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text(lineaNombre, margin + 4, y + 6);
+
+    // Dirección, teléfono, distancia
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(80, 80, 80);
+    let ly = y + 11;
+    [lineaDir, lineaTel, lineaDist, lineaMuni].filter(Boolean).forEach(line => {
+      doc.text(line, margin + 4, ly);
+      ly += 5.5;
+    });
+
+    y += cardH + 4;
+  });
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(7.5);
+    doc.setTextColor(160, 160, 160);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Información generada por SURA Asesor · Red SURA PBS · Verificar vigencia en epssura.com', margin, 291);
+    doc.text(`Pág. ${p} / ${totalPages}`, W - margin, 291, { align: 'right' });
+  }
+
+  // Descargar
+  const nombreArchivo = `Red_IPS_SURA_${c.label.replace(/\s+/g,'_')}_${d.municipio.replace(/\s+/g,'_')}.pdf`;
+  doc.save(nombreArchivo);
+  showToast(`✅ PDF descargado: ${nombreArchivo}`);
+}
+
 function ipsAjustarLayout() {
   const layout = document.getElementById('ips_layout');
   if (!layout) return;
