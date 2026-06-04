@@ -29102,9 +29102,9 @@ async function ipsBuscar() {
 // ══════════════════════════════════════════════════════════════════════════
 async function ipsExportarPDF(tipo) {
   const d = window._ipsUltimaConsulta;
-  if (!d) { showToast('⚠️ Realiza una búsqueda primero'); return; }
+  if (!d) { showToast('Realiza una busqueda primero'); return; }
 
-  showToast('⏳ Generando PDF...');
+  showToast('Generando PDF...');
 
   // Cargar jsPDF dinámicamente si no está disponible
   if (typeof window.jspdf === 'undefined') {
@@ -29121,134 +29121,215 @@ async function ipsExportarPDF(tipo) {
   const W = 210; const margin = 14; const colW = W - margin * 2;
   let y = 0;
 
-  // Config por tipo
+  // Config por tipo — sin emojis, solo texto limpio
   const cfg = {
-    basica:     { label: 'IPS Básicas',              icon: '🏥', color: [6,182,212],  items: d.basica },
-    urgencia:   { label: 'Urgencias Médicas',         icon: '🚨', color: [220,38,38],  items: d.urgencia },
-    urgodont:   { label: 'Urgencias Odontológicas',   icon: '🦷', color: [217,119,6],  items: d.urgodont },
-    ambulancia: { label: 'Ambulancias',               icon: '🚑', color: [124,58,237], items: d.ambulancia },
+    basica:     { label: 'IPS Basicas',              tag: 'Consulta externa · Laboratorio · Terapias', color: [6,182,212],   items: d.basica },
+    urgencia:   { label: 'Urgencias Medicas',         tag: 'Atencion 24h · Red hospitalaria SURA',      color: [220,38,38],   items: d.urgencia },
+    urgodont:   { label: 'Urgencias Odontologicas',   tag: 'Atencion odontologica de urgencia',          color: [217,119,6],   items: d.urgodont },
+    ambulancia: { label: 'Ambulancias',               tag: 'Traslado medicalizado SURA',                color: [124,58,237],  items: d.ambulancia },
   };
   const c = cfg[tipo] || cfg.basica;
   const [r,g,b] = c.color;
 
-  // ── Página: header ────────────────────────────────────────────────────────
-  // Franja azul SURA
+  // Helpers sin emojis
+  const stripEmoji = s => (s||'').replace(/[^\u0000-\u007e\u00c0-\u00ff]/g, '').trim();
+  const cleanText  = s => stripEmoji(String(s||'—')).replace(/\s+/g,' ').trim() || '—';
+
+  // ── HEADER ───────────────────────────────────────────────────────────────
+  // Franja azul SURA (gradiente simulado con dos rectángulos)
   doc.setFillColor(26, 76, 232);
-  doc.rect(0, 0, W, 28, 'F');
+  doc.rect(0, 0, W, 32, 'F');
+  doc.setFillColor(20, 60, 200);
+  doc.rect(0, 26, W, 6, 'F');
 
-  // Título
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
+  // Línea acento color tipo en borde inferior del header
+  doc.setFillColor(r, g, b);
+  doc.rect(0, 31, W, 2, 'F');
+
+  // Logo placeholder — cuadrado blanco con "SURA"
+  doc.setFillColor(255, 255, 255);
+  doc.roundedRect(margin, 6, 18, 18, 2, 2, 'F');
+  doc.setTextColor(26, 76, 232);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('Red IPS SURA', margin, 12);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${c.label} · ${d.municipio}`, margin, 20);
+  doc.text('SURA', margin + 9, 17, { align: 'center' });
 
-  // Fecha y fuente (derecha)
-  doc.setFontSize(8.5);
-  doc.text(`Generado: ${d.fecha}`, W - margin, 12, { align: 'right' });
-  doc.text(d.fuente, W - margin, 20, { align: 'right' });
-
-  y = 36;
-
-  // Línea separadora color del tipo
-  doc.setDrawColor(r, g, b);
-  doc.setLineWidth(0.8);
-  doc.line(margin, y - 2, W - margin, y - 2);
-
-  // Total IPS
+  // Títulos
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Red IPS SURA', margin + 22, 13);
   doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${c.label}  ·  ${cleanText(d.municipio)}`, margin + 22, 21);
+
+  // Fecha y fuente — derecha
+  doc.setFontSize(8);
+  doc.text(`Generado: ${d.fecha}`, W - margin, 12, { align: 'right' });
+  doc.text(cleanText(d.fuente), W - margin, 20, { align: 'right' });
+
+  y = 42;
+
+  // ── SUBTÍTULO DE SECCIÓN ─────────────────────────────────────────────────
+  // Caja con color del tipo
+  doc.setFillColor(r, g, b);
+  doc.roundedRect(margin, y, colW, 10, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(c.label.toUpperCase(), margin + 5, y + 7);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text(c.tag, W - margin - 2, y + 7, { align: 'right' });
+  y += 16;
+
+  // Contador
+  doc.setFontSize(9);
   doc.setTextColor(r, g, b);
   doc.setFont('helvetica', 'bold');
-  doc.text(`${c.items.length} sede${c.items.length !== 1 ? 's' : ''} encontradas`, margin, y + 4);
-  y += 12;
+  doc.text(`${c.items.length} sede${c.items.length !== 1 ? 's' : ''} encontradas  ·  ${cleanText(d.municipio)}`, margin, y);
+  y += 8;
 
-  // ── Tarjetas IPS ─────────────────────────────────────────────────────────
+  // ── TARJETAS IPS ─────────────────────────────────────────────────────────
   c.items.forEach((ips, idx) => {
-    const lineaNombre = `${idx + 1}. ${ips.nombre || '—'}`;
-    const lineaDir    = `   📍 ${ips.direccion || ips.dir || '—'}`;
-    const lineaTel    = `   📞 ${ips.telefonos || ips.tel || '—'}`;
-    const lineaDist   = ips.distKm !== undefined
-      ? `   📏 ${ips.distKm < 1 ? (ips.distKm * 1000).toFixed(0) + ' m' : ips.distKm.toFixed(1) + ' km'}`
+    const nombre = cleanText(ips.nombre);
+    const dir    = cleanText(ips.direccion || ips.dir);
+    const tel    = cleanText(ips.telefonos || ips.tel);
+    const dist   = ips.distKm !== undefined
+      ? (ips.distKm < 1 ? `${(ips.distKm*1000).toFixed(0)} m desde la direccion` : `${ips.distKm.toFixed(1)} km desde la direccion`)
       : '';
-    const lineaMuni   = ips.municipio ? `   🏙️ ${ips.municipio}` : '';
+    const muni   = ips.municipio ? cleanText(ips.municipio) : '';
 
-    // Altura estimada de la tarjeta
-    const lines = [lineaNombre, lineaDir, lineaTel, lineaDist, lineaMuni].filter(Boolean);
-    const cardH = lines.length * 5.5 + 6;
+    // Calcular líneas con wrap
+    const dirLines = doc.splitTextToSize(`Dir:  ${dir}`, colW - 12);
+    const telLine  = `Tel:  ${tel}`;
+    const extraLines = [dist ? `Dist: ${dist}` : '', muni ? `Mun:  ${muni}` : ''].filter(Boolean);
+    const totalLines = dirLines.length + 1 + extraLines.length;
+    const cardH = totalLines * 5.2 + 11;
 
     // Nueva página si no cabe
-    if (y + cardH > 275) {
+    if (y + cardH > 276) {
       doc.addPage();
-      y = 16;
-      // Mini-header en páginas siguientes
+      // Mini-header
       doc.setFillColor(26, 76, 232);
-      doc.rect(0, 0, W, 10, 'F');
+      doc.rect(0, 0, W, 9, 'F');
+      doc.setFillColor(r, g, b);
+      doc.rect(0, 8, W, 1.5, 'F');
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'bold');
-      doc.text(`Red IPS SURA · ${c.label} · ${d.municipio}`, margin, 7);
+      doc.text(`Red IPS SURA  ·  ${c.label}  ·  ${cleanText(d.municipio)}`, margin, 6.5);
       y = 16;
     }
 
-    // Fondo tarjeta (primera = color acento suave, resto gris)
-    if (idx === 0) {
-      doc.setFillColor(r, g, b, 0.08);
-      doc.setFillColor(...[r, g, b].map(x => Math.min(255, Math.round(x * 0.15 + 240))));
-    } else {
-      doc.setFillColor(247, 248, 250);
-    }
-    doc.roundedRect(margin, y, colW, cardH, 2, 2, 'F');
+    // Fondo tarjeta
+    const bgColor = idx === 0
+      ? [r,g,b].map(x => Math.min(255, Math.round(x * 0.12 + 238)))
+      : [248, 249, 251];
+    doc.setFillColor(...bgColor);
+    doc.roundedRect(margin, y, colW, cardH, 2.5, 2.5, 'F');
 
-    // Borde izquierdo color tipo
+    // Borde izquierdo
     doc.setFillColor(r, g, b);
-    doc.rect(margin, y, 2, cardH, 'F');
+    doc.rect(margin, y, 3, cardH, 'F');
 
-    // Badge "MÁS CERCANA" en la primera
-    if (idx === 0 && c.items[0].distKm !== undefined) {
+    // Número índice — círculo
+    doc.setFillColor(r, g, b);
+    doc.circle(margin + 9, y + 6.5, 4, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(idx + 1), margin + 9, y + 8.3, { align: 'center' });
+
+    // Badge "MAS CERCANA" en primera si hay distancia
+    if (idx === 0 && dist) {
       doc.setFillColor(r, g, b);
-      doc.roundedRect(W - margin - 24, y + 2, 22, 5, 1, 1, 'F');
+      doc.roundedRect(W - margin - 26, y + 2.5, 24, 5.5, 1.5, 1.5, 'F');
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(6.5);
+      doc.setFontSize(6);
       doc.setFont('helvetica', 'bold');
-      doc.text('MÁS CERCANA', W - margin - 13, y + 5.8, { align: 'center' });
+      doc.text('MAS CERCANA', W - margin - 14, y + 6.5, { align: 'center' });
     }
 
-    // Nombre
-    doc.setTextColor(30, 30, 30);
+    // Nombre IPS
+    doc.setTextColor(20, 20, 20);
     doc.setFontSize(9.5);
     doc.setFont('helvetica', 'bold');
-    doc.text(lineaNombre, margin + 4, y + 6);
+    const nombreX = margin + 16;
+    const nombreMaxW = dist && idx === 0 ? colW - 30 : colW - 16;
+    const nombreLines = doc.splitTextToSize(nombre, nombreMaxW);
+    doc.text(nombreLines[0], nombreX, y + 8);
 
-    // Dirección, teléfono, distancia
+    // Detalles
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8.2);
+    doc.setTextColor(70, 70, 70);
+    let ly = y + 14;
+
+    // Separador fino
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(0.3);
+    doc.line(margin + 5, ly - 2, margin + colW - 5, ly - 2);
+
+    // Dirección
+    doc.setTextColor(50, 50, 50);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Dir:', margin + 5, ly);
+    doc.setFont('helvetica', 'normal');
     doc.setTextColor(80, 80, 80);
-    let ly = y + 11;
-    [lineaDir, lineaTel, lineaDist, lineaMuni].filter(Boolean).forEach(line => {
-      doc.text(line, margin + 4, ly);
-      ly += 5.5;
+    dirLines.forEach((line, li) => {
+      doc.text(li === 0 ? line : `      ${line}`, margin + 15, ly + li * 5.2);
+    });
+    ly += dirLines.length * 5.2 + 1;
+
+    // Teléfono
+    doc.setTextColor(50, 50, 50);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tel:', margin + 5, ly);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(r, g, b);
+    doc.text(tel, margin + 15, ly);
+    ly += 5.5;
+
+    // Dist y municipio
+    doc.setTextColor(120, 120, 120);
+    doc.setFontSize(7.8);
+    extraLines.forEach(line => {
+      doc.text(line, margin + 5, ly);
+      ly += 5;
     });
 
-    y += cardH + 4;
+    y += cardH + 5;
   });
 
-  // ── Footer ────────────────────────────────────────────────────────────────
+  // ── NOTA INFORMATIVA ─────────────────────────────────────────────────────
+  if (y < 270) {
+    doc.setFillColor(245, 247, 252);
+    doc.roundedRect(margin, y, colW, 12, 2, 2, 'F');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 100, 130);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Informacion de referencia. Verifique vigencia en epssura.com o llamando al #888 desde celular.', margin + 4, y + 5);
+    doc.text('En urgencias el afiliado puede acudir a cualquier institucion de la red sin autorizacion previa.', margin + 4, y + 10);
+  }
+
+  // ── FOOTER ───────────────────────────────────────────────────────────────
   const totalPages = doc.internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
-    doc.setFontSize(7.5);
-    doc.setTextColor(160, 160, 160);
+    doc.setFillColor(240, 242, 248);
+    doc.rect(0, 285, W, 12, 'F');
+    doc.setFontSize(7);
+    doc.setTextColor(130, 130, 150);
     doc.setFont('helvetica', 'normal');
-    doc.text('Información generada por SURA Asesor · Red SURA PBS · Verificar vigencia en epssura.com', margin, 291);
-    doc.text(`Pág. ${p} / ${totalPages}`, W - margin, 291, { align: 'right' });
+    doc.text('SURA Asesor  ·  Red IPS EPS SURA  ·  epssura.com', margin, 291);
+    doc.text(`Pagina ${p} de ${totalPages}`, W - margin, 291, { align: 'right' });
   }
 
   // Descargar
-  const nombreArchivo = `Red_IPS_SURA_${c.label.replace(/\s+/g,'_')}_${d.municipio.replace(/\s+/g,'_')}.pdf`;
+  const nombreArchivo = `Red_IPS_SURA_${c.label.replace(/\s+/g,'_')}_${cleanText(d.municipio).replace(/\s+/g,'_')}.pdf`;
   doc.save(nombreArchivo);
-  showToast(`✅ PDF descargado: ${nombreArchivo}`);
+  showToast('PDF descargado correctamente');
 }
 
 function ipsAjustarLayout() {
