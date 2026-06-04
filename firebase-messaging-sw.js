@@ -1,6 +1,5 @@
 // firebase-messaging-sw.js
 // Debe estar en la RAÍZ del hosting (mismo nivel que index.html)
-
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
 
@@ -19,12 +18,12 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage(payload => {
   const { title, body, icon } = payload.notification || {};
   self.registration.showNotification(title || '🏥 SURA Asesor', {
-    body: body || '',
-    icon: icon || '/icon-192.png',
-    badge: '/icon-192.png',
-    tag: 'sura-renovacion',
-    renotify: true,
-    data: payload.data || {}
+    body:      body || '',
+    icon:      icon || '/sura-asesor/Seguros_SURA_Logo.svg',
+    badge:     '/sura-asesor/Seguros_SURA_Logo.svg',
+    tag:       'sura-renovacion',
+    renotify:  true,
+    data:      payload.data || {}
   });
 });
 
@@ -33,9 +32,11 @@ self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      const existing = list.find(c => c.url.includes('sura-asesor') || c.url.includes('localhost'));
+      const existing = list.find(c =>
+        c.url.includes('sura-asesor') || c.url.includes('localhost')
+      );
       if (existing) return existing.focus();
-      return clients.openWindow('/');
+      return clients.openWindow('/sura-asesor/');
     })
   );
 });
