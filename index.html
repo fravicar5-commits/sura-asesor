@@ -1315,7 +1315,7 @@
   }
 
   // ── Exponer funciones al scope global (reemplazan localStorage) ───────────
-  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, setBdSinShared: fbSetBdSinShared, setIpsDbShared: fbSetIpsDbShared, patchDoc: fbPatchDoc, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase, messaging: _fcmMessaging, onMessage };
+  window.FB = { get: fbGet, set: fbSet, setEstado: fbSetEstado, getEstado: fbGetEstado, getBdSin: fbGetBdSin, getIpsDb: fbGetIpsDb, setIpsDb: fbSetIpsDb, setBdSinShared: fbSetBdSinShared, setIpsDbShared: fbSetIpsDbShared, patchDoc: fbPatchDoc, db, UID, collection, getDocs, onSnapshot, query, where, orderBy, doc, _migrarDesdeFran: fbMigrarDesdeFran, _cargarDatos: cargarDatosFirebase, messaging: _fcmMessaging, onMessage, getToken };
   // Exponer auth para espera de sesión activa antes de leer Firestore
   window.__fbAuth__ = auth;
   window.__fbOnAuthStateChanged__ = onAuthStateChanged;
@@ -16550,7 +16550,7 @@ async function initNotificaciones() {
     if (Notification.permission !== 'granted') return;
     // Limpiar flag diario para que el check corra en esta sesión
     localStorage.removeItem(NOTIF_CHECK_KEY);
-    const token = await getToken(_msg, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    const token = await window.FB.getToken(_msg, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (token && UID) {
       try {
         // Guardar en colección raíz fcmToken/{UID} — cubierta por Security Rules
@@ -16625,7 +16625,7 @@ function _lanzarNotifRenovaciones() {
   }
   showNotifBanner(titulo, cuerpo);
   if (Notification.permission === 'granted') {
-    try { new Notification(titulo, { body: cuerpo, icon: '/icon-192.png', tag: 'sura-daily-renov' }); } catch(_) {}
+    try { new Notification(titulo, { body: cuerpo, icon: '/sura-asesor/Seguros_SURA_Logo.svg', tag: 'sura-daily-renov' }); } catch(_) {}
   }
   _actualizarBadgeRenovaciones(urgentes.length);
 
@@ -16980,7 +16980,7 @@ function _procesarLeadNuevo(lead) {
       try {
         new Notification('🎯 Nuevo lead' + empresa, {
           body: nombre + ' · ' + (lead.telefono || '') + ' · ' + (lead.interesLabel || ''),
-          icon: '/icon-192.png',
+          icon: '/sura-asesor/Seguros_SURA_Logo.svg',
           tag: 'lead-' + lead.id
         });
       } catch(_) {}
@@ -24170,7 +24170,7 @@ function iniciarSyncCotizacionesWeb() {
             try {
               new Notification('📋 Nueva cotización — Web', {
                 body: nombre + (plan ? ' · ' + plan : '') + (prima ? ' · ' + prima : ''),
-                icon: '/sura-asesor/icon-192.png',
+                icon: '/sura-asesor/Seguros_SURA_Logo.svg',
                 tag:  'cotweb-' + r.id
               });
             } catch(_) {}
@@ -24236,7 +24236,7 @@ function iniciarSyncPipelineWeb() {
             try {
               new Notification('💰 Nuevo prospecto — Cotizador Web', {
                 body: nombre + (plan ? ' · ' + plan : '') + (prima ? ' · ' + prima : ''),
-                icon: '/sura-asesor/icon-192.png',
+                icon: '/sura-asesor/Seguros_SURA_Logo.svg',
                 tag:  'pipweb-' + r.id
               });
             } catch(_) {}
