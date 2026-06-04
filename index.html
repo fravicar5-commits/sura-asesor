@@ -5765,7 +5765,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
         <div style="margin-bottom:20px;">
           <input type="text" class="form-control" id="buscadorInput"
             placeholder="🔍 Buscar por nombre, documento, empresa, NIT, correo, teléfono..."
-            oninput="renderBuscador()"
+            oninput="debounceBuscador()"
             style="font-size:15px;padding:14px 18px;">
         </div>
         <div id="buscadorStats" style="font-size:12px;color:var(--text-muted);margin-bottom:12px;"></div>
@@ -9829,7 +9829,7 @@ function refreshPage(page) {
   else if (page === 'simulador') renderSimulador();
   else if (page === 'semaforo') renderSemaforo();
   else if (page === 'simuladorpbs') renderSimPBS();
-  else if (page === 'buscador') { document.getElementById('buscadorInput').focus(); renderBuscador(); }
+  else if (page === 'buscador') { _bdSinCacheBus = null; document.getElementById('buscadorInput').focus(); renderBuscador(); }
   else if (page === 'backup') renderBackup();
   else if (page === 'cartera') renderCartera();
   else if (page === 'cobertura') renderCobertura();
@@ -20999,6 +20999,20 @@ function abrirPerfil360(docCliente, ventaIdRef) {
   openModal('modal360');
 }
 
+// Debounce para el buscador — evita recalcular en cada tecla
+let _busTimer = null;
+function debounceBuscador() {
+  clearTimeout(_busTimer);
+  _busTimer = setTimeout(renderBuscador, 180);
+}
+
+// Cache de BD siniestralidad para el buscador — se invalida solo al cambiar de página
+let _bdSinCacheBus = null;
+function _getBdSinBus() {
+  if (!_bdSinCacheBus) _bdSinCacheBus = getBDSin ? getBDSin() : { registros: [] };
+  return _bdSinCacheBus;
+}
+
 function renderBuscador() {
   const q = document.getElementById('buscadorInput').value.trim().toLowerCase();
   const el = document.getElementById('buscadorResultados');
@@ -21026,7 +21040,7 @@ function renderBuscador() {
   }
 
   const prodChip = { PBS:'chip-blue', SPTI:'chip-teal', SPD:'chip-purple' };
-  const bdSin = getBDSin ? getBDSin() : { registros: [] };
+  const bdSin = _getBdSinBus();
 
   // Helper: buscar datos SURA de una empresa por NIT
   const getSuraDatos = (nit, empresaNombre) => {
