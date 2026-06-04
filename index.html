@@ -16551,10 +16551,11 @@ async function initNotificaciones() {
     // Limpiar flag diario para que el check corra en esta sesión
     localStorage.removeItem(NOTIF_CHECK_KEY);
     const token = await window.FB.getToken(_msg, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
-    if (token && UID) {
+    const _uid = window.FB?.UID || '';
+    if (token && _uid) {
       try {
         // Guardar en colección raíz fcmToken/{UID} — cubierta por Security Rules
-        await setDoc(doc(db, 'fcmToken', UID),
+        await setDoc(doc(db, 'fcmToken', _uid),
           { token, updatedAt: new Date().toISOString(), ua: navigator.userAgent.slice(0,100) },
           { merge: true });
       } catch(_) {}
