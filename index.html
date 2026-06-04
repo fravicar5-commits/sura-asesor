@@ -29146,13 +29146,60 @@ async function ipsExportarPDF(tipo) {
   doc.setFillColor(r, g, b);
   doc.rect(0, 31, W, 2, 'F');
 
-  // Logo placeholder — cuadrado blanco con "SURA"
+  // Logo SURA — alas SVG renderizadas en canvas y embebidas como imagen
+  const _suraLogoB64 = await (async () => {
+    const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" width="120" height="100">
+      <!-- Ala superior derecha — plumas de arriba a abajo, azul SURA -->
+      <!-- Pluma 1 (más externa/superior) -->
+      <path d="M60,48 Q80,10 108,4 Q95,22 78,32 Z" fill="#1A4CE8"/>
+      <!-- Pluma 2 -->
+      <path d="M60,50 Q82,18 108,4 Q98,28 80,38 Z" fill="#1A4CE8" opacity="0.88"/>
+      <!-- Pluma 3 -->
+      <path d="M60,52 Q84,28 108,4 Q101,34 82,44 Z" fill="#1A4CE8" opacity="0.76"/>
+      <!-- Pluma 4 -->
+      <path d="M60,54 Q86,38 104,10 Q102,42 82,50 Z" fill="#1A4CE8" opacity="0.64"/>
+      <!-- Pluma 5 (más interna) -->
+      <path d="M60,56 Q82,46 98,22 Q98,50 80,56 Z" fill="#1A4CE8" opacity="0.50"/>
+
+      <!-- Ala inferior derecha — plumas inclinadas hacia abajo -->
+      <!-- Pluma 1 (más externa/inferior) -->
+      <path d="M60,52 Q90,72 108,96 Q88,80 72,68 Z" fill="#1A4CE8"/>
+      <!-- Pluma 2 -->
+      <path d="M60,54 Q88,76 106,96 Q88,82 72,70 Z" fill="#1A4CE8" opacity="0.82"/>
+      <!-- Pluma 3 -->
+      <path d="M60,56 Q84,78 100,96 Q84,84 70,72 Z" fill="#1A4CE8" opacity="0.64"/>
+    </svg>`;
+    const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+    const url  = URL.createObjectURL(blob);
+    return await new Promise(res => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = 120; cv.height = 100;
+        const ctx = cv.getContext('2d');
+        ctx.clearRect(0, 0, 120, 100);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        res(cv.toDataURL('image/png'));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); res(null); };
+      img.src = url;
+    });
+  })();
+
+  // Fondo blanco redondeado para el logo
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(margin, 6, 18, 18, 2, 2, 'F');
-  doc.setTextColor(26, 76, 232);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('SURA', margin + 9, 17, { align: 'center' });
+  doc.roundedRect(margin, 5, 20, 20, 2, 2, 'F');
+
+  // Insertar imagen de alas (o fallback texto)
+  if (_suraLogoB64) {
+    doc.addImage(_suraLogoB64, 'PNG', margin + 1, 6, 18, 15);
+  } else {
+    doc.setTextColor(26, 76, 232);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SURA', margin + 10, 17, { align: 'center' });
+  }
 
   // Títulos
   doc.setTextColor(255, 255, 255);
