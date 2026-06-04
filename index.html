@@ -9829,7 +9829,7 @@ function refreshPage(page) {
   else if (page === 'simulador') renderSimulador();
   else if (page === 'semaforo') renderSemaforo();
   else if (page === 'simuladorpbs') renderSimPBS();
-  else if (page === 'buscador') { _bdSinCacheBus = null; document.getElementById('buscadorInput').focus(); renderBuscador(); }
+  else if (page === 'buscador') { _busNitIdx = null; document.getElementById('buscadorInput').focus(); renderBuscador(); setTimeout(_construirNitIdx, 400); }
   else if (page === 'backup') renderBackup();
   else if (page === 'cartera') renderCartera();
   else if (page === 'cobertura') renderCobertura();
@@ -21006,11 +21006,18 @@ function debounceBuscador() {
   _busTimer = setTimeout(renderBuscador, 180);
 }
 
-// Cache de BD siniestralidad para el buscador — se invalida solo al cambiar de página
-let _bdSinCacheBus = null;
-function _getBdSinBus() {
-  if (!_bdSinCacheBus) _bdSinCacheBus = getBDSin ? getBDSin() : { registros: [] };
-  return _bdSinCacheBus;
+// Índice NIT → datos SURA preconstruido para el buscador (no bloquea el hilo)
+let _busNitIdx = null;
+function _construirNitIdx() {
+  // Se construye una sola vez por visita al buscador, en background
+  if (_busNitIdx) return;
+  _busNitIdx = {};
+  try {
+    const bdSin = getBDSin ? getBDSin() : { registros: [] };
+    (bdSin.registros || []).forEach(r => {
+      if (r.nit) _busNitIdx[r.nit.replace(/\D/g, '')] = r;
+    });
+  } catch(e) { console.warn('[BusBD]', e.message); }
 }
 
 function renderBuscador() {
@@ -21040,21 +21047,12 @@ function renderBuscador() {
   }
 
   const prodChip = { PBS:'chip-blue', SPTI:'chip-teal', SPD:'chip-purple' };
-  const bdSin = _getBdSinBus();
 
-  // Helper: buscar datos SURA de una empresa por NIT
-  const getSuraDatos = (nit, empresaNombre) => {
-    if (!bdSin.registros || !bdSin.registros.length) return null;
+  // Helper: buscar datos SURA de una empresa por NIT — usa índice preconstruido (O(1))
+  const getSuraDatos = (nit) => {
+    if (!_busNitIdx) return null;
     const nitL = (nit||'').replace(/\D/g,'');
-    const regs = bdSin.registros.filter(r => {
-      if (nitL && r.nit && r.nit.replace(/\D/g,'') === nitL) return true;
-      if (empresaNombre && r.nombre && bdNormalizar(r.nombre).substring(0,12) === bdNormalizar(empresaNombre).substring(0,12)) return true;
-      return false;
-    });
-    if (!regs.length) return null;
-    // Tomar el registro más reciente (mayor anio)
-    regs.sort((a,b) => (b.anio||0) - (a.anio||0));
-    return regs[0];
+    return nitL ? (_busNitIdx[nitL] || null) : null;
   };
 
   el.innerHTML = resultados.map(v => {
@@ -21066,7 +21064,7 @@ function renderBuscador() {
     const d = new Date(v.fecha+'T12:00:00').toLocaleDateString('es-CO');
 
     // Datos SURA de la empresa si es PBS
-    const suraDatos = (v.producto === 'PBS' && empresa) ? getSuraDatos(v.nit, empresa) : null;
+    const suraDatos = (v.producto === 'PBS' && v.nit) ? getSuraDatos(v.nit) : null;
     const asesorBadge = suraDatos?.asesorAsignado
       ? `<span style="font-size:10.5px;padding:2px 8px;border-radius:8px;background:rgba(168,85,247,0.1);color:var(--purple);border:1px solid rgba(168,85,247,0.2);">👤 ${suraDatos.asesorAsignado}</span>`
       : '';
