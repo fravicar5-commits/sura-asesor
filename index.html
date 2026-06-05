@@ -2255,7 +2255,19 @@
             <option value="COTIZANTE">Cotizante</option>
             <option value="BENEFICIARIO">Beneficiario</option>
           </select>
+          <select class="form-control" style="width:160px;" id="filterMesComp" onchange="renderTabla()">
+            <option value="">Mes compensado</option>
+            <option>ENERO</option><option>FEBRERO</option><option>MARZO</option>
+            <option>ABRIL</option><option>MAYO</option><option>JUNIO</option>
+            <option>JULIO</option><option>AGOSTO</option><option>SEPTIEMBRE</option>
+            <option>OCTUBRE</option><option>NOVIEMBRE</option><option>DICIEMBRE</option>
+          </select>
+          <select class="form-control" style="width:130px;" id="filterAnioComp" onchange="renderTabla()">
+            <option value="">Año comp.</option>
+            <option>2024</option><option>2025</option><option>2026</option><option>2027</option>
+          </select>
         </div>
+        <div id="tablaComisionTotal" style="display:none;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:10px 16px;margin-bottom:10px;font-size:13px;color:var(--text);display:flex;gap:24px;flex-wrap:wrap;align-items:center;"></div>
 
         <div class="table-wrap" style="max-height:65vh;">
           <table style="min-width:1100px;">
@@ -12511,6 +12523,46 @@ function renderTabla() {
   if (filterMes) ventas = ventas.filter(v => MESES[parseFechaLocal(v.fecha).getMonth()] === filterMes);
   if (filterProd) ventas = ventas.filter(v => v.producto === filterProd);
   if (filterTipo) ventas = ventas.filter(v => v.tipo === filterTipo);
+
+  // Filtros mes/año compensado
+  const filterMesComp  = document.getElementById('filterMesComp')?.value  || '';
+  const filterAnioComp = document.getElementById('filterAnioComp')?.value || '';
+  if (filterMesComp || filterAnioComp) {
+    ventas = ventas.filter(v => {
+      const mc = (v.mesComp || '').toUpperCase(); // ej: "MAYO.2026"
+      const partes = mc.split('.');               // ["MAYO","2026"]
+      const mesC  = partes[0] || '';
+      const anioC = partes[1] || '';
+      if (filterMesComp  && mesC  !== filterMesComp.toUpperCase())  return false;
+      if (filterAnioComp && anioC !== String(filterAnioComp))       return false;
+      return true;
+    });
+  }
+
+  // Barra de totales (visible cuando hay filtro de mes compensado o producto PBS)
+  const totalEl = document.getElementById('tablaComisionTotal');
+  if (totalEl) {
+    const mostrarTotal = filterMesComp || filterAnioComp || filterProd === 'PBS';
+    if (mostrarTotal && ventas.length > 0) {
+      const totalCom    = ventas.reduce((s, v) => s + (v.comision || 0), 0);
+      const cotizantes  = ventas.filter(v => v.tipo === 'COTIZANTE').length;
+      const beneficios  = ventas.filter(v => v.tipo === 'BENEFICIARIO').length;
+      const labelFiltro = filterMesComp
+        ? 'Mes comp. ' + filterMesComp + (filterAnioComp ? ' ' + filterAnioComp : '')
+        : filterProd || 'Filtro activo';
+      totalEl.style.display = 'flex';
+      totalEl.innerHTML =
+        '<span style="font-weight:700;color:var(--green);font-size:14px;">' + fmt(totalCom) + '</span>' +
+        '<span style="color:var(--text-muted);">Comision total · ' + labelFiltro + '</span>' +
+        '<span style="color:var(--text-muted);">|</span>' +
+        '<span>' + ventas.length + ' registros</span>' +
+        '<span style="color:var(--text-muted);">|</span>' +
+        '<span style="color:var(--sura-blue);">' + cotizantes + ' cotizantes</span>' +
+        '<span style="color:var(--amber);">' + beneficios + ' beneficiarios</span>';
+    } else {
+      totalEl.style.display = 'none';
+    }
+  }
 
   const tbody = document.getElementById('tablaVentas');
   if (ventas.length === 0) {
