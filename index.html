@@ -10211,6 +10211,7 @@ function renderAgendaDiaria() {
         ${tag}
         <div class="agenda-actions">
           ${wa ? `<a class="agenda-btn agenda-btn-wa" href="${wa}" target="_blank">📲 WA</a>` : ''}
+          <button class="agenda-btn" style="background:rgba(168,85,247,0.1);color:var(--purple);border-color:rgba(168,85,247,0.25);" onclick="abrirRedaccionIAPip('${p.id}')">✨ IA</button>
           <button class="agenda-btn agenda-btn-ver" onclick="navigate('pipeline')">Ver</button>
         </div>
       </div>`;
@@ -10232,6 +10233,7 @@ function renderAgendaDiaria() {
         <span class="agenda-item-tag" style="background:rgba(168,85,247,0.15);color:var(--purple);">${dias}d inactivo</span>
         <div class="agenda-actions">
           ${wa ? `<a class="agenda-btn agenda-btn-wa" href="${wa}" target="_blank">📲 Reactivar</a>` : ''}
+          <button class="agenda-btn" style="background:rgba(168,85,247,0.1);color:var(--purple);border-color:rgba(168,85,247,0.25);" onclick="abrirRedaccionIAPip('${p.id}')">✨ IA</button>
         </div>
       </div>`;
     });
@@ -10256,6 +10258,7 @@ function renderAgendaDiaria() {
         ${urgTag}
         <div class="agenda-actions">
           ${wa ? `<a class="agenda-btn agenda-btn-wa" href="${wa}" target="_blank">📲 Recordar</a>` : ''}
+          <button class="agenda-btn" style="background:rgba(168,85,247,0.1);color:var(--purple);border-color:rgba(168,85,247,0.25);" onclick="abrirRedaccionIAVenta('${v.id}')">✨ IA</button>
           <button class="agenda-btn agenda-btn-ver" onclick="navigate('cartera')">Cartera</button>
         </div>
       </div>`;
@@ -36235,6 +36238,53 @@ function _agenteConstruirContexto() {
 
     const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+    // Cartera voluntarios — estado real desde la app
+    const pagos = window.__FB_CACHE__?.pagos || {};
+    const PRODS_VOL = ['SPTI','SPD','PSM','PAC60'];
+    const ventasVol = (s.ventas||[]).filter(v => PRODS_VOL.includes(v.producto) && !v._importadoSura && v.tipo !== 'CANCELACION');
+    const carteraResumen = { AL_DIA:0, VENCIDO:0, MORA:0, SUSPENDIDO:0, sinInfo:0, totalPrima:0 };
+    const clientesMora = [];
+    const clientesSuspendido = [];
+    ventasVol.forEach(v => {
+      const est = getCarteraEstado(v, pagos);
+      if (!est) { carteraResumen.sinInfo++; return; }
+      carteraResumen[est.estado] = (carteraResumen[est.estado] || 0) + 1;
+      carteraResumen.totalPrima += v.primaTotal || v.prima || 0;
+      if (est.estado === 'MORA')       clientesMora.push({ nombre: v.tomadorNombre||v.nombre||'—', prod: v.producto, dias: est.dias||0 });
+      if (est.estado === 'SUSPENDIDO') clientesSuspendido.push({ nombre: v.tomadorNombre||v.nombre||'—', prod: v.producto, dias: est.dias||0 });
+    });
+    clientesMora.sort((a,b) => b.dias - a.dias);
+    clientesSuspendido.sort((a,b) => b.dias - a.dias);
+
+    // Cartera SURA importada
+    const carteraSura = typeof _carteraSuraData !== 'undefined' ? _carteraSuraData : [];
+    const carteraSuraResumen = carteraSura.length ? {
+      total:       carteraSura.length,
+      criticos:    carteraSura.filter(r => r.urgencia === 'critico').length,
+      urgentes:    carteraSura.filter(r => r.urgencia === 'urgente').length,
+      seguimiento: carteraSura.filter(r => r.urgencia === 'seguimiento').length,
+      saldoTotal:  carteraSura.reduce((s,r) => s+r.saldo, 0),
+    } : null;
+
+    // Pólizas por vencer esta semana
+    const en7 = new Date(hoy); en7.setDate(hoy.getDate()+7);
+    const porVencer = ventasVol.filter(v => {
+      const pv = typeof calcProxVencimiento === 'function' ? calcProxVencimiento(v.fechaExp, v.periodicidad, v.id) : null;
+      return pv && pv >= hoy && pv <= en7;
+    }).length;
+
+    const carteraCtx = [
+      `\nCARTERA VOLUNTARIOS (estado real en la app):`,
+      `- Al día: ${carteraResumen.AL_DIA} | Vencidos (1-30d): ${carteraResumen.VENCIDO} | En mora (30d+): ${carteraResumen.MORA} | Suspendidos: ${carteraResumen.SUSPENDIDO}`,
+      `- Pólizas vencen próximos 7 días: ${porVencer}`,
+      carteraResumen.totalPrima > 0 ? `- Prima mensual total portafolio voluntarios: $${Math.round(carteraResumen.totalPrima).toLocaleString('es-CO')}` : '',
+      clientesMora.length ? `- Top clientes en mora: ${clientesMora.slice(0,3).map(c => `${c.nombre} (${c.prod}, ${c.dias}d)`).join(' | ')}` : '',
+      clientesSuspendido.length ? `- Clientes suspendidos: ${clientesSuspendido.slice(0,3).map(c => `${c.nombre} (${c.prod}, ${c.dias}d)`).join(' | ')}` : '',
+      carteraSuraResumen
+        ? `\nCARTERA IMPORTADA SURA (${carteraSura.length} registros): Críticos=${carteraSuraResumen.criticos} | Urgentes=${carteraSuraResumen.urgentes} | Seguimiento=${carteraSuraResumen.seguimiento} | Saldo total=$${Math.round(carteraSuraResumen.saldoTotal).toLocaleString('es-CO')}`
+        : '\nCARTERA SURA: No hay archivo importado aún.',
+    ].filter(Boolean).join('\n');
+
     return `Eres el Asistente SURA Asesor, un agente analítico especializado en seguros de salud SURA Colombia.
 
 ASESOR: ${asesorNombre}
@@ -36247,6 +36297,7 @@ VENTAS ${MESES_ES[mesActual].toUpperCase()} ${anio}:
 - SPD Plus: ${ventasMes.SPD} ventas | Meta: ${metas.SPD} | Faltan: ${Math.max(0,metas.SPD-ventasMes.SPD)}
 - Modular (PSM): ${ventasMes.PSM} ventas
 - PAC 60+: ${ventasMes.PAC60} ventas
+${carteraCtx}
 
 PIPELINE VOLUNTARIOS:
 - Prospectos activos en seguimiento: ${prospectosTotales}
