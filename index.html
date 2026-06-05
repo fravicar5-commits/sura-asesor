@@ -12544,21 +12544,50 @@ function renderTabla() {
   if (totalEl) {
     const mostrarTotal = filterMesComp || filterAnioComp || filterProd === 'PBS';
     if (mostrarTotal && ventas.length > 0) {
-      const totalCom    = ventas.reduce((s, v) => s + (v.comision || 0), 0);
-      const cotizantes  = ventas.filter(v => v.tipo === 'COTIZANTE').length;
-      const beneficios  = ventas.filter(v => v.tipo === 'BENEFICIARIO').length;
+      const cotizantes = ventas.filter(v => v.tipo === 'COTIZANTE').length;
+      const beneficios = ventas.filter(v => v.tipo === 'BENEFICIARIO').length;
       const labelFiltro = filterMesComp
         ? 'Mes comp. ' + filterMesComp + (filterAnioComp ? ' ' + filterAnioComp : '')
         : filterProd || 'Filtro activo';
+
+      // Si hay filtro de mes compensado Y el producto incluye PBS:
+      // recalcular usando el rango real del período (igual que PBS/EPS compensado)
+      const esFiltroComp = (filterMesComp || filterAnioComp) &&
+                           (!filterProd || filterProd === 'PBS');
+      const ventasPBS = esFiltroComp ? ventas.filter(v => v.producto === 'PBS') : [];
+      const totalComComp = esFiltroComp && typeof calcComisionPeriodoPBS === 'function'
+        ? calcComisionPeriodoPBS(ventasPBS)
+        : 0;
+      const totalComAlmacenada = ventas.reduce((s, v) => s + (v.comision || 0), 0);
+
+      // Rango aplicado para PBS compensado
+      const rangoInfo = esFiltroComp && cotizantes > 0
+        ? getRango(cotizantes)
+        : null;
+
       totalEl.style.display = 'flex';
-      totalEl.innerHTML =
-        '<span style="font-weight:700;color:var(--green);font-size:14px;">' + fmt(totalCom) + '</span>' +
-        '<span style="color:var(--text-muted);">Comision total · ' + labelFiltro + '</span>' +
-        '<span style="color:var(--text-muted);">|</span>' +
-        '<span>' + ventas.length + ' registros</span>' +
-        '<span style="color:var(--text-muted);">|</span>' +
-        '<span style="color:var(--sura-blue);">' + cotizantes + ' cotizantes</span>' +
-        '<span style="color:var(--amber);">' + beneficios + ' beneficiarios</span>';
+      if (esFiltroComp && ventasPBS.length > 0) {
+        // Mostrar comisión recalculada (=PBS/EPS) y almacenada para comparar
+        totalEl.innerHTML =
+          '<span style="font-weight:700;color:var(--green);font-size:14px;">' + fmt(totalComComp) + '</span>' +
+          '<span style="color:var(--green);font-size:11px;">(recalculada · coincide con PBS/EPS)</span>' +
+          '<span style="color:var(--text-dim);font-size:11px;">Almacenada: ' + fmt(totalComAlmacenada) + '</span>' +
+          '<span style="color:var(--text-muted);">|</span>' +
+          '<span>' + ventas.length + ' registros · ' + labelFiltro + '</span>' +
+          '<span style="color:var(--text-muted);">|</span>' +
+          (rangoInfo ? '<span style="color:var(--sura-blue);font-size:11px;font-weight:600;">' + rangoInfo.label + '</span><span style="color:var(--text-muted);">|</span>' : '') +
+          '<span style="color:var(--sura-blue);">' + cotizantes + ' cotizantes</span>' +
+          '<span style="color:var(--amber);">' + beneficios + ' beneficiarios</span>';
+      } else {
+        totalEl.innerHTML =
+          '<span style="font-weight:700;color:var(--green);font-size:14px;">' + fmt(totalComAlmacenada) + '</span>' +
+          '<span style="color:var(--text-muted);">Comision total · ' + labelFiltro + '</span>' +
+          '<span style="color:var(--text-muted);">|</span>' +
+          '<span>' + ventas.length + ' registros</span>' +
+          '<span style="color:var(--text-muted);">|</span>' +
+          '<span style="color:var(--sura-blue);">' + cotizantes + ' cotizantes</span>' +
+          '<span style="color:var(--amber);">' + beneficios + ' beneficiarios</span>';
+      }
     } else {
       totalEl.style.display = 'none';
     }
