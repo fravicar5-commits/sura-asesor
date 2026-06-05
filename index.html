@@ -769,6 +769,22 @@
   .agenda-pulse{width:7px;height:7px;border-radius:50%;background:var(--sura-lime);box-shadow:0 0 0 0 rgba(200,229,43,0.5);animation:agendaPulse 2s infinite;}
   @keyframes agendaPulse{0%{box-shadow:0 0 0 0 rgba(200,229,43,0.5);}70%{box-shadow:0 0 0 8px rgba(200,229,43,0);}100%{box-shadow:0 0 0 0 rgba(200,229,43,0);}}
   .agenda-refresh{font-size:11px;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;font-family:var(--font);transition:color .15s,background .15s;}
+  #bannerIA{display:none;margin:0 0 0 0;border-radius:12px;border:1px solid rgba(168,85,247,0.25);background:linear-gradient(135deg,rgba(168,85,247,0.07) 0%,rgba(26,76,232,0.07) 100%);overflow:hidden;transition:all .3s;}
+  #bannerIA.visible{display:block;}
+  .banner-ia-header{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;}
+  .banner-ia-dot{width:8px;height:8px;border-radius:50%;background:var(--purple);flex-shrink:0;animation:iaPulse 2s ease-in-out infinite;}
+  @keyframes iaPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+  .banner-ia-title{font-size:12.5px;font-weight:700;color:var(--purple);flex:1;}
+  .banner-ia-chevron{font-size:11px;color:var(--text-dim);transition:transform .2s;}
+  .banner-ia-chevron.open{transform:rotate(180deg);}
+  .banner-ia-body{padding:0 16px 14px;font-size:12.5px;line-height:1.65;color:var(--text);white-space:pre-wrap;display:none;}
+  .banner-ia-body.open{display:block;}
+  .banner-ia-footer{display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap;}
+  .banner-ia-loading{padding:10px 16px 14px;font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px;}
+  .ia-dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--purple);margin:0 2px;animation:iaDot 1.2s ease-in-out infinite;}
+  .ia-dots span:nth-child(2){animation-delay:.2s}
+  .ia-dots span:nth-child(3){animation-delay:.4s}
+  @keyframes iaDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
   .agenda-refresh:hover{color:var(--text-muted);background:var(--surface2);}
   .agenda-grid{display:flex;flex-direction:column;gap:10px;}
   .agenda-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:border-color .2s;}
@@ -1919,6 +1935,24 @@
 
           <!-- DIVISOR -->
           <div style="height:1px;background:rgba(255,255,255,0.06);margin:0 36px;"></div>
+
+          <!-- ── BANNER IA ── -->
+          <div id="bannerIA" style="margin:0 16px 14px;">
+            <div class="banner-ia-header" onclick="toggleBannerIA()">
+              <div class="banner-ia-dot"></div>
+              <div class="banner-ia-title" id="bannerIATitulo">✨ Análisis IA del día</div>
+              <div class="banner-ia-chevron" id="bannerIAChev">▾</div>
+            </div>
+            <div class="banner-ia-loading" id="bannerIALoading" style="display:none;">
+              <div class="ia-dots"><span></span><span></span><span></span></div>
+              <span>Analizando tu situación del día...</span>
+            </div>
+            <div class="banner-ia-body" id="bannerIABody"></div>
+            <div class="banner-ia-footer" id="bannerIAFooter" style="display:none;">
+              <button class="btn btn-secondary btn-sm" onclick="bannerIARefrescar()">🔄 Actualizar</button>
+              <button class="btn btn-secondary btn-sm" onclick="navigate('agente')">💬 Abrir agente</button>
+            </div>
+          </div>
 
           <!-- ── AGENDA DIARIA ── -->
           <div class="agenda-wrap" id="agendaDiariaWrap">
@@ -10037,6 +10071,178 @@ function calcMesComisionTotal(month) {
 // DASHBOARD
 // =============================================
 
+// ══════════════════════════════════════════════════════════════════════════
+// BANNER IA — Analisis automatico al abrir el inicio
+// ══════════════════════════════════════════════════════════════════════════
+const _BANNER_IA_KEY    = 'sura_banner_ia_cache';
+const _BANNER_IA_TTL_MS = 4 * 60 * 60 * 1000; // 4 horas
+
+function toggleBannerIA() {
+  const body = document.getElementById('bannerIABody');
+  const chev = document.getElementById('bannerIAChev');
+  if (!body || !chev) return;
+  const open = body.classList.toggle('open');
+  chev.classList.toggle('open', open);
+}
+
+function _bannerIAMostrar(texto, titulo) {
+  const banner   = document.getElementById('bannerIA');
+  const bodyEl   = document.getElementById('bannerIABody');
+  const tituloEl = document.getElementById('bannerIATitulo');
+  const loading  = document.getElementById('bannerIALoading');
+  const footer   = document.getElementById('bannerIAFooter');
+  if (!banner || !bodyEl) return;
+  if (loading)  loading.style.display  = 'none';
+  bodyEl.textContent = texto;
+  bodyEl.classList.add('open');
+  if (tituloEl) tituloEl.textContent = titulo || 'Analisis IA del dia';
+  if (footer)   footer.style.display  = 'flex';
+  const chev = document.getElementById('bannerIAChev');
+  if (chev) chev.classList.add('open');
+  banner.classList.add('visible');
+}
+
+function _bannerIALoading(show) {
+  const loading = document.getElementById('bannerIALoading');
+  const banner  = document.getElementById('bannerIA');
+  if (!loading || !banner) return;
+  loading.style.display = show ? 'flex' : 'none';
+  if (show) banner.classList.add('visible');
+}
+
+async function bannerIARefrescar() {
+  localStorage.removeItem(_BANNER_IA_KEY);
+  const body   = document.getElementById('bannerIABody');
+  const footer = document.getElementById('bannerIAFooter');
+  if (body)   { body.textContent = ''; body.classList.remove('open'); }
+  if (footer) footer.style.display = 'none';
+  await _bannerIACargar();
+}
+
+async function _bannerIACargar() {
+  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
+  if (!apiKey || !apiKey.startsWith('sk-ant-')) return;
+
+  // Cache de 4 horas
+  try {
+    const cached = JSON.parse(localStorage.getItem(_BANNER_IA_KEY) || 'null');
+    if (cached && (Date.now() - cached.ts) < _BANNER_IA_TTL_MS) {
+      _bannerIAMostrar(cached.texto, cached.titulo);
+      return;
+    }
+  } catch(_) {}
+
+  // Contexto compacto
+  const s        = getState();
+  const hoy      = new Date();
+  const hoyStr   = hoy.toISOString().split('T')[0];
+  const mesActual = hoy.getMonth();
+  const pipeline  = getPipeline ? getPipeline() : [];
+  const pagos     = window.__FB_CACHE__?.pagos || {};
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto',
+                 'Septiembre','Octubre','Noviembre','Diciembre'];
+
+  // Prospectos urgentes
+  const urgentes = pipeline.filter(p =>
+    p.proxContacto && p.proxContacto <= hoyStr &&
+    !['4','5'].includes(String(p.estado || '0'))
+  );
+
+  // Prospectos frios
+  const frios = pipeline.filter(p => {
+    if (['4','5'].includes(String(p.estado || '0'))) return false;
+    if (urgentes.find(x => x.id === p.id)) return false;
+    const dias = Math.floor((hoy - new Date(p.updatedAt || p.fechaCreacion || hoyStr)) / 86400000);
+    return dias > 5;
+  });
+
+  // Cartera critica
+  const PRODS_VOL = ['SPTI', 'SPD', 'PSM', 'PAC60'];
+  const en7 = new Date(hoy); en7.setDate(hoy.getDate() + 7);
+  const porVencer = (s.ventas || []).filter(v => {
+    if (!PRODS_VOL.includes(v.producto) || v._importadoSura) return false;
+    const pv = typeof calcProxVencimiento === 'function'
+      ? calcProxVencimiento(v.fechaExp, v.periodicidad, v.id) : null;
+    return pv && pv >= hoy && pv <= en7;
+  }).length;
+
+  const enMora = (s.ventas || []).filter(v => {
+    if (!PRODS_VOL.includes(v.producto) || v._importadoSura) return false;
+    const est = getCarteraEstado(v, pagos);
+    return est && ['MORA', 'SUSPENDIDO'].includes(est.estado);
+  }).length;
+
+  // Ventas del mes
+  const mesStr   = hoy.toISOString().slice(0, 7);
+  const ventasPBS  = typeof getVentasByProduct === 'function' ? getVentasByProduct(mesActual, 'PBS').length : 0;
+  const ventasSPTI = (s.ventas || []).filter(v => v.producto === 'SPTI'  && !v._importadoSura && (v.fecha || '').startsWith(mesStr)).length;
+  const ventasSPD  = (s.ventas || []).filter(v => v.producto === 'SPD'   && !v._importadoSura && (v.fecha || '').startsWith(mesStr)).length;
+  const metaPBS    = (s.config?.pbs  || [])[mesActual] || 0;
+  const metaSPTI   = (s.config?.spti || [])[mesActual] || 0;
+  const metaSPD    = (s.config?.spd  || [])[mesActual] || 0;
+
+  // Dias habiles restantes
+  const ultimoDia = new Date(hoy.getFullYear(), mesActual + 1, 0);
+  let diasHabiles = 0;
+  for (let d = new Date(hoy); d <= ultimoDia; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 0 && d.getDay() !== 6) diasHabiles++;
+  }
+
+  const contexto = [
+    'Fecha: ' + hoy.toLocaleDateString('es-CO') + ' - ' + MESES[mesActual],
+    'Prospectos urgentes (para hoy o vencidos): ' + urgentes.length +
+      (urgentes.length ? ' -> ' + urgentes.slice(0,3).map(p => p.nombre + ' (' + (p.producto||'?') + ')').join(', ') : ''),
+    'Prospectos frios (sin contacto 5+ dias): ' + frios.length,
+    'Polizas por vencer esta semana: ' + porVencer,
+    'Clientes en mora o suspendidos: ' + enMora,
+    'Ventas ' + MESES[mesActual] + ': PBS ' + ventasPBS + '/' + (metaPBS||'?') +
+      ' - SPTI ' + ventasSPTI + '/' + (metaSPTI||'?') +
+      ' - SPD '  + ventasSPD  + '/' + (metaSPD||'?'),
+    'Dias habiles restantes en el mes: ' + diasHabiles,
+  ].join('\n');
+
+  // Si no hay urgencias, responder sin llamar a la API
+  if (!urgentes.length && !enMora && !porVencer) {
+    const txt = frios.length > 0
+      ? 'Todo tranquilo. Tienes ' + frios.length + ' prospecto' + (frios.length > 1 ? 's' : '') + ' sin contacto hace mas de 5 dias.'
+      : 'Sin pendientes urgentes hoy. Buen momento para prospectar.';
+    _bannerIAMostrar(txt, 'Sin alertas criticas hoy');
+    try { localStorage.setItem(_BANNER_IA_KEY, JSON.stringify({ texto: txt, titulo: 'Sin alertas criticas hoy', ts: Date.now() })); } catch(_) {}
+    return;
+  }
+
+  _bannerIALoading(true);
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 280,
+        system: 'Eres el asistente de un asesor de seguros SURA Colombia. Generas un briefing diario conciso (maximo 5 lineas) con las prioridades del dia. Primero la alerta mas critica, luego las demas en orden de urgencia. Sin saludos ni despedidas. Solo hechos y accion recomendada. Espanol colombiano. Sin markdown ni asteriscos. Texto plano con saltos de linea.',
+        messages: [{ role: 'user', content: 'Dame el briefing del dia con estos datos:\n' + contexto }]
+      })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data  = await resp.json();
+    const texto = data?.content?.[0]?.text || '';
+    if (texto) {
+      const titulo = (enMora > 0 || urgentes.length > 2) ? 'Alertas del dia' : 'Briefing del dia';
+      _bannerIAMostrar(texto, titulo);
+      try { localStorage.setItem(_BANNER_IA_KEY, JSON.stringify({ texto, titulo, ts: Date.now() })); } catch(_) {}
+    }
+  } catch(e) {
+    console.warn('[BannerIA]', e.message);
+  } finally {
+    _bannerIALoading(false);
+  }
+}
+
 function renderInicio() {
   const s = getState();
   const nombreAsesor = (s.config?.nombreAsesor || 'Asesor').trim();
@@ -10096,6 +10302,8 @@ function renderInicio() {
 
   // Agenda diaria
   renderAgendaDiaria();
+  // Banner IA: cargar en background (cache 4h, falla silenciosamente)
+  setTimeout(_bannerIACargar, 800);
 }
 
 // ════════════════════════════════════════════════════════════
