@@ -6389,6 +6389,7 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                 <div id="cmpAcciones" style="display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
                   <button class="btn btn-secondary btn-sm" onclick="cmpCopiar()">📋 Copiar</button>
                   <button class="btn btn-secondary btn-sm" onclick="cmpWhatsApp()">📱 WhatsApp</button>
+                  <button class="btn btn-secondary btn-sm" onclick="cmpExportarPDF()" style="background:rgba(220,38,38,0.1);color:var(--red);border-color:rgba(220,38,38,0.3);">📄 Exportar PDF</button>
                   <button class="btn btn-secondary btn-sm" onclick="cmpLimpiar()">🔄 Nueva comparacion</button>
                 </div>
               </div>
@@ -27246,11 +27247,36 @@ async function cmpGenerar() {
 
   // ── Colores y metadatos de planes ─────────────────────────────────────────
   const META = {
-    SPTI_CLASICO:      { color:'var(--teal)',    hex:'#06B6D4', label:'SPTI Clasico',      req:'PBS SURA',       copago:'Sin copago en IPS SURA',      carencia:'2 meses especialistas' },
-    SPTI_PREFERENCIAL: { color:'var(--sura-blue)',hex:'#1A4CE8', label:'SPTI Preferencial', req:'PBS SURA',       copago:'Sin copago en IPS SURA',      carencia:'2 meses especialistas' },
-    SPD:               { color:'var(--purple)',  hex:'#A855F7', label:'SPD Plus',           req:'Cualquier EPS',  copago:'Copago fijo por evento',      carencia:'Sin carencia urgencias' },
-    PSM:               { color:'#0891B2',        hex:'#0891B2', label:'Plan Modular',       req:'Cualquier EPS',  copago:'$30.000 fijo por consulta',   carencia:'Sin carencia consultas' },
-    PAC60:             { color:'var(--green)',   hex:'#22C55E', label:'Plan 60+',           req:'Cualquier EPS',  copago:'Copago fijo por servicio',    carencia:'Sin carencia urgencias' },
+    SPTI_CLASICO: {
+      color:'var(--teal)', hex:'#06B6D4', label:'SPTI Clasico', req:'PBS SURA',
+      copago:'Sin copago en IPS SURA', carencia:'2 meses especialistas',
+      bonos: 'Acceso directo especialistas: +$24.700/mes | Atencion domiciliaria: +$19.400/mes',
+      resena: 'El SPTI Clasico es el plan complementario mas completo para afiliados a EPS SURA. Brinda atencion de alta calidad en las IPS SURA sin los tiempos de espera del sistema PBS: consulta medica general, especialistas, urgencias 24/7, hospitalizacion en habitacion individual, cirugia, laboratorios, terapias y medicamentos. La tarifa se congela al momento de la afiliacion. Ideal para quien quiere la mejor experiencia en salud complementando su EPS.',
+    },
+    SPTI_PREFERENCIAL: {
+      color:'var(--sura-blue)', hex:'#1A4CE8', label:'SPTI Preferencial', req:'PBS SURA',
+      copago:'Sin copago en IPS SURA', carencia:'2 meses especialistas',
+      bonos: 'Acceso directo especialistas: +$24.700/mes | Atencion domiciliaria: +$19.400/mes',
+      resena: 'El SPTI Preferencial es la version premium del SPTI con cobertura ampliada para enfermedades de alta complejidad. Incluye todo lo del Clasico mas: oncologia completa desde el diagnostico, medicamentos biologicos y de alto costo, hospitalizacion VIP, cobertura internacional de urgencias hasta USD 50.000 y segunda opinion medica. Para quien busca maxima tranquilidad y cobertura sin limites.',
+    },
+    SPD: {
+      color:'var(--purple)', hex:'#A855F7', label:'SPD Plus', req:'Cualquier EPS',
+      copago:'Copago fijo por evento', carencia:'Sin carencia urgencias',
+      bonos: 'No aplican bonos adicionales — plan autonomo',
+      resena: 'El Plan Salud Para Dos es la opcion mas accesible y flexible del portafolio SURA. No requiere afiliacion a EPS SURA: aplica para cualquier EPS o sin EPS. Incluye al tomador y su asegurado en una sola poliza con tarifa plana sin importar la edad — gran ventaja para adultos mayores. Ideal como alternativa cuando hay preexistencias que impiden el ingreso a SPTI o Plan Modular, o cuando el presupuesto es limitado.',
+    },
+    PSM: {
+      color:'#0891B2', hex:'#0891B2', label:'Plan Modular', req:'Cualquier EPS',
+      copago:'$30.000 fijo por consulta', carencia:'Sin carencia consultas',
+      bonos: 'No aplican bonos adicionales — el plan es modular por naturaleza',
+      resena: 'El Plan Salud Modular es el unico plan SURA con acceso DIRECTO a especialistas sin necesidad de remision del medico general. El cliente llama o va directamente al especialista que necesita pagando un copago fijo de $30.000. No requiere PBS SURA. Se puede personalizar agregando modulos opcionales: hospitalario, oncologico, maternidad, medicamentos o dental. Perfecto para quienes consultan especialistas con frecuencia y valoran la agilidad.',
+    },
+    PAC60: {
+      color:'var(--green)', hex:'#22C55E', label:'Plan 60+', req:'Cualquier EPS',
+      copago:'Copago fijo por servicio', carencia:'Sin carencia urgencias',
+      bonos: 'Acceso directo especialistas: +$24.700/mes | Atencion domiciliaria: +$19.400/mes',
+      resena: 'El Plan 60+ es el unico plan SURA disenado exclusivamente para personas mayores de 60 anos. Va mas alla de la medicina: incluye atencion domiciliaria (medico y enfermera a domicilio), programas de bienestar fisico y social, estimulacion cognitiva, odontologia preventiva y el programa de Envejecimiento Activo SURA. No requiere PBS SURA. Para las familias que quieren que su adulto mayor tenga acompanamiento integral, no solo cuando esta enfermo.',
+    },
   };
 
   // ── Coberturas por plan ────────────────────────────────────────────────────
@@ -27305,8 +27331,15 @@ async function cmpGenerar() {
       const m=META[k];
       return `<td ${tdStyle}><div style="font-size:16px;font-weight:800;font-family:var(--mono);color:${m.hex};">${rango}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Referencial · varía por plan y periodicidad</div></td>`;
     }).join('')}</tr>
+    <tr><td ${tdLbl}>🎯 Bonos opcionales 2026</td>${seleccionados.map(k=>{
+      const b=META[k].bonos;
+      const noBono = b && b.includes('No aplican');
+      return `<td ${tdStyle} style="font-size:11.5px;">${noBono?'<span style="color:var(--text-dim);">—</span>':b.split('|').map(x=>`<div style="margin:2px 0;color:var(--amber);font-size:11px;">${x.trim()}</div>`).join('')}</td>`;
+    }).join('')}</tr>
     <tr><td ${tdLbl}>💳 Copagos</td>${seleccionados.map(k=>`<td ${tdStyle}>${META[k].copago}</td>`).join('')}</tr>
     <tr><td ${tdLbl}>⏳ Carencias</td>${seleccionados.map(k=>`<td ${tdStyle}>${META[k].carencia}</td>`).join('')}</tr>
+    ${sep('📖 Acerca del plan')}
+    <tr>${['<td '+tdLbl+' style="padding:10px 14px;vertical-align:top;">Resena</td>', ...seleccionados.map(k=>`<td style="padding:10px 14px;border-top:1px solid var(--border);font-size:12px;line-height:1.6;color:var(--text);text-align:left;">${META[k].resena}</td>`)].join('')}</tr>
     ${sep('✅ Coberturas incluidas')}
     ${Array.from({length:maxCob},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11.5px;">Cobertura ${i+1}</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:center;border-top:1px solid var(--border);font-size:11.5px;">${COBS[k]?.[i]||'<span style="color:var(--text-dim);">—</span>'}</td>`).join('')}</tr>`).join('')}
     ${sep('✅ Ventajas principales')}
@@ -27371,6 +27404,158 @@ async function cmpGenerar() {
 }
 
 
+// ── Exportar comparativo a PDF ────────────────────────────────────────────
+async function cmpExportarPDF() {
+  const tablaEl = document.getElementById('cmpTablaVisual');
+  if (!tablaEl || !tablaEl.innerHTML) { showToast('Genera el comparativo primero'); return; }
+
+  showToast('Generando PDF...');
+
+  if (typeof window.jspdf === 'undefined') {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+  if (typeof window.html2canvas === 'undefined') {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const { jsPDF } = window.jspdf;
+
+  // Clonar tabla para renderizar en fondo blanco
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;background:#ffffff;padding:20px;font-family:Arial,sans-serif;width:900px;';
+  wrapper.innerHTML = tablaEl.innerHTML;
+
+  // Resolver variables CSS a colores reales
+  wrapper.querySelectorAll('[style]').forEach(el => {
+    el.style.cssText = el.style.cssText
+      .replace(/var\(--teal\)/g, '#06B6D4')
+      .replace(/var\(--sura-blue\)/g, '#1A4CE8')
+      .replace(/var\(--purple\)/g, '#A855F7')
+      .replace(/var\(--green\)/g, '#22C55E')
+      .replace(/var\(--amber\)/g, '#EF9F27')
+      .replace(/var\(--red\)/g, '#E24B4A')
+      .replace(/var\(--border\)/g, '#E2E8F0')
+      .replace(/var\(--surface2\)/g, '#F8FAFC')
+      .replace(/var\(--surface3\)/g, '#F1F5F9')
+      .replace(/var\(--text\)/g, '#1E293B')
+      .replace(/var\(--text-muted\)/g, '#64748B')
+      .replace(/var\(--text-dim\)/g, '#94A3B8')
+      .replace(/var\(--mono\)/g, 'monospace');
+  });
+
+  document.body.appendChild(wrapper);
+
+  try {
+    const canvas = await window.html2canvas(wrapper, {
+      scale: 1.8,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+
+    // Calcular dimensiones del PDF
+    const pdfW = 297; // A4 landscape ancho en mm
+    const pdfH = 210;
+    const ratio = pdfW / imgW;
+    const scaledH = imgH * ratio;
+
+    // Si cabe en una pagina landscape, usarla; sino usar portrait con scroll
+    const orientation = scaledH <= pdfH ? 'landscape' : 'portrait';
+    const pageW = orientation === 'landscape' ? 297 : 210;
+    const pageH = orientation === 'landscape' ? 210 : 297;
+    const contentW = pageW - 20;
+    const contentRatio = contentW / imgW;
+    const contentH = imgH * contentRatio;
+
+    const doc = new jsPDF({ orientation, unit:'mm', format:'a4' });
+
+    // Header
+    doc.setFillColor(26, 76, 232);
+    doc.rect(0, 0, pageW, 16, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Comparativo de Planes SURA', 10, 11);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Generado: ' + new Date().toLocaleDateString('es-CO', {day:'2-digit',month:'long',year:'numeric'}), pageW - 10, 11, { align: 'right' });
+
+    // Imagen de la tabla
+    const y = 20;
+    let yOffset = y;
+    const pageContent = pageH - y - 14;
+
+    if (contentH <= pageContent) {
+      doc.addImage(imgData, 'PNG', 10, y, contentW, contentH);
+    } else {
+      // Multi-pagina: cortar la imagen en segmentos
+      const pagesNeeded = Math.ceil(contentH / pageContent);
+      for (let pg = 0; pg < pagesNeeded; pg++) {
+        if (pg > 0) {
+          doc.addPage();
+          // Mini header en paginas siguientes
+          doc.setFillColor(26, 76, 232);
+          doc.rect(0, 0, pageW, 10, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Comparativo de Planes SURA', 10, 7);
+          yOffset = 14;
+        }
+        const srcY = pg * (pageContent / contentRatio);
+        const srcH = Math.min(pageContent / contentRatio, imgH - srcY);
+        const destH = srcH * contentRatio;
+
+        // Crear canvas recortado
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = imgW;
+        cropCanvas.height = srcH;
+        const ctx = cropCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, srcY, imgW, srcH, 0, 0, imgW, srcH);
+        const cropData = cropCanvas.toDataURL('image/png');
+        doc.addImage(cropData, 'PNG', 10, yOffset, contentW, destH);
+      }
+    }
+
+    // Footer en ultima pagina
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFillColor(240, 242, 248);
+      doc.rect(0, pageH - 10, pageW, 10, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(130, 130, 150);
+      doc.setFont('helvetica', 'normal');
+      doc.text('SURA Asesor · Planes de Salud Voluntarios · Valores referenciales · Verificar con cotizador oficial', 10, pageH - 3);
+      doc.text('Pag. ' + p + ' / ' + totalPages, pageW - 10, pageH - 3, { align: 'right' });
+    }
+
+    doc.save('Comparativo_Planes_SURA_' + new Date().toLocaleDateString('en-CA') + '.pdf');
+    showToast('PDF descargado correctamente');
+  } catch(e) {
+    console.error('[CmpPDF]', e);
+    showToast('Error generando PDF: ' + e.message);
+  } finally {
+    document.body.removeChild(wrapper);
+  }
+}
+
+// ── WhatsApp mejorado con resenas ─────────────────────────────────────────────
+
 function cmpCopiar() {
   const texto = document.getElementById('cmpTablaVisual')?.innerText || document.getElementById('cmpResultado')?.textContent || '';
   if (!texto) return;
@@ -27378,10 +27563,58 @@ function cmpCopiar() {
 }
 
 function cmpWhatsApp() {
-  const texto = document.getElementById('cmpResultado')?.textContent || '';
-  if (!texto) { showToast('Genera el comparativo primero'); return; }
-  const resumen = texto.slice(0, 900) + (texto.length > 900 ? '...' : '');
-  window.open('https://wa.me/?text=' + encodeURIComponent(resumen), '_blank');
+  const tablaEl = document.getElementById('cmpTablaVisual');
+  if (!tablaEl || !tablaEl.innerText) { showToast('Genera el comparativo primero'); return; }
+
+  // Reconstruir texto legible desde los datos del comparativo
+  const mapa = { cmpSPTI_C:'SPTI_CLASICO', cmpSPTI_P:'SPTI_PREFERENCIAL', cmpSPD:'SPD', cmpPSM:'PSM', cmpPAC60:'PAC60' };
+  const seleccionados = Object.entries(mapa)
+    .filter(([id]) => document.getElementById(id)?.checked)
+    .map(([, key]) => key);
+
+  const nombreAsesor = (getState().config?.nombreAsesor || 'Tu asesor SURA').trim();
+  const fecha = new Date().toLocaleDateString('es-CO', { day:'numeric', month:'long', year:'numeric' });
+  const META_WA = {
+    SPTI_CLASICO:      { label:'SPTI Clasico',      emoji:'💊', req:'PBS SURA' },
+    SPTI_PREFERENCIAL: { label:'SPTI Preferencial',  emoji:'💊', req:'PBS SURA' },
+    SPD:               { label:'SPD Plus',           emoji:'💑', req:'Cualquier EPS' },
+    PSM:               { label:'Plan Modular',        emoji:'🧩', req:'Cualquier EPS' },
+    PAC60:             { label:'Plan 60+',            emoji:'👴', req:'Cualquier EPS' },
+  };
+  const RESENAS_WA = {
+    SPTI_CLASICO:      'Plan complementario completo para afiliados SURA. Hospitalización, especialistas, urgencias, cirugía, medicamentos y terapias. Tarifa congelada.',
+    SPTI_PREFERENCIAL: 'Versión premium del SPTI. Incluye oncología completa, medicamentos biológicos, habitación VIP y cobertura internacional.',
+    SPD:               'No requiere PBS SURA. Cubre al tomador y su asegurado. Tarifa fija sin importar la edad. Ideal si hay preexistencias.',
+    PSM:               'Acceso DIRECTO a especialistas sin remisión. Copago fijo $30.000. Personalizable con módulos adicionales.',
+    PAC60:             'Para mayores de 60 años. Atención domiciliaria, bienestar integral, envejecimiento activo. No requiere PBS SURA.',
+  };
+  const BONOS_WA = {
+    SPTI_CLASICO:      '• Acceso directo especialistas: +$24.700/mes\n• Atención domiciliaria: +$19.400/mes',
+    SPTI_PREFERENCIAL: '• Acceso directo especialistas: +$24.700/mes\n• Atención domiciliaria: +$19.400/mes',
+    SPD:               null,
+    PSM:               null,
+    PAC60:             '• Acceso directo especialistas: +$24.700/mes\n• Atención domiciliaria: +$19.400/mes',
+  };
+
+  let msg = '*Comparativo de Planes SURA 2026*\n';
+  msg += `_${fecha} · ${nombreAsesor}_\n`;
+  msg += '━━━━━━━━━━━━━━━━━━\n\n';
+
+  seleccionados.forEach(k => {
+    const m = META_WA[k];
+    msg += `${m.emoji} *${m.label}*\n`;
+    msg += `📋 Requiere: ${m.req}\n`;
+    msg += `📖 ${RESENAS_WA[k]}\n`;
+    if (BONOS_WA[k]) {
+      msg += `🎯 Bonos opcionales 2026:\n${BONOS_WA[k]}\n`;
+    }
+    msg += '\n';
+  });
+
+  msg += '━━━━━━━━━━━━━━━━━━\n';
+  msg += '⚠️ Valores referenciales. Solicita tu cotización personalizada.';
+
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
 }
 
 function cmpLimpiar() {
