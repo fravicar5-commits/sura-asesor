@@ -6374,7 +6374,9 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
                 </div>
 
                 <!-- Resultado -->
-                <div id="cmpResultado" style="flex:1;overflow-y:auto;font-size:13px;line-height:1.75;white-space:pre-wrap;color:var(--text);display:none;padding:4px 2px;"></div>
+                <div id="cmpResultado" style="flex:1;overflow-y:auto;display:none;padding:4px 0;">
+                  <div id="cmpTablaVisual" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
+                </div>
 
                 <!-- Estado inicial -->
                 <div id="cmpInicio" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-dim);text-align:center;padding:40px;">
@@ -27217,112 +27219,160 @@ async function cmpGenerar() {
     return;
   }
 
-  // Planes seleccionados
   const mapa = { cmpSPTI_C:'SPTI_CLASICO', cmpSPTI_P:'SPTI_PREFERENCIAL', cmpSPD:'SPD', cmpPSM:'PSM', cmpPAC60:'PAC60' };
   const seleccionados = Object.entries(mapa)
     .filter(([id]) => document.getElementById(id)?.checked)
     .map(([, key]) => key);
 
-  if (seleccionados.length < 2) {
-    showToast('Selecciona al menos 2 planes para comparar');
-    return;
+  if (seleccionados.length < 2) { showToast('Selecciona al menos 2 planes para comparar'); return; }
+
+  const edad     = parseInt(document.getElementById('cmpEdad')?.value) || 35;
+  const eps      = document.getElementById('cmpEPS')?.value || 'sura';
+  const contexto = document.getElementById('cmpContexto')?.value || '';
+  const formato  = document.getElementById('cmpFormato')?.value || 'tabla';
+
+  const loadEl = document.getElementById('cmpLoading');
+  const resEl  = document.getElementById('cmpResultado');
+  const inicEl = document.getElementById('cmpInicio');
+  const accEl  = document.getElementById('cmpAcciones');
+  const btnEl  = document.getElementById('btnCmpGenerar');
+  const tablaEl= document.getElementById('cmpTablaVisual');
+
+  if (loadEl) loadEl.style.display = 'block';
+  if (resEl)  resEl.style.display  = 'none';
+  if (inicEl) inicEl.style.display = 'none';
+  if (accEl)  accEl.style.display  = 'none';
+  if (btnEl)  btnEl.disabled       = true;
+
+  // ── Colores y metadatos de planes ─────────────────────────────────────────
+  const META = {
+    SPTI_CLASICO:      { color:'var(--teal)',    hex:'#06B6D4', label:'SPTI Clasico',      req:'PBS SURA',       copago:'Sin copago en IPS SURA',      carencia:'2 meses especialistas' },
+    SPTI_PREFERENCIAL: { color:'var(--sura-blue)',hex:'#1A4CE8', label:'SPTI Preferencial', req:'PBS SURA',       copago:'Sin copago en IPS SURA',      carencia:'2 meses especialistas' },
+    SPD:               { color:'var(--purple)',  hex:'#A855F7', label:'SPD Plus',           req:'Cualquier EPS',  copago:'Copago fijo por evento',      carencia:'Sin carencia urgencias' },
+    PSM:               { color:'#0891B2',        hex:'#0891B2', label:'Plan Modular',       req:'Cualquier EPS',  copago:'$30.000 fijo por consulta',   carencia:'Sin carencia consultas' },
+    PAC60:             { color:'var(--green)',   hex:'#22C55E', label:'Plan 60+',           req:'Cualquier EPS',  copago:'Copago fijo por servicio',    carencia:'Sin carencia urgencias' },
+  };
+
+  // ── Coberturas por plan ────────────────────────────────────────────────────
+  const COBS = {
+    SPTI_CLASICO:      ['Consulta medica general','Especialistas (con proceso PBS)','Urgencias 24/7','Hospitalizacion individual','Cirugia programada','Laboratorios y diagnosticos','Terapias fisicas','Medicamentos cubiertos','Programa materno-infantil'],
+    SPTI_PREFERENCIAL: ['Consulta medica general','Especialistas (con proceso PBS)','Urgencias 24/7','Hospitalizacion VIP','Cirugia programada','Oncologia ampliada','Medicamentos biologicos','Cobertura internacional','Segunda opinion medica'],
+    SPD:               ['Consulta medica general','Especialistas (con derivacion)','Urgencias 24/7','Hospitalizacion','Cirugia programada','Laboratorios basicos','Medicamentos (cobertura parcial)','Tomador + asegurado incluidos','Tarifa unica sin factor edad'],
+    PSM:               ['Especialistas DIRECTOS sin remision','Urgencias 24/7','Laboratorios y diagnosticos','Terapias fisicas y respiratorias','Atencion Longevo adulto mayor','Modulo hospitalario (opcional)','Modulo oncologico (opcional)','Modulo maternidad (opcional)','Modulo dental (opcional)'],
+    PAC60:             ['Especialistas directos','Urgencias 24/7','Atencion DOMICILIARIA incluida','Dimension social y bienestar','Actividad fisica dirigida','Odontologia preventiva','Envejecimiento activo SURA','Descuentos en medicamentos','Telemedicina'],
+  };
+
+  // ── Pros y contras por plan ────────────────────────────────────────────────
+  const PROS = {
+    SPTI_CLASICO:      ['Cobertura hospitalaria completa','Sin copago en IPS SURA','Tarifa congelada','Programa materno-infantil','Red IPS SURA de alta calidad'],
+    SPTI_PREFERENCIAL: ['Maxima cobertura del portafolio','Oncologia sin restricciones','Cobertura internacional','Habitacion VIP','Segunda opinion medica'],
+    SPD:               ['No requiere PBS SURA','Acepta preexistencias mas facilmente','Tarifa plana sin factor edad','Cubre a dos personas','Proceso de suscripcion sencillo'],
+    PSM:               ['Acceso DIRECTO a especialistas','Sin remision del medico general','Personalizable por modulos','No requiere PBS SURA','Sin carencia para consultas'],
+    PAC60:             ['Atencion domiciliaria incluida','Programa integral de bienestar','Dimension social y fisica','Ideal para adulto mayor','No requiere PBS SURA'],
+  };
+  const CONTRAS = {
+    SPTI_CLASICO:      ['Requiere PBS SURA obligatorio','Periodo de carencia 2 meses','Especialistas requieren proceso PBS'],
+    SPTI_PREFERENCIAL: ['Requiere PBS SURA','Prima mas alta del portafolio','Periodo de carencia aplica'],
+    SPD:               ['Menor cobertura que SPTI','Copago por evento','Especialistas requieren derivacion'],
+    PSM:               ['Hospitalizacion solo con modulo adicional','Copago fijo $30.000 por consulta','Prima puede subir con modulos'],
+    PAC60:             ['Dirigido solo a mayores de 60 anos','Cobertura hospitalaria limitada sin anexo','Menos cobertura quirurgica que SPTI'],
+  };
+
+  // ── Construir tabla visual HTML (estilo cotizador) ─────────────────────────
+  const thStyle = (hex) => `style="background:${hex};color:white;padding:14px 16px;text-align:center;min-width:210px;"`;
+  const tdStyle = `style="padding:10px 14px;text-align:center;border-top:1px solid var(--border);font-size:12.5px;"`;
+  const tdLbl   = `style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--text-muted);white-space:nowrap;background:var(--surface2);border-top:1px solid var(--border);"`;
+  const sep     = (txt) => `<tr><td colspan="${seleccionados.length+1}" style="padding:8px 14px;background:var(--surface3);font-size:10.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;border-top:2px solid var(--border);">${txt}</td></tr>`;
+
+  const maxCob = Math.max(...seleccionados.map(k => COBS[k]?.length || 0));
+
+  let html = `<table style="border-collapse:collapse;width:100%;min-width:${180+seleccionados.length*210}px;">
+  <thead><tr>
+    <th style="background:var(--surface2);padding:14px 16px;text-align:left;min-width:140px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;">Aspecto</th>
+    ${seleccionados.map(k => {
+      const m = META[k];
+      return `<th ${thStyle(m.hex)}><div style="font-size:14px;font-weight:800;">${m.label}</div><div style="font-size:10.5px;opacity:.8;margin-top:3px;">${edad} anos · ${eps==='sura'?'PBS SURA':'Otra EPS'}</div></th>`;
+    }).join('')}
+  </tr></thead>
+  <tbody>
+    <tr><td ${tdLbl}>📋 Requiere</td>${seleccionados.map(k=>{const m=META[k];const req=m.req==='PBS SURA';return `<td ${tdStyle}><span style="font-size:12px;padding:3px 10px;border-radius:12px;background:${req?'rgba(6,182,212,0.12)':'rgba(34,197,94,0.12)'};color:${req?'var(--teal)':'var(--green)'};">${m.req}</span>${req&&eps==='otra'?'<div style="font-size:10px;color:var(--amber);margin-top:4px;">Requiere traslado de EPS</div>':''}</td>`;}).join('')}</tr>
+    <tr><td ${tdLbl}>💰 Precio ref. (${edad} anos)</td>${seleccionados.map(k=>{
+      let rango='';
+      if(k.startsWith('SPTI')){ if(edad<=25)rango='$80.000–$130.000/mes'; else if(edad<=35)rango='$100.000–$180.000/mes'; else if(edad<=45)rango='$140.000–$250.000/mes'; else if(edad<=55)rango='$180.000–$320.000/mes'; else rango='$220.000–$400.000/mes'; }
+      else if(k==='SPD') rango='$60.000–$100.000/mes';
+      else if(k==='PSM') rango='$80.000–$200.000/mes';
+      else if(k==='PAC60') rango='$70.000–$150.000/mes';
+      const m=META[k];
+      return `<td ${tdStyle}><div style="font-size:16px;font-weight:800;font-family:var(--mono);color:${m.hex};">${rango}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Referencial · varía por plan y periodicidad</div></td>`;
+    }).join('')}</tr>
+    <tr><td ${tdLbl}>💳 Copagos</td>${seleccionados.map(k=>`<td ${tdStyle}>${META[k].copago}</td>`).join('')}</tr>
+    <tr><td ${tdLbl}>⏳ Carencias</td>${seleccionados.map(k=>`<td ${tdStyle}>${META[k].carencia}</td>`).join('')}</tr>
+    ${sep('✅ Coberturas incluidas')}
+    ${Array.from({length:maxCob},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11.5px;">Cobertura ${i+1}</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:center;border-top:1px solid var(--border);font-size:11.5px;">${COBS[k]?.[i]||'<span style="color:var(--text-dim);">—</span>'}</td>`).join('')}</tr>`).join('')}
+    ${sep('✅ Ventajas principales')}
+    ${Array.from({length:5},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11.5px;color:var(--green);">✓ Ventaja ${i+1}</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:center;border-top:1px solid var(--border);font-size:11.5px;color:var(--green);">${PROS[k]?.[i]||'—'}</td>`).join('')}</tr>`).join('')}
+    ${sep('⚠️ Consideraciones')}
+    ${Array.from({length:3},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11.5px;color:var(--amber);">⚠ Punto ${i+1}</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:center;border-top:1px solid var(--border);font-size:11.5px;color:var(--amber);">${CONTRAS[k]?.[i]||'—'}</td>`).join('')}</tr>`).join('')}
+    ${sep('🏆 Veredicto')}
+    <tr><td ${tdLbl}>Ideal para</td>${seleccionados.map(k=>{
+      const ideal={SPTI_CLASICO:'Con PBS SURA, busca cobertura completa y hospitalaria',SPTI_PREFERENCIAL:'Con PBS SURA, quiere maxima cobertura y oncologia',SPD:'Sin PBS SURA o con preexistencias, presupuesto medio',PSM:'Quiere acceso DIRECTO a especialistas sin remision',PAC60:'Mayor de 60 anos, busca bienestar integral y domicilio'};
+      return `<td ${tdStyle} style="font-weight:600;">${ideal[k]||'—'}</td>`;
+    }).join('')}</tr>
+  </tbody></table>`;
+
+  // ── Mostrar tabla primero ──────────────────────────────────────────────────
+  if (tablaEl) tablaEl.innerHTML = html;
+  if (resEl)   resEl.style.display = 'block';
+  if (loadEl)  loadEl.style.display = 'none';
+
+  // ── Si formato no es tabla, pedir analisis IA adicional ───────────────────
+  if (formato !== 'tabla') {
+    const conocimiento = seleccionados.map(key => {
+      const p = AGENTE_PLANES[key];
+      return '==== ' + (p?.label||key).toUpperCase() + ' ====\n' + (p?.base||'') + (p?.texto ? '\nPDF:\n' + p.texto.slice(0,6000) : '');
+    }).join('\n\n');
+
+    const instrucciones = {
+      proscontras: 'Para cada plan seleccionado lista 5 PROS concretos y 3 CONTRAS reales. Termina con un VEREDICTO de cual conviene mas segun el perfil del cliente.',
+      cliente:     'Explica cada plan en lenguaje muy simple como si le hablaras al cliente. Menciona lo que gana y lo que no cubre. Cierra con una recomendacion clara.',
+      venta:       'Para cada plan: argumento de venta principal, objecion mas comun del cliente y como rebatirla, frase de cierre poderosa. Sin markdown ni asteriscos.',
+    }[formato];
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5', max_tokens: 900,
+          system: 'Eres asesor experto en seguros SURA Colombia. Usas informacion real de los productos. Sin markdown. Texto plano con saltos de linea.',
+          messages: [{ role:'user', content:
+            'Planes: ' + seleccionados.map(k=>AGENTE_PLANES[k]?.label||k).join(' vs ') + '\n' +
+            (edad ? 'Edad: '+edad+' anos\n' : '') +
+            (eps==='otra' ? 'Cliente en otra EPS.\n' : '') +
+            (contexto ? 'Contexto: '+contexto+'\n' : '') + '\n' + instrucciones
+          }]
+        })
+      });
+      const data = await resp.json();
+      const iaText = data?.content?.[0]?.text || '';
+      if (iaText && tablaEl) {
+        const iaDiv = document.createElement('div');
+        iaDiv.style.cssText = 'margin-top:16px;padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);font-size:13px;line-height:1.75;white-space:pre-wrap;color:var(--text);';
+        const titulo = {proscontras:'⚖️ Pros, contras y veredicto', cliente:'💬 Explicacion para el cliente', venta:'🎯 Argumentos de venta'}[formato];
+        iaDiv.innerHTML = '<div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--sura-blue);">'+titulo+'</div>' + iaText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        tablaEl.appendChild(iaDiv);
+      }
+    } catch(e) { console.warn('[CmpIA extra]', e.message); }
   }
 
-  const edad      = document.getElementById('cmpEdad')?.value     || '';
-  const eps       = document.getElementById('cmpEPS')?.value      || 'sura';
-  const contexto  = document.getElementById('cmpContexto')?.value || '';
-  const formato   = document.getElementById('cmpFormato')?.value  || 'tabla';
-
-  // Construir conocimiento solo de los planes seleccionados
-  const conocimiento = seleccionados.map(key => {
-    const p = AGENTE_PLANES[key];
-    if (!p) return '';
-    const base = p.base || '';
-    const pdf  = p.texto ? ('\nCLAUSULADO PDF:\n' + p.texto.slice(0, 8000)) : '';
-    return '==== ' + p.label.toUpperCase() + ' ====\n' + base + pdf;
-  }).join('\n\n');
-
-  const formatoInstruccion = {
-    tabla: `Genera una tabla comparativa en texto plano con filas para: Requisito (necesita PBS SURA?), Precio estimado, Acceso a especialistas, Hospitalizacion, Medicamentos, Copagos, Carencias, Cobertura oncologica, Atencion domiciliaria, Para quien es ideal. Usa columnas separadas por | y encabezados claros.`,
-    proscontras: `Para cada plan, lista: PROS (5 ventajas concretas) y CONTRAS (3 desventajas reales). Luego un VEREDICTO de cual es mejor segun el contexto dado.`,
-    cliente: `Explica cada plan como si le hablaras directamente al cliente. Usa lenguaje simple, sin jerga tecnica. Enfocate en lo que significa para su vida diaria. Termina con una recomendacion clara.`,
-    venta: `Genera argumentos de venta para cada plan. Para cada uno: el argumento principal, la objecion mas comun y como rebatirla, y la frase de cierre ideal. Orientado a que el asesor cierre la venta del plan recomendado.`,
-  }[formato];
-
-  // UI loading
-  const loadEl  = document.getElementById('cmpLoading');
-  const resEl   = document.getElementById('cmpResultado');
-  const inicEl  = document.getElementById('cmpInicio');
-  const accEl   = document.getElementById('cmpAcciones');
-  const btnEl   = document.getElementById('btnCmpGenerar');
-
-  if (loadEl) loadEl.style.display   = 'block';
-  if (resEl)  resEl.style.display    = 'none';
-  if (inicEl) inicEl.style.display   = 'none';
-  if (accEl)  accEl.style.display    = 'none';
-  if (btnEl)  btnEl.disabled         = true;
-
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1800,
-        system: `Eres un experto en seguros voluntarios de salud de SURA Colombia. Ayudas a asesores a comparar productos con informacion precisa y honesta.
-
-INFORMACION DE LOS PLANES A COMPARAR:
-${conocimiento}
-
-REGLAS CRITICAS:
-1. Solo compara los planes que se te piden. No menciones otros.
-2. Basa TODA la informacion en los datos reales de cada plan. No inventes precios ni coberturas.
-3. Si el cliente NO tiene EPS SURA, SPTI NO aplica directamente. Siempre mencionalo cuando compares SPTI.
-4. SPD es la alternativa cuando hay preexistencias o presupuesto limitado.
-5. Si hay clausulados PDF cargados, usa esa informacion como fuente primaria.
-6. Para precios, usa rangos reales segun edad. No des valores exactos si no los tienes con certeza.
-7. Se honesto con las limitaciones de cada plan. Un buen asesor no oculta los contras.
-8. Usa texto plano sin markdown. Usa lineas y espacios para organizar. Puedes usar | para tablas de texto.`,
-        messages: [{
-          role: 'user',
-          content: [
-            'Compara estos planes: ' + seleccionados.map(k => AGENTE_PLANES[k]?.label || k).join(' vs '),
-            edad     ? 'Edad del cliente: ' + edad + ' anos' : '',
-            eps === 'otra' ? 'IMPORTANTE: El cliente esta en otra EPS, no en SURA.' : 'Cliente con PBS SURA.',
-            contexto ? 'Contexto: ' + contexto : '',
-            '',
-            formatoInstruccion,
-          ].filter(Boolean).join('\n')
-        }]
-      })
-    });
-
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data  = await resp.json();
-    const texto = data?.content?.[0]?.text || '';
-
-    if (texto && resEl) {
-      resEl.textContent   = texto;
-      resEl.style.display = 'block';
-      if (accEl) accEl.style.display = 'flex';
-    }
-  } catch(e) {
-    console.error('[CmpIA]', e);
-    showToast('Error al conectar con Claude IA: ' + e.message);
-    if (inicEl) inicEl.style.display = 'flex';
-  } finally {
-    if (loadEl) loadEl.style.display = 'none';
-    if (btnEl)  btnEl.disabled = false;
-  }
+  if (accEl) accEl.style.display = 'flex';
+  if (btnEl) btnEl.disabled = false;
+  if (loadEl) loadEl.style.display = 'none';
 }
 
+
 function cmpCopiar() {
-  const texto = document.getElementById('cmpResultado')?.textContent || '';
+  const texto = document.getElementById('cmpTablaVisual')?.innerText || document.getElementById('cmpResultado')?.textContent || '';
   if (!texto) return;
   navigator.clipboard.writeText(texto).then(() => showToast('Comparativo copiado'));
 }
@@ -27335,12 +27385,14 @@ function cmpWhatsApp() {
 }
 
 function cmpLimpiar() {
-  const resEl  = document.getElementById('cmpResultado');
-  const inicEl = document.getElementById('cmpInicio');
-  const accEl  = document.getElementById('cmpAcciones');
-  if (resEl)  { resEl.textContent = ''; resEl.style.display = 'none'; }
-  if (inicEl) inicEl.style.display = 'flex';
-  if (accEl)  accEl.style.display  = 'none';
+  const resEl   = document.getElementById('cmpResultado');
+  const tablaEl = document.getElementById('cmpTablaVisual');
+  const inicEl  = document.getElementById('cmpInicio');
+  const accEl   = document.getElementById('cmpAcciones');
+  if (tablaEl) tablaEl.innerHTML = '';
+  if (resEl)   { resEl.innerHTML = ''; resEl.style.display = 'none'; }
+  if (inicEl)  inicEl.style.display = 'flex';
+  if (accEl)   accEl.style.display  = 'none';
 }
 
 
