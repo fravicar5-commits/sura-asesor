@@ -27224,20 +27224,19 @@ async function cmpGenerar() {
   const seleccionados = Object.entries(mapa)
     .filter(([id]) => document.getElementById(id)?.checked)
     .map(([, key]) => key);
-
   if (seleccionados.length < 2) { showToast('Selecciona al menos 2 planes para comparar'); return; }
 
-  const edad     = parseInt(document.getElementById('cmpEdad')?.value) || 35;
-  const eps      = document.getElementById('cmpEPS')?.value || 'sura';
-  const contexto = document.getElementById('cmpContexto')?.value || '';
-  const formato  = document.getElementById('cmpFormato')?.value || 'tabla';
+  const edad    = parseInt(document.getElementById('cmpEdad')?.value) || 35;
+  const eps     = document.getElementById('cmpEPS')?.value || 'sura';
+  const contexto= document.getElementById('cmpContexto')?.value || '';
+  const formato = document.getElementById('cmpFormato')?.value || 'tabla';
 
-  const loadEl = document.getElementById('cmpLoading');
-  const resEl  = document.getElementById('cmpResultado');
-  const inicEl = document.getElementById('cmpInicio');
-  const accEl  = document.getElementById('cmpAcciones');
-  const btnEl  = document.getElementById('btnCmpGenerar');
-  const tablaEl= document.getElementById('cmpTablaVisual');
+  const loadEl  = document.getElementById('cmpLoading');
+  const resEl   = document.getElementById('cmpResultado');
+  const inicEl  = document.getElementById('cmpInicio');
+  const accEl   = document.getElementById('cmpAcciones');
+  const btnEl   = document.getElementById('btnCmpGenerar');
+  const tablaEl = document.getElementById('cmpTablaVisual');
 
   if (loadEl) loadEl.style.display = 'block';
   if (resEl)  resEl.style.display  = 'none';
@@ -27245,144 +27244,230 @@ async function cmpGenerar() {
   if (accEl)  accEl.style.display  = 'none';
   if (btnEl)  btnEl.disabled       = true;
 
-  // ── Colores y metadatos de planes ─────────────────────────────────────────
-  const META = {
-    SPTI_CLASICO: {
-      color:'var(--teal)', hex:'#06B6D4', label:'SPTI Clasico', req:'PBS SURA',
-      copago:'Sin copago en IPS SURA', carencia:'2 meses especialistas',
-      bonos: 'Acceso directo especialistas: +$24.700/mes | Atencion domiciliaria: +$19.400/mes',
-      resena: 'El SPTI Clasico es el plan complementario mas completo para afiliados a EPS SURA. Brinda atencion de alta calidad en las IPS SURA sin los tiempos de espera del sistema PBS: consulta medica general, especialistas, urgencias 24/7, hospitalizacion en habitacion individual, cirugia, laboratorios, terapias y medicamentos. La tarifa se congela al momento de la afiliacion. Ideal para quien quiere la mejor experiencia en salud complementando su EPS.',
-    },
-    SPTI_PREFERENCIAL: {
-      color:'var(--sura-blue)', hex:'#1A4CE8', label:'SPTI Preferencial', req:'PBS SURA',
-      copago:'Sin copago en IPS SURA', carencia:'2 meses especialistas',
-      bonos: 'Acceso directo especialistas: +$24.700/mes | Atencion domiciliaria: +$19.400/mes',
-      resena: 'El SPTI Preferencial es la version premium del SPTI con cobertura ampliada para enfermedades de alta complejidad. Incluye todo lo del Clasico mas: oncologia completa desde el diagnostico, medicamentos biologicos y de alto costo, hospitalizacion VIP, cobertura internacional de urgencias hasta USD 50.000 y segunda opinion medica. Para quien busca maxima tranquilidad y cobertura sin limites.',
-    },
-    SPD: {
-      color:'var(--purple)', hex:'#A855F7', label:'SPD Plus', req:'Cualquier EPS',
-      copago:'Copago fijo por evento', carencia:'Sin carencia urgencias',
-      bonos: 'No aplican bonos adicionales — plan autonomo',
-      resena: 'El Plan Salud Para Dos es la opcion mas accesible y flexible del portafolio SURA. No requiere afiliacion a EPS SURA: aplica para cualquier EPS o sin EPS. Incluye al tomador y su asegurado en una sola poliza con tarifa plana sin importar la edad — gran ventaja para adultos mayores. Ideal como alternativa cuando hay preexistencias que impiden el ingreso a SPTI o Plan Modular, o cuando el presupuesto es limitado.',
-    },
-    PSM: {
-      color:'#0891B2', hex:'#0891B2', label:'Plan Modular', req:'Cualquier EPS',
-      copago:'$30.000 fijo por consulta', carencia:'Sin carencia consultas',
-      bonos: 'No aplican bonos adicionales — el plan es modular por naturaleza',
-      resena: 'El Plan Salud Modular es el unico plan SURA con acceso DIRECTO a especialistas sin necesidad de remision del medico general. El cliente llama o va directamente al especialista que necesita pagando un copago fijo de $30.000. No requiere PBS SURA. Se puede personalizar agregando modulos opcionales: hospitalario, oncologico, maternidad, medicamentos o dental. Perfecto para quienes consultan especialistas con frecuencia y valoran la agilidad.',
-    },
-    PAC60: {
-      color:'var(--green)', hex:'#22C55E', label:'Plan 60+', req:'Cualquier EPS',
-      copago:'Copago fijo por servicio', carencia:'Sin carencia urgencias',
-      bonos: 'Acceso directo especialistas: +$24.700/mes | Atencion domiciliaria: +$19.400/mes',
-      resena: 'El Plan 60+ es el unico plan SURA disenado exclusivamente para personas mayores de 60 anos. Va mas alla de la medicina: incluye atencion domiciliaria (medico y enfermera a domicilio), programas de bienestar fisico y social, estimulacion cognitiva, odontologia preventiva y el programa de Envejecimiento Activo SURA. No requiere PBS SURA. Para las familias que quieren que su adulto mayor tenga acompanamiento integral, no solo cuando esta enfermo.',
-    },
+  // ── Calcular tarifa real desde las tablas del cotizador ──────────────────
+  function getPrimaReal(key, edadNum) {
+    if (key === 'SPTI_CLASICO' || key === 'SPTI_PREFERENCIAL') {
+      const plan = key === 'SPTI_CLASICO' ? 'CLASICO' : 'PREFERENCIAL';
+      const rango = getRangoEdadSPTI(edadNum);
+      if (!rango) return null; // fuera de rango SPTI (>59)
+      const t = SPTI_TARIFAS[plan][rango];
+      return t ? { mensual: t.mensual, label: fmt(t.mensual) + '/mes' } : null;
+    }
+    if (key === 'SPD') {
+      return { mensual: SPD_TARIFAS.MENSUAL, label: fmt(SPD_TARIFAS.MENSUAL) + '/mes (tarifa unica)' };
+    }
+    if (key === 'PSM') {
+      const rPSM = getRangoPSM(edadNum);
+      if (!rPSM) return null;
+      const k = rPSM.key;
+      const basico = Math.round(PSM_TARIFAS.basico[k] * PSM_IVA);
+      return { mensual: basico, label: fmt(basico) + '/mes (solo modulo basico)' };
+    }
+    if (key === 'PAC60') {
+      if (edadNum < 60) return { mensual: null, label: 'Solo para mayores de 60 anos' };
+      const rPAC = getRangoPAC60(edadNum);
+      if (!rPAC) return null;
+      const t = PAC60_TARIFAS[rPAC];
+      return { mensual: t.sinAnexo, label: fmt(t.sinAnexo) + '/mes (sin anexo) · ' + fmt(t.conAnexo) + '/mes (con anexo)' };
+    }
+    return null;
+  }
+
+  // ── Coberturas oficiales del clausulado (mismas que usa cotizadorComparar) ─
+  const COBS_OFICIAL = {
+    SPTI_CLASICO: [
+      'Habitacion individual (hospitalizacion medica o quirurgica) — carencia 150 dias, urgencias sin carencia',
+      'Continuidad atencion del parto — carencia 300 dias',
+      'Coberturas congenitas recien nacido — madre con 300 dias afiliacion',
+      'No cobro de copagos PBS EPS SURA — ILIMITADO',
+      'No cobro de cuotas moderadoras PBS',
+      'Consulta externa directa: Internista, Pediatra, Ginecologo, Ginecobstetra, Oftalmologo, Urologo — ILIMITADA con copago',
+      'Atencion medica domiciliaria 24h con copago',
+      'Urgencias odontologicas a domicilio con copago',
+      'Ayudas diagnosticas imagenologia no PBS — carencia 60 dias',
+      'Honorarios quirurgicos del parto',
+      'EXCLUIDO: honorarios quirurgicos otros, insumos, medicamentos hospitalarios sin carencia cumplida',
+    ],
+    SPTI_PREFERENCIAL: [
+      'Habitacion individual (hospitalizacion medica o quirurgica) — carencia 150 dias, urgencias sin carencia',
+      'Continuidad atencion del parto — carencia 300 dias',
+      'Coberturas congenitas recien nacido — madre con 300 dias afiliacion',
+      'No cobro de copagos PBS EPS SURA — ILIMITADO',
+      'No cobro de cuotas moderadoras PBS',
+      'Consulta externa directa: Internista, Pediatra, Ginecologo, Oftalmologo, Urologo, Dermatologo, ORL, Ortopedista, Nutricionista — ILIMITADA con copago',
+      'Bioenergetico — max. 12 consultas/año con copago',
+      'Atencion medica domiciliaria 24h con copago',
+      'Urgencias odontologicas a domicilio con copago',
+      'Ayudas diagnosticas imagenologia no PBS — carencia 60 dias',
+      'Honorarios quirurgicos del parto',
+      'EXCLUIDO: honorarios quirurgicos otros, insumos, medicamentos hospitalarios',
+    ],
+    SPD: [
+      'Atencion virtual prioritaria medico general y pediatra — ILIMITADA (dom a dom, sujeta a horarios)',
+      'Atencion medica domiciliaria/virtual con pertinencia medica',
+      'Consulta directa: Internista, Urologo, Ginecologo, Nutricionista, Oftalmologo, Dermatologo, ORL, Ortopedista, Medico General — ILIMITADA por vigencia',
+      'Consultas psicologia — 4 consultas/año',
+      'Consultas psiquiatria — 2 consultas/año',
+      'Urgencias odontologicas domicilio — ILIMITADA',
+      'Limpieza dental — 1 por persona/año',
+      'Ayudas diagnosticas y laboratorio — bolsa limitada en caratula',
+      'Medicamentos post-atencion virtual — solo los de atencion prioritaria, max. 14 dias',
+      'EXCLUIDO: hospitalizacion, cirugias, terapias, reembolsos',
+    ],
+    PSM: [
+      'Atencion medica urgencias (red hospitalaria SURA) — ILIMITADA',
+      'Atencion virtual prioritaria medico general y pediatra — ILIMITADA',
+      'Atencion prioritaria en sede medico general y pediatra — ILIMITADA',
+      'Medicamentos post-atencion prioritaria — ILIMITADA (listado definido, max. 14 dias)',
+      'Consulta externa directa: Internista, Pediatra, Ginecologia, Nutricion, Dermatologia, Oftalmologia, Urologia, Ortopedia, ORL, Cirugia, Psiquiatria, Gastro, Endocrino, Cardiologia, Neurologia, Psicologia (max. 20/año) — ILIMITADA',
+      'Laboratorio clinico y ayudas diagnosticas — ILIMITADO (carencia 4 meses para TAC, RM, endoscopias)',
+      'Terapias fisicas, ocupacionales, respiratorias, lenguaje — 70 sesiones totales/año',
+      'Hospitalizacion medica y quirurgica, UCI, gastos intrahospitalarios, protesis — carencia 4 meses cirugia programada',
+      'Hospitalizacion psiquiatrica — 45 dias/año, carencia 12 meses',
+      'Hospitalizacion domiciliaria — ILIMITADA',
+      'Traslado en ambulancia terrestre — ILIMITADO',
+      'Plataforma Longevo bienestar y prevencion — ILIMITADO',
+      'Anexos opcionales: Emergencia domiciliaria, Alto Costo (cancer, VIH, dialisis, trasplantes), Cirugia ambulatoria, Maternidad',
+    ],
+    PAC60: [
+      'Edad de ingreso: 60 anos o mas',
+      'Periodos de carencia: Sin carencia — acceso inmediato desde inicio',
+      'DIMENSION FISICA: Acceso directo especialistas — Internista, Oftalmologo, Urologo, Ortopedista (+ Cardiologo y Dermatologo con Anexo)',
+      'Ayudas diagnosticas PBS (laboratorio clinico, imagenologia, pruebas diagnosticas)',
+      'Exoneracion copagos y cuotas moderadoras PBS (consultas, laboratorio, imagenologia, terapias)',
+      'Atencion medica domiciliaria (medicina general programada)',
+      'DIMENSION PREVENCION: Medicina bioenergetica y acupuntura, Chequeo ejecutivo anual',
+      'Programas envejecimiento activo (nutricion, manejo emociones, actividad fisica)',
+      'DIMENSION SOCIAL: Orientacion familiar, acompanamiento cuidadores, actividades integracion',
+      'EXCLUIDO: cirugias, medicamentos/insumos/protesis, odontologia, tratamientos fuera de Colombia',
+    ],
   };
 
-  // ── Coberturas por plan ────────────────────────────────────────────────────
-  const COBS = {
-    SPTI_CLASICO:      ['Consulta medica general','Especialistas (con proceso PBS)','Urgencias 24/7','Hospitalizacion individual','Cirugia programada','Laboratorios y diagnosticos','Terapias fisicas','Medicamentos cubiertos','Programa materno-infantil'],
-    SPTI_PREFERENCIAL: ['Consulta medica general','Especialistas (con proceso PBS)','Urgencias 24/7','Hospitalizacion VIP','Cirugia programada','Oncologia ampliada','Medicamentos biologicos','Cobertura internacional','Segunda opinion medica'],
-    SPD:               ['Consulta medica general','Especialistas (con derivacion)','Urgencias 24/7','Hospitalizacion','Cirugia programada','Laboratorios basicos','Medicamentos (cobertura parcial)','Tomador + asegurado incluidos','Tarifa unica sin factor edad'],
-    PSM:               ['Especialistas DIRECTOS sin remision','Urgencias 24/7','Laboratorios y diagnosticos','Terapias fisicas y respiratorias','Atencion Longevo adulto mayor','Modulo hospitalario (opcional)','Modulo oncologico (opcional)','Modulo maternidad (opcional)','Modulo dental (opcional)'],
-    PAC60:             ['Especialistas directos','Urgencias 24/7','Atencion DOMICILIARIA incluida','Dimension social y bienestar','Actividad fisica dirigida','Odontologia preventiva','Envejecimiento activo SURA','Descuentos en medicamentos','Telemedicina'],
+  // ── Reseñas oficiales (basadas en clausulados, sin inventar) ─────────────
+  const RESENAS = {
+    SPTI_CLASICO:      'Seguro complementario al PBS EPS SURA. Cubre hospitalizacion en habitacion individual (carencia 150 dias, urgencias sin carencia), consulta directa con especialistas (Internista, Pediatra, Ginecologo, Oftalmologo, Urologo) con copago, atencion domiciliaria 24h, imagenologia no PBS (carencia 60 dias) y honorarios del parto. No cubre honorarios quirurgicos programados, insumos ni medicamentos hospitalarios.',
+    SPTI_PREFERENCIAL: 'Version ampliada del SPTI Clasico. Agrega acceso a mas especialistas directos (Dermatologo, ORL, Ortopedista, Nutricionista), consultas bioenergeticas (max. 12/año) y copagos PBS exonerados. Mismas carencias del Clasico: 150 dias hospitalizacion programada, 60 dias imagenologia no PBS. No cubre honorarios quirurgicos programados ni insumos hospitalarios.',
+    SPD:               'Plan autonomo que no requiere PBS SURA. Incluye al tomador y su asegurado. Cubre atencion virtual ilimitada (medico general y pediatra), consulta directa con 9 especialidades ilimitada por vigencia, urgencias odontologicas domicilio, limpieza dental anual y medicamentos post-atencion (max. 14 dias). No incluye hospitalizacion, cirugias, terapias fisicas ni reembolsos.',
+    PSM:               'Plan modular con acceso DIRECTO a especialistas sin remision del medico general. Cubre urgencias ILIMITADAS, consulta con 15 especialidades ilimitada, laboratorios ilimitados, 70 sesiones terapias/año, hospitalizacion (carencia 4 meses cirugia programada), hospitalizacion domiciliaria ilimitada y Plataforma Longevo. Se complementa con modulos opcionales de alto costo, maternidad, cirugia ambulatoria y emergencia domiciliaria.',
+    PAC60:             'Plan exclusivo para mayores de 60 anos. Acceso DIRECTO a especialistas sin remision (Internista, Oftalmologo, Urologo, Ortopedista). Sin periodos de carencia. Exonera copagos PBS. Incluye atencion domiciliaria programada, chequeo ejecutivo anual, programas de envejecimiento activo (nutricion, actividad fisica, manejo emocional) y dimension social (orientacion familiar, actividades integracion). No cubre cirugias, medicamentos, odontologia ni tratamientos fuera de Colombia.',
   };
 
-  // ── Pros y contras por plan ────────────────────────────────────────────────
+  // ── Carencias correctas ───────────────────────────────────────────────────
+  const CARENCIAS = {
+    SPTI_CLASICO:      '150 dias habitacion individual programada · 60 dias imagenologia no PBS · 300 dias parto · Urgencias sin carencia',
+    SPTI_PREFERENCIAL: '150 dias habitacion individual programada · 60 dias imagenologia no PBS · 300 dias parto · Urgencias sin carencia',
+    SPD:               'Sin carencia para servicios principales',
+    PSM:               '4 meses cirugia programada · 4 meses TAC/RM/endoscopias · 12 meses hospitalizacion psiquiatrica · 12 meses protesis articulares',
+    PAC60:             'Sin carencia — acceso inmediato desde inicio de vigencia',
+  };
+
+  // ── Pros reales por plan (basados en coberturas) ──────────────────────────
   const PROS = {
-    SPTI_CLASICO:      ['Cobertura hospitalaria completa','Sin copago en IPS SURA','Tarifa congelada','Programa materno-infantil','Red IPS SURA de alta calidad'],
-    SPTI_PREFERENCIAL: ['Maxima cobertura del portafolio','Oncologia sin restricciones','Cobertura internacional','Habitacion VIP','Segunda opinion medica'],
-    SPD:               ['No requiere PBS SURA','Acepta preexistencias mas facilmente','Tarifa plana sin factor edad','Cubre a dos personas','Proceso de suscripcion sencillo'],
-    PSM:               ['Acceso DIRECTO a especialistas','Sin remision del medico general','Personalizable por modulos','No requiere PBS SURA','Sin carencia para consultas'],
-    PAC60:             ['Atencion domiciliaria incluida','Programa integral de bienestar','Dimension social y fisica','Ideal para adulto mayor','No requiere PBS SURA'],
-  };
-  const CONTRAS = {
-    SPTI_CLASICO:      ['Requiere PBS SURA obligatorio','Periodo de carencia 2 meses','Especialistas requieren proceso PBS'],
-    SPTI_PREFERENCIAL: ['Requiere PBS SURA','Prima mas alta del portafolio','Periodo de carencia aplica'],
-    SPD:               ['Menor cobertura que SPTI','Copago por evento','Especialistas requieren derivacion'],
-    PSM:               ['Hospitalizacion solo con modulo adicional','Copago fijo $30.000 por consulta','Prima puede subir con modulos'],
-    PAC60:             ['Dirigido solo a mayores de 60 anos','Cobertura hospitalaria limitada sin anexo','Menos cobertura quirurgica que SPTI'],
+    SPTI_CLASICO:      ['Hospitalizacion individual sin copago en IPS SURA','Exonera copagos y cuotas moderadoras PBS','Especialistas directos sin proceso de autorizacion EPS','Atencion domiciliaria 24h','Tarifa congelada al momento de afiliacion'],
+    SPTI_PREFERENCIAL: ['Todo lo del Clasico mas mas especialidades directas','Bioenergetico incluido (12/año)','Mas especialistas directos (Dermatologo, ORL, Ortopedista, Nutricionista)','Exonera copagos PBS','Tarifa congelada'],
+    SPD:               ['No requiere PBS SURA — aplica para cualquier EPS','Cubre al tomador y su asegurado en una poliza','Tarifa unica sin importar la edad','Especialistas directos en 9 especialidades ILIMITADOS','Proceso de suscripcion mas flexible'],
+    PSM:               ['Acceso DIRECTO a especialistas sin remision ni autorizacion','15 especialidades disponibles directamente','Urgencias ilimitadas en red hospitalaria SURA','Hospitalizacion incluida con modulo basico','Plataforma Longevo bienestar incluida'],
+    PAC60:             ['Sin periodos de carencia — acceso inmediato','Acceso directo a especialistas sin remision','Exonera copagos PBS','Atencion domiciliaria programada incluida','Programas envejecimiento activo y dimension social'],
   };
 
-  // ── Construir tabla visual HTML (estilo cotizador) ─────────────────────────
+  // ── Contras reales por plan ───────────────────────────────────────────────
+  const CONTRAS = {
+    SPTI_CLASICO:      ['Requiere afiliacion obligatoria a EPS SURA','150 dias carencia para hospitalizacion programada','No cubre honorarios quirurgicos programados ni insumos','Menos especialidades directas que Preferencial'],
+    SPTI_PREFERENCIAL: ['Requiere afiliacion obligatoria a EPS SURA','150 dias carencia para hospitalizacion programada','No cubre honorarios quirurgicos programados ni insumos','Prima mas alta del portafolio SPTI'],
+    SPD:               ['No incluye hospitalizacion ni cirugias','No incluye terapias fisicas','Ayudas diagnosticas con bolsa limitada','Medicamentos solo post-atencion virtual (max. 14 dias)'],
+    PSM:               ['Copago fijo $30.000 por consulta de especialista','Cirugia programada con carencia 4 meses','TAC, resonancias y endoscopias con carencia 4 meses','Alto costo requiere modulo adicional con prima extra'],
+    PAC60:             ['Solo para mayores de 60 anos','No cubre cirugias ni medicamentos/insumos','No incluye odontologia','No cubre tratamientos fuera de Colombia'],
+  };
+
+  // ── Bonos opcionales 2026 ─────────────────────────────────────────────────
+  const BONOS = {
+    SPTI_CLASICO:      '+$24.700/mes Acceso directo especialistas · +$19.400/mes Atencion domiciliaria',
+    SPTI_PREFERENCIAL: '+$24.700/mes Acceso directo especialistas · +$19.400/mes Atencion domiciliaria',
+    SPD:               null,
+    PSM:               null,
+    PAC60:             '+$24.700/mes Acceso directo especialistas adicionales · +$19.400/mes Atencion domiciliaria ampliada',
+  };
+
+  // ── Metadatos visuales ────────────────────────────────────────────────────
+  const META = {
+    SPTI_CLASICO:      { hex:'#06B6D4', label:'SPTI Clasico',      req:'PBS SURA obligatorio' },
+    SPTI_PREFERENCIAL: { hex:'#1A4CE8', label:'SPTI Preferencial',  req:'PBS SURA obligatorio' },
+    SPD:               { hex:'#A855F7', label:'SPD Plus',           req:'Cualquier EPS' },
+    PSM:               { hex:'#0891B2', label:'Plan Modular',       req:'Cualquier EPS' },
+    PAC60:             { hex:'#22C55E', label:'Plan 60+',           req:'Cualquier EPS (60+ anos)' },
+  };
+
+  // ── Construir tabla visual ────────────────────────────────────────────────
   const thStyle = (hex) => `style="background:${hex};color:white;padding:14px 16px;text-align:center;min-width:210px;"`;
-  const tdStyle = `style="padding:10px 14px;text-align:center;border-top:1px solid var(--border);font-size:12.5px;"`;
+  const tdStyle = `style="padding:10px 14px;text-align:center;border-top:1px solid var(--border);font-size:12px;"`;
   const tdLbl   = `style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--text-muted);white-space:nowrap;background:var(--surface2);border-top:1px solid var(--border);"`;
   const sep     = (txt) => `<tr><td colspan="${seleccionados.length+1}" style="padding:8px 14px;background:var(--surface3);font-size:10.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;border-top:2px solid var(--border);">${txt}</td></tr>`;
 
-  const maxCob = Math.max(...seleccionados.map(k => COBS[k]?.length || 0));
+  const maxCob   = Math.max(...seleccionados.map(k => COBS_OFICIAL[k]?.length || 0));
+  const maxPros  = Math.max(...seleccionados.map(k => PROS[k]?.length || 0));
+  const maxCon   = Math.max(...seleccionados.map(k => CONTRAS[k]?.length || 0));
 
-  let html = `<table style="border-collapse:collapse;width:100%;min-width:${180+seleccionados.length*210}px;">
+  let html = `<table style="border-collapse:collapse;width:100%;min-width:${180+seleccionados.length*220}px;">
   <thead><tr>
-    <th style="background:var(--surface2);padding:14px 16px;text-align:left;min-width:140px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;">Aspecto</th>
+    <th style="background:var(--surface2);padding:14px 16px;text-align:left;min-width:150px;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.07em;">Aspecto</th>
     ${seleccionados.map(k => {
       const m = META[k];
-      return `<th ${thStyle(m.hex)}><div style="font-size:14px;font-weight:800;">${m.label}</div><div style="font-size:10.5px;opacity:.8;margin-top:3px;">${edad} anos · ${eps==='sura'?'PBS SURA':'Otra EPS'}</div></th>`;
+      const prima = getPrimaReal(k, edad);
+      return `<th ${thStyle(m.hex)}><div style="font-size:14px;font-weight:800;">${m.label}</div><div style="font-size:10.5px;opacity:.8;margin-top:3px;">${edad} anos · ${eps==='sura'?'PBS SURA':'Otra EPS'}</div>${prima ? `<div style="font-size:13px;font-weight:700;margin-top:5px;opacity:.95;">${prima.label}</div>` : '<div style="font-size:11px;opacity:.7;margin-top:4px;">Consultar tarifa</div>'}</th>`;
     }).join('')}
   </tr></thead>
   <tbody>
-    <tr><td ${tdLbl}>📋 Requiere</td>${seleccionados.map(k=>{const m=META[k];const req=m.req==='PBS SURA';return `<td ${tdStyle}><span style="font-size:12px;padding:3px 10px;border-radius:12px;background:${req?'rgba(6,182,212,0.12)':'rgba(34,197,94,0.12)'};color:${req?'var(--teal)':'var(--green)'};">${m.req}</span>${req&&eps==='otra'?'<div style="font-size:10px;color:var(--amber);margin-top:4px;">Requiere traslado de EPS</div>':''}</td>`;}).join('')}</tr>
-    <tr><td ${tdLbl}>💰 Precio ref. (${edad} anos)</td>${seleccionados.map(k=>{
-      let rango='';
-      if(k.startsWith('SPTI')){ if(edad<=25)rango='$80.000–$130.000/mes'; else if(edad<=35)rango='$100.000–$180.000/mes'; else if(edad<=45)rango='$140.000–$250.000/mes'; else if(edad<=55)rango='$180.000–$320.000/mes'; else rango='$220.000–$400.000/mes'; }
-      else if(k==='SPD') rango='$60.000–$100.000/mes';
-      else if(k==='PSM') rango='$80.000–$200.000/mes';
-      else if(k==='PAC60') rango='$70.000–$150.000/mes';
-      const m=META[k];
-      return `<td ${tdStyle}><div style="font-size:16px;font-weight:800;font-family:var(--mono);color:${m.hex};">${rango}</div><div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Referencial · varía por plan y periodicidad</div></td>`;
+    <tr><td ${tdLbl}>📋 Requiere</td>${seleccionados.map(k=>{
+      const m=META[k]; const req=m.req.includes('PBS SURA');
+      return `<td ${tdStyle}><span style="font-size:12px;padding:3px 10px;border-radius:12px;background:${req?'rgba(6,182,212,0.12)':'rgba(34,197,94,0.12)'};color:${req?'var(--teal)':'var(--green)'};">${m.req}</span>${req&&eps==='otra'?'<div style="font-size:10px;color:var(--amber);margin-top:4px;">Requiere traslado de EPS</div>':''}</td>`;
     }).join('')}</tr>
     <tr><td ${tdLbl}>🎯 Bonos opcionales 2026</td>${seleccionados.map(k=>{
-      const b=META[k].bonos;
-      const noBono = b && b.includes('No aplican');
-      return `<td ${tdStyle} style="font-size:11.5px;">${noBono?'<span style="color:var(--text-dim);">—</span>':b.split('|').map(x=>`<div style="margin:2px 0;color:var(--amber);font-size:11px;">${x.trim()}</div>`).join('')}</td>`;
+      const b=BONOS[k];
+      return `<td ${tdStyle} style="font-size:11px;">${b ? b.split('·').map(x=>`<div style="color:var(--amber);margin:2px 0;">${x.trim()}</div>`).join('') : '<span style="color:var(--text-dim);">No aplican</span>'}</td>`;
     }).join('')}</tr>
-    <tr><td ${tdLbl}>💳 Copagos</td>${seleccionados.map(k=>`<td ${tdStyle}>${META[k].copago}</td>`).join('')}</tr>
-    <tr><td ${tdLbl}>⏳ Carencias</td>${seleccionados.map(k=>`<td ${tdStyle}>${META[k].carencia}</td>`).join('')}</tr>
+    <tr><td ${tdLbl}>⏳ Periodos de carencia</td>${seleccionados.map(k=>`<td ${tdStyle} style="font-size:11px;line-height:1.6;">${CARENCIAS[k]}</td>`).join('')}</tr>
     ${sep('📖 Acerca del plan')}
-    <tr>${['<td '+tdLbl+' style="padding:10px 14px;vertical-align:top;">Resena</td>', ...seleccionados.map(k=>`<td style="padding:10px 14px;border-top:1px solid var(--border);font-size:12px;line-height:1.6;color:var(--text);text-align:left;">${META[k].resena}</td>`)].join('')}</tr>
-    ${sep('✅ Coberturas incluidas')}
-    ${Array.from({length:maxCob},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11.5px;">Cobertura ${i+1}</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:center;border-top:1px solid var(--border);font-size:11.5px;">${COBS[k]?.[i]||'<span style="color:var(--text-dim);">—</span>'}</td>`).join('')}</tr>`).join('')}
-    ${sep('✅ Ventajas principales')}
-    ${Array.from({length:5},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11.5px;color:var(--green);">✓ Ventaja ${i+1}</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:center;border-top:1px solid var(--border);font-size:11.5px;color:var(--green);">${PROS[k]?.[i]||'—'}</td>`).join('')}</tr>`).join('')}
-    ${sep('⚠️ Consideraciones')}
-    ${Array.from({length:3},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11.5px;color:var(--amber);">⚠ Punto ${i+1}</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:center;border-top:1px solid var(--border);font-size:11.5px;color:var(--amber);">${CONTRAS[k]?.[i]||'—'}</td>`).join('')}</tr>`).join('')}
-    ${sep('🏆 Veredicto')}
-    <tr><td ${tdLbl}>Ideal para</td>${seleccionados.map(k=>{
-      const ideal={SPTI_CLASICO:'Con PBS SURA, busca cobertura completa y hospitalaria',SPTI_PREFERENCIAL:'Con PBS SURA, quiere maxima cobertura y oncologia',SPD:'Sin PBS SURA o con preexistencias, presupuesto medio',PSM:'Quiere acceso DIRECTO a especialistas sin remision',PAC60:'Mayor de 60 anos, busca bienestar integral y domicilio'};
-      return `<td ${tdStyle} style="font-weight:600;">${ideal[k]||'—'}</td>`;
+    <tr>${['<td '+tdLbl+' style="vertical-align:top;">Resena oficial</td>', ...seleccionados.map(k=>`<td style="padding:10px 14px;border-top:1px solid var(--border);font-size:11.5px;line-height:1.65;color:var(--text);text-align:left;">${RESENAS[k]}</td>`)].join('')}</tr>
+    ${sep('✅ Coberturas incluidas (segun clausulado)')}
+    ${Array.from({length:maxCob},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11px;">${i+1}.</td>${seleccionados.map(k=>{const c=COBS_OFICIAL[k]?.[i]||'';const exc=c.startsWith('EXCLUIDO');return `<td style="padding:7px 14px;text-align:left;border-top:1px solid var(--border);font-size:11px;${exc?'color:var(--red);':c?'':'color:var(--text-dim);'}">${c||'—'}</td>`;}).join('')}</tr>`).join('')}
+    ${sep('✅ Ventajas reales')}
+    ${Array.from({length:maxPros},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11px;color:var(--green);">✓</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:left;border-top:1px solid var(--border);font-size:11.5px;color:var(--green);">${PROS[k]?.[i]||'<span style="color:var(--text-dim);">—</span>'}</td>`).join('')}</tr>`).join('')}
+    ${sep('⚠️ Consideraciones importantes')}
+    ${Array.from({length:maxCon},(_,i)=>`<tr><td ${tdLbl} style="padding:7px 14px;font-size:11px;color:var(--amber);">⚠</td>${seleccionados.map(k=>`<td style="padding:7px 14px;text-align:left;border-top:1px solid var(--border);font-size:11.5px;color:var(--amber);">${CONTRAS[k]?.[i]||'<span style="color:var(--text-dim);">—</span>'}</td>`).join('')}</tr>`).join('')}
+    ${sep('🏆 Para quien es ideal')}
+    <tr><td ${tdLbl}>Perfil ideal</td>${seleccionados.map(k=>{
+      const ideal={SPTI_CLASICO:'Afiliado SURA que quiere mejor experiencia hospitalaria sin esperas PBS',SPTI_PREFERENCIAL:'Afiliado SURA que quiere mayor acceso a especialistas directos y exoneracion de copagos',SPD:'Sin PBS SURA, o con preexistencias, o presupuesto ajustado',PSM:'Quien consulta especialistas con frecuencia y valora acceso directo sin remision',PAC60:'Adulto mayor 60+ que busca atencion integral, domiciliaria y bienestar'};
+      return `<td ${tdStyle} style="font-weight:600;text-align:left;font-size:11.5px;">${ideal[k]||'—'}</td>`;
     }).join('')}</tr>
   </tbody></table>`;
 
-  // ── Mostrar tabla primero ──────────────────────────────────────────────────
   if (tablaEl) tablaEl.innerHTML = html;
   if (resEl)   resEl.style.display = 'block';
   if (loadEl)  loadEl.style.display = 'none';
 
-  // ── Si formato no es tabla, pedir analisis IA adicional ───────────────────
+  // ── Análisis IA adicional para formatos distintos a tabla ─────────────────
   if (formato !== 'tabla') {
     const conocimiento = seleccionados.map(key => {
       const p = AGENTE_PLANES[key];
-      return '==== ' + (p?.label||key).toUpperCase() + ' ====\n' + (p?.base||'') + (p?.texto ? '\nPDF:\n' + p.texto.slice(0,6000) : '');
+      return '==== ' + (p?.label||key).toUpperCase() + ' ====\n' + (p?.base||'') + (p?.texto ? '\nCLAUSULADO PDF:\n' + p.texto.slice(0,6000) : '');
     }).join('\n\n');
-
     const instrucciones = {
-      proscontras: 'Para cada plan seleccionado lista 5 PROS concretos y 3 CONTRAS reales. Termina con un VEREDICTO de cual conviene mas segun el perfil del cliente.',
-      cliente:     'Explica cada plan en lenguaje muy simple como si le hablaras al cliente. Menciona lo que gana y lo que no cubre. Cierra con una recomendacion clara.',
-      venta:       'Para cada plan: argumento de venta principal, objecion mas comun del cliente y como rebatirla, frase de cierre poderosa. Sin markdown ni asteriscos.',
+      proscontras: 'Con base en las coberturas reales listadas, elabora pros y contras concretos de cada plan. Termina con un veredicto segun el perfil del cliente.',
+      cliente:     'Explica cada plan en lenguaje simple para el cliente. Menciona que gana y que no cubre. Cierra con recomendacion clara.',
+      venta:       'Para cada plan: argumento de venta principal basado en coberturas reales, objecion mas comun y como rebatirla, frase de cierre. Sin markdown.',
     }[formato];
-
     try {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body: JSON.stringify({
-          model: 'claude-haiku-4-5', max_tokens: 900,
-          system: 'Eres asesor experto en seguros SURA Colombia. Usas informacion real de los productos. Sin markdown. Texto plano con saltos de linea.',
-          messages: [{ role:'user', content:
-            'Planes: ' + seleccionados.map(k=>AGENTE_PLANES[k]?.label||k).join(' vs ') + '\n' +
-            (edad ? 'Edad: '+edad+' anos\n' : '') +
-            (eps==='otra' ? 'Cliente en otra EPS.\n' : '') +
-            (contexto ? 'Contexto: '+contexto+'\n' : '') + '\n' + instrucciones
+          model:'claude-haiku-4-5', max_tokens:900,
+          system:'Eres asesor experto en seguros SURA Colombia. Usas solo informacion real de los productos. Sin markdown. Texto plano.',
+          messages:[{role:'user',content:
+            'Planes: '+seleccionados.map(k=>AGENTE_PLANES[k]?.label||k).join(' vs ')+'\n'+
+            (edad?'Edad: '+edad+' anos\n':'')+
+            (eps==='otra'?'Cliente en otra EPS.\n':'Cliente con PBS SURA.\n')+
+            (contexto?'Contexto: '+contexto+'\n':'')+'\n'+instrucciones
           }]
         })
       });
@@ -27391,11 +27476,11 @@ async function cmpGenerar() {
       if (iaText && tablaEl) {
         const iaDiv = document.createElement('div');
         iaDiv.style.cssText = 'margin-top:16px;padding:14px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);font-size:13px;line-height:1.75;white-space:pre-wrap;color:var(--text);';
-        const titulo = {proscontras:'⚖️ Pros, contras y veredicto', cliente:'💬 Explicacion para el cliente', venta:'🎯 Argumentos de venta'}[formato];
+        const titulo = {proscontras:'Pros, contras y veredicto',cliente:'Explicacion para el cliente',venta:'Argumentos de venta'}[formato];
         iaDiv.innerHTML = '<div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--sura-blue);">'+titulo+'</div>' + iaText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
         tablaEl.appendChild(iaDiv);
       }
-    } catch(e) { console.warn('[CmpIA extra]', e.message); }
+    } catch(e) { console.warn('[CmpIA]', e.message); }
   }
 
   if (accEl) accEl.style.display = 'flex';
