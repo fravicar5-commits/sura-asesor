@@ -5999,11 +5999,25 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
       <!-- ===== ASISTENTE DE PLANES ===== -->
       <div class="page" id="page-agente">
 
+        <!-- Tabs del agente -->
+        <div style="display:flex;gap:8px;margin-bottom:18px;border-bottom:2px solid var(--border);padding-bottom:0;">
+          <button id="tabAgenteClausulados" onclick="agenteSetTab('clausulados')"
+            style="padding:8px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--sura-blue);border-bottom:2px solid var(--sura-blue);margin-bottom:-2px;font-family:var(--font);">
+            🤖 Clausulados
+          </button>
+          <button id="tabAgenteAsesor" onclick="agenteSetTab('asesor')"
+            style="padding:8px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--font);">
+            🎯 Asesor de Productos
+          </button>
+        </div>
+
+        <!-- Panel: Clausulados -->
+        <div id="panelAgenteClausulados">
         <!-- Intro banner -->
         <div class="alert alert-info" style="margin-bottom:20px;">
-          🤖 <strong>Asistente de Clausulados SURA</strong> — Sube los PDFs de cada plan y hazle preguntas como
+          🤖 <strong>Asistente de Clausulados SURA</strong> — Los productos ya tienen su base de conocimiento cargada permanentemente.
+          Sube los PDFs oficiales para enriquecer el contexto y hazle preguntas como
           <em>"¿El SPTI cubre cirugía bariátrica?"</em> o <em>"¿Cuál es el período de carencia del Plan Modular?"</em>.
-          El agente responde basándose <strong>solo en lo que dice el documento</strong>.
         </div>
 
         <!-- API Key config -->
@@ -6100,6 +6114,163 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             #page-agente > div { grid-template-columns: 1fr !important; }
           }
         </style>
+        </div><!-- /panelAgenteClausulados -->
+
+        <!-- Panel: Asesor de Productos -->
+        <div id="panelAgenteAsesor" style="display:none;">
+          <div class="alert" style="background:rgba(168,85,247,0.07);border:1px solid rgba(168,85,247,0.2);margin-bottom:18px;">
+            🎯 <strong>Asesor de Productos SURA</strong> — Describe el perfil y necesidades del cliente. La IA analiza
+            los 4 productos con sus coberturas, tarifas, copagos y clausulados para recomendar la mejor opción con argumentos concretos.
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <!-- Perfil del cliente -->
+            <div>
+              <div class="card" style="margin-bottom:16px;">
+                <div class="card-title" style="margin-bottom:14px;">👤 Perfil del cliente</div>
+                <div style="display:flex;flex-direction:column;gap:11px;">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Nombre (opcional)</label>
+                    <input type="text" class="form-control" id="asPerfNombre" placeholder="Nombre del cliente">
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div class="form-group" style="margin:0;">
+                      <label class="form-label">Edad</label>
+                      <input type="number" class="form-control" id="asPerfEdad" placeholder="Ej: 35" min="0" max="100">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label class="form-label">EPS actual</label>
+                      <select class="form-control" id="asPerfEPS">
+                        <option value="sura">EPS SURA</option>
+                        <option value="otra">Otra EPS</option>
+                        <option value="ninguna">Sin EPS / Independiente</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Situación laboral</label>
+                    <select class="form-control" id="asPerfLaboral">
+                      <option value="dependiente">Empleado dependiente</option>
+                      <option value="independiente">Independiente / freelance</option>
+                      <option value="pensionado">Pensionado</option>
+                      <option value="informal">Trabajador informal</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">¿Tiene preexistencias conocidas?</label>
+                    <select class="form-control" id="asPerfPreex">
+                      <option value="no">No</option>
+                      <option value="si">Sí (enfermedades previas)</option>
+                      <option value="cronicas">Enfermedades crónicas controladas</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Presupuesto mensual aprox.</label>
+                    <select class="form-control" id="asPerfPresupuesto">
+                      <option value="bajo">Bajo — menos de $80.000/mes</option>
+                      <option value="medio">Medio — $80.000 a $200.000/mes</option>
+                      <option value="alto">Alto — más de $200.000/mes</option>
+                      <option value="sinlimite">Sin límite, busca la mejor cobertura</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">¿Incluye pareja o familia?</label>
+                    <select class="form-control" id="asPerfFamilia">
+                      <option value="solo">Solo el cliente</option>
+                      <option value="pareja">Cliente + pareja</option>
+                      <option value="familia">Cliente + familia</option>
+                      <option value="adultomayor">Para un adulto mayor</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title" style="margin-bottom:12px;">🎯 ¿Qué busca el cliente?</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="asNecEspecialista"> Acceso rápido a especialistas sin remisión
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="asNecHospital"> Cobertura hospitalaria completa
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="asNecMedicamentos"> Medicamentos cubiertos
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="asNecMaternidad"> Maternidad / planificación familiar
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="asNecOncologia"> Cobertura oncológica
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="asNecDomicilio"> Atención domiciliaria
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="asNecBienestar"> Bienestar y envejecimiento activo
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="asNecInternacional"> Cobertura internacional
+                  </label>
+                </div>
+                <div class="form-group" style="margin-top:12px;margin-bottom:0;">
+                  <label class="form-label">Situación o duda específica del cliente</label>
+                  <textarea class="form-control" id="asNecExtra" rows="3"
+                    placeholder="Ej: Tiene diabetes controlada, usa especialista cada 2 meses, su EPS actual demora mucho..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resultado del asesor -->
+            <div>
+              <div class="card" style="height:100%;display:flex;flex-direction:column;min-height:600px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                  <div class="card-title" style="margin-bottom:0;">💡 Recomendación del Asesor IA</div>
+                  <button class="btn btn-primary" onclick="asGenerarRecomendacion()" id="btnAsGenerar" style="min-width:120px;">
+                    ✨ Analizar
+                  </button>
+                </div>
+
+                <!-- Loading -->
+                <div id="asLoading" style="display:none;text-align:center;padding:40px;color:var(--text-muted);">
+                  <div class="ia-dots" style="justify-content:center;margin-bottom:10px;"><span></span><span></span><span></span></div>
+                  <div style="font-size:13px;">Analizando perfil y productos...</div>
+                </div>
+
+                <!-- Resultado -->
+                <div id="asResultado" style="flex:1;overflow-y:auto;font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--text);display:none;"></div>
+
+                <!-- Estado inicial -->
+                <div id="asInicio" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-dim);text-align:center;padding:32px;">
+                  <div style="font-size:36px;margin-bottom:12px;">🎯</div>
+                  <div style="font-size:13px;margin-bottom:8px;">Completa el perfil del cliente</div>
+                  <div style="font-size:12px;">El asesor IA analiza todos los productos con sus coberturas reales, tarifas, copagos y carencias para recomendar la mejor opción con argumentos concretos.</div>
+                </div>
+
+                <!-- Acciones post-resultado -->
+                <div id="asAcciones" style="display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-secondary btn-sm" onclick="asCopiarRecomendacion()">📋 Copiar</button>
+                  <button class="btn btn-secondary btn-sm" onclick="asEnviarWhatsApp()">📱 Enviar por WhatsApp</button>
+                  <button class="btn btn-secondary btn-sm" onclick="asNuevaConsulta()">🔄 Nueva consulta</button>
+                  <button class="btn btn-secondary btn-sm" onclick="navigate('cotizaciones')">💰 Ir a cotizador</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chips de escenarios rápidos -->
+          <div class="card" style="margin-top:16px;">
+            <div class="card-title" style="margin-bottom:10px;">⚡ Escenarios frecuentes</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-sm" style="background:rgba(6,182,212,0.1);color:var(--teal);border:1px solid rgba(6,182,212,0.25);font-size:11.5px;" onclick="asEscenario('especialistas')">Quiere acceso rápido a especialistas</button>
+              <button class="btn btn-sm" style="background:rgba(168,85,247,0.1);color:var(--purple);border:1px solid rgba(168,85,247,0.25);font-size:11.5px;" onclick="asEscenario('preexistencias')">Tiene preexistencias, no puede entrar a SPTI</button>
+              <button class="btn btn-sm" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.25);font-size:11.5px;" onclick="asEscenario('adultomayor')">Adulto mayor busca plan integral</button>
+              <button class="btn btn-sm" style="background:rgba(26,76,232,0.1);color:var(--sura-blue);border:1px solid rgba(26,76,232,0.25);font-size:11.5px;" onclick="asEscenario('pareja')">Pareja busca complemento a EPS</button>
+              <button class="btn btn-sm" style="background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.25);font-size:11.5px;" onclick="asEscenario('oncologia')">Preocupado por cancer, busca cobertura oncologica</button>
+              <button class="btn btn-sm" style="background:rgba(14,165,233,0.1);color:#0EA5E9;border:1px solid rgba(14,165,233,0.25);font-size:11.5px;" onclick="asEscenario('cambioeps')">En otra EPS, quiere cambiarse a SURA</button>
+            </div>
+          </div>
+        </div><!-- /panelAgenteAsesor -->
+
       </div>
 
       <!-- ===== PANEL ADMINISTRACIÓN ===== -->
@@ -26658,13 +26829,456 @@ function radarRegistrarContacto(nombre, telefono) {
 // =============================================
 
 // Almacena el texto extraído de cada PDF
+// ── Base de conocimiento permanente de productos SURA ──────────────────────
+// Este objeto se enriquece con los clausulados PDF que sube el asesor.
+// La clave "base" contiene la informacion tecnica embebida permanentemente.
 const AGENTE_PLANES = {
-  SPTI_CLASICO:      { label: 'SPTI Clásico',       emoji: '💊', color: 'var(--teal)',    texto: null, nombre: null },
-  SPTI_PREFERENCIAL: { label: 'SPTI Preferencial',   emoji: '💊', color: 'var(--sura-blue)', texto: null, nombre: null },
-  SPD:               { label: 'SPD — Salud Para Dos',emoji: '💑', color: 'var(--purple)',  texto: null, nombre: null },
-  PSM:               { label: 'Plan Modular',         emoji: '🧩', color: '#0891B2',        texto: null, nombre: null },
-  PAC60:             { label: 'Plan 60+',             emoji: '👴', color: 'var(--green)',   texto: null, nombre: null },
+  SPTI_CLASICO: {
+    label: 'SPTI Clasico', emoji: '💊', color: 'var(--teal)', texto: null, nombre: null,
+    base: `PLAN SPTI CLASICO - SEGURO DE TECNOLOGIA INTEGRAL DE SALUD
+Dirigido a: Empleados dependientes, independientes y trabajadores informales. Requiere afiliacion a EPS SURA (PBS).
+Edad de ingreso: 0 a 60 anos. Sin limite de edad para renovacion.
+Periodicidad de pago: Mensual, trimestral, semestral o anual.
+Tarifa congelada: Si, la tarifa se congela al momento de la afiliacion.
+
+COBERTURAS PRINCIPALES:
+- Consulta medica general y de urgencias 24/7 en IPS SURA
+- Consulta con especialista (dermatologia, ortopedia, ginecologia, pediatria, medicina interna, etc.)
+- Hospitalizacion en habitacion individual
+- Procedimientos quirurgicos programados
+- Laboratorios clinicos y diagnosticos
+- Imagenologia (rayos X, ecografias, TAC, resonancias)
+- Terapias: fisica, respiratoria, fonoaudiologia, psicologia
+- Medicamentos formulados cubiertos al 100% en IPS SURA
+- Odontologia: consulta de urgencia y prevencion
+- Programa materno infantil (control prenatal, parto, puerperio)
+- Atencion domiciliaria
+
+PERIODOS DE CARENCIA:
+- Urgencias: Sin carencia (cobertura inmediata)
+- Consulta general: 1 mes
+- Especialistas y procedimientos electivos: 2 meses
+- Enfermedades cronicas y preexistentes: 12 meses (se pueden amparar con declaracion de salud)
+- Maternidad: 10 meses
+- Cancer diagnosticado antes del ingreso: 12 meses (cobertura parcial progresiva)
+
+COPAGOS Y CUOTAS MODERADORAS:
+- Sin copagos en IPS SURA propias para la mayoria de servicios
+- Copago del 20% del valor del servicio en IPS de la red complementaria
+- Medicamentos NO PBS: 30% del valor hasta un tope mensual
+
+EXCLUSIONES IMPORTANTES:
+- Tratamientos esteticos o cosmeticos sin indicacion medica
+- Fertilizacion in vitro y tecnicas de reproduccion asistida
+- Trasplantes (excepto rinon, higado, cornea y medula)
+- Tratamientos experimentales no aprobados
+- Lesiones autoinfligidas y accidentes bajo efectos de alcohol/drogas
+
+VENTAJA COMPETITIVA vs PBS:
+- Atencion directa en IPS SURA sin tramites de autorizacion en la mayoria de casos
+- Tiempos de espera significativamente menores
+- Habitacion individual en hospitalizacion
+- Especialistas SURA de alta calidad sin barreras de acceso
+- Medicamentos sin cuotas moderadoras en IPS propias`
+  },
+  SPTI_PREFERENCIAL: {
+    label: 'SPTI Preferencial', emoji: '💊', color: 'var(--sura-blue)', texto: null, nombre: null,
+    base: `PLAN SPTI PREFERENCIAL - SEGURO DE TECNOLOGIA INTEGRAL DE SALUD NIVEL PREMIUM
+Dirigido a: Igual que Clasico pero con beneficios ampliados y tarifas mayores.
+Requiere afiliacion a EPS SURA (PBS).
+Edad de ingreso: 0 a 60 anos.
+Tarifa congelada: Si.
+
+DIFERENCIAS CLAVE vs SPTI CLASICO:
+- Cobertura de alta complejidad ampliada (oncologia, cardio, neurologica)
+- Acceso a IPS de alta especialidad fuera de la red SURA cuando se requiere
+- Habitacion VIP en hospitalizacion
+- Segunda opinion medica incluida
+- Cobertura internacional de urgencias (asistencia en viaje hasta USD 50.000)
+- Cancer: cobertura desde el diagnostico sin periodo de carencia adicional
+- Medicamentos biologicos y de alto costo con mayor cobertura
+
+COBERTURAS ADICIONALES vs CLASICO:
+- Oncologia: quimioterapia, radioterapia, inmunoterapia, medicamentos biologicos
+- Cardiologia intervencionista avanzada
+- Neurocirugia y procedimientos cerebrales complejos
+- Trasplantes: ampliacion de tipos cubiertos
+- Rehabilitacion post-quirurgica extensa
+
+COPAGOS:
+- Sin copagos en IPS SURA propias para todos los servicios
+- Red complementaria: copago reducido vs Clasico
+
+CUANDO RECOMENDAR PREFERENCIAL SOBRE CLASICO:
+- Cliente con antecedentes familiares de cancer o enfermedades cardiovasculares
+- Cliente con hijos pequenos que requiere pediatria especializada frecuente
+- Cliente que viaja al exterior con frecuencia
+- Cliente con mayor capacidad de pago que busca maxima cobertura
+- Cliente con condiciones de salud que podrian escalar a alta complejidad`
+  },
+  SPD: {
+    label: 'SPD — Salud Para Dos', emoji: '💑', color: 'var(--purple)', texto: null, nombre: null,
+    base: `PLAN SPD - SALUD PARA DOS PLUS
+CARACTERISTICA CLAVE: NO requiere afiliacion a EPS SURA. Aplica para afiliados a cualquier EPS.
+Es un seguro complementario de salud de acceso directo.
+Dirigido a: Parejas (tomador + asegurado), familias, personas sin acceso a SPTI o PSM.
+Casos ideales: Personas con preexistencias que SPTI no acepta, presupuesto limitado, afiliados a otras EPS.
+
+COBERTURAS:
+- Consulta medica general ilimitada
+- Consulta con especialista (con derivacion del medico tratante)
+- Urgencias 24/7
+- Hospitalizacion hasta X dias por ano (segun clausulado)
+- Laboratorios basicos y diagnosticos
+- Medicamentos formulados (cobertura parcial)
+- Cirugia programada (coberturas basicas)
+
+CARACTERISTICAS ESPECIALES:
+- Tarifa UNICA sin importar la edad del asegurado (gran ventaja para adultos mayores)
+- Incluye al tomador Y al asegurado en una sola poliza
+- Sin periodos de carencia para urgencias
+- Proceso de suscripcion mas sencillo (menos preguntas de salud)
+- Prima fija y accesible
+
+COPAGOS:
+- Copago fijo por evento o consulta (verificar tarifa vigente)
+- Tope anual de copagos
+
+CUANDO RECOMENDAR SPD:
+- Cliente con preexistencias que no puede ingresar a SPTI o PSM
+- Pareja donde uno tiene restricciones de salud
+- Cliente con presupuesto limitado que quiere complemento a su EPS
+- Afiliado a otra EPS que quiere acceso privado sin cambiar de EPS
+- Cliente mayor de 60 anos donde las tarifas SPTI serian muy altas
+- Como alternativa liviana cuando SPTI y PSM no son viables
+
+POSICIONAMIENTO VS OTROS PLANES:
+- Mas economico que SPTI y PSM
+- Menor cobertura que SPTI pero accesible a mas personas
+- Tarifa plana sin factor edad (ventaja sobre SPTI para adultos mayores)
+- No requiere PBS SURA (ventaja competitiva clave)`
+  },
+  PSM: {
+    label: 'Plan Modular (PSM)', emoji: '🧩', color: '#0891B2', texto: null, nombre: null,
+    base: `PLAN MODULAR PSM - PLAN SALUD MODULAR
+CARACTERISTICA CLAVE: NO requiere afiliacion a EPS SURA. Acceso directo a especialistas SIN remision.
+Dirigido a: Personas que buscan acceso inmediato a especialistas sin tramites de autorizacion.
+
+MODULO BASICO (OBLIGATORIO):
+- Consulta directa con especialistas SURA sin necesidad de remision del medico general
+- Urgencias 24/7
+- Laboratorios clinicos
+- Imagenologia basica (rayos X, ecografias)
+- Terapia fisica y respiratoria
+- Copago fijo de $30.000 por acceso (no por servicio dentro del evento)
+- Sin periodos de carencia para urgencias y consultas
+- Atencion Longevo: programa especial para adulto mayor incluido en el basico
+
+MODULOS ADICIONALES (OPCIONALES - se suman al basico):
+- Modulo Hospitalario: hospitalizacion, cirugia, anestesiologia
+- Modulo Oncologico: quimioterapia, radioterapia, oncologos
+- Modulo Maternidad: control prenatal, parto, puerperio
+- Modulo Medicamentos: ampliacion de cobertura en farmacos
+- Modulo Dental: ortodoncia, implantes, procedimientos avanzados
+- Modulo Internacional: cobertura en el exterior
+
+COPAGOS:
+- Modulo basico: $30.000 copago fijo por consulta de especialista
+- Servicios de urgencia: sin copago
+- Hospitalizacion (si tiene modulo): copago por dia de estancia
+
+CUANDO RECOMENDAR PSM:
+- Cliente que consulta especialistas frecuentemente y no quiere esperar remision
+- Persona con condicion cronica que necesita seguimiento especializado continuo
+- Cliente que valora la agilidad y el acceso directo sobre la amplitud de cobertura
+- Adulto mayor que necesita atencion Longevo especializada
+- Cliente que quiere armar su plan a la medida segun sus necesidades
+- Persona sin PBS SURA que quiere acceso a especialistas SURA
+
+VENTAJA COMPETITIVA CLAVE:
+El acceso DIRECTO a especialistas sin remision del medico general es el diferenciador mas potente.
+En el PBS normal, para ver a un especialista se necesita cita con medico general primero.
+Con PSM, el paciente llama o va directo al especialista que necesita.`
+  },
+  PAC60: {
+    label: 'Plan 60+ (PAC60)', emoji: '👴', color: 'var(--green)', texto: null, nombre: null,
+    base: `PLAN 60+ - PLAN DE ATENCION COMPLEMENTARIA PARA MAYORES DE 60 ANOS
+Dirigido a: Personas de 60 anos en adelante. No hay limite de edad de ingreso superior.
+No requiere afiliacion a EPS SURA.
+
+ENFOQUE: Este no es un seguro medico tradicional. Es un plan de BIENESTAR INTEGRAL para el adulto mayor.
+Cubre necesidades que los seguros normales no contemplan: social, funcional, preventiva.
+
+COBERTURAS PRINCIPALES:
+- Consulta directa con especialistas (geriatria, cardiologia, ortopedia, neurologia)
+- Urgencias 24/7
+- Atencion domiciliaria incluida (medico y enfermeria a domicilio)
+- Dimension Social: talleres, actividades grupales, estimulacion cognitiva
+- Dimension Fisica: actividad fisica dirigida, rehabilitacion, fisioterapia
+- Odontologia preventiva (revision, profilaxis, urgencia dental)
+- Programa de envejecimiento activo SURA
+- Descuentos en medicamentos en farmacias aliadas
+- Telemedicina y orientacion medica telefonica
+
+COBERTURAS ADICIONALES (segun plan con o sin Anexo):
+- Con Anexo: hospitalizacion, cirugia programada, laboratorios ampliados
+- Sin Anexo: solo coberturas ambulatorias y de bienestar
+
+CUANDO RECOMENDAR PAC60:
+- Cliente mayor de 60 anos que busca bienestar integral y no solo cobertura medica
+- Adulto mayor solo o con familia preocupada por su atencion
+- Persona que valora la atencion domiciliaria (evita desplazamientos)
+- Cliente con condiciones cronicas que necesita seguimiento continuo
+- Familia que quiere un complemento a la EPS para su adulto mayor
+- Persona activa que quiere programas de envejecimiento saludable
+
+ARGUMENTO DE VENTA CLAVE:
+"El Plan 60+ no solo lo atiende cuando esta enfermo, tambien lo acompana para que este sano y activo.
+La atencion domiciliaria evita que tenga que desplazarse, y los programas sociales y fisicos mejoran
+su calidad de vida. Es un plan pensado especificamente para las necesidades de las personas mayores."
+
+DIFERENCIA VS SPTI Y PSM PARA ADULTOS MAYORES:
+- Tarifas de SPTI pueden ser prohibitivas para mayores de 60 anos
+- PSM cubre especialistas pero no la dimension social y domiciliaria
+- PAC60 cubre exactamente lo que el adulto mayor necesita a una tarifa accesible`
+  },
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// ASESOR DE PRODUCTOS — comparador IA con base de conocimiento permanente
+// ══════════════════════════════════════════════════════════════════════════
+
+function agenteSetTab(tab) {
+  const panelC = document.getElementById('panelAgenteClausulados');
+  const panelA = document.getElementById('panelAgenteAsesor');
+  const tabC   = document.getElementById('tabAgenteClausulados');
+  const tabA   = document.getElementById('tabAgenteAsesor');
+  if (!panelC || !panelA) return;
+
+  const isAsesor = tab === 'asesor';
+  panelC.style.display = isAsesor ? 'none' : 'block';
+  panelA.style.display = isAsesor ? 'block' : 'none';
+
+  const activeStyle  = 'color:var(--sura-blue);border-bottom:2px solid var(--sura-blue);';
+  const inactiveStyle= 'color:var(--text-muted);border-bottom:2px solid transparent;';
+  if (tabC) tabC.style.cssText += isAsesor ? inactiveStyle : activeStyle;
+  if (tabA) tabA.style.cssText += isAsesor ? activeStyle   : inactiveStyle;
+}
+
+function _asGetPerfil() {
+  const edad        = document.getElementById('asPerfEdad')?.value || '';
+  const eps         = document.getElementById('asPerfEPS')?.value  || 'sura';
+  const laboral     = document.getElementById('asPerfLaboral')?.value || 'dependiente';
+  const preex       = document.getElementById('asPerfPreex')?.value  || 'no';
+  const presupuesto = document.getElementById('asPerfPresupuesto')?.value || 'medio';
+  const familia     = document.getElementById('asPerfFamilia')?.value || 'solo';
+  const nombre      = document.getElementById('asPerfNombre')?.value || '';
+  const extra       = document.getElementById('asNecExtra')?.value   || '';
+
+  const necesidades = [];
+  if (document.getElementById('asNecEspecialista')?.checked) necesidades.push('Acceso directo a especialistas sin remision');
+  if (document.getElementById('asNecHospital')?.checked)     necesidades.push('Cobertura hospitalaria completa');
+  if (document.getElementById('asNecMedicamentos')?.checked) necesidades.push('Medicamentos cubiertos');
+  if (document.getElementById('asNecMaternidad')?.checked)   necesidades.push('Maternidad y planificacion familiar');
+  if (document.getElementById('asNecOncologia')?.checked)    necesidades.push('Cobertura oncologica');
+  if (document.getElementById('asNecDomicilio')?.checked)    necesidades.push('Atencion domiciliaria');
+  if (document.getElementById('asNecBienestar')?.checked)    necesidades.push('Bienestar y envejecimiento activo');
+  if (document.getElementById('asNecInternacional')?.checked)necesidades.push('Cobertura internacional');
+
+  const epsLabel = { sura:'Afiliado a EPS SURA', otra:'Afiliado a otra EPS', ninguna:'Sin EPS / independiente' }[eps];
+  const presLabel = { bajo:'Bajo (menos de $80.000/mes)', medio:'Medio ($80.000-$200.000/mes)', alto:'Alto (mas de $200.000/mes)', sinlimite:'Sin limite presupuestal' }[presupuesto];
+  const familiaLabel = { solo:'Solo el cliente', pareja:'Cliente mas pareja', familia:'Cliente mas familia', adultomayor:'Adulto mayor' }[familia];
+  const preexLabel = { no:'Sin preexistencias', si:'Con preexistencias conocidas', cronicas:'Enfermedades cronicas controladas' }[preex];
+
+  return {
+    texto: [
+      nombre ? 'Cliente: ' + nombre : '',
+      edad   ? 'Edad: ' + edad + ' anos' : '',
+      'Situacion laboral: ' + laboral,
+      'EPS actual: ' + epsLabel,
+      'Preexistencias: ' + preexLabel,
+      'Presupuesto: ' + presLabel,
+      'Grupo familiar: ' + familiaLabel,
+      necesidades.length ? 'Necesidades prioritarias:\n- ' + necesidades.join('\n- ') : '',
+      extra ? 'Situacion adicional: ' + extra : '',
+    ].filter(Boolean).join('\n'),
+    edad: parseInt(edad) || 0,
+    eps,
+    preex,
+    presupuesto,
+    familia,
+    necesidades,
+  };
+}
+
+function _asGetBaseConocimiento() {
+  // Construir texto de conocimiento: base embebida + clausulados PDF cargados
+  return Object.entries(AGENTE_PLANES).map(([key, p]) => {
+    const base = p.base || '';
+    const pdf  = p.texto ? ('\n\nCLAUSULADO PDF OFICIAL - ' + p.label + ':\n' + p.texto.slice(0, 12000)) : '';
+    return '==== ' + p.label.toUpperCase() + ' ====\n' + base + pdf;
+  }).join('\n\n');
+}
+
+async function asGenerarRecomendacion() {
+  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
+  if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+    showToast('Configura tu API key de Claude en la pestana Clausulados');
+    return;
+  }
+
+  const perfil   = _asGetPerfil();
+  const conocimiento = _asGetBaseConocimiento();
+
+  // UI loading
+  const loadEl   = document.getElementById('asLoading');
+  const resEl    = document.getElementById('asResultado');
+  const inicioEl = document.getElementById('asInicio');
+  const accEl    = document.getElementById('asAcciones');
+  const btnEl    = document.getElementById('btnAsGenerar');
+
+  if (loadEl)   loadEl.style.display   = 'block';
+  if (resEl)    resEl.style.display    = 'none';
+  if (inicioEl) inicioEl.style.display = 'none';
+  if (accEl)    accEl.style.display    = 'none';
+  if (btnEl)    btnEl.disabled         = true;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: `Eres un asesor experto en seguros voluntarios de salud de SURA Colombia. Tu rol es ayudar al asesor humano a recomendar el mejor producto para su cliente.
+
+Tienes acceso al conocimiento completo de los siguientes productos:
+${conocimiento}
+
+REGLAS DE RECOMENDACION:
+1. Basa tus argumentos UNICAMENTE en informacion real de los productos. No inventes coberturas.
+2. Si el cliente NO tiene EPS SURA, los unicos productos que puede tomar sin cambiar de EPS son: SPD Plus y Plan Modular (PSM). SPTI requiere PBS SURA.
+3. SPD Plus es la alternativa cuando el cliente tiene preexistencias que impiden acceder a SPTI o PSM, o cuando el presupuesto es muy limitado.
+4. Para adultos mayores de 60 anos, siempre considera PAC60 como opcion principal.
+5. Si el cliente esta en otra EPS y quiere los beneficios completos de SURA, explica el proceso de traslado de EPS como primer paso para acceder a SPTI.
+6. Da argumentos concretos, especificos y honestos. No exageres coberturas.
+7. Si hay clausulados PDF cargados, prioriza esa informacion sobre la base embebida.
+
+FORMATO DE RESPUESTA:
+- Empieza con: ANALISIS DEL PERFIL (2-3 lineas)
+- Luego: RECOMENDACION PRINCIPAL (producto recomendado y por que)
+- Luego: ARGUMENTOS CLAVE (3-5 puntos concretos del producto para este cliente)
+- Luego: ALTERNATIVAS (si aplica, 1-2 opciones secundarias con justificacion)
+- Si aplica: CONSIDERACIONES DE TRASLADO (cuando el cliente esta en otra EPS)
+- Termina con: ARGUMENTO DE CIERRE (una frase poderosa y honesta para convencer al cliente)
+- Usa texto plano sin markdown ni asteriscos. Saltos de linea para separar secciones.`,
+        messages: [{
+          role: 'user',
+          content: 'Analiza este perfil de cliente y recomienda el mejor producto:\n\n' + perfil.texto
+        }]
+      })
+    });
+
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data  = await resp.json();
+    const texto = data?.content?.[0]?.text || '';
+
+    if (texto && resEl) {
+      resEl.textContent    = texto;
+      resEl.style.display  = 'block';
+      if (accEl) accEl.style.display = 'flex';
+    }
+  } catch(e) {
+    console.error('[AsIA]', e);
+    showToast('Error al conectar con Claude IA: ' + e.message);
+    if (inicioEl) inicioEl.style.display = 'flex';
+  } finally {
+    if (loadEl) loadEl.style.display = 'none';
+    if (btnEl)  btnEl.disabled = false;
+  }
+}
+
+function asCopiarRecomendacion() {
+  const texto = document.getElementById('asResultado')?.textContent || '';
+  if (!texto) return;
+  navigator.clipboard.writeText(texto).then(() => showToast('Recomendacion copiada'));
+}
+
+function asEnviarWhatsApp() {
+  const texto = document.getElementById('asResultado')?.textContent || '';
+  if (!texto) { showToast('Genera la recomendacion primero'); return; }
+  // Resumen compacto para WA
+  const resumen = texto.slice(0, 800) + (texto.length > 800 ? '...' : '');
+  window.open('https://wa.me/?text=' + encodeURIComponent(resumen), '_blank');
+}
+
+function asNuevaConsulta() {
+  const resEl    = document.getElementById('asResultado');
+  const inicioEl = document.getElementById('asInicio');
+  const accEl    = document.getElementById('asAcciones');
+  if (resEl)    { resEl.textContent = ''; resEl.style.display = 'none'; }
+  if (inicioEl) inicioEl.style.display = 'flex';
+  if (accEl)    accEl.style.display    = 'none';
+}
+
+function asEscenario(tipo) {
+  // Precargar perfil segun escenario rapido
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+
+  // Reset checkboxes
+  ['asNecEspecialista','asNecHospital','asNecMedicamentos','asNecMaternidad',
+   'asNecOncologia','asNecDomicilio','asNecBienestar','asNecInternacional'].forEach(id => setChk(id, false));
+
+  const escenarios = {
+    especialistas: () => {
+      setChk('asNecEspecialista', true);
+      setVal('asPerfPresupuesto', 'medio');
+      setVal('asNecExtra', 'Quiere acceder a especialistas sin esperar remision del medico general. Le molesta el proceso de autorizaciones de su EPS actual.');
+    },
+    preexistencias: () => {
+      setVal('asPerfPreex', 'si');
+      setVal('asPerfEPS', 'otra');
+      setChk('asNecHospital', true);
+      setVal('asNecExtra', 'Tiene preexistencias que pueden dificultar el ingreso a SPTI o Plan Modular. Busca un complemento accesible a su EPS.');
+    },
+    adultomayor: () => {
+      setVal('asPerfEdad', '65');
+      setVal('asPerfFamilia', 'adultomayor');
+      setChk('asNecDomicilio', true);
+      setChk('asNecBienestar', true);
+      setVal('asNecExtra', 'Adulto mayor que busca atencion integral. La familia quiere que tenga atencion domiciliaria y programas de bienestar.');
+    },
+    pareja: () => {
+      setVal('asPerfFamilia', 'pareja');
+      setVal('asPerfEPS', 'otra');
+      setChk('asNecHospital', true);
+      setVal('asNecExtra', 'Pareja que quiere un complemento a su EPS actual sin necesidad de cambiarse a SURA. Buscan cobertura para los dos.');
+    },
+    oncologia: () => {
+      setChk('asNecOncologia', true);
+      setVal('asPerfPresupuesto', 'alto');
+      setVal('asNecExtra', 'Tiene antecedentes familiares de cancer. Quiere asegurarse de tener la mejor cobertura oncologica disponible.');
+    },
+    cambioeps: () => {
+      setVal('asPerfEPS', 'otra');
+      setChk('asNecEspecialista', true);
+      setChk('asNecMedicamentos', true);
+      setVal('asNecExtra', 'Esta afiliado a otra EPS y quiere conocer los beneficios de cambiarse a SURA para acceder a los planes voluntarios. Quiere saber si vale la pena el traslado.');
+    },
+  };
+
+  if (escenarios[tipo]) {
+    escenarios[tipo]();
+    showToast('Perfil cargado. Ajusta los detalles y presiona Analizar.');
+  }
+}
+
 
 let agenteHistorialData = [];
 
