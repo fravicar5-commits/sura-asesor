@@ -6009,6 +6009,10 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             style="padding:8px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--font);">
             🎯 Asesor de Productos
           </button>
+          <button id="tabAgenteComparar" onclick="agenteSetTab('comparar')"
+            style="padding:8px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--font);">
+            ⚖️ Comparar Planes
+          </button>
         </div>
 
         <!-- Panel: Clausulados -->
@@ -6270,6 +6274,125 @@ En este día tan especial quiero enviarte mis mejores deseos. Es un honor acompa
             </div>
           </div>
         </div><!-- /panelAgenteAsesor -->
+
+        <!-- Panel: Comparar Planes -->
+        <div id="panelAgenteComparar" style="display:none;">
+          <div class="alert" style="background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2);margin-bottom:18px;">
+            ⚖️ <strong>Comparador de Planes</strong> — Selecciona dos o más planes y describe el contexto del cliente.
+            La IA genera una tabla comparativa con pros, contras, precios y cobertura para que puedas argumentar la mejor opción.
+          </div>
+
+          <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;">
+            <!-- Config comparacion -->
+            <div>
+              <div class="card" style="margin-bottom:14px;">
+                <div class="card-title" style="margin-bottom:12px;">📋 Planes a comparar</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-size:13px;" id="cmpLblSPTI_C">
+                    <input type="checkbox" id="cmpSPTI_C" value="SPTI_CLASICO" onchange="cmpTogglePlan(this)">
+                    <span style="color:var(--teal);font-weight:600;">💊 SPTI Clasico</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-size:13px;" id="cmpLblSPTI_P">
+                    <input type="checkbox" id="cmpSPTI_P" value="SPTI_PREFERENCIAL" onchange="cmpTogglePlan(this)">
+                    <span style="color:var(--sura-blue);font-weight:600;">💊 SPTI Preferencial</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-size:13px;" id="cmpLblSPD">
+                    <input type="checkbox" id="cmpSPD" value="SPD" onchange="cmpTogglePlan(this)">
+                    <span style="color:var(--purple);font-weight:600;">💑 SPD Plus</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-size:13px;" id="cmpLblPSM">
+                    <input type="checkbox" id="cmpPSM" value="PSM" onchange="cmpTogglePlan(this)">
+                    <span style="color:#0891B2;font-weight:600;">🧩 Plan Modular</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-size:13px;" id="cmpLblPAC60">
+                    <input type="checkbox" id="cmpPAC60" value="PAC60" onchange="cmpTogglePlan(this)">
+                    <span style="color:var(--green);font-weight:600;">👴 Plan 60+</span>
+                  </label>
+                </div>
+                <div style="margin-top:10px;font-size:11.5px;color:var(--text-muted);">Selecciona 2 o más planes</div>
+              </div>
+
+              <div class="card" style="margin-bottom:14px;">
+                <div class="card-title" style="margin-bottom:10px;">👤 Contexto del cliente</div>
+                <div style="display:flex;flex-direction:column;gap:9px;">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div class="form-group" style="margin:0;">
+                      <label class="form-label">Edad</label>
+                      <input type="number" class="form-control" id="cmpEdad" placeholder="35" min="0" max="100">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label class="form-label">EPS actual</label>
+                      <select class="form-control" id="cmpEPS">
+                        <option value="sura">EPS SURA</option>
+                        <option value="otra">Otra EPS</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Contexto o duda especifica</label>
+                    <textarea class="form-control" id="cmpContexto" rows="4"
+                      placeholder="Ej: Cliente de 40 anos duda entre SPTI y Modular. Consulta especialistas cada mes por condicion cronica. Presupuesto medio..."></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Comparaciones rapidas -->
+              <div class="card">
+                <div class="card-title" style="margin-bottom:10px;">⚡ Comparaciones frecuentes</div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <button class="btn btn-sm btn-secondary" style="justify-content:flex-start;font-size:11.5px;" onclick="cmpRapido('spti_vs_psm')">SPTI Clasico vs Plan Modular</button>
+                  <button class="btn btn-sm btn-secondary" style="justify-content:flex-start;font-size:11.5px;" onclick="cmpRapido('clasico_vs_pref')">SPTI Clasico vs SPTI Preferencial</button>
+                  <button class="btn btn-sm btn-secondary" style="justify-content:flex-start;font-size:11.5px;" onclick="cmpRapido('spd_vs_psm')">SPD Plus vs Plan Modular</button>
+                  <button class="btn btn-sm btn-secondary" style="justify-content:flex-start;font-size:11.5px;" onclick="cmpRapido('todos')">Los 4 planes completos</button>
+                  <button class="btn btn-sm btn-secondary" style="justify-content:flex-start;font-size:11.5px;" onclick="cmpRapido('pac60_vs_spti')">Plan 60+ vs SPTI (adulto mayor)</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resultado comparativo -->
+            <div>
+              <div class="card" style="height:100%;display:flex;flex-direction:column;min-height:680px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                  <div class="card-title" style="margin-bottom:0;">📊 Comparativo detallado</div>
+                  <div style="display:flex;gap:8px;">
+                    <select class="form-control" id="cmpFormato" style="width:160px;font-size:12px;">
+                      <option value="tabla">Tabla comparativa</option>
+                      <option value="proscontras">Pros y contras</option>
+                      <option value="cliente">Enfocado en el cliente</option>
+                      <option value="venta">Argumento de venta</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="cmpGenerar()" id="btnCmpGenerar" style="min-width:110px;">
+                      ⚖️ Comparar
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Loading -->
+                <div id="cmpLoading" style="display:none;text-align:center;padding:60px;color:var(--text-muted);">
+                  <div class="ia-dots" style="justify-content:center;margin-bottom:12px;"><span></span><span></span><span></span></div>
+                  <div style="font-size:13px;">Comparando planes con toda la informacion disponible...</div>
+                </div>
+
+                <!-- Resultado -->
+                <div id="cmpResultado" style="flex:1;overflow-y:auto;font-size:13px;line-height:1.75;white-space:pre-wrap;color:var(--text);display:none;padding:4px 2px;"></div>
+
+                <!-- Estado inicial -->
+                <div id="cmpInicio" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-dim);text-align:center;padding:40px;">
+                  <div style="font-size:40px;margin-bottom:14px;">⚖️</div>
+                  <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Selecciona los planes a comparar</div>
+                  <div style="font-size:12px;max-width:360px;">Elige 2 o mas planes del panel izquierdo y presiona Comparar. La IA generara un analisis detallado con precios, coberturas, copagos y recomendacion final.</div>
+                </div>
+
+                <!-- Acciones -->
+                <div id="cmpAcciones" style="display:none;border-top:1px solid var(--border);padding-top:12px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-secondary btn-sm" onclick="cmpCopiar()">📋 Copiar</button>
+                  <button class="btn btn-secondary btn-sm" onclick="cmpWhatsApp()">📱 WhatsApp</button>
+                  <button class="btn btn-secondary btn-sm" onclick="cmpLimpiar()">🔄 Nueva comparacion</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- /panelAgenteComparar -->
 
       </div>
 
@@ -27048,21 +27171,205 @@ DIFERENCIA VS SPTI Y PSM PARA ADULTOS MAYORES:
 // ASESOR DE PRODUCTOS — comparador IA con base de conocimiento permanente
 // ══════════════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════════════
+// COMPARADOR DE PLANES
+// ══════════════════════════════════════════════════════════════════════════
+
+function cmpTogglePlan(chk) {
+  const lbl = document.getElementById('cmpLbl' + chk.id.replace('cmp',''));
+  if (lbl) lbl.style.background = chk.checked ? 'rgba(26,76,232,0.07)' : '';
+}
+
+function cmpRapido(tipo) {
+  // Reset todos los checkboxes
+  ['cmpSPTI_C','cmpSPTI_P','cmpSPD','cmpPSM','cmpPAC60'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.checked = false; cmpTogglePlan(el); }
+  });
+
+  const setChk = id => {
+    const el = document.getElementById(id);
+    if (el) { el.checked = true; cmpTogglePlan(el); }
+  };
+  const setCtx = txt => {
+    const el = document.getElementById('cmpContexto');
+    if (el) el.value = txt;
+  };
+
+  const configs = {
+    spti_vs_psm:    () => { setChk('cmpSPTI_C'); setChk('cmpPSM');    setCtx('Cliente que duda entre SPTI y Plan Modular. Quiere acceso a especialistas y buena cobertura hospitalaria.'); },
+    clasico_vs_pref:() => { setChk('cmpSPTI_C'); setChk('cmpSPTI_P'); setCtx('Cliente con PBS SURA que duda si vale la pena pagar mas por el plan Preferencial frente al Clasico.'); },
+    spd_vs_psm:     () => { setChk('cmpSPD');    setChk('cmpPSM');    setCtx('Cliente que no tiene EPS SURA o tiene preexistencias. Duda entre SPD y Plan Modular como complemento.'); },
+    todos:          () => { setChk('cmpSPTI_C'); setChk('cmpSPD');    setChk('cmpPSM'); setChk('cmpPAC60'); setCtx('Comparar todos los planes voluntarios SURA para entender el portafolio completo.'); },
+    pac60_vs_spti:  () => { setChk('cmpSPTI_C'); setChk('cmpPAC60'); setCtx('Adulto mayor de 60 anos que duda si le conviene mas el SPTI Clasico o el Plan 60+.'); document.getElementById('cmpEdad').value = '65'; },
+  };
+
+  if (configs[tipo]) {
+    configs[tipo]();
+    showToast('Comparacion cargada. Ajusta el contexto y presiona Comparar.');
+  }
+}
+
+async function cmpGenerar() {
+  const apiKey = localStorage.getItem('sura_agente_apikey') || '';
+  if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+    showToast('Configura tu API key de Claude en la pestana Clausulados');
+    return;
+  }
+
+  // Planes seleccionados
+  const mapa = { cmpSPTI_C:'SPTI_CLASICO', cmpSPTI_P:'SPTI_PREFERENCIAL', cmpSPD:'SPD', cmpPSM:'PSM', cmpPAC60:'PAC60' };
+  const seleccionados = Object.entries(mapa)
+    .filter(([id]) => document.getElementById(id)?.checked)
+    .map(([, key]) => key);
+
+  if (seleccionados.length < 2) {
+    showToast('Selecciona al menos 2 planes para comparar');
+    return;
+  }
+
+  const edad      = document.getElementById('cmpEdad')?.value     || '';
+  const eps       = document.getElementById('cmpEPS')?.value      || 'sura';
+  const contexto  = document.getElementById('cmpContexto')?.value || '';
+  const formato   = document.getElementById('cmpFormato')?.value  || 'tabla';
+
+  // Construir conocimiento solo de los planes seleccionados
+  const conocimiento = seleccionados.map(key => {
+    const p = AGENTE_PLANES[key];
+    if (!p) return '';
+    const base = p.base || '';
+    const pdf  = p.texto ? ('\nCLAUSULADO PDF:\n' + p.texto.slice(0, 8000)) : '';
+    return '==== ' + p.label.toUpperCase() + ' ====\n' + base + pdf;
+  }).join('\n\n');
+
+  const formatoInstruccion = {
+    tabla: `Genera una tabla comparativa en texto plano con filas para: Requisito (necesita PBS SURA?), Precio estimado, Acceso a especialistas, Hospitalizacion, Medicamentos, Copagos, Carencias, Cobertura oncologica, Atencion domiciliaria, Para quien es ideal. Usa columnas separadas por | y encabezados claros.`,
+    proscontras: `Para cada plan, lista: PROS (5 ventajas concretas) y CONTRAS (3 desventajas reales). Luego un VEREDICTO de cual es mejor segun el contexto dado.`,
+    cliente: `Explica cada plan como si le hablaras directamente al cliente. Usa lenguaje simple, sin jerga tecnica. Enfocate en lo que significa para su vida diaria. Termina con una recomendacion clara.`,
+    venta: `Genera argumentos de venta para cada plan. Para cada uno: el argumento principal, la objecion mas comun y como rebatirla, y la frase de cierre ideal. Orientado a que el asesor cierre la venta del plan recomendado.`,
+  }[formato];
+
+  // UI loading
+  const loadEl  = document.getElementById('cmpLoading');
+  const resEl   = document.getElementById('cmpResultado');
+  const inicEl  = document.getElementById('cmpInicio');
+  const accEl   = document.getElementById('cmpAcciones');
+  const btnEl   = document.getElementById('btnCmpGenerar');
+
+  if (loadEl) loadEl.style.display   = 'block';
+  if (resEl)  resEl.style.display    = 'none';
+  if (inicEl) inicEl.style.display   = 'none';
+  if (accEl)  accEl.style.display    = 'none';
+  if (btnEl)  btnEl.disabled         = true;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1800,
+        system: `Eres un experto en seguros voluntarios de salud de SURA Colombia. Ayudas a asesores a comparar productos con informacion precisa y honesta.
+
+INFORMACION DE LOS PLANES A COMPARAR:
+${conocimiento}
+
+REGLAS CRITICAS:
+1. Solo compara los planes que se te piden. No menciones otros.
+2. Basa TODA la informacion en los datos reales de cada plan. No inventes precios ni coberturas.
+3. Si el cliente NO tiene EPS SURA, SPTI NO aplica directamente. Siempre mencionalo cuando compares SPTI.
+4. SPD es la alternativa cuando hay preexistencias o presupuesto limitado.
+5. Si hay clausulados PDF cargados, usa esa informacion como fuente primaria.
+6. Para precios, usa rangos reales segun edad. No des valores exactos si no los tienes con certeza.
+7. Se honesto con las limitaciones de cada plan. Un buen asesor no oculta los contras.
+8. Usa texto plano sin markdown. Usa lineas y espacios para organizar. Puedes usar | para tablas de texto.`,
+        messages: [{
+          role: 'user',
+          content: [
+            'Compara estos planes: ' + seleccionados.map(k => AGENTE_PLANES[k]?.label || k).join(' vs '),
+            edad     ? 'Edad del cliente: ' + edad + ' anos' : '',
+            eps === 'otra' ? 'IMPORTANTE: El cliente esta en otra EPS, no en SURA.' : 'Cliente con PBS SURA.',
+            contexto ? 'Contexto: ' + contexto : '',
+            '',
+            formatoInstruccion,
+          ].filter(Boolean).join('\n')
+        }]
+      })
+    });
+
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data  = await resp.json();
+    const texto = data?.content?.[0]?.text || '';
+
+    if (texto && resEl) {
+      resEl.textContent   = texto;
+      resEl.style.display = 'block';
+      if (accEl) accEl.style.display = 'flex';
+    }
+  } catch(e) {
+    console.error('[CmpIA]', e);
+    showToast('Error al conectar con Claude IA: ' + e.message);
+    if (inicEl) inicEl.style.display = 'flex';
+  } finally {
+    if (loadEl) loadEl.style.display = 'none';
+    if (btnEl)  btnEl.disabled = false;
+  }
+}
+
+function cmpCopiar() {
+  const texto = document.getElementById('cmpResultado')?.textContent || '';
+  if (!texto) return;
+  navigator.clipboard.writeText(texto).then(() => showToast('Comparativo copiado'));
+}
+
+function cmpWhatsApp() {
+  const texto = document.getElementById('cmpResultado')?.textContent || '';
+  if (!texto) { showToast('Genera el comparativo primero'); return; }
+  const resumen = texto.slice(0, 900) + (texto.length > 900 ? '...' : '');
+  window.open('https://wa.me/?text=' + encodeURIComponent(resumen), '_blank');
+}
+
+function cmpLimpiar() {
+  const resEl  = document.getElementById('cmpResultado');
+  const inicEl = document.getElementById('cmpInicio');
+  const accEl  = document.getElementById('cmpAcciones');
+  if (resEl)  { resEl.textContent = ''; resEl.style.display = 'none'; }
+  if (inicEl) inicEl.style.display = 'flex';
+  if (accEl)  accEl.style.display  = 'none';
+}
+
+
 function agenteSetTab(tab) {
-  const panelC = document.getElementById('panelAgenteClausulados');
-  const panelA = document.getElementById('panelAgenteAsesor');
-  const tabC   = document.getElementById('tabAgenteClausulados');
-  const tabA   = document.getElementById('tabAgenteAsesor');
-  if (!panelC || !panelA) return;
+  const panelC  = document.getElementById('panelAgenteClausulados');
+  const panelA  = document.getElementById('panelAgenteAsesor');
+  const panelCm = document.getElementById('panelAgenteComparar');
+  const tabC    = document.getElementById('tabAgenteClausulados');
+  const tabA    = document.getElementById('tabAgenteAsesor');
+  const tabCm   = document.getElementById('tabAgenteComparar');
+  if (!panelC) return;
 
-  const isAsesor = tab === 'asesor';
-  panelC.style.display = isAsesor ? 'none' : 'block';
-  panelA.style.display = isAsesor ? 'block' : 'none';
+  panelC.style.display  = tab === 'clausulados' ? 'block' : 'none';
+  panelA.style.display  = tab === 'asesor'      ? 'block' : 'none';
+  if (panelCm) panelCm.style.display = tab === 'comparar' ? 'block' : 'none';
 
-  const activeStyle  = 'color:var(--sura-blue);border-bottom:2px solid var(--sura-blue);';
-  const inactiveStyle= 'color:var(--text-muted);border-bottom:2px solid transparent;';
-  if (tabC) tabC.style.cssText += isAsesor ? inactiveStyle : activeStyle;
-  if (tabA) tabA.style.cssText += isAsesor ? activeStyle   : inactiveStyle;
+  const active   = 'color:var(--sura-blue);border-bottom:2px solid var(--sura-blue);';
+  const inactive = 'color:var(--text-muted);border-bottom:2px solid transparent;';
+  [
+    [tabC,  'clausulados'],
+    [tabA,  'asesor'],
+    [tabCm, 'comparar'],
+  ].forEach(([el, name]) => {
+    if (el) {
+      // Reset and set only the relevant properties
+      el.style.color       = tab === name ? 'var(--sura-blue)' : 'var(--text-muted)';
+      el.style.borderBottom= tab === name ? '2px solid var(--sura-blue)' : '2px solid transparent';
+    }
+  });
 }
 
 function _asGetPerfil() {
